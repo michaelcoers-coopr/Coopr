@@ -3,6 +3,7 @@ export * from './types/enums';
 export * from './types/shot';
 export * from './types/profile';
 export * from './types/recommendation';
+export * from './types/assessment';
 export * from './types/equipment';
 export * from './providers/index';
 export * as schema from './db/schema';

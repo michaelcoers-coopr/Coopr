@@ -22,17 +22,17 @@ describe('seed 5-iron — the validation gate', () => {
   });
 
   it('expresses severe short-miss variability', () => {
-    expect(p.total).not.toBeNull();
-    const spread = p.total!.p80 - p.total!.p20;
+    expect(p.carry).not.toBeNull();
+    const spread = p.carry!.p80 - p.carry!.p20;
     expect(spread).toBeGreaterThan(60); // ~72 yd P20-P80
     expect(p.shortMissRate).toBeGreaterThanOrEqual(0.3);
-    expect(p.total!.p20).toBeLessThan(120);
-    expect(p.total!.p80).toBeGreaterThan(180);
+    expect(p.carry!.p20).toBeLessThan(120);
+    expect(p.carry!.p80).toBeGreaterThan(180);
   });
 
-  it('is total-backed with carry left null (never fabricated)', () => {
-    expect(p.metric).toBe('total');
-    expect(p.carry).toBeNull();
+  it('is carry-backed with total left null (never fabricated)', () => {
+    expect(p.metric).toBe('carry');
+    expect(p.total).toBeNull();
   });
 });
 
@@ -73,7 +73,7 @@ describe('robustness invariant', () => {
       sessionDate: fiveShots[0]!.sessionDate,
       environment: 'simulator',
       swingMode: 'stock',
-      totalYards: 28, // a chunk
+      carryYards: 28, // a chunk
     });
     const after = buildClubProfile([...fiveShots, mishit]).stockDistanceYards;
     expect(after).toBeLessThanOrEqual(before);
@@ -88,7 +88,7 @@ describe('robustness invariant', () => {
       sessionDate: fiveShots[0]!.sessionDate,
       environment: 'simulator',
       swingMode: 'stock',
-      totalYards: 9999,
+      carryYards: 9999,
       qualityLabel: 'invalid',
     });
     const withInvalid = buildClubProfile([...fiveShots, invalid]);

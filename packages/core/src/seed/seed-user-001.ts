@@ -1,7 +1,9 @@
 // Seed User 001 — "Mike", the founding golfer. This is the first validation case
 // for the engines. Rules enforced here:
-//   - Iron distance lists (spec sections 14-19) are TOTAL distance. carryYards stays
-//     null; carry is never fabricated from total.
+//   - Iron/AW distance lists (spec sections 14-19) are CARRY distance (founder
+//     confirmed). totalYards stays null; total is never fabricated from carry. These
+//     are simulator carries and read ~10 yд short of outdoor — that gap lives in the
+//     unverified calibration band and is never auto-applied.
 //   - Every genuine shot is kept. Short mishits are NOT dropped and NOT labeled
 //     'invalid' — only a clear monitor misread would be 'invalid'.
 //   - Where the spec gives only aggregates (Miura 48, driver 10-shot average), we
@@ -104,27 +106,27 @@ function buildShots(
   });
 }
 
-// Irons: TOTAL distance only. carryYards stays null.
-const totalOnly = (t: number): Partial<Shot> => ({ totalYards: t });
+// Irons/AW: CARRY distance only (founder confirmed). totalYards stays null.
+const carryOnly = (c: number): Partial<Shot> => ({ carryYards: c });
 
 const iron5 = buildShots('c-5i', '5i', 'sess-founding-irons',
-  [132.8, 80.6, 171.9, 184.7, 119.9, 184.5, 152.2, 184.4, 74.4, 183.0].map(totalOnly));
+  [132.8, 80.6, 171.9, 184.7, 119.9, 184.5, 152.2, 184.4, 74.4, 183.0].map(carryOnly));
 
 const iron6 = buildShots('c-6i', '6i', 'sess-founding-irons',
-  [157.6, 166.4, 174.8, 46.8, 133.5, 143.0, 64.8, 39.9, 33.2, 161.3, 143.5, 161.1, 112.6].map(totalOnly));
+  [157.6, 166.4, 174.8, 46.8, 133.5, 143.0, 64.8, 39.9, 33.2, 161.3, 143.5, 161.1, 112.6].map(carryOnly));
 
 const iron7 = buildShots('c-7i', '7i', 'sess-founding-irons',
-  [104.9, 150.8, 158.3, 149.6, 132.8, 154.4, 123.0, 162.5, 169.0, 162.8, 167.9].map(totalOnly));
+  [104.9, 150.8, 158.3, 149.6, 132.8, 154.4, 123.0, 162.5, 169.0, 162.8, 167.9].map(carryOnly));
 
 // 8-iron session has a count discrepancy → validationRequired (see SEED_SESSIONS).
 const iron8 = buildShots('c-8i', '8i', 'sess-founding-8i',
-  [147.4, 144.6, 129.8, 119.0, 141.5, 137.5, 143.5, 112.8, 139.0, 140.4, 149.4].map(totalOnly));
+  [147.4, 144.6, 129.8, 119.0, 141.5, 137.5, 143.5, 112.8, 139.0, 140.4, 149.4].map(carryOnly));
 
 const iron9 = buildShots('c-9i', '9i', 'sess-founding-irons',
-  [141.7, 119.0, 149.0, 144.0, 125.5, 148.9, 118.8, 155.9, 165.1, 152.4].map(totalOnly));
+  [141.7, 119.0, 149.0, 144.0, 125.5, 148.9, 118.8, 155.9, 165.1, 152.4].map(carryOnly));
 
 const awShots = buildShots('c-aw', 'AW', 'sess-founding-irons',
-  [85.9, 110.5, 108.5, 111.9, 108.2, 96.6, 109.2, 118.9, 113.6, 109.6].map(totalOnly));
+  [85.9, 110.5, 108.5, 111.9, 108.2, 96.6, 109.2, 118.9, 113.6, 109.6].map(carryOnly));
 
 // Miura 56°: carry / total pairs are given.
 const w56Pairs: Array<[number, number]> = [
