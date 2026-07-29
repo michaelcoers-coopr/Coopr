@@ -68,6 +68,43 @@ typography), app icon and screenshots, store copy, pricing, and the privacy/term
 language. Until the brand is approved the app uses a neutral wireframe theme with a
 swappable accent, so none of the feature work is blocked.
 
+## Connect it now (accounts already created)
+
+The code activates the cloud layer automatically once these values are present. Nothing
+sensitive goes in the repo — `.env` is gitignored, and the anon key is public by design
+(protected by row-level security). Never commit or paste the **service_role** key or any
+Apple private key.
+
+1. **Supabase → Project Settings → API.** Copy the **Project URL** and **anon public**
+   key into `apps/mobile/.env` (copy from `.env.example`):
+   ```
+   EXPO_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon public key>
+   ```
+2. **Supabase → SQL Editor.** Paste and run `supabase/schema.sql` (tables + RLS +
+   `changes_since`).
+3. **Account deletion function** (optional now, required before store submission):
+   ```
+   supabase functions deploy delete-account
+   ```
+   It reads `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from the function's env —
+   set those in the Supabase dashboard, not in the app.
+4. **Build to your phone (no Mac):**
+   ```
+   cd apps/mobile && npm install
+   eas login
+   eas build --platform ios --profile preview
+   ```
+   For a device build EAS will ask to manage iOS credentials against your Apple
+   Developer account. For EAS builds, also add the two `EXPO_PUBLIC_SUPABASE_*` values
+   as EAS environment variables (dashboard or `eas env:create`) so the cloud build
+   picks them up.
+
+Once step 1 is done, the app switches from local-only auth to Supabase auth + sync on
+next launch; with the values absent it stays fully offline. After you've run steps 1–2,
+tell me and I'll do the end-to-end sync verification pass and tighten anything the live
+schema surfaces.
+
 ## On "engaging Cowork to sign it up"
 
 I can walk you through each signup live and pre-fill everything on the code side, but I

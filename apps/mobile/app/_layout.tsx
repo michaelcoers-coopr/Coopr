@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -7,6 +8,8 @@ import { ThemeProvider } from '../src/theme';
 import { runMigrations } from '../src/db/migrations';
 import { seedIfEmpty } from '../src/db/seed';
 import { registry } from '../src/providers/registry';
+import { ensureLocalUserRow } from '../src/db/users';
+import { runSyncSafely } from '../src/features/sync-runner';
 
 const queryClient = new QueryClient();
 
@@ -19,12 +22,32 @@ export default function RootLayout() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Offline-first boot: migrate the local store, optionally load the demo seed, and
-    // ensure a local (anonymous) user before anything reads. No network required.
+    // Offline-first boot: migrate the local store and optionally load the demo seed.
+    // The UI is ready immediately — nothing here waits on the network.
     runMigrations();
     if (LOAD_DEMO_SEED) seedIfEmpty();
-    void registry.auth?.ensureLocalUser();
     setReady(true);
+
+    // Online layer runs in the background and never gates play: ensure the auth
+    // session + its local user row, then attempt a sync. Failures (offline, or no
+    // cloud configured) are swallowed; local SQLite stays authoritative.
+    void (async () => {
+      try {
+        const session = await registry.auth?.ensureLocalUser();
+        if (session) ensureLocalUserRow(session.userId, session.email, session.isAnonymous);
+        await runSyncSafely();
+      } catch {
+        /* offline-first: ignore */
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    // Sync when the app returns to the foreground (cheap no-op when cloud is unset).
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') void runSyncSafely();
+    });
+    return () => sub.remove();
   }, []);
 
   if (!ready) return null;
