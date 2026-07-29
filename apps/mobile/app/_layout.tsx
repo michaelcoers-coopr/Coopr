@@ -10,14 +10,19 @@ import { registry } from '../src/providers/registry';
 
 const queryClient = new QueryClient();
 
+// Demo seed: loads Seed User 001 (the founding dataset) on first run so the app is
+// populated for validation. Production sets this false so a fresh user goes through
+// onboarding to build their own baseline.
+const LOAD_DEMO_SEED = true;
+
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Offline-first boot: migrate the local store, load the seed on first run, and
+    // Offline-first boot: migrate the local store, optionally load the demo seed, and
     // ensure a local (anonymous) user before anything reads. No network required.
     runMigrations();
-    seedIfEmpty();
+    if (LOAD_DEMO_SEED) seedIfEmpty();
     void registry.auth?.ensureLocalUser();
     setReady(true);
   }, []);
@@ -30,7 +35,9 @@ export default function RootLayout() {
         <ThemeProvider>
           <StatusBar style="light" />
           <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(onboarding)" />
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="assessment" options={{ headerShown: true, title: 'Golf IQ' }} />
             <Stack.Screen name="club/[id]" options={{ headerShown: true, title: 'Club' }} />
           </Stack>
         </ThemeProvider>

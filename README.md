@@ -58,10 +58,15 @@ dependency, and separated performance contexts. See `ARCHITECTURE.md`.
 ## Phase 1 status
 
 Done: monorepo, offline SQLite + migrations, seed dataset, club-profile engine,
-deterministic recommendation engine + test suite, Quick Caddie, bag/club/practice/
-profile screens, provider interfaces, local-only auth, sync data model + LWW
-reconciliation core, CSV/JSON export builders.
+deterministic recommendation engine, **deterministic Golf IQ assessment engine**, full
+test suite (28 tests), Quick Caddie, **first-run onboarding** (guided baseline capture
++ CSV import with confirmation), assessment screen, bag/club/practice/profile screens,
+provider interfaces, local-only auth, **env-gated Supabase auth/sync adapters**, sync
+data model + LWW reconciliation core, CSV/JSON export builders, EAS build config.
 
-Deferred (with rationale in `ROADMAP.md`): concrete Supabase auth/sync adapters,
-native GPS + licensed course data, live equipment research, vision/OCR, subscriptions,
-and the brand system (pauses for founder assets).
+To take it to your phone + cloud sync + the App Store, see **[`SETUP.md`](./SETUP.md)** —
+the accounts to create (Apple Developer, Supabase, Expo/EAS) and the drop-in wiring.
+
+Deferred (with rationale in `ROADMAP.md`): live equipment research, native GPS +
+licensed course data, vision/OCR, subscriptions, and the brand system (pauses for
+founder assets).

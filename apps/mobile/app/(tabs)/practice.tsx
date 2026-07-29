@@ -1,7 +1,8 @@
 import { ScrollView, View, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme';
-import { H1, H2, Body, Label, Card } from '../../src/ui';
+import { H1, H2, Body, Label, Card, Button } from '../../src/ui';
 import { sqlite } from '../../src/db/client';
 import { getFirstUserId, listShotsForPlayer } from '../../src/db/repo';
 
@@ -15,6 +16,7 @@ interface SessionRow {
 
 export default function Practice() {
   const t = useTheme();
+  const router = useRouter();
   const userId = getFirstUserId();
   const shots = userId ? listShotsForPlayer(userId) : [];
   const sessions = userId
@@ -33,8 +35,13 @@ export default function Practice() {
         <H1>Sessions</H1>
         <Body muted>{shots.length} shots across {sessions.length} sessions.</Body>
         <Body muted style={{ marginTop: t.spacing.xs }}>
-          Screenshot and CSV import (with confirmation before anything touches your model) arrive in the next phase.
+          Log ~10 shots per club, keeping categories separate. Imported values are always shown for your confirmation
+          before they touch your model.
         </Body>
+
+        <View style={{ height: t.spacing.md }} />
+        <Button title="Start a baseline session" onPress={() => router.push('/(onboarding)/session')} />
+        <Button title="Import a session (CSV)" kind="ghost" onPress={() => router.push('/(onboarding)/csv')} />
 
         <View style={{ height: t.spacing.lg }} />
         {sessions.map((s) => (

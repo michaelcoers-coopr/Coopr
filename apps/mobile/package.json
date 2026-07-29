@@ -13,6 +13,7 @@
     "@coopr/core": "*",
     "@coopr/engine": "*",
     "@coopr/tokens": "*",
+    "@supabase/supabase-js": "^2.45.0",
     "@tanstack/react-query": "^5.51.0",
     "drizzle-orm": "^0.33.0",
     "expo": "~51.0.0",

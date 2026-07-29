@@ -15,9 +15,9 @@ Native GPS is not in the MVP.
 ## Phases
 
 ### P1 — Foundation *(current)*
-Goal: working app shell + offline SQLite with migrations + sync + profile/bag/clubs/shots + club-profile engine + deterministic recommendation engine + seed user 001 + quick caddie.
-Exit: engine test suite passes with the 5-iron expressing short-miss variability (P50 ≈ 162, not 185); app runs on the iPhone simulator.
-Risk: small contaminated samples produce a wrong stock number → robust median/quantiles, mishits kept for risk only. Risk: iron seed data is total-distance, not carry → model per-metric, keep iron carry null.
+Goal: working app shell + offline SQLite with migrations + sync model + profile/bag/clubs/shots + club-profile engine + deterministic recommendation engine + seed user 001 + quick caddie + first-run onboarding (guided baseline capture: connect/screenshot/CSV/manual, ~10 shots per club, categories kept in separate sessions) + deterministic Golf IQ assessment.
+Exit: engine test suite passes with the 5-iron expressing short-miss variability (P50 ≈ 162 carry, not 185); onboarding produces a baseline that generates a Golf IQ; app runs on the iPhone simulator.
+Risk: small contaminated samples produce a wrong stock number → robust median/quantiles, mishits kept for risk only. (Resolved: iron seed numbers are carry, founder-confirmed; per-metric modeling keeps the other metric null.)
 
 ### P2 — Bag intelligence
 Goal: gaps, overlap, reliability, confidence, keep/test/replace/remove, ideal-14 engine.

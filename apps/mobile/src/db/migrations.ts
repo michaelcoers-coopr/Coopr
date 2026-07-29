@@ -98,7 +98,16 @@ interface Migration {
   sql: string;
 }
 
-const MIGRATIONS: Migration[] = [{ version: 1, name: '0000_init', sql: INIT }];
+const SETTINGS = `
+CREATE TABLE IF NOT EXISTS app_settings (
+  k TEXT PRIMARY KEY NOT NULL, v TEXT NOT NULL
+);
+`;
+
+const MIGRATIONS: Migration[] = [
+  { version: 1, name: '0000_init', sql: INIT },
+  { version: 2, name: '0001_app_settings', sql: SETTINGS },
+];
 
 export function runMigrations(): void {
   sqlite.execSync(

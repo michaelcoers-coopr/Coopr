@@ -23,11 +23,11 @@ The recommendation engine, the club-profile engine, and the equipment-research a
 - **Left/right dispersion:** from `side`/`offlineYards` when present; `null` otherwise.
 - **Confidence:** a 0–1 score that rises with sample size (saturating), falls with high relative dispersion (IQR/median), and decays with staleness (recency vs `now`). Low n or wild spread ⇒ low confidence, surfaced everywhere the number is shown.
 
-**Metric handling (critical):** each profile records whether it is backed by `carry` or `total`. The seed irons are total-only, so their profiles are total-backed and carry stays `null`. The engine prefers carry when both exist and never fabricates carry from total.
+**Metric handling (critical):** each profile records whether it is backed by `carry` or `total`. The seed irons are carry-only (founder-confirmed), so their profiles are carry-backed and total stays `null`. The engine prefers carry when both exist and never fabricates the missing metric from the other.
 
 **Output:** a `ClubProfile` per (club, swingMode, environment) with all of the above plus which metric backs it. Contexts are never merged; a caller may request a specific environment or a weighted blend, but the raw per-context profiles always exist.
 
-**Seed validation gate:** the 5-iron total distances (132.8, 80.6, 171.9, 184.7, 119.9, 184.5, 152.2, 184.4, 74.4, 183.0) must yield P50 ≈ 162, P20 ≈ 112, P80 ≈ 184 — a 70+ yard P20–P80 spread — and a high short-miss rate. A 185 stock is a bug. Tests assert this.
+**Seed validation gate:** the 5-iron carry distances (132.8, 80.6, 171.9, 184.7, 119.9, 184.5, 152.2, 184.4, 74.4, 183.0) must yield P50 ≈ 162, P20 ≈ 112, P80 ≈ 184 — a 70+ yard P20–P80 spread — and a high short-miss rate. A 185 stock is a bug. Tests assert this.
 
 ## Recommendation engine
 
@@ -57,6 +57,25 @@ The recommendation engine, the club-profile engine, and the equipment-research a
 - **Conditions monotonicity:** more headwind never shortens plays-like distance; colder never shortens it; etc.
 
 Tests run in plain Node via vitest — no simulator, no network — which is the whole point of the purity rule.
+
+## Golf IQ assessment engine
+
+A pure, deterministic baseline assessment over the player's club profiles — the "AI
+genius" is the math, not a language model (a `LanguageProvider` may narrate it later,
+but every number is reproducible and offline). It is what the first-run onboarding
+produces once a baseline is captured.
+
+**Input:** the club profiles plus the clubs (for loft/type ordering). **Output:** an
+overall 0–100 score and grade; five component sub-scores (strike consistency,
+predictability, bag gapping, long game, short game); **gapping anomalies** (inversions,
+overlaps, large gaps) detected by ordering clubs by loft and checking that stock
+distances descend monotonically; **ranked insights** (priority → watch → info);
+**practice priorities** ranked by a scoring-leak score (`0.6·shortMissRate +
+0.4·(1−confidence)`); honest **baseline coverage** per category; and a data-backed
+confidence. On the founding seed it grades "Developing/Competent," flags the 6i/7i and
+8i/9i inversions as priorities, names the 6i (≈39% short-miss) the biggest leak, and
+reports the missing woods/hybrid and wedge baselines. Tested for bounds, determinism,
+anomaly detection, and leak ordering.
 
 ## Equipment-research architecture (online, not in the pure engine)
 

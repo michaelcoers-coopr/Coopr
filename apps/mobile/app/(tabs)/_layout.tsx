@@ -1,9 +1,13 @@
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { StyleSheet } from 'react-native';
 import { useTheme } from '../../src/theme';
+import { isOnboardingComplete } from '../../src/db/settings';
 
 export default function TabsLayout() {
   const t = useTheme();
+  // First-run gate: a fresh install with no baseline is sent to onboarding. The demo
+  // seed marks onboarding complete, so seeded builds go straight into the app.
+  if (!isOnboardingComplete()) return <Redirect href="/(onboarding)" />;
   return (
     <Tabs
       screenOptions={{

@@ -1,4 +1,5 @@
 import { sqlite } from './client';
+import { markOnboardingComplete } from './settings';
 import {
   SEED_PROFILE,
   SEED_BAG_ID,
@@ -98,4 +99,8 @@ export function seedIfEmpty(): void {
       apply_automatically: cal.applyAutomatically, note: cal.note, ...sync,
     });
   });
+
+  // The demo user already has a baseline, so skip onboarding for them. A real fresh
+  // install has no seed and lands in onboarding.
+  markOnboardingComplete();
 }
