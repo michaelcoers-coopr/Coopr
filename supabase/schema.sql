@@ -5,8 +5,10 @@
 --
 -- Design notes:
 --   * id columns are text (they hold client-generated UUIDv7 strings).
---   * owner_id uuid defaults to auth.uid(), so the app never sends it; the FK to
---     auth.users(id) on delete cascade is what makes account deletion remove all rows.
+--   * owner_id uuid defaults to auth.uid(), so the app never sends it. There is no FK
+--     to auth.users (avoids a cross-schema permission dependency that can abort the
+--     whole script); account deletion removes rows via the delete-account edge
+--     function, which runs with the service role.
 --   * The `users` mirror table is NOT synced (Supabase auth.users is authoritative).
 --   * changes_since strips owner_id so the payload matches local columns exactly.
 
@@ -14,7 +16,7 @@
 
 create table if not exists golfer_profiles (
   id text primary key,
-  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  owner_id uuid not null default auth.uid(),
   user_id text, name text, handicap double precision, risk_preference text,
   caddie_profile_id text, distance_unit text, partial_wedge_system text, notes text,
   created_at bigint, updated_at bigint not null default 0, deleted_at bigint
@@ -22,7 +24,7 @@ create table if not exists golfer_profiles (
 
 create table if not exists caddie_profiles (
   id text primary key,
-  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  owner_id uuid not null default auth.uid(),
   user_id text, name text, voice text, personality text, humor_level double precision,
   detail_level double precision, coaching_style text, avatar text,
   created_at bigint, updated_at bigint not null default 0, deleted_at bigint
@@ -30,14 +32,14 @@ create table if not exists caddie_profiles (
 
 create table if not exists bags (
   id text primary key,
-  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  owner_id uuid not null default auth.uid(),
   user_id text, name text, is_active integer,
   created_at bigint, updated_at bigint not null default 0, deleted_at bigint
 );
 
 create table if not exists clubs (
   id text primary key,
-  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  owner_id uuid not null default auth.uid(),
   bag_id text, type text, label text, manufacturer text, model text, loft_deg double precision,
   shaft_flex text, shaft_model text, shaft_material text, bounce_deg double precision, in_bag integer,
   created_at bigint, updated_at bigint not null default 0, deleted_at bigint
@@ -45,21 +47,21 @@ create table if not exists clubs (
 
 create table if not exists club_feedback (
   id text primary key,
-  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  owner_id uuid not null default auth.uid(),
   club_id text, confidence text, note text,
   created_at bigint, updated_at bigint not null default 0, deleted_at bigint
 );
 
 create table if not exists sessions (
   id text primary key,
-  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  owner_id uuid not null default auth.uid(),
   user_id text, date bigint, environment text, intent text, validation_required integer, notes text,
   created_at bigint, updated_at bigint not null default 0, deleted_at bigint
 );
 
 create table if not exists shots (
   id text primary key,
-  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  owner_id uuid not null default auth.uid(),
   player_id text, club_id text, club_label text, loft_deg double precision,
   session_id text, session_date bigint, shot_number integer, environment text, swing_mode text,
   carry_yards double precision, total_yards double precision, offline_yards double precision, side text,
@@ -75,7 +77,7 @@ create index if not exists idx_shots_owner_updated on shots (owner_id, updated_a
 
 create table if not exists calibration_profiles (
   id text primary key,
-  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  owner_id uuid not null default auth.uid(),
   player_id text, scope text, club_id text, status text, delta_min_yards double precision,
   delta_max_yards double precision, confidence text, apply_automatically integer, note text,
   created_at bigint, updated_at bigint not null default 0, deleted_at bigint
@@ -83,21 +85,21 @@ create table if not exists calibration_profiles (
 
 create table if not exists recommendations (
   id text primary key,
-  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  owner_id uuid not null default auth.uid(),
   player_id text, input text, output text, created_at_ms bigint,
   created_at bigint, updated_at bigint not null default 0, deleted_at bigint
 );
 
 create table if not exists rounds (
   id text primary key,
-  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  owner_id uuid not null default auth.uid(),
   user_id text, course_id text, course_name text, tees text, date bigint, status text,
   created_at bigint, updated_at bigint not null default 0, deleted_at bigint
 );
 
 create table if not exists hole_scores (
   id text primary key,
-  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  owner_id uuid not null default auth.uid(),
   round_id text, hole integer, par integer, strokes integer, putts integer, penalties integer,
   fairway text, gir integer, bunker integer, notes text, clubs_used text,
   created_at bigint, updated_at bigint not null default 0, deleted_at bigint
@@ -105,7 +107,7 @@ create table if not exists hole_scores (
 
 create table if not exists course_shots (
   id text primary key,
-  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  owner_id uuid not null default auth.uid(),
   round_id text, hole integer, shot_number integer, club_id text, start_lat double precision,
   start_lon double precision, end_lat double precision, end_lon double precision,
   measured_distance_yards double precision, lie_start text, lie_end text, strategic_target text,
@@ -115,7 +117,7 @@ create table if not exists course_shots (
 
 create table if not exists integration_connections (
   id text primary key,
-  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  owner_id uuid not null default auth.uid(),
   user_id text, service text, state text, last_sync_at bigint,
   created_at bigint, updated_at bigint not null default 0, deleted_at bigint
 );
