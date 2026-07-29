@@ -1,5 +1,5 @@
 import { sqlite } from './client';
-import type { Shot, Club, CalibrationProfile } from '@coopr/core';
+import type { Shot, Club, CalibrationProfile, ClubFeedbackInput } from '@coopr/core';
 
 // Thin read layer over the local SQLite store. All reads are local and synchronous —
 // the UI never blocks on the network (offline-first).
@@ -89,6 +89,21 @@ export function listShotsForClub(clubId: string): Shot[] {
     [clubId],
   );
   return rows.map(rowToShot);
+}
+
+interface ClubFeedbackRow {
+  club_id: string;
+  confidence: 'low' | 'moderate' | 'high' | null;
+  note: string | null;
+}
+export function listClubFeedback(bagId: string): ClubFeedbackInput[] {
+  const rows = sqlite.getAllSync<ClubFeedbackRow>(
+    `SELECT cf.club_id, cf.confidence, cf.note FROM club_feedback cf
+     JOIN clubs c ON c.id = cf.club_id
+     WHERE c.bag_id = ? AND cf.deleted_at IS NULL;`,
+    [bagId],
+  );
+  return rows.map((r) => ({ clubId: r.club_id, confidence: r.confidence, note: r.note }));
 }
 
 export function validationRequiredSessionIds(): Set<string> {

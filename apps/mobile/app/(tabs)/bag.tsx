@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ClubProfile } from '@coopr/core';
 import { useTheme } from '../../src/theme';
-import { H1, Body, Label } from '../../src/ui';
+import { H1, Body, Label, Button } from '../../src/ui';
 import { getFirstUserId, getActiveBagId, listClubs } from '../../src/db/repo';
 import { computePlayerProfiles } from '../../src/features/profiles';
 
@@ -23,6 +23,9 @@ export default function Bag() {
         <Label>Your bag</Label>
         <H1>Clubs</H1>
         <Body muted>Stock distance is the median of your shots — mishits shape risk, not this number.</Body>
+
+        <View style={{ height: t.spacing.md }} />
+        <Button title="Open Equipment Lab" onPress={() => router.push('/equipment-lab')} />
 
         <View style={{ height: t.spacing.lg }} />
         {clubs.map((c) => {

@@ -9,6 +9,7 @@ import type {
   CategoryCoverage,
 } from '@coopr/core';
 import { clamp01, round1 } from './stats';
+import { distanceRank, category } from './club-order';
 
 export interface GolfIqOptions {
   /** Minimum shots for a club to count toward baseline coverage. */
@@ -16,41 +17,6 @@ export interface GolfIqOptions {
 }
 
 const DEFAULT_MIN_SHOTS = 8;
-
-// Distance rank: lower = the club that should carry FARTHER. Used only to detect
-// gapping anomalies, never to set distances.
-function distanceRank(club: Club): number | null {
-  if (club.type === 'putter') return null;
-  const label = club.label.toUpperCase();
-  const numMatch = label.match(/(\d+)/);
-  const num = numMatch ? Number(numMatch[1]) : null;
-  switch (club.type) {
-    case 'driver':
-      return 0;
-    case 'wood':
-      return 5 + (num ?? 3);
-    case 'hybrid':
-      return 20 + (num ?? 3);
-    case 'utility':
-      return 38;
-    case 'iron':
-      if (label === 'PW') return 50;
-      if (label === 'AW' || label === 'GW') return 52;
-      return 40 + (num ?? 6);
-    case 'wedge':
-      return 60 + (club.loftDeg ?? 54);
-    default:
-      return 99;
-  }
-}
-
-function category(club: Club): CategoryCoverage['category'] | null {
-  if (club.type === 'driver') return 'driver';
-  if (club.type === 'wood' || club.type === 'hybrid' || club.type === 'utility') return 'woods_hybrids';
-  if (club.type === 'iron') return 'irons';
-  if (club.type === 'wedge') return 'wedges';
-  return null;
-}
 
 // One representative profile per club: the one with the most data.
 function representativeProfiles(profiles: ClubProfile[]): ClubProfile[] {
