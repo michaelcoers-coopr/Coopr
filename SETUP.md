@@ -82,7 +82,13 @@ Apple private key.
    EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon public key>
    ```
 2. **Supabase → SQL Editor.** Paste and run `supabase/schema.sql` (tables + RLS +
-   `changes_since`).
+   `changes_since`). Safe to re-run.
+2b. **Supabase → Authentication → Sign In / Providers → enable "Anonymous sign-ins."**
+   The app creates an anonymous user on first launch (so it works offline before a real
+   account) and later upgrades that same user — same uid, data preserved — when they
+   Sign in with Apple. Without this, the first cloud launch can't create a user.
+   *(Apple provider config — Service ID + key — is a separate pre-submission step in the
+   same Providers screen; the app-side Apple Sign In is already wired.)*
 3. **Account deletion function** (optional now, required before store submission):
    ```
    supabase functions deploy delete-account

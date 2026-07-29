@@ -1,5 +1,6 @@
 import type { AuthProvider, AuthSession } from '@coopr/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 // Cloud auth behind the AuthProvider interface. Local-only mode remains the default;
 // this activates only when Supabase is configured. Needs one live integration pass
@@ -30,10 +31,22 @@ export class SupabaseAuthProvider implements AuthProvider {
   }
 
   async signInWithApple(): Promise<AuthSession> {
-    // Wire expo-apple-authentication to obtain an identity token, then:
-    // this.client.auth.signInWithIdToken({ provider: 'apple', token }). Required for
-    // App Store when other social sign-in is offered.
-    throw new Error('Apple Sign In wiring pending (expo-apple-authentication).');
+    const credential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    });
+    if (!credential.identityToken) throw new Error('No Apple identity token returned.');
+    // With an active anonymous session, GoTrue upgrades that same user (uid preserved,
+    // data kept); otherwise it signs in / creates the Apple-identified user. Requires
+    // the Apple provider configured in Supabase Auth before it succeeds.
+    const { data, error } = await this.client.auth.signInWithIdToken({
+      provider: 'apple',
+      token: credential.identityToken,
+    });
+    if (error || !data.user) throw error ?? new Error('Apple sign-in failed');
+    return { userId: data.user.id, isAnonymous: false, email: data.user.email ?? credential.email ?? null };
   }
 
   async signOut(): Promise<void> {
