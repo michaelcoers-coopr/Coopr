@@ -1,11 +1,8 @@
 import { openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
-import { drizzle } from 'drizzle-orm/expo-sqlite';
-import { schema as coreSchema } from '@coopr/core';
 
-// `coreSchema` is the module namespace; `coreSchema.schema` is the combined tables
-// object drizzle wants for typed queries.
-const tables = coreSchema.schema;
-
+// The authoritative local store. We use expo-sqlite's synchronous API directly with
+// raw parameterized SQL (see migrations.ts, repo.ts). The canonical schema is expressed
+// in Drizzle in packages/core for reference/typing, but the app does not run a Drizzle
+// query instance — keeping the runtime lean and avoiding version coupling to Drizzle's
+// expo-sqlite adapter.
 export const sqlite: SQLiteDatabase = openDatabaseSync('coopr.db');
-export const db = drizzle(sqlite, { schema: tables });
-export { tables };
