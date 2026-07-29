@@ -1,0 +1,19 @@
+{
+  "name": "coopr",
+  "private": true,
+  "version": "0.1.0",
+  "description": "COOPR — personal golf operating system. Know your game. Play your game.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "npm run test --workspace @coopr/engine",
+    "typecheck": "tsc -b packages/core packages/engine",
+    "build": "tsc -b packages/core packages/engine"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}
