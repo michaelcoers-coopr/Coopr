@@ -2,7 +2,7 @@ import { ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme';
-import { Card, H1, H2, Body, Label, Button, Divider } from '../../src/ui';
+import { Card, H1, H2, Body, Label, Button, Divider, Wordmark } from '../../src/ui';
 import { getFirstUserId, getGolferProfile, getActiveBagId, listClubs, listShotsForPlayer, getSuspectedCalibration } from '../../src/db/repo';
 
 export default function Home() {
@@ -19,7 +19,9 @@ export default function Home() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.ink }} edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: t.spacing.lg }}>
-        <Label>COOPR</Label>
+        <View style={{ marginBottom: t.spacing.md }}>
+          <Wordmark size={30} />
+        </View>
         <H1>{profile?.name ? `Hi, ${profile.name}` : 'Welcome'}</H1>
         <Body muted>Know your game. Play your game.</Body>
 

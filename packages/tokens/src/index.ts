@@ -11,10 +11,17 @@ export interface AccentTheme {
   accentOn: string; // text/icon color on top of accent
 }
 
-// Placeholder accent. The default launch color (~#8AC926) and any personal colorway
-// are supplied later via this same shape — feature code does not change.
+// COOPR launch accent — performance green (spec section 59). The accent is a token;
+// any colorway (pink, patriotic, team, personal) swaps in via this same shape and
+// feature code never changes.
+export const cooprAccent: AccentTheme = {
+  accent: '#8AC926',
+  accentOn: '#0B0D0F', // near-black reads best on the light green
+};
+
+// Neutral placeholder, kept for wireframe/preview contexts.
 export const wireframeAccent: AccentTheme = {
-  accent: '#5B6670', // neutral slate placeholder, NOT a brand value
+  accent: '#5B6670',
   accentOn: '#FFFFFF',
 };
 
@@ -54,7 +61,7 @@ export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as cons
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
 export const fontSize = { xs: 12, sm: 14, md: 16, lg: 20, xl: 28, xxl: 40 } as const;
 
-export function makeTheme(accent: AccentTheme = wireframeAccent) {
+export function makeTheme(accent: AccentTheme = cooprAccent) {
   return { ...accent, ...neutrals, semantic, riskColor, spacing, radius, fontSize };
 }
 

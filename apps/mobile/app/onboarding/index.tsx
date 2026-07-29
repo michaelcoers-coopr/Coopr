@@ -36,16 +36,16 @@ export default function OnboardingWelcome() {
 
         <H2>Add your first session</H2>
         <Card>
-          <Button title="Connect TrackMan" kind="ghost" onPress={() => router.push('/(onboarding)/csv')} />
+          <Button title="Connect TrackMan" kind="ghost" onPress={() => router.push('/onboarding/csv')} />
           <Body muted style={{ fontSize: t.fontSize.xs, marginBottom: t.spacing.sm }}>
             Direct connect is coming — for now, export your session and import the CSV.
           </Body>
-          <Button title="Upload a screenshot" kind="ghost" onPress={() => router.push('/(onboarding)/csv')} />
+          <Button title="Upload a screenshot" kind="ghost" onPress={() => router.push('/onboarding/csv')} />
           <Body muted style={{ fontSize: t.fontSize.xs, marginBottom: t.spacing.sm }}>
             Screenshot reading is coming — extracted values will always be shown for your confirmation first.
           </Body>
-          <Button title="Import a CSV" onPress={() => router.push('/(onboarding)/csv')} />
-          <Button title="Enter shots manually" kind="ghost" onPress={() => router.push('/(onboarding)/session')} />
+          <Button title="Import a CSV" onPress={() => router.push('/onboarding/csv')} />
+          <Button title="Enter shots manually" kind="ghost" onPress={() => router.push('/onboarding/session')} />
         </Card>
       </ScrollView>
     </SafeAreaView>

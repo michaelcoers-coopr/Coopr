@@ -58,8 +58,9 @@ export default function RootLayout() {
         <ThemeProvider>
           <StatusBar style="light" />
           <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(onboarding)" />
+            <Stack.Screen name="index" />
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="onboarding" />
             <Stack.Screen name="assessment" options={{ headerShown: true, title: 'Golf IQ' }} />
             <Stack.Screen name="equipment-lab" options={{ headerShown: true, title: 'Equipment Lab' }} />
             <Stack.Screen name="club/[id]" options={{ headerShown: true, title: 'Club' }} />

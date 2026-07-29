@@ -40,8 +40,8 @@ export default function Practice() {
         </Body>
 
         <View style={{ height: t.spacing.md }} />
-        <Button title="Start a baseline session" onPress={() => router.push('/(onboarding)/session')} />
-        <Button title="Import a session (CSV)" kind="ghost" onPress={() => router.push('/(onboarding)/csv')} />
+        <Button title="Start a baseline session" onPress={() => router.push('/onboarding/session')} />
+        <Button title="Import a session (CSV)" kind="ghost" onPress={() => router.push('/onboarding/csv')} />
 
         <View style={{ height: t.spacing.lg }} />
         {sessions.map((s) => (

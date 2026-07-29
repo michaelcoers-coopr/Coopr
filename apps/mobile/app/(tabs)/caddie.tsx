@@ -1,21 +1,20 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, View, TextInput } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { recommend } from '@coopr/engine';
 import type {
-  RecommendationInput,
-  Recommendation,
-  Lie,
-  WindDirection,
-  StrategicIntent,
-  RiskPreference,
-  DistanceMetric,
-  Hazard,
+  RecommendationInput, Recommendation, Lie, WindDirection, StrategicIntent, RiskPreference,
+  DistanceMetric, Hazard,
 } from '@coopr/core';
 import { useTheme } from '../../src/theme';
-import { Card, H1, H2, Body, Label, Button, Segmented, RiskPill, Divider } from '../../src/ui';
+import { Card, H1, H2, Body, Label, Button, Segmented, RiskPill, Divider, NumberField, DoneAccessory } from '../../src/ui';
 import { getFirstUserId } from '../../src/db/repo';
 import { computePlayerProfiles } from '../../src/features/profiles';
+
+// Buttons instead of keyboards wherever possible — only distance needs typing.
+const WIND_MPH: Record<string, number> = { '1-5': 3, '6-10': 8, '11-15': 13, '15+': 20 };
+const ELEV_YARDS: Record<string, number> = { dd: -15, d: -8, flat: 0, u: 8, uu: 15 };
+const TEMP_F: Record<string, number> = { cold: 40, cool: 55, mild: 70, warm: 85, hot: 100 };
 
 export default function Caddie() {
   const t = useTheme();
@@ -23,19 +22,18 @@ export default function Caddie() {
   const profiles = useMemo(() => (userId ? computePlayerProfiles(userId, Date.now()) : []), [userId]);
 
   const [distance, setDistance] = useState('160');
-  const [metric, setMetric] = useState<DistanceMetric>('total');
+  const [metric, setMetric] = useState<DistanceMetric>('carry');
   const [lie, setLie] = useState<Lie>('fairway');
   const [windDir, setWindDir] = useState<WindDirection>('none');
-  const [windSpeed, setWindSpeed] = useState('0');
-  const [elevation, setElevation] = useState('0');
-  const [temp, setTemp] = useState('70');
+  const [windRange, setWindRange] = useState<keyof typeof WIND_MPH>('6-10');
+  const [elev, setElev] = useState<keyof typeof ELEV_YARDS>('flat');
+  const [temp, setTemp] = useState<keyof typeof TEMP_F>('mild');
   const [intent, setIntent] = useState<StrategicIntent>('attack_pin');
   const [risk, setRisk] = useState<RiskPreference>('neutral');
   const [frontHazard, setFrontHazard] = useState(false);
   const [frontHazardDist, setFrontHazardDist] = useState('150');
   const [rightHazard, setRightHazard] = useState(false);
   const [leftHazard, setLeftHazard] = useState(false);
-
   const [result, setResult] = useState<Recommendation | null>(null);
 
   const run = () => {
@@ -49,9 +47,9 @@ export default function Caddie() {
       targetMetric: metric,
       conditions: {
         lie,
-        wind: windDir === 'none' ? null : { speedMph: num(windSpeed), direction: windDir },
-        elevationDeltaYards: num(elevation),
-        temperatureF: num(temp),
+        wind: windDir === 'none' ? null : { speedMph: WIND_MPH[windRange]!, direction: windDir },
+        elevationDeltaYards: ELEV_YARDS[elev]!,
+        temperatureF: TEMP_F[temp]!,
       },
       hazards,
       intent,
@@ -63,19 +61,20 @@ export default function Caddie() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.ink }} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: t.spacing.lg }} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={{ padding: t.spacing.lg }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         <Label>Quick Caddie</Label>
         <H1>What's the shot?</H1>
 
         <Card>
           <Label>Distance to target</Label>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-            <NumInput value={distance} onChange={setDistance} width={90} />
+            <NumberField value={distance} onChange={setDistance} width={96} />
             <Segmented
-              options={[
-                { value: 'carry', label: 'Carry' },
-                { value: 'total', label: 'Total' },
-              ]}
+              options={[{ value: 'carry', label: 'Carry' }, { value: 'total', label: 'Total' }]}
               value={metric}
               onChange={setMetric}
             />
@@ -84,52 +83,63 @@ export default function Caddie() {
           <Label>Lie</Label>
           <Segmented
             options={[
-              { value: 'tee', label: 'Tee' },
-              { value: 'fairway', label: 'Fairway' },
-              { value: 'light_rough', label: 'Lt rough' },
-              { value: 'heavy_rough', label: 'Hvy rough' },
+              { value: 'tee', label: 'Tee' }, { value: 'fairway', label: 'Fairway' },
+              { value: 'light_rough', label: 'Lt rough' }, { value: 'heavy_rough', label: 'Hvy rough' },
               { value: 'sand', label: 'Sand' },
             ]}
             value={lie}
             onChange={setLie}
           />
 
-          <Label>Wind</Label>
+          <Label>Wind direction</Label>
           <Segmented
             options={[
-              { value: 'none', label: 'None' },
-              { value: 'head', label: 'Into' },
-              { value: 'tail', label: 'Down' },
-              { value: 'left_to_right', label: 'L→R' },
-              { value: 'right_to_left', label: 'R→L' },
+              { value: 'none', label: 'Calm' }, { value: 'head', label: 'Into' }, { value: 'tail', label: 'Down' },
+              { value: 'left_to_right', label: 'L→R' }, { value: 'right_to_left', label: 'R→L' },
             ]}
             value={windDir}
             onChange={setWindDir}
           />
           {windDir !== 'none' ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
-              <NumInput value={windSpeed} onChange={setWindSpeed} width={70} />
-              <Body muted>mph</Body>
-            </View>
+            <>
+              <Label>Wind speed (mph)</Label>
+              <Segmented
+                options={[
+                  { value: '1-5', label: '1–5' }, { value: '6-10', label: '6–10' },
+                  { value: '11-15', label: '11–15' }, { value: '15+', label: '15+' },
+                ]}
+                value={windRange}
+                onChange={setWindRange}
+              />
+            </>
           ) : null}
 
-          <View style={{ flexDirection: 'row', gap: t.spacing.xl }}>
-            <View>
-              <Label>Elevation (yd, +up)</Label>
-              <NumInput value={elevation} onChange={setElevation} width={90} allowNegative />
-            </View>
-            <View>
-              <Label>Temp (°F)</Label>
-              <NumInput value={temp} onChange={setTemp} width={90} />
-            </View>
-          </View>
+          <Label>Elevation</Label>
+          <Segmented
+            options={[
+              { value: 'dd', label: '↓↓' }, { value: 'd', label: '↓' }, { value: 'flat', label: 'Flat' },
+              { value: 'u', label: '↑' }, { value: 'uu', label: '↑↑' },
+            ]}
+            value={elev}
+            onChange={setElev}
+          />
+
+          <Label>Temperature</Label>
+          <Segmented
+            options={[
+              { value: 'cold', label: 'Cold' }, { value: 'cool', label: 'Cool' }, { value: 'mild', label: 'Mild' },
+              { value: 'warm', label: 'Warm' }, { value: 'hot', label: 'Hot' },
+            ]}
+            value={temp}
+            onChange={setTemp}
+          />
 
           <Label>Trouble</Label>
           <Toggle label="Front hazard" on={frontHazard} onToggle={() => setFrontHazard((v) => !v)} />
           {frontHazard ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
               <Body muted>carry to clear</Body>
-              <NumInput value={frontHazardDist} onChange={setFrontHazardDist} width={70} />
+              <NumberField value={frontHazardDist} onChange={setFrontHazardDist} width={80} />
             </View>
           ) : null}
           <Toggle label="Water/trouble right" on={rightHazard} onToggle={() => setRightHazard((v) => !v)} />
@@ -138,8 +148,7 @@ export default function Caddie() {
           <Label>Intent</Label>
           <Segmented
             options={[
-              { value: 'attack_pin', label: 'Attack' },
-              { value: 'play_safe', label: 'Safe' },
+              { value: 'attack_pin', label: 'Attack' }, { value: 'play_safe', label: 'Safe' },
               { value: 'lay_up', label: 'Lay up' },
             ]}
             value={intent}
@@ -148,8 +157,7 @@ export default function Caddie() {
           <Label>Risk</Label>
           <Segmented
             options={[
-              { value: 'conservative', label: 'Conservative' },
-              { value: 'neutral', label: 'Neutral' },
+              { value: 'conservative', label: 'Conservative' }, { value: 'neutral', label: 'Neutral' },
               { value: 'aggressive', label: 'Aggressive' },
             ]}
             value={risk}
@@ -167,6 +175,7 @@ export default function Caddie() {
 
         {result ? <ResultCard result={result} /> : null}
       </ScrollView>
+      <DoneAccessory />
     </SafeAreaView>
   );
 }
@@ -181,9 +190,7 @@ function ResultCard({ result }: { result: Recommendation }) {
   return (
     <Card>
       <Label>Recommendation</Label>
-      <H1>
-        {result.clubLabel} · {result.swingMode}
-      </H1>
+      <H1>{result.clubLabel} · {result.swingMode}</H1>
       <Body>Target: {result.strategicTarget}</Body>
       <Body muted>Aim: {result.recommendedAim}</Body>
 
@@ -212,47 +219,10 @@ function ResultCard({ result }: { result: Recommendation }) {
       <Divider />
       <Label>Why</Label>
       {result.reasons.map((r, i) => (
-        <Body key={i} muted style={{ marginTop: t.spacing.xs }}>
-          • {r.text}
-        </Body>
+        <Body key={i} muted style={{ marginTop: t.spacing.xs }}>• {r.text}</Body>
       ))}
-      <Body muted style={{ marginTop: t.spacing.sm }}>
-        Confidence {Math.round(result.confidence * 100)}%
-      </Body>
+      <Body muted style={{ marginTop: t.spacing.sm }}>Confidence {Math.round(result.confidence * 100)}%</Body>
     </Card>
-  );
-}
-
-function NumInput({
-  value,
-  onChange,
-  width,
-  allowNegative,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  width: number;
-  allowNegative?: boolean;
-}) {
-  const t = useTheme();
-  return (
-    <TextInput
-      value={value}
-      onChangeText={onChange}
-      keyboardType={allowNegative ? 'numbers-and-punctuation' : 'number-pad'}
-      style={{
-        width,
-        color: t.textPrimary,
-        backgroundColor: t.surface,
-        borderColor: t.border,
-        borderWidth: 1,
-        borderRadius: t.radius.sm,
-        paddingHorizontal: t.spacing.md,
-        paddingVertical: t.spacing.sm,
-        fontSize: t.fontSize.md,
-        marginVertical: t.spacing.xs,
-      }}
-    />
   );
 }
 

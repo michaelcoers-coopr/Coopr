@@ -111,7 +111,7 @@ export default function Assessment() {
         ))}
 
         <View style={{ height: t.spacing.lg }} />
-        <Button title="Enter COOPR" onPress={() => router.replace('/(tabs)')} />
+        <Button title="Enter COOPR" onPress={() => router.replace('/home')} />
       </ScrollView>
     </SafeAreaView>
   );
