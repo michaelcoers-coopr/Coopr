@@ -7,8 +7,9 @@ import { sqlite } from './client';
 // change is pushed on the next sync. The concrete cloud adapter (Supabase) implements
 // SyncProvider; this engine is provider-agnostic.
 
+// Note: the local `users` table is a mirror of Supabase auth.users and is NOT synced.
 const SYNCED_TABLES = new Set([
-  'users', 'golfer_profiles', 'caddie_profiles', 'bags', 'clubs', 'club_feedback',
+  'golfer_profiles', 'caddie_profiles', 'bags', 'clubs', 'club_feedback',
   'sessions', 'shots', 'calibration_profiles', 'recommendations', 'rounds',
   'hole_scores', 'course_shots', 'integration_connections',
 ]);

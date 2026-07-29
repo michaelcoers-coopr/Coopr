@@ -28,10 +28,18 @@ export class SupabaseSyncProvider implements SyncProvider {
   }
 
   async pull(since: number): Promise<RowDelta[]> {
-    // Server exposes a `changes_since` RPC that unions all synced tables filtered by
-    // updated_at > since, returning {table, id, updated_at, deleted_at, data}.
+    // Server `changes_since` RPC unions all synced tables filtered by updated_at >
+    // since, returning rows shaped {tbl, id, updated_at, deleted_at, data}. Map those
+    // onto RowDelta.
     const { data, error } = await this.client.rpc('changes_since', { since_ms: since });
     if (error) throw error;
-    return (data ?? []) as RowDelta[];
+    type Row = { tbl: string; id: string; updated_at: number; deleted_at: number | null; data: Record<string, unknown> | null };
+    return ((data ?? []) as Row[]).map((r) => ({
+      table: r.tbl,
+      id: r.id,
+      updatedAt: r.updated_at,
+      deletedAt: r.deleted_at,
+      data: r.data,
+    }));
   }
 }
