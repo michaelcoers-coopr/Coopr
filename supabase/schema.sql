@@ -169,3 +169,14 @@ language sql stable security invoker as $$
 $$;
 
 grant execute on function changes_since(bigint) to authenticated;
+
+-- ---- Verify + reload the API schema cache -----------------------------------
+-- Force PostgREST to reload (some projects don't auto-reload on DDL), then list the
+-- COOPR tables. A clean run prints 13 rows below; an error above means nothing was
+-- created (the whole script rolls back as one transaction) — paste that error.
+notify pgrst, 'reload schema';
+select table_name from information_schema.tables
+where table_schema = 'public' and table_name in (
+  'golfer_profiles','caddie_profiles','bags','clubs','club_feedback','sessions','shots',
+  'calibration_profiles','recommendations','rounds','hole_scores','course_shots','integration_connections'
+) order by table_name;
