@@ -20,7 +20,6 @@
     "android": {
       "package": "app.coopr.mobile"
     },
-    "plugins": ["expo-router", "expo-secure-store", "expo-sqlite", "expo-apple-authentication"],
     "experiments": {
       "typedRoutes": false
     }
