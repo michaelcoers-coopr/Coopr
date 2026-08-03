@@ -5,8 +5,11 @@
 //
 // Setup:
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-//   supabase functions deploy coach-narrate
-// Optional: supabase secrets set COACH_MODEL=claude-haiku-4-5-20251001
+//   supabase functions deploy coach-narrate --no-verify-jwt
+// The app currently uses local (offline) auth, so it calls this with the project's
+// publishable/anon key rather than a user JWT — hence --no-verify-jwt. When cloud auth
+// lands, drop that flag to require a signed-in user. Optional model override:
+//   supabase secrets set COACH_MODEL=claude-haiku-4-5-20251001
 
 interface Body {
   question: string;

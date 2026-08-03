@@ -65,11 +65,14 @@ Supabase secret), never in the app bundle, the repo, or a chat message.
    ```
 3. **Deploy the function:**
    ```
-   supabase functions deploy coach-narrate
+   supabase functions deploy coach-narrate --no-verify-jwt
    ```
-4. Make sure the two `EXPO_PUBLIC_SUPABASE_*` values are in `apps/mobile/.env` (same as
-   the sync setup). With those present, the app auto-uses the caddie voice; without them
-   it stays deterministic. If the function is missing or errors, the chat silently falls
+   (`--no-verify-jwt` because the app currently uses local auth and calls the function
+   with the publishable key. When cloud auth lands, redeploy without the flag.)
+4. Make sure the two `EXPO_PUBLIC_SUPABASE_*` values are in `apps/mobile/.env`, then
+   restart Metro (`npx expo start -c`). With those present the app uses the caddie voice;
+   without them it stays deterministic. Your seeded golfer data is unaffected — only the
+   chat's phrasing changes. If the function or key is missing, the chat silently falls
    back to the grounded answer — it never breaks.
 
 Personality is chosen in-app under **Profile → Customize caddie** (name + preset:
