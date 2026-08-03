@@ -1,5 +1,5 @@
 import { sqlite } from './client';
-import { markOnboardingComplete } from './settings';
+import { isSeedLoaded, markSeedLoaded } from './settings';
 import {
   SEED_PROFILE,
   SEED_BAG_ID,
@@ -52,8 +52,7 @@ function shotToRow(s: Shot): Record<string, unknown> {
 }
 
 export function seedIfEmpty(): void {
-  const existing = sqlite.getFirstSync<{ c: number }>('SELECT COUNT(*) AS c FROM users;');
-  if ((existing?.c ?? 0) > 0) return;
+  if (isSeedLoaded()) return;
 
   sqlite.withTransactionSync(() => {
     insert('users', { id: SEED_PLAYER_ID, email: null, is_anonymous: 1, ...sync });
@@ -100,7 +99,5 @@ export function seedIfEmpty(): void {
     });
   });
 
-  // The demo user already has a baseline, so skip onboarding for them. A real fresh
-  // install has no seed and lands in onboarding.
-  markOnboardingComplete();
+  markSeedLoaded();
 }

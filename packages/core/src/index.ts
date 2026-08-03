@@ -9,5 +9,6 @@ export * from './types/coach';
 export * from './types/equipment';
 export * from './providers/index';
 export * from './caddie-presets';
+export * from './handicap';
 export * as schema from './db/schema';
 export * from './seed/seed-user-001';

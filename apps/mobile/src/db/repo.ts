@@ -34,6 +34,12 @@ function rowToShot(r: ShotRow): Shot {
 }
 
 export function getFirstUserId(): string | null {
+  // Prefer the explicitly-active user (sample vs personal on the same device).
+  const active = sqlite.getFirstSync<{ v: string }>("SELECT v FROM app_settings WHERE k = 'active_user_id';")?.v;
+  if (active) {
+    const ok = sqlite.getFirstSync<{ id: string }>('SELECT id FROM users WHERE id = ? AND deleted_at IS NULL;', [active]);
+    if (ok) return active;
+  }
   const row = sqlite.getFirstSync<{ id: string }>('SELECT id FROM users WHERE deleted_at IS NULL LIMIT 1;');
   return row?.id ?? null;
 }

@@ -31,14 +31,21 @@ Deno.serve(async (req: Request) => {
     return new Response('bad request', { status: 400 });
   }
   const p = body.persona;
-  const humor = p.humorLevel > 0.6 ? 'quite funny' : p.humorLevel > 0.3 ? 'lightly humorous' : 'mostly serious';
+  const humor =
+    p.humorLevel > 0.6
+      ? 'Lean into dry, deadpan wit — a sharp line or two, self-aware that golf is a ridiculous game, ' +
+        'roast the shot but never the person, and never at the expense of the actual advice'
+      : p.humorLevel > 0.3
+        ? 'lightly, wryly funny'
+        : 'mostly straight';
   const detail = p.detailLevel > 0.7 ? 'thorough with the numbers' : p.detailLevel > 0.4 ? 'balanced' : 'brief';
 
   const system =
-    `You are ${p.name}, a golf caddie. Voice: ${p.coachingStyle}; ${humor}; ${detail}. ` +
-    `Rewrite the caddie ANSWER below in your voice so it reads like you're talking to the golfer. ` +
+    `You are ${p.name}, a golf caddie. Voice: ${p.coachingStyle}. Tone: ${humor}. Detail: ${detail}. ` +
+    `Rewrite the caddie ANSWER below in your voice, like you're standing next to the golfer. Land the personality, ` +
+    `then deliver the facts. Keep it to 2–4 sentences. ` +
     `HARD RULES: do not change, add, or remove any number, distance, club, percentage, or recommendation. ` +
-    `Do not invent new advice or facts. If a fact isn't in the answer, don't mention it. Keep it to a few sentences. ` +
+    `Do not invent new advice or facts. If a fact isn't in the answer, don't mention it. ` +
     `No markdown headers or bullet symbols — just natural speech.`;
 
   const userContent =

@@ -7,26 +7,19 @@ import { StatusBar } from 'expo-status-bar';
 import { neutrals } from '@coopr/tokens';
 import { ThemeProvider } from '../src/theme';
 import { runMigrations } from '../src/db/migrations';
-import { seedIfEmpty } from '../src/db/seed';
 import { registry } from '../src/providers/registry';
 import { ensureLocalUserRow } from '../src/db/users';
 import { runSyncSafely } from '../src/features/sync-runner';
 
 const queryClient = new QueryClient();
 
-// Demo seed: loads Seed User 001 (the founding dataset) on first run so the app is
-// populated for validation. Production sets this false so a fresh user goes through
-// onboarding to build their own baseline.
-const LOAD_DEMO_SEED = true;
-
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Offline-first boot: migrate the local store and optionally load the demo seed.
-    // The UI is ready immediately — nothing here waits on the network.
+    // Offline-first boot: migrate the local store. The demo seed is NOT auto-loaded —
+    // the hero fork loads it only if the user chooses "explore the sample."
     runMigrations();
-    if (LOAD_DEMO_SEED) seedIfEmpty();
     setReady(true);
 
     // Online layer runs in the background and never gates play: ensure the auth
@@ -70,6 +63,7 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="onboarding" />
+            <Stack.Screen name="quick-start" options={{ headerShown: true, title: 'Quick start' }} />
             <Stack.Screen name="scorecard" options={{ headerShown: true, title: 'Scorecard' }} />
             <Stack.Screen name="ask" options={{ headerShown: true, title: 'Ask COOPR' }} />
             <Stack.Screen name="caddie-profile" options={{ headerShown: true, title: 'Your Caddie' }} />

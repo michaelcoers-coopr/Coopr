@@ -40,7 +40,7 @@ export default function Ask() {
       answer: {
         topic: 'help',
         title: `Ask ${persona.name}`,
-        paragraphs: ['I answer from your own numbers — what to practice, your club distances, bag gaps, and equipment direction. Ask me anything, or tap a starter below.'],
+        paragraphs: ["I run on your actual numbers, not wishful thinking — what to practice, your real distances, bag gaps, gear direction. Ask me anything, or tap a starter below."],
         bullets: [],
         followUps: SUGGESTED_QUESTIONS,
         grounded: true,

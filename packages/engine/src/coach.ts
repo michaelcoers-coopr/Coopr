@@ -162,7 +162,7 @@ export function askCoach(question: string, ctx: CoachContext): CoachAnswer {
   // help / unknown
   return answer(
     'help', 'Ask me about your game',
-    ["I answer from your own numbers — practice priorities, club distances, bag gaps, and equipment direction. Try one of these:"],
+    ["I work off your actual numbers, not vibes — practice priorities, club distances, bag gaps, gear direction. Ask away, or tap one below and pretend it was your idea:"],
     [],
     SUGGESTED_QUESTIONS,
   );

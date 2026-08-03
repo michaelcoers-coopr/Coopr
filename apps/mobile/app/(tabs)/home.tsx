@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme';
 import { Card, H1, H2, Body, Label, Button, Divider, Wordmark } from '../../src/ui';
 import { getFirstUserId, getGolferProfile, getActiveBagId, listClubs, listShotsForPlayer, getSuspectedCalibration } from '../../src/db/repo';
+import { getSetting } from '../../src/db/settings';
 
 export default function Home() {
   const t = useTheme();
@@ -24,6 +25,7 @@ export default function Home() {
         </View>
         <H1>{profile?.name ? `Hi, ${profile.name}` : 'Welcome'}</H1>
         <Body muted>Know your game. Play your game.</Body>
+        <DataBanner />
 
         <View style={{ height: t.spacing.xl }} />
         <Button title="PLAY GOLF" onPress={() => router.push('/scorecard')} />
@@ -61,5 +63,27 @@ export default function Home() {
         ) : null}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function DataBanner() {
+  const t = useTheme();
+  const kind = getSetting('data_kind');
+  const text =
+    kind === 'sample'
+      ? 'Sample golfer — real TrackMan data.'
+      : kind === 'estimate'
+        ? 'Estimated from your handicap. Log real shots to make it truly yours.'
+        : null;
+  if (!text) return null;
+  return (
+    <View
+      style={{
+        alignSelf: 'flex-start', marginTop: t.spacing.sm, paddingVertical: 4, paddingHorizontal: t.spacing.md,
+        borderRadius: t.radius.pill, borderColor: t.accent, borderWidth: 1,
+      }}
+    >
+      <Body style={{ color: t.accent, fontSize: t.fontSize.xs }}>{text}</Body>
+    </View>
   );
 }
