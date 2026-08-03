@@ -71,6 +71,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="onboarding" />
             <Stack.Screen name="ask" options={{ headerShown: true, title: 'Ask COOPR' }} />
+            <Stack.Screen name="caddie-profile" options={{ headerShown: true, title: 'Your Caddie' }} />
             <Stack.Screen name="assessment" options={{ headerShown: true, title: 'Golf IQ' }} />
             <Stack.Screen name="equipment-lab" options={{ headerShown: true, title: 'Equipment Lab' }} />
             <Stack.Screen name="club/[id]" options={{ headerShown: true, title: 'Club' }} />

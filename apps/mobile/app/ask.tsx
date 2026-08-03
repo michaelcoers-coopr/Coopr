@@ -1,30 +1,45 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ScrollView, View, TextInput, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SUGGESTED_QUESTIONS } from '@coopr/engine';
 import type { CoachAnswer } from '@coopr/core';
 import { useTheme } from '../src/theme';
 import { Body, Label, DoneAccessory, DONE_ACCESSORY_ID } from '../src/ui';
-import { getFirstUserId } from '../src/db/repo';
+import { getFirstUserId, getCaddiePersona } from '../src/db/repo';
 import { ask } from '../src/features/coach';
+import { registry } from '../src/providers/registry';
 
 interface Msg {
+  id: number;
   role: 'user' | 'coach';
   text?: string;
   answer?: CoachAnswer;
+  narration?: string; // conversational rewrite (LLM), when available
+  pending?: boolean;
+}
+
+function flatten(a: CoachAnswer): string {
+  const bullets = a.bullets.map((b) => `- ${b.label}${b.detail ? `: ${b.detail}` : ''}`);
+  return [...a.paragraphs.filter(Boolean), ...bullets].join('\n');
 }
 
 export default function Ask() {
   const t = useTheme();
   const userId = getFirstUserId();
   const scroller = useRef<ScrollView>(null);
+  const idRef = useRef(1);
+  const persona = useMemo(
+    () => (userId ? getCaddiePersona(userId) : { name: 'Coop', humorLevel: 0.3, detailLevel: 0.6, coachingStyle: 'direct' }),
+    [userId],
+  );
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Msg[]>([
     {
+      id: 0,
       role: 'coach',
       answer: {
         topic: 'help',
-        title: 'Ask COOPR',
+        title: `Ask ${persona.name}`,
         paragraphs: ['I answer from your own numbers — what to practice, your club distances, bag gaps, and equipment direction. Ask me anything, or tap a starter below.'],
         bullets: [],
         followUps: SUGGESTED_QUESTIONS,
@@ -37,12 +52,26 @@ export default function Ask() {
     const question = q.trim();
     if (!question) return;
     const a = userId ? ask(userId, question, Date.now()) : null;
+    const hasLLM = !!registry.language && !!a;
+    const userMsg: Msg = { id: idRef.current++, role: 'user', text: question };
     const coachMsg: Msg = a
-      ? { role: 'coach', answer: a }
-      : { role: 'coach', text: 'Log a session first and I can answer from your real numbers.' };
-    setMessages((m) => [...m, { role: 'user', text: question }, coachMsg]);
+      ? { id: idRef.current++, role: 'coach', answer: a, pending: hasLLM }
+      : { id: idRef.current++, role: 'coach', text: 'Log a session first and I can answer from your real numbers.' };
+    setMessages((m) => [...m, userMsg, coachMsg]);
     setInput('');
     setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 50);
+
+    // Optional conversational rewrite in the caddie's voice — grounded facts unchanged.
+    if (hasLLM && a) {
+      registry
+        .language!.narrateCoach({ question, groundedTitle: a.title, groundedText: flatten(a), persona })
+        .then((text) =>
+          setMessages((m) => m.map((x) => (x.id === coachMsg.id ? { ...x, narration: text, pending: false } : x))),
+        )
+        .catch(() =>
+          setMessages((m) => m.map((x) => (x.id === coachMsg.id ? { ...x, pending: false } : x))),
+        );
+    }
   };
 
   return (
@@ -113,9 +142,14 @@ function CoachBubble({ msg, onFollowUp }: { msg: Msg; onFollowUp: (q: string) =>
         {a ? (
           <>
             <Label>{a.title}</Label>
-            {a.paragraphs.filter(Boolean).map((p, i) => (
-              <Body key={i} style={{ marginTop: t.spacing.sm }}>{p}</Body>
-            ))}
+            {msg.narration ? (
+              <Body style={{ marginTop: t.spacing.sm }}>{msg.narration}</Body>
+            ) : (
+              a.paragraphs.filter(Boolean).map((p, i) => (
+                <Body key={i} style={{ marginTop: t.spacing.sm }}>{p}</Body>
+              ))
+            )}
+            {msg.pending ? <Body muted style={{ marginTop: t.spacing.xs, fontSize: t.fontSize.xs }}>…</Body> : null}
             {a.bullets.map((b, i) => (
               <View key={i} style={{ flexDirection: 'row', gap: t.spacing.sm, marginTop: t.spacing.sm }}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: t.accent, marginTop: 7 }} />

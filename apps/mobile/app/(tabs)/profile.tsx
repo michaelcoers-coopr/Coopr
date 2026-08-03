@@ -1,17 +1,20 @@
 import { ScrollView, View, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme';
 import { H1, Body, Label, Card, Button, Divider } from '../../src/ui';
-import { getFirstUserId, getGolferProfile, listShotsForPlayer, getSuspectedCalibration } from '../../src/db/repo';
+import { getFirstUserId, getGolferProfile, listShotsForPlayer, getSuspectedCalibration, getCaddieRow } from '../../src/db/repo';
 import { buildShotsCsv, buildShotsJson } from '../../src/features/export';
 import { registry } from '../../src/providers/registry';
 
 export default function Profile() {
   const t = useTheme();
+  const router = useRouter();
   const userId = getFirstUserId();
   const profile = userId ? getGolferProfile(userId) : null;
   const shots = userId ? listShotsForPlayer(userId) : [];
   const calibration = userId ? getSuspectedCalibration(userId) : null;
+  const caddie = userId ? getCaddieRow(userId) : null;
 
   const exportData = (fmt: 'csv' | 'json') => {
     const content = fmt === 'csv' ? buildShotsCsv(shots) : buildShotsJson(shots);
@@ -24,6 +27,14 @@ export default function Profile() {
       <ScrollView contentContainerStyle={{ padding: t.spacing.lg }}>
         <Label>Profile</Label>
         <H1>{profile?.name ?? 'Golfer'}</H1>
+
+        <Card>
+          <Label>Your caddie</Label>
+          <Row label="Name" value={caddie?.name ?? 'Coop'} />
+          <Row label="Personality" value={caddie?.personality ?? 'Straight Shooter'} />
+          <View style={{ height: t.spacing.sm }} />
+          <Button title="Customize caddie" kind="ghost" onPress={() => router.push('/caddie-profile')} />
+        </Card>
 
         <Card>
           <Row label="Handicap" value={profile?.handicap != null ? String(profile.handicap) : '—'} />

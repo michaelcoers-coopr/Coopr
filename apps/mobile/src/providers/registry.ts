@@ -4,6 +4,7 @@ import { LocalAuthProvider } from './local-auth';
 import { supabase, isSupabaseConfigured } from './supabase-client';
 import { SupabaseAuthProvider } from './supabase-auth';
 import { SupabaseSyncProvider } from './supabase-sync';
+import { SupabaseLanguageProvider } from './supabase-language';
 
 // The app's provider registry. When Supabase env vars are present, the cloud auth and
 // sync adapters are wired; otherwise the app runs fully offline with local-only auth.
@@ -13,5 +14,8 @@ import { SupabaseSyncProvider } from './supabase-sync';
 export const registry: ProviderRegistry = {
   auth: isSupabaseConfigured && supabase ? new SupabaseAuthProvider(supabase) : new LocalAuthProvider(),
   sync: isSupabaseConfigured && supabase ? new SupabaseSyncProvider(supabase) : undefined,
+  // Wired when Supabase is configured; narration still no-ops gracefully until the
+  // coach-narrate function + ANTHROPIC_API_KEY are deployed.
+  language: isSupabaseConfigured && supabase ? new SupabaseLanguageProvider(supabase) : undefined,
   analytics: noopAnalytics,
 };

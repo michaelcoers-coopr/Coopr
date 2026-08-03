@@ -1,5 +1,5 @@
 import { sqlite } from './client';
-import type { Shot, Club, CalibrationProfile, ClubFeedbackInput } from '@coopr/core';
+import type { Shot, Club, CalibrationProfile, ClubFeedbackInput, CaddiePersona } from '@coopr/core';
 
 // Thin read layer over the local SQLite store. All reads are local and synchronous —
 // the UI never blocks on the network (offline-first).
@@ -109,6 +109,23 @@ export function listClubFeedback(bagId: string): ClubFeedbackInput[] {
 export function validationRequiredSessionIds(): Set<string> {
   const rows = sqlite.getAllSync<{ id: string }>('SELECT id FROM sessions WHERE validation_required = 1;');
   return new Set(rows.map((r) => r.id));
+}
+
+interface CaddieRow {
+  id: string; name: string; personality: string | null; humor_level: number; detail_level: number; coaching_style: string | null;
+}
+export function getCaddieRow(userId: string): CaddieRow | null {
+  return (
+    sqlite.getFirstSync<CaddieRow>(
+      'SELECT id, name, personality, humor_level, detail_level, coaching_style FROM caddie_profiles WHERE user_id = ? AND deleted_at IS NULL LIMIT 1;',
+      [userId],
+    ) ?? null
+  );
+}
+export function getCaddiePersona(userId: string): CaddiePersona {
+  const r = getCaddieRow(userId);
+  if (!r) return { name: 'Coop', humorLevel: 0.3, detailLevel: 0.6, coachingStyle: 'direct and concise' };
+  return { name: r.name, humorLevel: r.humor_level, detailLevel: r.detail_level, coachingStyle: r.coaching_style ?? 'direct' };
 }
 
 export function getSuspectedCalibration(playerId: string): CalibrationProfile | null {

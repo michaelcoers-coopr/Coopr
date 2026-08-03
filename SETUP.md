@@ -46,12 +46,34 @@ the Supabase auth/sync adapters activate automatically once the keys are present
 - Create the App ID `app.coopr.mobile` and an App Store Connect app record.
 - `eas submit --platform ios` ships the build to TestFlight.
 
-## Later (not blocking a TestFlight build)
+## Caddie voice (Anthropic) — turns Ask COOPR conversational
 
-- **Language provider (caddie voice + Golf IQ narration).** An Anthropic (or other)
-  API key, called from a Supabase edge function — never bundled in the app. The
-  deterministic engine already produces the numbers and reasons; this only adds
-  personality. Provide the key when you want the narration layer on.
+The chat and caddie already work offline with grounded, deterministic answers. Adding an
+Anthropic key rewrites those answers in the caddie's chosen personality — the model only
+rephrases; it never changes a number or picks a club. The key lives **server-side** (a
+Supabase secret), never in the app bundle, the repo, or a chat message.
+
+1. **Get the key.** console.anthropic.com → sign in → **API Keys → Create Key**. Add a
+   little credit under **Billing** (usage is pennies for this rephrase task on Haiku).
+   Copy the `sk-ant-...` key.
+2. **Store it as a Supabase secret** (needs the Supabase CLI: `npm i -g supabase`, then
+   `supabase login` and `supabase link --project-ref snybvxrnhslfnxzsxtio`):
+   ```
+   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+   # optional model override (default is claude-haiku-4-5-20251001):
+   # supabase secrets set COACH_MODEL=claude-sonnet-5
+   ```
+3. **Deploy the function:**
+   ```
+   supabase functions deploy coach-narrate
+   ```
+4. Make sure the two `EXPO_PUBLIC_SUPABASE_*` values are in `apps/mobile/.env` (same as
+   the sync setup). With those present, the app auto-uses the caddie voice; without them
+   it stays deterministic. If the function is missing or errors, the chat silently falls
+   back to the grounded answer — it never breaks.
+
+Personality is chosen in-app under **Profile → Customize caddie** (name + preset:
+Straight Shooter, Old School, Data Nerd, Dry Humor, Hype).
 - **Subscriptions.** A RevenueCat account when we build Free/Pro (pricing stays
   remote-configurable; nothing hardcoded).
 - **TrackMan / launch-monitor direct connect.** A commercial API arrangement with

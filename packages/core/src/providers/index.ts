@@ -34,16 +34,27 @@ export interface SyncProvider {
   pull(since: number): Promise<RowDelta[]>;
 }
 
-// Explains and personalizes only. It is NEVER handed the club/target/mode decision.
-export interface LanguageProvider {
-  narrate(reasons: { code: string; text: string }[], persona: CaddiePersona): Promise<string>;
-}
-
 export interface CaddiePersona {
   name: string;
   humorLevel: number; // 0..1
   detailLevel: number; // 0..1
   coachingStyle: string;
+}
+
+// Grounded facts handed to the model for a coach answer. The model rewrites this in the
+// caddie's voice and MUST NOT change any number, distance, club, or recommendation.
+export interface CoachNarrationInput {
+  question: string;
+  groundedTitle: string;
+  groundedText: string;
+  persona: CaddiePersona;
+}
+
+// Explains and personalizes only. It is NEVER handed the club/target/mode decision, and
+// it only rephrases facts the deterministic engines already produced (invariant 1).
+export interface LanguageProvider {
+  narrate(reasons: { code: string; text: string }[], persona: CaddiePersona): Promise<string>;
+  narrateCoach(input: CoachNarrationInput): Promise<string>;
 }
 
 export interface VisionExtraction {
