@@ -27,7 +27,7 @@ export default function Home() {
 
         <View style={{ height: t.spacing.xl }} />
         <Button title="PLAY GOLF" onPress={() => router.push('/caddie')} />
-        <Button title="ASK MY CADDIE" kind="ghost" onPress={() => router.push('/caddie')} />
+        <Button title="ASK MY CADDIE" kind="ghost" onPress={() => router.push('/ask')} />
         <Button title="SEE MY GOLF IQ" kind="ghost" onPress={() => router.push('/assessment')} />
 
         <View style={{ height: t.spacing.xl }} />

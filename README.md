@@ -60,7 +60,8 @@ dependency, and separated performance contexts. See `ARCHITECTURE.md`.
 Done: monorepo, offline SQLite + migrations, seed dataset, club-profile engine,
 deterministic recommendation engine, **deterministic Golf IQ assessment engine**,
 **Bag Intelligence + Equipment Lab engine** (gaps, overlap, keep/test/replace/remove,
-ideal-14), full test suite (35 tests), Quick Caddie, **first-run onboarding** (guided
+ideal-14), **Ask COOPR coach** (grounded Q&A from the player's own data), full test
+suite (42 tests), Quick Caddie, **first-run onboarding** (guided
 baseline capture + CSV import with confirmation), assessment + Equipment Lab screens,
 bag/club/practice/profile screens, provider interfaces, local-only auth, **env-gated
 Supabase auth/sync adapters**, sync data model + LWW reconciliation core, CSV/JSON

@@ -5,6 +5,7 @@ export * from './types/profile';
 export * from './types/recommendation';
 export * from './types/assessment';
 export * from './types/bag';
+export * from './types/coach';
 export * from './types/equipment';
 export * from './providers/index';
 export * as schema from './db/schema';

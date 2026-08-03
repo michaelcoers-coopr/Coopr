@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
+import { neutrals } from '@coopr/tokens';
 import { ThemeProvider } from '../src/theme';
 import { runMigrations } from '../src/db/migrations';
 import { seedIfEmpty } from '../src/db/seed';
@@ -57,10 +58,19 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <StatusBar style="light" />
-          <Stack screenOptions={{ headerShown: false }}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              headerStyle: { backgroundColor: neutrals.ink },
+              headerTintColor: neutrals.textPrimary,
+              headerShadowVisible: false,
+              contentStyle: { backgroundColor: neutrals.ink },
+            }}
+          >
             <Stack.Screen name="index" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="onboarding" />
+            <Stack.Screen name="ask" options={{ headerShown: true, title: 'Ask COOPR' }} />
             <Stack.Screen name="assessment" options={{ headerShown: true, title: 'Golf IQ' }} />
             <Stack.Screen name="equipment-lab" options={{ headerShown: true, title: 'Equipment Lab' }} />
             <Stack.Screen name="club/[id]" options={{ headerShown: true, title: 'Club' }} />

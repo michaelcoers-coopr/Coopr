@@ -5,3 +5,4 @@ export * from './recommendation';
 export * from './club-order';
 export * from './golf-iq';
 export * from './bag-intelligence';
+export * from './coach';
