@@ -70,6 +70,7 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="onboarding" />
+            <Stack.Screen name="scorecard" options={{ headerShown: true, title: 'Scorecard' }} />
             <Stack.Screen name="ask" options={{ headerShown: true, title: 'Ask COOPR' }} />
             <Stack.Screen name="caddie-profile" options={{ headerShown: true, title: 'Your Caddie' }} />
             <Stack.Screen name="assessment" options={{ headerShown: true, title: 'Golf IQ' }} />
