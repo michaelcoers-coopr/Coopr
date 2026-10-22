@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { readExtractOrigin } from './extract-origin.mjs';
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -26,12 +27,26 @@ This publishes the preview channel with founder tools on.
 Production and store builds keep EXPO_PUBLIC_FOUNDER_TOOLS=0.`);
 }
 
+const originFile = path.join(appRoot, 'extract-origin.txt');
+const extractOrigin = readExtractOrigin({
+  env: process.env,
+  fileText: existsSync(originFile) ? readFileSync(originFile, 'utf8') : '',
+});
+if (!extractOrigin) {
+  fail(`No Ask COOPR origin is set.
+
+Export EXPO_PUBLIC_EXTRACT_URL, or run scripts/deploy-voice.sh so it writes apps/mobile/extract-origin.txt.
+That origin is the EAS Hosting URL. It is not the ElevenLabs key.`);
+}
+
 const env = {
   ...process.env,
+  EXPO_PUBLIC_EXTRACT_URL: extractOrigin,
   EXPO_PUBLIC_FOUNDER_TOOLS: '1',
   CI: '1',
   EXPO_NO_TELEMETRY: '1',
 };
+delete env.ELEVENLABS_API_KEY;
 
 function run(args) {
   const result = spawnSync('npx', args, { cwd: appRoot, env, stdio: 'inherit' });
@@ -64,6 +79,7 @@ if (!committedProjectId) {
 }
 
 console.log(`Publishing the preview channel for @${linked.expo.owner}/coopr with EXPO_PUBLIC_FOUNDER_TOOLS=1.`);
+console.log(`Ask COOPR origin ${extractOrigin}`);
 run(['--yes', 'eas-cli@latest', 'whoami', '--non-interactive']);
 
 const config = readConfig();

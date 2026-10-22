@@ -43,7 +43,45 @@ Rough and sand add yards the club has to cover. The table is an estimate, and th
 
 Green is "On the green. No full swing." Inside 40 yards the wedge matrix is used. Farther out, the existing club call is used. A bunker or water on one side adds "Favor the other side."
 
-## Server
+## Hosted on EAS
+
+The phone calls the production origin of project `@mikecoers/coopr`. API routes live in the Expo app:
+
+- `POST /v1/voice` transcribes with ElevenLabs Scribe. The route reads `ELEVENLABS_API_KEY` from the server environment. It does not read `EXPO_PUBLIC_ELEVENLABS_API_KEY`.
+- `POST /v1/extract` is the same photo route as the local server.
+
+Both refuse a body over 8 MB. Voice also refuses a body that is not an audio type (`audio/m4a`, `audio/mp4`, `audio/wav`, and the other types in `apps/mobile/src/api-guard.ts`), whether that type is the HTTP header or the JSON `mediaType`. Each route allows 20 calls a minute per IP, on that server instance. The phone still posts JSON. A clip can also be posted raw with an audio content type.
+
+`web.output` is `server`, which is what EAS Hosting needs for those routes.
+
+From the repo root, with both values exported and neither committed:
+
+```bash
+export EXPO_TOKEN='...'
+export ELEVENLABS_API_KEY='...'
+bash scripts/deploy-voice.sh
+```
+
+The script sets `ELEVENLABS_API_KEY` on the production EAS environment as **sensitive**. EAS Hosting does not deploy a **secret** into an API route, so a secret would leave Scribe deaf. The script does not print the key. Its only stdout line is the origin, which it also writes to `apps/mobile/extract-origin.txt`.
+
+Then publish the Expo Go preview so the phone has that origin:
+
+```bash
+export EXPO_TOKEN='...'
+npm run preview:publish
+```
+
+`preview:publish` uses `EXPO_PUBLIC_EXTRACT_URL` if it is set, otherwise the https line in `apps/mobile/extract-origin.txt`. It does not send the ElevenLabs key into the app.
+
+Check a real clip:
+
+```bash
+bash scripts/verify-voice.sh https://the-origin.expo.app path/to/clip.m4a
+```
+
+That prints the transcript and the parsed intent.
+
+## Local server
 
 Same process as photo extract:
 
@@ -74,8 +112,8 @@ MusicKit, Spotify, Amazon Music, ducking, and the ElevenLabs React Native SDK st
 
 Send these on a secure channel. Not in chat, not in git, not in an issue.
 
-1. `ELEVENLABS_API_KEY` for the Scribe account. Without it, Ask COOPR speaks the canned transcript and does not hear him.
-2. `ELEVENLABS_STT_MODEL`, only if `scribe_v1` is wrong for that account.
-3. The public origin of this server, as `EXPO_PUBLIC_EXTRACT_URL` when the preview is published. That origin is not the key.
+1. `ELEVENLABS_API_KEY` for the Scribe account, exported in the shell that runs `scripts/deploy-voice.sh`. Without it, Ask COOPR speaks the canned transcript and does not hear him.
+2. `EXPO_TOKEN` for the `@mikecoers` Expo account, in that same shell, and again for `npm run preview:publish`.
+3. `ELEVENLABS_STT_MODEL` on the EAS production environment, only if `scribe_v1` is wrong for that account.
 
 A real phone is still required for the microphone, for `expo-speech` audio, and for a live GPS distance. The browser check uses a simulated sentence and a simulated position.

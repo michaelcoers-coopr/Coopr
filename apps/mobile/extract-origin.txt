@@ -1,0 +1,1 @@
+# EAS Hosting origin for Ask COOPR. Not a secret. scripts/deploy-voice.sh writes the URL.

@@ -19,6 +19,15 @@ Since 12 May 2026, Expo Go only loads an EAS Update for a project the signed-in 
 
 ```bash
 export EXPO_TOKEN='paste-token-here'
+export ELEVENLABS_API_KEY='paste-key-here'
+bash scripts/deploy-voice.sh
+npm run preview:publish
+```
+
+`deploy-voice.sh` prints one line, the EAS Hosting origin, and writes it to `apps/mobile/extract-origin.txt`. `preview:publish` reads that file, or `EXPO_PUBLIC_EXTRACT_URL` if you set it. Do not commit the token or the ElevenLabs key. The origin is not a secret. Details are in `docs/VOICE.md`.
+
+```bash
+export EXPO_TOKEN='paste-token-here'
 npm run preview:publish
 ```
 

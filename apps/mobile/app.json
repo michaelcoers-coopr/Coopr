@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "web": {
       "bundler": "metro",
-      "output": "single"
+      "output": "server"
     },
     "ios": {
       "supportsTablet": false,
