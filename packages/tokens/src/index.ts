@@ -1,6 +1,6 @@
 /**
  * Navy, white, and red. Red is for hazards and a lay-up warning.
- * There is no green fill. The crest artwork is a stand-in until the official Navy Fill file is supplied.
+ * There is no green fill. The Navy Fill crest is the supplied raster. It is not redrawn.
  */
 export const TAGLINE = "The smartest caddie you'll ever carry";
 

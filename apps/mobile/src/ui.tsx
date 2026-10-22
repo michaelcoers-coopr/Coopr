@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@coopr/tokens';
 
@@ -65,13 +65,12 @@ export function Lines({ lines }: { lines: readonly string[] }) {
 
 export function Crest() {
   return (
-    <View accessibilityLabel="Navy Fill crest, stand-in mark" style={styles.crestWrap}>
-      <View style={styles.shield}>
-        <Text style={styles.crestLetters}>NF</Text>
-        <View style={styles.crestBar} />
-      </View>
-      <Text style={styles.crestName}>Navy Fill</Text>
-    </View>
+    <Image
+      accessibilityLabel="Navy Fill crest"
+      source={require('../assets/coopr-crest-navy-fill.jpg')}
+      style={styles.crest}
+      resizeMode="contain"
+    />
   );
 }
 
@@ -116,20 +115,5 @@ const styles = StyleSheet.create({
   choiceText: { color: colors.navy, fontSize: 18, fontWeight: '700' },
   choiceTextOn: { color: colors.white },
   line: { color: colors.text, fontSize: 18, lineHeight: 26 },
-  crestWrap: { alignItems: 'center', gap: 8, paddingTop: 8 },
-  shield: {
-    width: 84,
-    height: 96,
-    backgroundColor: colors.navy,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    borderBottomLeftRadius: 42,
-    borderBottomRightRadius: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  crestLetters: { color: colors.white, fontSize: 28, fontWeight: '800', letterSpacing: 1 },
-  crestBar: { width: 36, height: 6, backgroundColor: colors.red, borderRadius: 3 },
-  crestName: { color: colors.navy, fontSize: 16, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' },
+  crest: { width: 220, height: 220, alignSelf: 'center' },
 });

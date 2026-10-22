@@ -4,7 +4,7 @@ Founder decision, 22 Oct 2026. Scope is the competitive audit and the Tiger-lens
 
 Brand for these phases: navy, white, and red. The Navy Fill crest. Tagline: "The smartest caddie you'll ever carry." No green fills. The voice on screen is dry and does not invent a number. The full caddie stays on. Tournament mode stays off until the Later phase is approved.
 
-The crest drawn in the app is a stand-in: a navy shield, white "NF", and a red bar. It is not the official artwork. That file still has to come from Mike.
+The crest on the home screen is the official Navy Fill raster. It is shown as supplied. A vector redraw comes later.
 
 ## Why this order
 
@@ -84,7 +84,7 @@ Plays-like is an adjustment, shown next to the raw yardage. Wind is 1% of the ra
 
 The dispersion drawing uses measured carry P20 and P80. If the side-to-side spread was not measured, the map draws a line and says the width is unknown. A tap-to-measure line is a map distance. It is not a shot and not a carry. Satellite imagery is Apple Maps on the iPhone. The web drawing is the same open shapes without the photo.
 
-The crest on screen is still the stand-in. The official Navy Fill file is not in the repo.
+The crest on the home screen is the official Navy Fill raster.
 
 Scope:
 
