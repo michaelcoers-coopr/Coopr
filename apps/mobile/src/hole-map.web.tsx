@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Polygon, Polyline } from 'react-native-svg';
 import type { LatLon } from '@coopr/domain';
 import { colors } from '@coopr/tokens';
@@ -41,7 +41,7 @@ export function HoleMap(props: HoleMapProps) {
           <Polygon key={`bunker-${index}`} points={pointsOf(ring, projection)} fill={colors.white} stroke={colors.navy} strokeWidth={1.5} />
         ))}
         {props.hazards.map((ring, index) => (
-          <Polygon key={`hazard-${index}`} points={pointsOf(ring, projection)} fill="rgba(200,16,46,0.35)" stroke={colors.red} strokeWidth={2} />
+          <Polygon key={`hazard-${index}`} points={pointsOf(ring, projection)} fill={colors.red} fillOpacity={0.72} stroke={colors.red} strokeWidth={3} />
         ))}
         {props.green.map((ring, index) => (
           <Polygon key={`green-${index}`} points={pointsOf(ring, projection)} fill={colors.white} stroke={colors.navy} strokeWidth={2.5} />
@@ -55,6 +55,16 @@ export function HoleMap(props: HoleMapProps) {
         ) : null}
         {props.measure.length > 1 ? <Polyline points={pointsOf(props.measure, projection)} fill="none" stroke={colors.red} strokeWidth={3} /> : null}
       </Svg>
+      <View pointerEvents="none" style={styles.float}>
+        <View>
+          <Text style={styles.kicker}>Raw</Text>
+          <Text style={styles.raw}>{props.rawLabel}</Text>
+        </View>
+        <View>
+          <Text style={styles.kicker}>Plays like</Text>
+          <Text style={styles.plays}>{props.playsLabel}</Text>
+        </View>
+      </View>
       <Muted>Open geometry. Satellite imagery is on the iPhone. A tap is a map distance, not a shot.</Muted>
     </View>
   );
@@ -62,4 +72,21 @@ export function HoleMap(props: HoleMapProps) {
 
 const styles = StyleSheet.create({
   frame: { borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: colors.navy, backgroundColor: colors.bg },
+  float: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    top: 248,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: colors.navy,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  kicker: { color: colors.muted, fontSize: 12, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
+  raw: { color: colors.navy, fontSize: 42, fontWeight: '800', lineHeight: 46 },
+  plays: { color: colors.navy, fontSize: 42, fontWeight: '800', lineHeight: 46, textAlign: 'right' },
 });

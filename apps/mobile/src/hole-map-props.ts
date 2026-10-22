@@ -10,4 +10,6 @@ export interface HoleMapProps {
   dispersionLine: readonly LatLon[];
   measure: readonly LatLon[];
   onTap: (point: LatLon) => void;
+  rawLabel: string;
+  playsLabel: string;
 }

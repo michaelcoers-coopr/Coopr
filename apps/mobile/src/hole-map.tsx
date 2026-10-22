@@ -1,5 +1,5 @@
 import MapView, { Polygon, Polyline } from 'react-native-maps';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { LatLon } from '@coopr/domain';
 import { colors } from '@coopr/tokens';
 import type { HoleMapProps } from './hole-map-props';
@@ -51,11 +51,39 @@ export function HoleMap(props: HoleMapProps) {
         {props.dispersionLine.length > 1 ? <Polyline coordinates={coords(props.dispersionLine)} strokeColor={colors.white} strokeWidth={4} /> : null}
         {props.measure.length > 1 ? <Polyline coordinates={coords(props.measure)} strokeColor={colors.red} strokeWidth={3} /> : null}
       </MapView>
+      <View pointerEvents="none" style={styles.float}>
+        <View>
+          <Text style={styles.kicker}>Raw</Text>
+          <Text style={styles.raw}>{props.rawLabel}</Text>
+        </View>
+        <View>
+          <Text style={styles.kicker}>Plays like</Text>
+          <Text style={styles.plays}>{props.playsLabel}</Text>
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  frame: { height: 320, borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: colors.navy },
+  frame: { height: 360, borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: colors.navy },
   map: { flex: 1 },
+  float: {
+    position: 'absolute',
+    zIndex: 2,
+    left: 12,
+    right: 12,
+    bottom: 12,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: colors.navy,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  kicker: { color: colors.muted, fontSize: 12, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
+  raw: { color: colors.navy, fontSize: 42, fontWeight: '800', lineHeight: 46 },
+  plays: { color: colors.navy, fontSize: 42, fontWeight: '800', lineHeight: 46, textAlign: 'right' },
 });

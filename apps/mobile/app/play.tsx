@@ -255,6 +255,8 @@ export default function PlayScreen() {
         dispersionLine={dispersionLine}
         measure={measure}
         onTap={(point) => setMeasure((current) => (current.length >= 2 ? [point] : [...current, point]))}
+        rawLabel={formatDistance(playingYards, unit)}
+        playsLabel={playsLikeYards == null ? '—' : formatDistance(playsLikeYards, unit)}
       />
       <Muted>
         {measureYards == null
