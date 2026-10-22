@@ -13,4 +13,6 @@ export interface HoleMapProps {
   rawLabel: string;
   playsLabel: string;
   height?: number;
+  /** Edge-to-edge hole. The yardage lives in the sheet, not on the map. */
+  bleed?: boolean;
 }

@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Polygon, Polyline } from 'react-native-svg';
 import type { LatLon } from '@coopr/domain';
-import { colors } from '@coopr/tokens';
+import { colors, play } from '@coopr/tokens';
 import { projectPoints } from '@coopr/engine';
 import { Muted } from './ui';
 import type { HoleMapProps } from './hole-map-props';
@@ -21,8 +21,11 @@ export function HoleMap(props: HoleMapProps) {
   if (cloud.length === 0) return <Muted>This hole has no open geometry to draw.</Muted>;
   const height = props.height ?? 220;
   const projection = projectPoints(cloud, WIDTH, height, 12);
+  const bleed = props.bleed === true;
+  const ink = bleed ? 'rgba(255,255,255,0.78)' : colors.navy;
+  const fairwayFill = bleed ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.9)';
   return (
-    <View style={styles.frame}>
+    <View style={[styles.frame, bleed && styles.bleed, bleed && { height }]}>
       <Svg
         width="100%"
         height={height}
@@ -35,27 +38,27 @@ export function HoleMap(props: HoleMapProps) {
         }}
       >
         {props.fairways.map((ring, index) => (
-          <Polygon key={`fairway-${index}`} points={pointsOf(ring, projection)} fill="rgba(255,255,255,0.9)" stroke={colors.navy} strokeWidth={2} />
+          <Polygon key={`fairway-${index}`} points={pointsOf(ring, projection)} fill={fairwayFill} stroke={ink} strokeWidth={2} />
         ))}
         {props.bunkers.map((ring, index) => (
-          <Polygon key={`bunker-${index}`} points={pointsOf(ring, projection)} fill={colors.white} stroke={colors.navy} strokeWidth={1.5} />
+          <Polygon key={`bunker-${index}`} points={pointsOf(ring, projection)} fill={bleed ? 'rgba(255,255,255,0.42)' : colors.white} stroke={ink} strokeWidth={1.5} />
         ))}
         {props.hazards.map((ring, index) => (
           <Polygon key={`hazard-${index}`} points={pointsOf(ring, projection)} fill={colors.red} fillOpacity={0.72} stroke={colors.red} strokeWidth={3} />
         ))}
         {props.green.map((ring, index) => (
-          <Polygon key={`green-${index}`} points={pointsOf(ring, projection)} fill={colors.white} stroke={colors.navy} strokeWidth={2.5} />
+          <Polygon key={`green-${index}`} points={pointsOf(ring, projection)} fill={bleed ? 'rgba(255,255,255,0.55)' : colors.white} stroke={ink} strokeWidth={2.5} />
         ))}
-        {props.line.length > 1 ? <Polyline points={pointsOf(props.line, projection)} fill="none" stroke={colors.navy} strokeWidth={3} /> : null}
+        {props.line.length > 1 ? <Polyline points={pointsOf(props.line, projection)} fill="none" stroke={bleed ? play.live : colors.navy} strokeWidth={3} /> : null}
         {props.ellipse && props.ellipse.length > 2 ? (
           <Polygon points={pointsOf(props.ellipse, projection)} fill="rgba(11,31,58,0.18)" stroke={colors.navy} strokeWidth={2} />
         ) : null}
         {props.dispersionLine.length > 1 ? (
-          <Polyline points={pointsOf(props.dispersionLine, projection)} fill="none" stroke={colors.navy} strokeWidth={4} />
+          <Polyline points={pointsOf(props.dispersionLine, projection)} fill="none" stroke={bleed ? play.live : colors.navy} strokeWidth={4} />
         ) : null}
         {props.measure.length > 1 ? <Polyline points={pointsOf(props.measure, projection)} fill="none" stroke={colors.red} strokeWidth={3} /> : null}
       </Svg>
-      <View pointerEvents="none" style={[styles.float, { top: height - 74 }]}>
+      {bleed ? null : <View pointerEvents="none" style={[styles.float, { top: height - 74 }]}>
         <View>
           <Text style={styles.kicker}>Shot</Text>
           <Text style={styles.raw}>{props.rawLabel}</Text>
@@ -64,13 +67,14 @@ export function HoleMap(props: HoleMapProps) {
           <Text style={styles.kicker}>Plays like</Text>
           <Text style={styles.plays}>{props.playsLabel}</Text>
         </View>
-      </View>
+      </View>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   frame: { borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2', backgroundColor: colors.bg },
+  bleed: { borderRadius: 0, borderWidth: 0, backgroundColor: play.bg },
   float: {
     position: 'absolute',
     left: 12,

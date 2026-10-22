@@ -1,3 +1,13 @@
+/** A saved shot. Quiet when the device has no haptics. */
+export async function celebrate(): Promise<void> {
+  try {
+    const Haptics = await import('expo-haptics');
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  } catch {
+    // Expo web and a missing module stay silent.
+  }
+}
+
 /** One pulse for a club call. Two for a lay-up. No alarm. Quiet when the device has no haptics. */
 export async function pulse(times: 1 | 2): Promise<void> {
   try {

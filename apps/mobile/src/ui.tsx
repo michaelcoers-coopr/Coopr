@@ -65,12 +65,12 @@ export function Lines({ lines }: { lines: readonly string[] }) {
   );
 }
 
-export function Crest() {
+export function Crest({ size = 176 }: { size?: number }) {
   return (
     <Image
       accessibilityLabel="Navy Fill crest"
       source={require('../assets/coopr-crest-navy-fill.jpg')}
-      style={styles.crest}
+      style={{ width: size, height: size, alignSelf: 'center' }}
       resizeMode="contain"
     />
   );
@@ -79,15 +79,20 @@ export function Crest() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: 20, paddingBottom: 36, gap: 14 },
-  title: { color: colors.text, fontSize: 34, fontWeight: '800', letterSpacing: -0.4 },
-  muted: { color: colors.muted, fontSize: 18, lineHeight: 26 },
+  title: { color: colors.text, fontSize: 34, fontWeight: '700', letterSpacing: -0.6 },
+  muted: { color: colors.muted, fontSize: 17, lineHeight: 24 },
   card: {
     backgroundColor: colors.card,
     borderColor: colors.line,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 24,
     padding: 16,
     gap: 8,
+    shadowColor: colors.navy,
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
   cardWarning: { borderColor: colors.red },
   button: {
@@ -117,5 +122,4 @@ const styles = StyleSheet.create({
   choiceText: { color: colors.navy, fontSize: 18, fontWeight: '700' },
   choiceTextOn: { color: colors.white },
   line: { color: colors.text, fontSize: 18, lineHeight: 26 },
-  crest: { width: 220, height: 220, alignSelf: 'center' },
 });

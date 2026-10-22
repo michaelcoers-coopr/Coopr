@@ -1,7 +1,7 @@
 import MapView, { Polygon, Polyline } from 'react-native-maps';
 import { StyleSheet, Text, View } from 'react-native';
 import type { LatLon } from '@coopr/domain';
-import { colors } from '@coopr/tokens';
+import { colors, play } from '@coopr/tokens';
 import type { HoleMapProps } from './hole-map-props';
 import { Muted } from './ui';
 
@@ -22,8 +22,9 @@ export function HoleMap(props: HoleMapProps) {
     latitudeDelta: Math.max(0.002, (Math.max(...lats) - Math.min(...lats)) * 1.7),
     longitudeDelta: Math.max(0.002, (Math.max(...lons) - Math.min(...lons)) * 1.7),
   };
+  const bleed = props.bleed === true;
   return (
-    <View style={[styles.frame, { height: props.height ?? 320 }]}>
+    <View style={[styles.frame, bleed && styles.bleed, { height: props.height ?? 320 }]}>
       <MapView
         style={styles.map}
         mapType="satellite"
@@ -44,14 +45,14 @@ export function HoleMap(props: HoleMapProps) {
         {props.green.map((ring, index) => (
           <Polygon key={`green-${index}`} coordinates={coords(ring)} fillColor="rgba(255,255,255,0.5)" strokeColor={colors.navy} strokeWidth={2} />
         ))}
-        {props.line.length > 1 ? <Polyline coordinates={coords(props.line)} strokeColor={colors.navy} strokeWidth={3} /> : null}
+        {props.line.length > 1 ? <Polyline coordinates={coords(props.line)} strokeColor={bleed ? play.live : colors.navy} strokeWidth={3} /> : null}
         {props.ellipse && props.ellipse.length > 2 ? (
           <Polygon coordinates={coords(props.ellipse)} fillColor="rgba(11,31,58,0.28)" strokeColor={colors.white} strokeWidth={2} />
         ) : null}
         {props.dispersionLine.length > 1 ? <Polyline coordinates={coords(props.dispersionLine)} strokeColor={colors.white} strokeWidth={4} /> : null}
         {props.measure.length > 1 ? <Polyline coordinates={coords(props.measure)} strokeColor={colors.red} strokeWidth={3} /> : null}
       </MapView>
-      <View pointerEvents="none" style={styles.float}>
+      {bleed ? null : <View pointerEvents="none" style={styles.float}>
         <View>
           <Text style={styles.kicker}>Shot</Text>
           <Text style={styles.raw}>{props.rawLabel}</Text>
@@ -60,13 +61,14 @@ export function HoleMap(props: HoleMapProps) {
           <Text style={styles.kicker}>Plays like</Text>
           <Text style={styles.plays}>{props.playsLabel}</Text>
         </View>
-      </View>
+      </View>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   frame: { borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2' },
+  bleed: { borderRadius: 0, borderWidth: 0 },
   map: { flex: 1 },
   float: {
     position: 'absolute',
