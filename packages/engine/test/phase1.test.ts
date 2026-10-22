@@ -35,6 +35,8 @@ function profile(partial: Partial<DistanceProfile> & Pick<DistanceProfile, 'metr
     stockYards: stock,
     lateralMiss: partial.lateralMiss ?? 'none',
     blended: false,
+    reported: partial.reported ?? false,
+    dispersionKnown: partial.dispersionKnown ?? true,
     sampleWarning: null,
   };
 }
@@ -73,6 +75,27 @@ describe('same-metric blend', () => {
     ]);
     expect(attached.filter((item) => item.blended)).toHaveLength(1);
     expect(attached.find((item) => item.blended)?.metric).toBe('carry');
+  });
+
+  it('weights a reported average below a measured sample and does not borrow its dispersion', () => {
+    const measured = profile({ environment: 'simulator', metric: 'carry', stockYards: 160, sampleSize: 10, p20: 150, p80: 170 });
+    const reported = profile({
+      environment: 'course',
+      metric: 'carry',
+      stockYards: 140,
+      sampleSize: 10,
+      p20: 140,
+      p80: 140,
+      reported: true,
+      dispersionKnown: false,
+    });
+    const blended = blendSameMetric([measured, reported]);
+    expect(blended.stockYards).toBeCloseTo((160 * 10 + 140 * 5) / 15, 5);
+    expect(blended.p20).toBeCloseTo(150, 5);
+    expect(blended.p80).toBeCloseTo(170, 5);
+    expect(blended.reported).toBe(false);
+    expect(blended.sampleWarning).toMatch(/quarter of a COOPR measurement/);
+    expect(blended.sampleWarning).toMatch(/no measured dispersion/);
   });
 
   it('lets the club call use the blend instead of the simulator prior alone', () => {

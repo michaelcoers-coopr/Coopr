@@ -14,7 +14,7 @@ Course data is the provider-independent path already on this branch: OpenGolfAPI
 
 ## Phase 1 — Core round
 
-Status: built on this branch. Waiting on Mike's iPhone pass. Do not start Phase 2 before that.
+Status: built on this branch. Waiting on Mike's iPhone pass. Phase 1.5 is the photo path and is also waiting. Do not start Phase 2 before both are approved.
 
 Scope:
 
@@ -58,9 +58,27 @@ Known gaps inside Phase 1, left honest:
 - The blend joins a course result to a sim sample only when the swing mode matches. If a club has more than one swing on file, the result stays separate.
 - The commercial course adapter is still an empty stub.
 
+## Phase 1.5 — Photo ingestion
+
+Status: built on this branch. Waiting on Mike's iPhone pass. Starts before Phase 2. Phase 1 stays as it was.
+
+Scope:
+
+- Camera and library, including multi-select, through `expo-image-picker` in Expo Go SDK 58. No dev client.
+- A server extracts the photo. The vision key stays on the server. The app holds a URL and, if Mike sets one, a token he types for that session.
+- With no key, the server answers a labeled stub and does not read the pixels. The phone will not save that stub as if it were the photo. A separate "Review a sample extraction" button is the fixture, and it says no photo was read.
+- Kinds: a launch-monitor screen, another app's stats, a scorecard, or the clubs. Each field has a confidence. Unreadable stays empty.
+- Carry and total stay separate. An average that does not say which one blocks save until Mike picks.
+- Every saved row keeps a source app and a date when he leaves them, plus photo provenance. The image stays on the phone only if he asks, and only for the session. The server wipes the bytes after the answer.
+- A launch-monitor row he confirms is a simulator shot. Another app's average is their reported number, weighted at a quarter of a COOPR measurement, and it does not invent a dispersion. It stays out of the blend until he sets a sample size and an environment.
+- Scorecard pars stay beside the open High Cedars card. Strokes land on blank High Cedars holes only if he opts in.
+- Duplicates start unchecked.
+
+Acceptance and the deploy steps are in `docs/PHOTO_IMPORT.md`.
+
 ## Phase 2 — Caddie
 
-Not started. Starts only after Phase 1 is approved.
+Not started. Starts only after Phase 1 and Phase 1.5 are approved.
 
 Scope:
 

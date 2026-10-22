@@ -53,6 +53,8 @@ function profile(partial: Partial<DistanceProfile> & Pick<DistanceProfile, 'metr
     stockYards: partial.stockYards ?? partial.p50,
     lateralMiss: partial.lateralMiss ?? 'none',
     blended: false,
+    reported: false,
+    dispersionKnown: true,
     sampleWarning: partial.sampleWarning ?? null,
   };
 }

@@ -2,12 +2,17 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from 're
 import { PERSONALITY_LABELS, type CaddiePersonality, type EnvironmentName } from '@coopr/domain';
 import {
   buildProfiles,
+  confirmedPhotoImport,
   parseSimulatorCsv,
+  reportedDistanceProfile,
   scoreRound,
   withSameMetricBlends,
+  type ConfirmedPhotoImport,
   type DistanceObservation,
   type DistanceProfile,
   type DistanceUnit,
+  type ExistingPhotoRecords,
+  type PhotoReviewItem,
 } from '@coopr/engine';
 import { loadFounderDataset, profilesFromFounder } from '@coopr/seed';
 import { FOUNDER_TOOLS_ENABLED } from './founder-flag';
@@ -24,6 +29,41 @@ export interface LocalShot {
   carry: number | null;
   total: number | null;
   lateralMiss: 'left' | 'right' | 'none';
+  origin: 'manual' | 'csv' | 'photo' | 'tag';
+  sourceApp: string | null;
+  capturedOn: string | null;
+}
+
+export interface ReportedAverage {
+  id: string;
+  clubLabel: string;
+  metric: 'carry' | 'total';
+  yards: number;
+  sampleSize: number | null;
+  environment: EnvironmentName | null;
+  sourceApp: string | null;
+  capturedOn: string | null;
+}
+
+export interface PhotoScoreHole {
+  hole: number;
+  par: number | null;
+  strokeIndex: number | null;
+  yardage: number | null;
+  strokes: number | null;
+}
+
+export interface PhotoScorecard {
+  id: string;
+  courseName: string | null;
+  sourceApp: string | null;
+  capturedOn: string | null;
+  holes: PhotoScoreHole[];
+}
+
+export interface KeptPhoto {
+  id: string;
+  uri: string;
 }
 
 export interface PlayingClub {
@@ -103,8 +143,13 @@ interface LocalStore {
   moveClub: (id: string, slot: PlayingClub['slot']) => void;
   addClub: (label: string) => void;
   shots: LocalShot[];
-  addShot: (shot: Omit<LocalShot, 'id'>) => void;
+  addShot: (shot: Omit<LocalShot, 'id' | 'origin' | 'sourceApp' | 'capturedOn'> & Partial<Pick<LocalShot, 'origin' | 'sourceApp' | 'capturedOn'>>) => void;
   importCsv: (text: string) => string;
+  reportedAverages: ReportedAverage[];
+  photoScorecards: PhotoScorecard[];
+  keptPhotos: KeptPhoto[];
+  photoExisting: () => ExistingPhotoRecords;
+  savePhotoImport: (input: { items: readonly PhotoReviewItem[]; applyStrokes: boolean; imageUris: readonly string[] }) => { saved: boolean; message: string };
   holes: Array<number | null>;
   setStrokes: (hole: number, strokes: number | null) => void;
   profiles: DistanceProfile[];
@@ -123,6 +168,129 @@ interface LocalStore {
 
 const Ctx = createContext<LocalStore | null>(null);
 
+function sideMiss(side: number | null): 'left' | 'right' | 'none' {
+  if (side == null || Math.abs(side) <= 2) return 'none';
+  return side > 0 ? 'right' : 'left';
+}
+
+function applyConfirmed(
+  confirmed: ConfirmedPhotoImport,
+  input: { applyStrokes: boolean; imageUris: readonly string[]; holes: Array<number | null> },
+): {
+  shots: LocalShot[];
+  reported: ReportedAverage[];
+  scorecards: PhotoScorecard[];
+  photos: KeptPhoto[];
+  clubKeys: ExistingPhotoRecords['clubs'];
+  clubs: PlayingClub[];
+  strokes: Array<number | null> | null;
+  bagMessage: string;
+  message: string;
+} {
+  const stamp = Date.now();
+  const shots: LocalShot[] = confirmed.shots.map((shot, index) => ({
+    id: `photo-shot-${stamp}-${index + 1}`,
+    clubId: shot.clubLabel,
+    clubLabel: shot.clubLabel,
+    environment: 'simulator',
+    swingMode: 'unknown',
+    carry: shot.carry,
+    total: shot.total,
+    lateralMiss: sideMiss(shot.side),
+    origin: 'photo',
+    sourceApp: shot.sourceApp,
+    capturedOn: shot.capturedOn,
+  }));
+  const reported: ReportedAverage[] = confirmed.reported.map((row, index) => ({
+    id: `photo-reported-${stamp}-${index + 1}`,
+    clubLabel: row.clubLabel,
+    metric: row.metric,
+    yards: row.yards,
+    sampleSize: row.sampleSize,
+    environment: row.environment,
+    sourceApp: row.sourceApp,
+    capturedOn: row.capturedOn,
+  }));
+  const byCard = new Map<string, PhotoScorecard>();
+  for (const score of confirmed.scores) {
+    const key = `${score.courseName ?? ''}|${score.sourceApp ?? ''}|${score.capturedOn ?? ''}`;
+    const card = byCard.get(key) ?? {
+      id: `photo-card-${stamp}-${byCard.size + 1}`,
+      courseName: score.courseName,
+      sourceApp: score.sourceApp,
+      capturedOn: score.capturedOn,
+      holes: [],
+    };
+    card.holes.push({
+      hole: score.hole,
+      par: score.par,
+      strokeIndex: score.strokeIndex,
+      yardage: score.yardage,
+      strokes: score.strokes,
+    });
+    byCard.set(key, card);
+  }
+  const clubNotes = new Map<string, string>();
+  for (const shot of confirmed.shots) {
+    const where = [shot.sourceApp, shot.capturedOn].filter(Boolean).join(', ');
+    clubNotes.set(shot.clubLabel, `Photo of a launch monitor${where ? `, ${where}` : ''}. You confirmed this read.`);
+  }
+  for (const row of confirmed.reported) {
+    const where = [row.sourceApp, row.capturedOn].filter(Boolean).join(', ');
+    clubNotes.set(row.clubLabel, `Their reported number${where ? `, ${where}` : ''}. Not a COOPR measurement.`);
+  }
+  for (const club of confirmed.clubs) {
+    const where = [club.sourceApp, club.capturedOn].filter(Boolean).join(', ');
+    clubNotes.set(club.label, `Photo${where ? `, ${where}` : ''}. Shaft ${club.shaft ?? 'unknown'}.`);
+  }
+  const clubs: PlayingClub[] = [...clubNotes.entries()].map(([label, note]) => ({
+    id: label,
+    label,
+    slot: 'in_play',
+    note,
+  }));
+  let strokes: Array<number | null> | null = null;
+  let strokeNote = 'Strokes were not written onto the High Cedars card.';
+  if (input.applyStrokes) {
+    strokes = [...input.holes];
+    let written = 0;
+    let skipped = 0;
+    for (const score of confirmed.scores) {
+      if (score.strokes == null) continue;
+      const current = strokes[score.hole - 1];
+      if (current != null) {
+        skipped += 1;
+        continue;
+      }
+      strokes[score.hole - 1] = score.strokes;
+      written += 1;
+    }
+    strokeNote = `Wrote ${written} stroke${written === 1 ? '' : 's'} onto blank High Cedars holes.${skipped ? ` Left ${skipped} hole${skipped === 1 ? '' : 's'} that already had a score.` : ''} Photo pars were not copied onto the open course.`;
+  }
+  const held = reported.filter((row) => row.sampleSize == null || row.environment == null).length;
+  const photos = input.imageUris.map((uri, index) => ({ id: `photo-file-${stamp}-${index + 1}`, uri }));
+  const parts = [
+    `${shots.length} launch-monitor shot${shots.length === 1 ? '' : 's'} saved as a simulator read you confirmed.`,
+    `${reported.length} reported number${reported.length === 1 ? '' : 's'} saved.`,
+    held ? `${held} stay out of the blend until you set a sample size and an environment.` : '',
+    `${confirmed.scores.length} scorecard row${confirmed.scores.length === 1 ? '' : 's'} kept beside the open course.`,
+    strokeNote,
+    `${confirmed.clubs.length} club${confirmed.clubs.length === 1 ? '' : 's'} from a photo. A full in-play bag sends a new club to testing.`,
+    photos.length ? `${photos.length} photo URI${photos.length === 1 ? '' : 's'} kept on this phone for this session.` : 'No photo was kept on this phone.',
+  ].filter(Boolean);
+  return {
+    shots,
+    reported,
+    scorecards: [...byCard.values()],
+    photos,
+    clubKeys: confirmed.clubs.map((club) => ({ brand: club.brand, model: club.model, loft: club.loft })),
+    clubs,
+    strokes,
+    bagMessage: confirmed.clubs.length ? 'A club read from a photo goes to testing when the in-play 14 is already full.' : '',
+    message: parts.join(' '),
+  };
+}
+
 function placeClub(current: PlayingClub[], club: PlayingClub): PlayingClub[] {
   if (current.some((item) => item.id === club.id)) return current;
   const inPlay = current.filter((item) => item.slot === 'in_play').length;
@@ -131,6 +299,10 @@ function placeClub(current: PlayingClub[], club: PlayingClub): PlayingClub[] {
 
 export function LocalStoreProvider({ children }: { children: ReactNode }) {
   const [shots, setShots] = useState<LocalShot[]>([]);
+  const [reportedAverages, setReportedAverages] = useState<ReportedAverage[]>([]);
+  const [photoScorecards, setPhotoScorecards] = useState<PhotoScorecard[]>([]);
+  const [keptPhotos, setKeptPhotos] = useState<KeptPhoto[]>([]);
+  const [knownClubs, setKnownClubs] = useState<ExistingPhotoRecords['clubs']>([]);
   const [holes, setHoles] = useState<Array<number | null>>(Array.from({ length: 18 }, () => null));
   const [clubs, setClubs] = useState<PlayingClub[]>(SHELL?.clubs ?? []);
   const [bagMessage, setBagMessage] = useState('');
@@ -194,7 +366,17 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
         });
       },
       shots,
-      addShot: (shot) => setShots((current) => [...current, { ...shot, id: `local-${current.length + 1}` }]),
+      addShot: (shot) =>
+        setShots((current) => [
+          ...current,
+          {
+            ...shot,
+            id: `local-${current.length + 1}`,
+            origin: shot.origin ?? 'manual',
+            sourceApp: shot.sourceApp ?? null,
+            capturedOn: shot.capturedOn ?? null,
+          },
+        ]),
       importCsv: (text) => {
         const result = parseSimulatorCsv(text);
         if (result.error) return result.error;
@@ -209,6 +391,9 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
             carry: shot.carry,
             total: shot.total,
             lateralMiss: shot.lateralMiss,
+            origin: 'csv' as const,
+            sourceApp: null,
+            capturedOn: null,
           })),
         ]);
         setClubs((current) => {
@@ -221,10 +406,62 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
         const imported = `${result.shots.length} shot${result.shots.length === 1 ? '' : 's'} imported.`;
         return [imported, ...result.warnings].join(' ');
       },
+      reportedAverages,
+      photoScorecards,
+      keptPhotos,
+      photoExisting: () => ({
+        shots: shots.map((shot) => ({ clubLabel: shot.clubLabel, carry: shot.carry, total: shot.total })),
+        reported: reportedAverages.map((row) => ({
+          sourceApp: row.sourceApp,
+          clubLabel: row.clubLabel,
+          metric: row.metric,
+          yards: row.yards,
+        })),
+        scores: [
+          ...photoScorecards.flatMap((card) =>
+            card.holes.flatMap((hole) =>
+              hole.strokes == null ? [] : [{ courseName: card.courseName, hole: hole.hole, strokes: hole.strokes }],
+            ),
+          ),
+          ...holes.flatMap((strokes, index) => (strokes == null ? [] : [{ courseName: 'High Cedars', hole: index + 1, strokes }])),
+        ],
+        clubs: knownClubs,
+      }),
+      savePhotoImport: ({ items, applyStrokes, imageUris }) => {
+        const confirmed = confirmedPhotoImport(items);
+        if ('error' in confirmed) return { saved: false, message: confirmed.error };
+        const saved = applyConfirmed(confirmed, { applyStrokes, imageUris, holes });
+        setShots((current) => [...current, ...saved.shots]);
+        setReportedAverages((current) => [...current, ...saved.reported]);
+        setPhotoScorecards((current) => [...current, ...saved.scorecards]);
+        setKeptPhotos((current) => [...current, ...saved.photos]);
+        setKnownClubs((current) => [...current, ...saved.clubKeys]);
+        setClubs((current) => saved.clubs.reduce((next, club) => placeClub(next, club), current));
+        if (saved.strokes) setHoles(saved.strokes);
+        if (saved.bagMessage) setBagMessage(saved.bagMessage);
+        return { saved: true, message: saved.message };
+      },
       holes,
       setStrokes: (hole, strokes) =>
         setHoles((current) => current.map((value, index) => (index === hole - 1 ? strokes : value))),
-      profiles: withSameMetricBlends([...(SHELL?.profiles ?? []), ...buildProfiles(observations)]),
+      profiles: withSameMetricBlends([
+        ...(SHELL?.profiles ?? []),
+        ...buildProfiles(observations),
+        ...reportedAverages.flatMap((average) =>
+          average.sampleSize == null || average.environment == null
+            ? []
+            : [
+                reportedDistanceProfile({
+                  clubLabel: average.clubLabel,
+                  metric: average.metric,
+                  yards: average.yards,
+                  sampleSize: average.sampleSize,
+                  environment: average.environment,
+                  sourceApp: average.sourceApp,
+                }),
+              ],
+        ),
+      ]),
       score: scoreRound(entered),
       courseReviews,
       setCourseReview: (hole, decision) => {
@@ -253,12 +490,15 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
               carry: shot.carry,
               total: shot.total,
               lateralMiss: shot.result === 'left' ? 'left' : shot.result === 'right' ? 'right' : 'none',
+              origin: 'tag',
+              sourceApp: null,
+              capturedOn: null,
             },
           ]);
         }
       },
     };
-  }, [shots, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged]);
+  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

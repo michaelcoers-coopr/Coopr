@@ -37,6 +37,10 @@ export interface DistanceProfile {
   lateralMiss: 'left' | 'right' | 'none';
   /** True only on an explicit same-metric blend. Carry is never blended into total. */
   blended: boolean;
+  /** Another app's average. Weighted below a COOPR measurement and labeled. */
+  reported: boolean;
+  /** False when P20 and P80 were not measured. A reported average has no dispersion. */
+  dispersionKnown: boolean;
   sampleWarning: string | null;
 }
 
@@ -58,6 +62,14 @@ const ENVIRONMENT_WEIGHT: Record<EnvironmentName, number> = {
   range: 1.5,
   simulator: 1,
 };
+
+/** Another app's reported number counts a quarter as much as a COOPR measurement. */
+export const REPORTED_SOURCE_WEIGHT = 0.25;
+
+export function profileWeight(profile: Pick<DistanceProfile, 'sampleSize' | 'environment' | 'reported'>): number {
+  const base = profile.sampleSize * ENVIRONMENT_WEIGHT[profile.environment];
+  return profile.reported ? base * REPORTED_SOURCE_WEIGHT : base;
+}
 
 function roundTenth(value: number): number {
   return Math.round(value * 10) / 10;
@@ -82,17 +94,25 @@ export function blendSameMetric(group: readonly DistanceProfile[]): DistanceProf
     }
     if (profile.blended) throw new Error('Refusing to blend a profile that is already blended.');
   }
-  const weights = group.map((profile) => profile.sampleSize * ENVIRONMENT_WEIGHT[profile.environment]);
+  const weights = group.map((profile) => profileWeight(profile));
   const stockYards = weighted(group, weights, (profile) => profile.stockYards);
+  const withDispersion = group.filter((profile) => profile.dispersionKnown);
+  const dispersionWeights = withDispersion.map((profile) => profileWeight(profile));
   const stocks = group.map((profile) => profile.stockYards);
   const spread = Math.max(...stocks) - Math.min(...stocks);
   const sampleSize = group.reduce((sum, profile) => sum + profile.sampleSize, 0);
-  const iqrValue = weighted(group, weights, (profile) => profile.iqr);
+  const iqrValue = withDispersion.length > 0 ? weighted(withDispersion, dispersionWeights, (profile) => profile.iqr) : 0;
   let confidence = confidenceBand(sampleSize, iqrValue, stockYards);
   const parts = group
     .map((profile) => `${profile.environment} n=${profile.sampleSize} median ${roundTenth(profile.stockYards)}`)
     .join('; ');
   let sampleWarning = `Blended ${first.metric} from ${parts}. Course samples count double. This is not a new measurement.`;
+  if (group.some((profile) => profile.reported)) {
+    sampleWarning += ' A reported number from another app is weighted at a quarter of a COOPR measurement.';
+  }
+  if (withDispersion.length < group.length) {
+    sampleWarning += ' P20 and P80 ignore sources with no measured dispersion.';
+  }
   if (spread > 15) {
     confidence = 'limited';
     sampleWarning += ` The medians differ by ${roundTenth(spread)} yards, so confidence stays limited.`;
@@ -100,9 +120,7 @@ export function blendSameMetric(group: readonly DistanceProfile[]): DistanceProf
   const sides = new Set(group.map((profile) => profile.lateralMiss).filter((side) => side !== 'none'));
   const lateralMiss = sides.size === 1 ? ([...sides][0] ?? 'none') : 'none';
   if (sides.size > 1) sampleWarning += ' Sources disagree on miss side, so no side is stored.';
-  const dominant = [...group].sort(
-    (a, b) => b.sampleSize * ENVIRONMENT_WEIGHT[b.environment] - a.sampleSize * ENVIRONMENT_WEIGHT[a.environment],
-  )[0];
+  const dominant = [...group].sort((a, b) => profileWeight(b) - profileWeight(a))[0];
   return {
     clubId: first.clubId,
     clubLabel: first.clubLabel,
@@ -110,10 +128,10 @@ export function blendSameMetric(group: readonly DistanceProfile[]): DistanceProf
     swingMode: first.swingMode,
     metric: first.metric,
     sampleSize,
-    p20: weighted(group, weights, (profile) => profile.p20),
+    p20: withDispersion.length > 0 ? weighted(withDispersion, dispersionWeights, (profile) => profile.p20) : stockYards,
     p50: weighted(group, weights, (profile) => profile.p50),
-    p80: weighted(group, weights, (profile) => profile.p80),
-    iqr: iqrValue,
+    p80: withDispersion.length > 0 ? weighted(withDispersion, dispersionWeights, (profile) => profile.p80) : stockYards,
+    iqr: withDispersion.length > 0 ? weighted(withDispersion, dispersionWeights, (profile) => profile.iqr) : 0,
     mad: weighted(group, weights, (profile) => profile.mad),
     shortMissCount: group.reduce((sum, profile) => sum + profile.shortMissCount, 0),
     longMissCount: group.reduce((sum, profile) => sum + profile.longMissCount, 0),
@@ -124,6 +142,8 @@ export function blendSameMetric(group: readonly DistanceProfile[]): DistanceProf
     stockYards,
     lateralMiss,
     blended: true,
+    reported: group.every((profile) => profile.reported),
+    dispersionKnown: withDispersion.length > 0,
     sampleWarning,
   };
 }
@@ -221,6 +241,8 @@ export function buildProfiles(observations: readonly DistanceObservation[]): Dis
       stockYards: p50,
       lateralMiss: lateral,
       blended: false,
+      reported: false,
+      dispersionKnown: true,
       sampleWarning: null,
     });
   }
@@ -231,4 +253,45 @@ export function buildProfiles(observations: readonly DistanceObservation[]): Dis
 
 function profileSort(profile: DistanceProfile): string {
   return [profile.clubLabel, profile.environment, profile.swingMode, profile.metric].join('|');
+}
+
+/**
+ * Another app's average. P20 and P80 equal the average only so the shape is filled.
+ * `dispersionKnown` stays false, so a blend and a hazard check ignore that spread.
+ * Call this only when the user supplied a sample size and an environment. Do not invent either.
+ */
+export function reportedDistanceProfile(input: {
+  clubLabel: string;
+  metric: DistanceMetric;
+  yards: number;
+  sampleSize: number;
+  environment: EnvironmentName;
+  sourceApp: string | null;
+}): DistanceProfile {
+  const source = input.sourceApp ? ` from ${input.sourceApp}` : '';
+  return {
+    clubId: input.clubLabel,
+    clubLabel: input.clubLabel,
+    environment: input.environment,
+    swingMode: 'unknown',
+    metric: input.metric,
+    sampleSize: input.sampleSize,
+    p20: input.yards,
+    p50: input.yards,
+    p80: input.yards,
+    iqr: 0,
+    mad: 0,
+    shortMissCount: 0,
+    longMissCount: 0,
+    shortMissShare: 0,
+    longMissShare: 0,
+    confidence: 'insufficient',
+    longestYards: input.yards,
+    stockYards: input.yards,
+    lateralMiss: 'none',
+    blended: false,
+    reported: true,
+    dispersionKnown: false,
+    sampleWarning: `Their reported number${source}, not a COOPR measurement. No P20 or P80 was measured.`,
+  };
 }

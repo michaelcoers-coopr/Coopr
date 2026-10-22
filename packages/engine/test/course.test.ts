@@ -106,6 +106,8 @@ describe('green distance', () => {
       stockYards: 160,
       lateralMiss: 'none',
       blended: false,
+      reported: false,
+      dispersionKnown: true,
       sampleWarning: null,
     };
     const card = recommend({

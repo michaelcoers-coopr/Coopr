@@ -125,7 +125,7 @@ function poolFor(request: CaddieRequest, metric: DistanceMetric): DistanceProfil
 }
 
 function clearsFront(profile: DistanceProfile, hazards: readonly Hazard[]): boolean {
-  if (profile.metric !== 'carry') return false;
+  if (profile.metric !== 'carry' || profile.dispersionKnown === false) return false;
   for (const hazard of hazards) {
     if (hazard.side !== 'front') continue;
     if (hazard.carryToClearYards == null) return false;
@@ -351,7 +351,7 @@ export function recommend(request: CaddieRequest): CaddieCard {
     total: expectedTotal,
     metricUsed: metric,
     keyRisk: riskParts.join(' '),
-    reason: `${winner.clubLabel} ${metric} ${winner.blended ? 'blended median' : 'median'} is ${yards(winner.stockYards)} from ${winner.sampleSize} ${winner.blended ? 'combined' : winner.environment} shots (${winner.swingMode} swing). Confidence is ${winner.confidence}. The longest shot in the sample is ${yards(winner.longestYards)} and is not the stock.${footnote(request)}`,
+    reason: `${winner.clubLabel} ${metric} ${winner.blended ? 'blended median' : 'median'} is ${yards(winner.stockYards)} from ${winner.sampleSize} ${winner.blended ? 'combined' : winner.environment} ${winner.reported ? 'reported' : 'shots'} (${winner.swingMode} swing). Confidence is ${winner.confidence}. The longest shot in the sample is ${yards(winner.longestYards)} and is not the stock.${winner.reported ? ' This is their reported number, not a COOPR measurement.' : ''}${footnote(request)}`,
     instruction: [
       expectedCarry == null && metric === 'total' ? 'Do not use this total to clear a hazard.' : null,
       winner.swingMode === 'unknown' ? 'The source did not record a swing mode. Do not assume a full stock swing.' : null,

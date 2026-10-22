@@ -15,7 +15,7 @@ function versus(strokes: number, par: number | null): string {
 }
 
 export default function ScorecardScreen() {
-  const { holes, setStrokes, score } = useLocalStore();
+  const { holes, setStrokes, score, photoScorecards } = useLocalStore();
   const pars = pilot.record.scorecard;
 
   return (
@@ -27,6 +27,14 @@ export default function ScorecardScreen() {
         <Muted>{`Front ${holes.slice(0, 9).some((strokes) => strokes != null) ? score.front : '—'} · Back ${holes.slice(9).some((strokes) => strokes != null) ? score.back : '—'} · Holes with a score ${score.holesEntered}`}</Muted>
         <Muted>Handicap is unknown. An estimate is not an official GHIN Handicap Index.</Muted>
       </Card>
+      {photoScorecards.map((card) => (
+        <Card key={card.id}>
+          <Muted>{`${card.courseName ?? 'Course name unknown'} from a photo${card.sourceApp ? `, ${card.sourceApp}` : ''}${card.capturedOn ? `, ${card.capturedOn}` : ''}. This does not replace the High Cedars card.`}</Muted>
+          {card.holes.map((hole) => (
+            <Muted key={hole.hole}>{`Hole ${hole.hole} · par ${hole.par ?? '—'} · SI ${hole.strokeIndex ?? '—'} · ${hole.yardage ?? '—'} · strokes ${hole.strokes ?? '—'}`}</Muted>
+          ))}
+        </Card>
+      ))}
       {holes.map((strokes, index) => {
         const hole = pars.find((item) => item.holeNumber === index + 1);
         const par = hole?.par ?? null;

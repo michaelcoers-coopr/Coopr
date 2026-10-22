@@ -19,7 +19,7 @@ function yards(value: number): string {
  * A total profile cannot clear a hazard. An unknown carry line stays unsure.
  */
 export function layupDecision(input: {
-  carry: Pick<DistanceProfile, 'metric' | 'sampleSize' | 'p20' | 'p50' | 'p80'> | null;
+  carry: Pick<DistanceProfile, 'metric' | 'sampleSize' | 'p20' | 'p50' | 'p80'> & { dispersionKnown?: boolean } | null;
   carryToClearYards: number | null;
 }): LayupDecision {
   const carry = input.carry;
@@ -28,6 +28,13 @@ export function layupDecision(input: {
       call: 'unsure',
       sampleSize: null,
       reason: 'No measured carry sample. A total is not used to clear a hazard, and no odds are invented.',
+    };
+  }
+  if (carry.dispersionKnown === false) {
+    return {
+      call: 'unsure',
+      sampleSize: carry.sampleSize,
+      reason: 'This carry is an average with no measured P20 or P80, so it cannot make a go or a lay-up call.',
     };
   }
   if (carry.sampleSize < 5) {

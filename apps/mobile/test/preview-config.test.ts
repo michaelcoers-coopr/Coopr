@@ -32,6 +32,7 @@ describe('Expo Go preview and TestFlight profile', () => {
     expect(mobilePackage.dependencies['react-native']).toBe('0.88.0');
     expect(mobilePackage.dependencies['expo-sqlite']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-router']).toMatch(/^~58\./);
+    expect(mobilePackage.dependencies['expo-image-picker']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-dev-client']).toBeUndefined();
     expect(rootPackage.dependencies?.['expo-dev-client']).toBeUndefined();
     expect(rootPackage.scripts['preview:publish']).toBe('npm run preview:publish -w @coopr/mobile');

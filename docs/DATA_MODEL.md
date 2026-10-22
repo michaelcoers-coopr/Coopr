@@ -21,7 +21,8 @@ The app embeds the SQLite text from `@coopr/db`. A test fails if that embed drif
 - `bags.status` is `provisional`, `confirmed`, or null. `bags.note` holds the reason for that bag. `bag_memberships.note` is optional.
 - `simulator_sessions.source_id` attributes the monitor. Shot measurements keep their own source.
 - Shots are the only rows that feed a distance profile, and only when `aggregation = 'shot'`. Session averages, usable-strike summaries, and "best" shots do not.
-- Environment is `simulator`, `range`, or `course`. Those profiles stay stored apart. An explicit same-metric blend may sit beside them: course samples count double, and carry is never blended into total.
+- Environment is `simulator`, `range`, or `course`. Those profiles stay stored apart. An explicit same-metric blend may sit beside them: course samples count double, range counts 1.5, and carry is never blended into total. Another app's reported average counts a quarter of a COOPR measurement, is labeled, and does not supply P20 or P80.
+- Photo imports are session memory on the phone, same as the round. They are not a schema table. The image is not written to SQLite and is not kept on the extraction server.
 - `audience = 'private'` cannot be opened by the public-demo guard.
 
 ## Tables

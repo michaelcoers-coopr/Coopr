@@ -5,6 +5,8 @@ export * from './profile';
 export * from './layup';
 export * from './units';
 export * from './import-csv';
+export * from './photo-import';
+export * from './extract-http';
 export * from './caddie';
 export * from './scoring';
 export * from './bag-advice';

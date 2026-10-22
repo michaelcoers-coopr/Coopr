@@ -31,6 +31,7 @@ export default function HomeScreen() {
       <Button label="Play High Cedars" onPress={() => router.push('/play')} />
       <Button label="Scorecard" tone="ghost" onPress={() => router.push('/scorecard')} />
       <Button label="Bag" tone="ghost" onPress={() => router.push('/bag')} />
+      <Button label="Add from photos" tone="ghost" onPress={() => router.push('/import')} />
       <Button label="Caddie" tone="ghost" onPress={() => router.push('/caddie')} />
       <Button label="Course quality" tone="ghost" onPress={() => router.push('/course')} />
       <Card>

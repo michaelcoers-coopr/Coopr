@@ -29,6 +29,13 @@
         {
           "locationWhenInUsePermission": "COOPR uses your location to measure ground distance to a green you have verified. That distance is not saved as a shot."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "COOPR reads a photo you choose so a server can extract golf numbers. The photo is not kept on the server. You review every number before it is saved.",
+          "cameraPermission": "COOPR uses the camera for a photo of a screen, scorecard, or club. The photo is not kept on the server. You review every number before it is saved."
+        }
       ]
     ],
     "updates": {
