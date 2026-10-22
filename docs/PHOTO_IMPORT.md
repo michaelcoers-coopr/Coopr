@@ -31,7 +31,7 @@ After confirm, on this phone, for this session:
 
 ## Server
 
-`services/extract/server.ts` is a single POST endpoint, `/v1/extract`. It is not an npm workspace. From the repo root:
+`services/extract/server.ts` serves `POST /v1/extract` and `POST /v1/voice`. It is not an npm workspace. From the repo root:
 
 ```bash
 npx vite-node services/extract/server.ts

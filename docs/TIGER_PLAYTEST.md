@@ -69,4 +69,4 @@ These are the tour notes turned into round speed for every golfer. They are the 
 
 ## Left alone on purpose
 
-Apple satellite and haptics are not on this computer. Front, center, and back stay hidden until a green is verified. High Cedars hazards are not tagged to holes, so the live carry line stays empty until he types one. There is no separate green-reading map. There is no stinger or partial-swing stock beyond the wedge matrix. Voice and music stay untouched.
+Apple satellite and haptics are not on this computer. Front, center, and back stay hidden until a green is verified. High Cedars hazards are not tagged to holes, so the live carry line stays empty until he types one. There is no separate green-reading map. There is no stinger or partial-swing stock beyond the wedge matrix. Ask COOPR is hold-to-talk on the hole screen. Music stays untouched.

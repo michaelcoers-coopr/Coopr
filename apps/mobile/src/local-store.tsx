@@ -169,6 +169,7 @@ interface LocalStore {
   setManualYards: (hole: number, yards: number | null) => void;
   tagged: readonly TaggedShot[];
   tagShot: (shot: Omit<TaggedShot, 'id'> & { swingMode: string }) => void;
+  removeTag: (id: string) => void;
   setCaddieName: (name: string) => void;
   setPersonality: (personality: CaddiePersonality) => void;
   plans: Readonly<Record<number, { clubLabel: string; target: string }>>;
@@ -518,6 +519,7 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
       manualYards,
       setManualYards: (hole, yards) => setManual((current) => ({ ...current, [hole]: yards })),
       tagged,
+      removeTag: (id) => setTagged((current) => current.filter((shot) => shot.id !== id)),
       tagShot: (shot) => {
         const id = `tag-${tagged.length + 1}`;
         setTagged((current) => [...current, { ...shot, id }]);

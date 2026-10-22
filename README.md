@@ -23,7 +23,7 @@ Home is **Play golf** and **Practice & calibrate**. On a dev build and on the Ex
 
 iPhone preview and the TestFlight command are in `docs/PREVIEW.md`. Publish the Expo Go channel with `npm run preview:publish` after `EXPO_TOKEN` is set in the environment. Do not commit the token.
 
-Course data for the High Cedars pilot is open: OpenGolfAPI for the scorecard and OpenStreetMap for geometry. The quality table, the gaps, and the ODbL attribution are in `docs/COURSE_DATA.md`. The hole screen reads ground distance from the phone to that open green. It is not a survey. A long-press number is only for a phone with no position. No iGolf license is required.
+Course data for the High Cedars pilot is open: OpenGolfAPI for the scorecard and OpenStreetMap for geometry. The quality table, the gaps, and the ODbL attribution are in `docs/COURSE_DATA.md`. The hole screen reads ground distance from the phone to that open green. It is not a survey. A long-press number is only for a phone with no position. Hold Ask COOPR to talk. The recording is transcribed on the extract server. The key stays there. Detail is in `docs/VOICE.md`. No iGolf license is required.
 
 ## Layout
 

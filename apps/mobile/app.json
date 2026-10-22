@@ -25,6 +25,12 @@
       "expo-router",
       "expo-sqlite",
       [
+        "expo-audio",
+        {
+          "microphonePermission": "COOPR listens while you hold Ask COOPR. The recording goes to the server to be transcribed and is not kept."
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "COOPR uses your location to measure ground distance to a green you have verified. That distance is not saved as a shot."

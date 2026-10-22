@@ -18,7 +18,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 - Pure stats, caddie, and scoring. CSV and JSON export. Soft-delete of an account.
 - Screens: Home, Play (High Cedars hole view), Bag with CSV import, Caddie, Scorecard, Practice, course quality, and private founder flows A–D.
 - A round is one mark per shot and a score confirm. Ground distance is the phone to the open green. Wind, temperature, and pressure come from Open-Meteo when plays-like is on. The finish is read from the next mark when the polygon says so. Par and two putts stay grey until confirmed.
-- Brand from the 22 Oct founder decision: navy `#0B1F3A`, white, and red `#C8102E` for a lay-up or a hazard. No green fill. Tagline "The smartest caddie you'll ever carry." The home screen uses the official Navy Fill crest raster. It is not redrawn. Phases are in `docs/ROADMAP.md`. Phase 1 is the round. Phase 1.5 reads a photo on a server. Phase 2 is the caddie layer: plays-like, a plan, a debrief, miss side, wedge carries, tone presets, and a satellite hole view. Phase 3 has not started.
+- Brand from the 22 Oct founder decision: navy `#0B1F3A`, white, and red `#C8102E` for a lay-up or a hazard. No green fill. Tagline "The smartest caddie you'll ever carry." The home screen uses the official Navy Fill crest raster. It is not redrawn. Phases are in `docs/ROADMAP.md`. Phase 1 is the round. Phase 1.5 reads a photo on a server. Phase 2 is the caddie layer: plays-like, a plan, a debrief, miss side, wedge carries, tone presets, and a satellite hole view. Ask COOPR is hold-to-talk in Expo Go. Music has not started.
 - Null provider defaults. No secrets in the repo.
 
 ## Not done
@@ -76,7 +76,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 
 ## Tests
 
-`npm test` — 13 files, 84 tests, all passing. The schema tests start Node with `--experimental-sqlite`, so a process that disabled that builtin still has a database.
+`npm test` — 14 files, 136 tests, all passing. The schema tests start Node with `--experimental-sqlite`, so a process that disabled that builtin still has a database. Ask COOPR covers 41 English phrases, the lie estimate, and sample versus live transcription.
 
 `npm run typecheck` — `tsc -b` for domain, tokens, engine, seed, and db, then the Expo app.
 
