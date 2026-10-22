@@ -167,13 +167,20 @@ export default function ImportScreen() {
       <Muted>Launch monitor, another golf app, a scorecard, or the clubs themselves. Nothing saves until you review it.</Muted>
       <Card warning={!allowSave && items != null}>
         <Muted>{banner}</Muted>
-        {notes.map((note) => (
-          <Muted key={note}>{note}</Muted>
-        ))}
+        {notes
+          .filter((note) => !banner.includes(note))
+          .map((note) => (
+            <Muted key={note}>{note}</Muted>
+          ))}
       </Card>
       <Button label={busy ? 'Reading…' : 'Take a photo'} onPress={() => void pick('camera')} />
       <Button label="Choose from the library" tone="ghost" onPress={() => void pick('library')} />
       <Button label="Review a sample extraction" tone="ghost" onPress={openSample} />
+      {saved ? (
+        <Card>
+          <Muted>{saved}</Muted>
+        </Card>
+      ) : null}
       <Card>
         <Text style={styles.label}>Session token</Text>
         <Muted>Optional. Typed here, kept for this screen only, and never stored in the app.</Muted>
@@ -311,11 +318,6 @@ export default function ImportScreen() {
             }}
           />
           {!allowSave ? <Muted>Save is off because the photo was not read.</Muted> : null}
-          {saved ? (
-            <Card>
-              <Muted>{saved}</Muted>
-            </Card>
-          ) : null}
         </>
       )}
     </Screen>

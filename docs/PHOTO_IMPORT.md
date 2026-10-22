@@ -68,7 +68,7 @@ Deploy is any host that can run Node 22 and reach the vision API. This repo does
 ## Phone check
 
 1. Open Add from photos. Tap Review a sample extraction. Confirm the banner says no photo was read.
-2. Leave the 6-iron on the ambiguous row and try to save. It should refuse until Carry or Total is chosen.
+2. The 6-iron stays unchecked until you choose Carry or Total. Include does not turn on while that choice is open. Save stores the other rows and leaves that one out.
 3. Choose Total or Carry, leave the sample size blank on the 8-iron, save, and confirm that average is labeled and held out of the blend.
 4. Open the scorecard. The photo pars are a separate card. High Cedars pars are unchanged unless the stroke switch was on.
 5. With a server and a key, photograph a TrackMan screen. Confirm carry and total that you cannot read stay empty, then save only the rows you trust.

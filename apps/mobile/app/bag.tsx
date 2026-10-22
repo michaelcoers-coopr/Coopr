@@ -57,6 +57,14 @@ export default function BagScreen() {
           }}
         />
       </Card>
+      {reportedAverages
+        .filter((row) => row.sampleSize == null || row.environment == null)
+        .map((row) => (
+          <Card key={row.id}>
+            <Text style={styles.label}>{`${row.clubLabel}, their reported number`}</Text>
+            <Muted>{`${row.metric} ${formatDistance(row.yards, unit)} ${unit}. ${row.sourceApp ?? 'Source app unknown'}. Held out of the blend until a sample size and an environment are both set.`}</Muted>
+          </Card>
+        ))}
       {inPlay.map((club) => (
         <Card key={club.id}>
           <Text style={styles.label}>{club.label}</Text>
@@ -92,14 +100,6 @@ export default function BagScreen() {
           </Text>
         </Card>
       ))}
-      {reportedAverages
-        .filter((row) => row.sampleSize == null || row.environment == null)
-        .map((row) => (
-          <Card key={row.id}>
-            <Text style={styles.label}>{`${row.clubLabel}, their reported number`}</Text>
-            <Muted>{`${row.metric} ${formatDistance(row.yards, unit)} ${unit}. ${row.sourceApp ?? 'Source app unknown'}. Held out of the blend until a sample size and an environment are both set.`}</Muted>
-          </Card>
-        ))}
       {bagMessage ? <Muted>{bagMessage}</Muted> : null}
       <Muted>{shots.length === 0 ? 'No shots imported or saved on this device yet.' : `${shots.length} shot${shots.length === 1 ? '' : 's'} saved on this device.`}</Muted>
     </Screen>
