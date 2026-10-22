@@ -13,7 +13,7 @@ v1 lives on `claude/coopr-product-architecture-5h3cvg`. This branch does not pat
 - The golfer can export CSV and JSON and can soft-delete the account.
 - Simulator, range, and course are different environments.
 - A suspected simulator bias is stored and not applied.
-- The wireframe stays neutral. One accent token (`#8AC926` on `#0B0D0F` / `#FFFFFF`) can be swapped later. Brand, pricing, and store submission wait.
+- The first wireframe used one accent token (`#8AC926` on `#0B0D0F` / `#FFFFFF`). The 22 Oct founder brand replaces it with navy, white, and red. Pricing and store submission still wait.
 
 ## What was wrong or risky
 

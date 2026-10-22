@@ -32,10 +32,12 @@ Course data for the High Cedars pilot is open: OpenGolfAPI for the scorecard and
 - `packages/seed` — verbatim founder transcript and the importer
 - `packages/db` — SQLite migration, Postgres mirror, repository
 - `apps/mobile` — Expo Router screens
-- `packages/tokens` — neutral wireframe, swappable accent
+- `packages/tokens` — navy, white, and red. No green fill.
 
 ## Product rules that are tested
 
-Carry and total stay distinct. Hazard clearance uses carry. The longest shot is not the stock distance. A miss pattern is not an aim offset. Thin data declines. No percent-chance probabilities. GPS is not a shot. Scores are strokes, and the caddie does not edit them. An estimate is not a GHIN index. Organic order ignores a sponsor flag. Export and account deletion exist.
+Carry and total stay distinct. A same-metric blend is labeled and is not a conversion. Hazard clearance uses carry. The longest shot is not the stock distance. A miss pattern is not an aim offset. Thin data declines. No percent-chance probabilities. GPS is not a shot. Scores are strokes, and the caddie does not edit them. An estimate is not a GHIN index. Organic order ignores a sponsor flag. Export and account deletion exist.
+
+The phase plan is `docs/ROADMAP.md`. Phase 1 is the High Cedars round. Later phases are not built.
 
 See `STATUS.md` for what this milestone does not do.

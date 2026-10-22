@@ -6,7 +6,7 @@
     "owner": "mikecoers",
     "version": "2.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "web": {
       "bundler": "metro",
       "output": "single"

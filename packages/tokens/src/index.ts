@@ -1,15 +1,19 @@
 /**
- * Neutral wireframe tokens. The accent is the only brand-colored value and is
- * meant to be swapped later. This is not a finished brand system.
+ * Navy, white, and red. Red is for hazards and a lay-up warning.
+ * There is no green fill. The crest artwork is a stand-in until the official Navy Fill file is supplied.
  */
-export const accentColor = '#8AC926';
+export const TAGLINE = "The smartest caddie you'll ever carry";
 
 export const colors = {
-  bg: '#0B0D0F',
-  text: '#FFFFFF',
-  accent: accentColor,
-  muted: '#A7ADB4',
-  card: '#161A1D',
-  line: '#2C3338',
-  danger: '#E85D4C',
+  bg: '#F7F5F2',
+  text: '#0B1F3A',
+  accent: '#0B1F3A',
+  onAccent: '#FFFFFF',
+  muted: '#243044',
+  card: '#FFFFFF',
+  line: '#D5D8DE',
+  danger: '#C8102E',
+  navy: '#0B1F3A',
+  white: '#FFFFFF',
+  red: '#C8102E',
 } as const;

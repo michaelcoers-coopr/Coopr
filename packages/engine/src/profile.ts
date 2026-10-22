@@ -35,7 +35,8 @@ export interface DistanceProfile {
   /** Always the median. The longest shot is recorded separately and is never the stock. */
   stockYards: number;
   lateralMiss: 'left' | 'right' | 'none';
-  blended: false;
+  /** True only on an explicit same-metric blend. Carry is never blended into total. */
+  blended: boolean;
   sampleWarning: string | null;
 }
 
@@ -43,9 +44,107 @@ export function refuseMetricConversion(from: DistanceMetric, to: DistanceMetric)
   throw new Error(`Refusing to convert ${from} into ${to}. Carry and total stay distinct.`);
 }
 
-/** Milestone 1 has no blend. A later explicit blend would need its own type. */
+/**
+ * Silent mixing stays refused. A same-metric blend is `blendSameMetric`, and it
+ * keeps carry and total apart.
+ */
 export function blendProfiles(): never {
   throw new Error('Refusing to blend simulator, range, and course. Build a profile per environment.');
+}
+
+/** Course updates count double. Range counts 1.5. The simulator prior counts 1. */
+const ENVIRONMENT_WEIGHT: Record<EnvironmentName, number> = {
+  course: 2,
+  range: 1.5,
+  simulator: 1,
+};
+
+function roundTenth(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function weighted(group: readonly DistanceProfile[], weights: readonly number[], pick: (profile: DistanceProfile) => number): number {
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  return group.reduce((sum, profile, index) => sum + pick(profile) * (weights[index] ?? 0), 0) / total;
+}
+
+/**
+ * Blends profiles of one club, one swing, and one metric.
+ * The result is labeled blended. It is not a new measurement and not a unit conversion.
+ */
+export function blendSameMetric(group: readonly DistanceProfile[]): DistanceProfile {
+  const first = group[0];
+  if (!first || group.length < 2) throw new Error('A blend needs two profiles of the same metric.');
+  for (const profile of group) {
+    if (profile.metric !== first.metric) refuseMetricConversion(profile.metric, first.metric);
+    if (profile.clubId !== first.clubId || profile.swingMode !== first.swingMode) {
+      throw new Error('A blend stays inside one club and one swing mode.');
+    }
+    if (profile.blended) throw new Error('Refusing to blend a profile that is already blended.');
+  }
+  const weights = group.map((profile) => profile.sampleSize * ENVIRONMENT_WEIGHT[profile.environment]);
+  const stockYards = weighted(group, weights, (profile) => profile.stockYards);
+  const stocks = group.map((profile) => profile.stockYards);
+  const spread = Math.max(...stocks) - Math.min(...stocks);
+  const sampleSize = group.reduce((sum, profile) => sum + profile.sampleSize, 0);
+  const iqrValue = weighted(group, weights, (profile) => profile.iqr);
+  let confidence = confidenceBand(sampleSize, iqrValue, stockYards);
+  const parts = group
+    .map((profile) => `${profile.environment} n=${profile.sampleSize} median ${roundTenth(profile.stockYards)}`)
+    .join('; ');
+  let sampleWarning = `Blended ${first.metric} from ${parts}. Course samples count double. This is not a new measurement.`;
+  if (spread > 15) {
+    confidence = 'limited';
+    sampleWarning += ` The medians differ by ${roundTenth(spread)} yards, so confidence stays limited.`;
+  }
+  const sides = new Set(group.map((profile) => profile.lateralMiss).filter((side) => side !== 'none'));
+  const lateralMiss = sides.size === 1 ? ([...sides][0] ?? 'none') : 'none';
+  if (sides.size > 1) sampleWarning += ' Sources disagree on miss side, so no side is stored.';
+  const dominant = [...group].sort(
+    (a, b) => b.sampleSize * ENVIRONMENT_WEIGHT[b.environment] - a.sampleSize * ENVIRONMENT_WEIGHT[a.environment],
+  )[0];
+  return {
+    clubId: first.clubId,
+    clubLabel: first.clubLabel,
+    environment: dominant?.environment ?? first.environment,
+    swingMode: first.swingMode,
+    metric: first.metric,
+    sampleSize,
+    p20: weighted(group, weights, (profile) => profile.p20),
+    p50: weighted(group, weights, (profile) => profile.p50),
+    p80: weighted(group, weights, (profile) => profile.p80),
+    iqr: iqrValue,
+    mad: weighted(group, weights, (profile) => profile.mad),
+    shortMissCount: group.reduce((sum, profile) => sum + profile.shortMissCount, 0),
+    longMissCount: group.reduce((sum, profile) => sum + profile.longMissCount, 0),
+    shortMissShare: weighted(group, weights, (profile) => profile.shortMissShare),
+    longMissShare: weighted(group, weights, (profile) => profile.longMissShare),
+    confidence,
+    longestYards: Math.max(...group.map((profile) => profile.longestYards)),
+    stockYards,
+    lateralMiss,
+    blended: true,
+    sampleWarning,
+  };
+}
+
+/** Appends a same-metric blend wherever one club has two environments. Plain profiles stay. */
+export function withSameMetricBlends(profiles: readonly DistanceProfile[]): DistanceProfile[] {
+  const plain = profiles.filter((profile) => !profile.blended);
+  const groups = new Map<string, DistanceProfile[]>();
+  for (const profile of plain) {
+    const key = `${profile.clubId}|${profile.swingMode}|${profile.metric}`;
+    const list = groups.get(key);
+    if (list) list.push(profile);
+    else groups.set(key, [profile]);
+  }
+  const blends: DistanceProfile[] = [];
+  for (const group of groups.values()) {
+    const environments = new Set(group.map((profile) => profile.environment));
+    if (environments.size < 2) continue;
+    blends.push(blendSameMetric(group));
+  }
+  return [...plain, ...blends];
 }
 
 export function confidenceBand(sampleSize: number, spreadIqr: number, stockYards: number): ConfidenceBand {

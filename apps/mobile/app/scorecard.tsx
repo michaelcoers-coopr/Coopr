@@ -1,48 +1,56 @@
+import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '@coopr/tokens';
+import { loadHighCedarsPilot } from '@coopr/course';
 import { useLocalStore } from '../src/local-store';
-import { Card, Muted, Screen, Title } from '../src/ui';
+import { Button, Card, Choice, Muted, Screen, Title } from '../src/ui';
+
+const pilot = loadHighCedarsPilot();
+
+function versus(strokes: number, par: number | null): string {
+  if (par == null) return '';
+  const diff = strokes - par;
+  if (diff === 0) return 'E';
+  return diff > 0 ? `+${diff}` : String(diff);
+}
 
 export default function ScorecardScreen() {
   const { holes, setStrokes, score } = useLocalStore();
+  const pars = pilot.record.scorecard;
 
   return (
     <Screen>
       <Title>Scorecard</Title>
-      <Muted>Strokes only. The caddie cannot edit this card, and the gross does not come from a sentence.</Muted>
+      <Muted>High Cedars. Strokes only. The caddie cannot edit this card.</Muted>
       <Card>
-        <Text style={styles.gross}>{`Gross ${score.gross}`}</Text>
-        <Muted>{`Front ${score.front} · Back ${score.back} · Holes entered ${score.holesEntered}`}</Muted>
-        <Muted>Handicap: unknown. An estimate would be labeled as not an official GHIN Handicap Index.</Muted>
+        <Text style={styles.gross}>{score.holesEntered === 0 ? 'No strokes entered' : `Gross ${score.gross}`}</Text>
+        <Muted>{`Front ${holes.slice(0, 9).some((strokes) => strokes != null) ? score.front : '—'} · Back ${holes.slice(9).some((strokes) => strokes != null) ? score.back : '—'} · Holes with a score ${score.holesEntered}`}</Muted>
+        <Muted>Handicap is unknown. An estimate is not an official GHIN Handicap Index.</Muted>
       </Card>
-      {holes.map((strokes, index) => (
-        <View key={index + 1} style={styles.row}>
-          <Text style={styles.hole}>{index + 1}</Text>
-          <Text style={styles.strokes}>{strokes ?? '–'}</Text>
-          <Text style={styles.step} onPress={() => setStrokes(index + 1, Math.max(0, (strokes ?? 0) - 1) || null)}>
-            −
-          </Text>
-          <Text style={styles.step} onPress={() => setStrokes(index + 1, (strokes ?? 0) + 1)}>
-            +
-          </Text>
-        </View>
-      ))}
+      {holes.map((strokes, index) => {
+        const hole = pars.find((item) => item.holeNumber === index + 1);
+        const par = hole?.par ?? null;
+        return (
+          <View key={index + 1} style={styles.row}>
+            <Text style={styles.hole}>{index + 1}</Text>
+            <Text style={styles.par}>{`Par ${par ?? '—'}`}</Text>
+            <Text style={styles.strokes}>{strokes ?? '—'}</Text>
+            <Text style={styles.versus}>{strokes == null ? '' : versus(strokes, par)}</Text>
+            <Choice label="−" selected={false} onPress={() => setStrokes(index + 1, strokes == null || strokes <= 1 ? null : strokes - 1)} />
+            <Choice label="+" selected={false} onPress={() => setStrokes(index + 1, (strokes ?? 0) + 1)} />
+          </View>
+        );
+      })}
+      <Button label="Back to the hole" onPress={() => router.push('/play')} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  gross: { color: colors.text, fontSize: 22, fontWeight: '700' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
-  hole: { color: colors.muted, width: 28 },
-  strokes: { color: colors.text, width: 36, fontSize: 18 },
-  step: {
-    color: colors.bg,
-    backgroundColor: colors.accent,
-    overflow: 'hidden',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    fontWeight: '800',
-  },
+  gross: { color: colors.navy, fontSize: 36, fontWeight: '800' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  hole: { color: colors.navy, width: 28, fontSize: 20, fontWeight: '800' },
+  par: { color: colors.muted, width: 64, fontSize: 16 },
+  strokes: { color: colors.navy, width: 36, fontSize: 28, fontWeight: '800', textAlign: 'center' },
+  versus: { color: colors.navy, width: 36, fontSize: 18, fontWeight: '800' },
 });

@@ -115,11 +115,13 @@ function decisionMetric(request: CaddieRequest): DistanceMetric | null {
 
 function poolFor(request: CaddieRequest, metric: DistanceMetric): DistanceProfile[] {
   const allow = request.candidateClubIds ? new Set(request.candidateClubIds) : null;
-  return request.profiles.filter((profile) => {
-    if (profile.metric !== metric || profile.blended) return false;
+  const matching = request.profiles.filter((profile) => {
+    if (profile.metric !== metric) return false;
     if (allow && !allow.has(profile.clubId)) return false;
     return true;
   });
+  const blendedKeys = new Set(matching.filter((profile) => profile.blended).map((profile) => `${profile.clubId}|${profile.swingMode}`));
+  return matching.filter((profile) => profile.blended || !blendedKeys.has(`${profile.clubId}|${profile.swingMode}`));
 }
 
 function clearsFront(profile: DistanceProfile, hazards: readonly Hazard[]): boolean {
@@ -349,7 +351,7 @@ export function recommend(request: CaddieRequest): CaddieCard {
     total: expectedTotal,
     metricUsed: metric,
     keyRisk: riskParts.join(' '),
-    reason: `${winner.clubLabel} ${metric} median is ${yards(winner.stockYards)} from ${winner.sampleSize} ${winner.environment} shots (${winner.swingMode} swing). Confidence is ${winner.confidence}. The longest shot in the sample is ${yards(winner.longestYards)} and is not the stock.${footnote(request)}`,
+    reason: `${winner.clubLabel} ${metric} ${winner.blended ? 'blended median' : 'median'} is ${yards(winner.stockYards)} from ${winner.sampleSize} ${winner.blended ? 'combined' : winner.environment} shots (${winner.swingMode} swing). Confidence is ${winner.confidence}. The longest shot in the sample is ${yards(winner.longestYards)} and is not the stock.${footnote(request)}`,
     instruction: [
       expectedCarry == null && metric === 'total' ? 'Do not use this total to clear a hazard.' : null,
       winner.swingMode === 'unknown' ? 'The source did not record a swing mode. Do not assume a full stock swing.' : null,

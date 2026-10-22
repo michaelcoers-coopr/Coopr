@@ -21,7 +21,7 @@ The app embeds the SQLite text from `@coopr/db`. A test fails if that embed drif
 - `bags.status` is `provisional`, `confirmed`, or null. `bags.note` holds the reason for that bag. `bag_memberships.note` is optional.
 - `simulator_sessions.source_id` attributes the monitor. Shot measurements keep their own source.
 - Shots are the only rows that feed a distance profile, and only when `aggregation = 'shot'`. Session averages, usable-strike summaries, and "best" shots do not.
-- Environment is `simulator`, `range`, or `course`. Profiles are not merged across those.
+- Environment is `simulator`, `range`, or `course`. Those profiles stay stored apart. An explicit same-metric blend may sit beside them: course samples count double, and carry is never blended into total.
 - `audience = 'private'` cannot be opened by the public-demo guard.
 
 ## Tables

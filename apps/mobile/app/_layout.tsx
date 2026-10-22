@@ -8,11 +8,12 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <LocalStoreProvider>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <Stack
           screenOptions={{
             headerStyle: { backgroundColor: colors.bg },
-            headerTintColor: colors.text,
+            headerTintColor: colors.navy,
+            headerTitleStyle: { fontWeight: '800', fontSize: 20 },
             headerShadowVisible: false,
             contentStyle: { backgroundColor: colors.bg },
             title: 'COOPR',

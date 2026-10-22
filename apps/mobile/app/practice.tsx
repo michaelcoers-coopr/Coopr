@@ -32,11 +32,13 @@ export default function PracticeScreen() {
       return;
     }
     addShot({
+      clubId: clubLabel.trim(),
       clubLabel: clubLabel.trim(),
       environment,
       swingMode: swingMode.trim() || 'unknown',
       carry: carryYards,
       total: totalYards,
+      lateralMiss: 'none',
     });
     setCarry('');
     setTotal('');
@@ -73,14 +75,16 @@ export default function PracticeScreen() {
 
 const styles = StyleSheet.create({
   input: {
-    color: colors.text,
-    borderColor: colors.line,
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
+    color: colors.navy,
+    backgroundColor: colors.white,
+    borderColor: colors.navy,
+    borderWidth: 2,
+    borderRadius: 14,
+    minHeight: 56,
+    paddingHorizontal: 14,
+    fontSize: 20,
   },
   row: { flexDirection: 'row', gap: 8 },
-  chip: { color: colors.muted, borderColor: colors.line, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
-  chipOn: { color: colors.bg, backgroundColor: colors.accent, borderColor: colors.accent },
+  chip: { color: colors.navy, borderColor: colors.navy, borderWidth: 2, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 12, fontSize: 18, fontWeight: '700', overflow: 'hidden' },
+  chipOn: { color: colors.white, backgroundColor: colors.navy, borderColor: colors.navy },
 });
