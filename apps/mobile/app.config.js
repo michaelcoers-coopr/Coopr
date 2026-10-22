@@ -6,8 +6,9 @@
  * APP_VARIANT=production → store bundle id, used with EXPO_PUBLIC_FOUNDER_TOOLS=0
  * Unset → Expo Go / local dev, bundle id app.coopr.mobile
  *
- * Expo Go on the Apple App Store is SDK 54. Do not raise the SDK past 54 or
- * that Expo Go build will refuse the project.
+ * App Store Expo Go is SDK 58. runtimeVersion policy `sdkVersion` resolves to
+ * exposdk:58.0.0, which is the runtime that build of Expo Go will load.
+ * SDK 55 removed the newArchEnabled flag; the New Architecture is required.
  */
 module.exports = ({ config }) => {
   const variant = process.env.APP_VARIANT === 'preview' ? 'preview' : process.env.APP_VARIANT === 'production' ? 'production' : 'dev';

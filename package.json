@@ -5,7 +5,7 @@
   "description": "COOPR 2.0 — personal golf caddie. Know your game. Play your game.",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13"
   },
   "workspaces": [
     "packages/*",

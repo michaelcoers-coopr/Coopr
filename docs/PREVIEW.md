@@ -2,7 +2,7 @@
 
 Two paths. Neither one commits a token or an Apple password.
 
-The app stays on **Expo SDK 54**. Expo Go from the Apple App Store stops at SDK 54. SDK 55 and later are not in that App Store build, so this project must not be upgraded past 54 if the goal is Expo Go.
+The app is on **Expo SDK 58** (React Native 0.88, React 19.3). App Store Expo Go is SDK 58.0.0. A project on any other SDK is rejected by that Expo Go build. `runtimeVersion` uses policy `sdkVersion`, which publishes as `exposdk:58.0.0`.
 
 `expo-sqlite` is included in that Expo Go build. The app does not use `expo-dev-client` or any other native module outside Expo Go. If SQLite fails to open, Home still runs and the bag stays in memory.
 
@@ -26,14 +26,14 @@ Do not commit the token. `.env` is gitignored.
 
 The app is linked to EAS project `@mikecoers/coopr` (`998f1644-05ec-4980-a0b9-58e5703951d7`). `preview:publish` uses that id and does not create another project. It publishes the `preview` channel with founder tools on, and prints:
 
-- a QR image: `https://qr.expo.dev/eas-update?projectId=...&runtimeVersion=exposdk:54.0.0&channel=preview&slug=exp`
+- a QR image: `https://qr.expo.dev/eas-update?projectId=...&runtimeVersion=exposdk:58.0.0&channel=preview&slug=exp`
 - the same link with `&format=url` for the `exp://` address
 
-Open the QR with the iPhone camera. `slug=exp` targets Expo Go rather than a custom dev client.
+Open the QR with the iPhone camera. `slug=exp` targets Expo Go rather than a custom dev client. The update that was published while this app was still on SDK 54 will not load in Expo Go SDK 58. Run `npm run preview:publish` again after this upgrade so the preview channel carries an `exposdk:58.0.0` bundle.
 
 The stable QR for this project is:
 
-https://qr.expo.dev/eas-update?projectId=998f1644-05ec-4980-a0b9-58e5703951d7&runtimeVersion=exposdk:54.0.0&channel=preview&slug=exp
+https://qr.expo.dev/eas-update?projectId=998f1644-05ec-4980-a0b9-58e5703951d7&runtimeVersion=exposdk:58.0.0&channel=preview&slug=exp
 
 ## 2. TestFlight-ready iOS build
 

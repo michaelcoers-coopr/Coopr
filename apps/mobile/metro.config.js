@@ -5,13 +5,6 @@ const projectRoot = __dirname;
 const workspaceRoot = path.resolve(projectRoot, '../..');
 const config = getDefaultConfig(projectRoot);
 
-config.watchFolders = [workspaceRoot];
-config.resolver.nodeModulesPaths = [
-  path.resolve(projectRoot, 'node_modules'),
-  path.resolve(workspaceRoot, 'node_modules'),
-];
-config.resolver.disableHierarchicalLookup = true;
-
 // Public and store builds set EXPO_PUBLIC_FOUNDER_TOOLS=0 so founder history never enters the bundle.
 if (process.env.EXPO_PUBLIC_FOUNDER_TOOLS === '0') {
   const stub = path.resolve(workspaceRoot, 'packages/seed/src/store-stub.ts');

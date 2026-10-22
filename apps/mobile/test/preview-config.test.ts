@@ -26,9 +26,12 @@ const rootPackage = JSON.parse(readFileSync(fileURLToPath(new URL('../../../pack
 };
 
 describe('Expo Go preview and TestFlight profile', () => {
-  it('stays on SDK 54, which is the App Store Expo Go, and does not add a dev client', () => {
-    expect(mobilePackage.dependencies.expo).toMatch(/^~54\./);
-    expect(mobilePackage.dependencies['expo-sqlite']).toBeTruthy();
+  it('matches App Store Expo Go SDK 58 and does not add a dev client', () => {
+    expect(mobilePackage.dependencies.expo).toMatch(/^[\^~]58\./);
+    expect(mobilePackage.dependencies.react).toBe('19.3.0');
+    expect(mobilePackage.dependencies['react-native']).toBe('0.88.0');
+    expect(mobilePackage.dependencies['expo-sqlite']).toMatch(/^~58\./);
+    expect(mobilePackage.dependencies['expo-router']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-dev-client']).toBeUndefined();
     expect(rootPackage.dependencies?.['expo-dev-client']).toBeUndefined();
     expect(rootPackage.scripts['preview:publish']).toBe('npm run preview:publish -w @coopr/mobile');
@@ -91,6 +94,7 @@ describe('Expo Go preview and TestFlight profile', () => {
   it('refuses to publish without EXPO_TOKEN and does not embed one', () => {
     const source = readFileSync(scriptPath, 'utf8');
     expect(source).toMatch(/EXPO_PUBLIC_FOUNDER_TOOLS: '1'/);
+    expect(source).toMatch(/exposdk:58\.0\.0/);
     expect(source).not.toMatch(/EXPO_TOKEN\s*=\s*['"][A-Za-z0-9]{8,}/);
     const result = spawnSync(process.execPath, [scriptPath], {
       env: { ...process.env, EXPO_TOKEN: '' },

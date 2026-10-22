@@ -72,7 +72,12 @@ if (projectId !== committedProjectId) {
   fail(`Resolved project id ${projectId ?? '(missing)'} does not match the committed id ${committedProjectId}. Refusing to run eas init.`);
 }
 
-const runtimeVersion = typeof config.runtimeVersion === 'string' ? config.runtimeVersion : 'exposdk:54.0.0';
+const runtimeVersion =
+  typeof config.runtimeVersion === 'string'
+    ? config.runtimeVersion
+    : typeof config.sdkVersion === 'string'
+      ? `exposdk:${config.sdkVersion}`
+      : 'exposdk:58.0.0';
 run([
   '--yes',
   'eas-cli@latest',
@@ -85,8 +90,8 @@ run([
 ]);
 
 const qr = `https://qr.expo.dev/eas-update?projectId=${encodeURIComponent(projectId)}&runtimeVersion=${encodeURIComponent(runtimeVersion)}&channel=preview&slug=exp`;
-console.log('\nExpo Go QR image (App Store Expo Go, SDK 54):');
+console.log('\nExpo Go QR image (App Store Expo Go, SDK 58):');
 console.log(qr);
 console.log('\nSame link as a URL string:');
 console.log(`${qr}&format=url`);
-console.log('\nOpen that URL on the iPhone. Expo Go must be the App Store build (SDK 54), signed into the Expo account that owns this project.');
+console.log('\nOpen that URL on the iPhone. Expo Go must be the App Store build (SDK 58), signed into the Expo account that owns this project.');
