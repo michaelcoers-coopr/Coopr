@@ -1,6 +1,6 @@
 import { SQLITE_MIGRATION_V1 } from '@coopr/db';
 
-/** Opens the on-device database and applies the versioned migration. Web export may lack a worker. */
+/** Opens the on-device database and applies the versioned migration. expo-sqlite ships inside Expo Go on SDK 54. Web export has no SQLite worker. */
 export async function bootDatabase(): Promise<string> {
   const sqlite = await import('expo-sqlite');
   const db = await sqlite.openDatabaseAsync('coopr.db');

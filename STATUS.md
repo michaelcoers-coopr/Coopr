@@ -13,7 +13,8 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 - Caddie name is COOPR. Personality is Funny but Knowledgeable.
 - Simulator session is TrackMan. The numbers stay on the verbatim source. The monitor confirmation is the master-spec source.
 - Provisional in-play 14, editable in the app, status `provisional`. Rationale on the bag: these are the clubs he actually used on course. 4-wood ownership is confirmed. Putter is a PXG 211 blade (length, loft, and shaft still null).
-- The founder is the default local profile on a dev build. `EXPO_PUBLIC_FOUNDER_TOOLS=0` swaps `@coopr/seed` for a stub so a public or store bundle does not contain that history. The public-demo guard still refuses a private account.
+- The founder is the default local profile on a dev build and on the Expo Go preview channel. `EXPO_PUBLIC_FOUNDER_TOOLS=0` swaps `@coopr/seed` for a stub so a production bundle does not contain that history. The public-demo guard still refuses a private account.
+- Expo Go preview is configured for SDK 54 (the App Store Expo Go). `npm run preview:publish` publishes the `preview` channel when `EXPO_TOKEN` is set. `eas.json` profile `preview` is a store-distribution iOS build (`app.coopr.mobile.preview`, founder tools on) for TestFlight. Steps are in `docs/PREVIEW.md`. Nothing was published: this environment has no `EXPO_TOKEN`, and Apple was not signed in.
 - Pure stats, caddie, and scoring. CSV and JSON export. Soft-delete of an account.
 - Screens: Home (Play golf / Practice & calibrate), Bag, Caddie with manual distance, Scorecard, and private founder flows A–D plus founder bag and High Cedars.
 - Neutral wireframe. Accent token `#8AC926` on `#0B0D0F` / `#FFFFFF`.
@@ -22,7 +23,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 ## Not done
 
 - No cloud sync. The outbox is written and never pushed. Postgres is a file, not a database.
-- No accounts: no Apple Developer, no Expo/EAS project, no Supabase or other backend, no GHIN.
+- No Expo project linked yet, and no `EXPO_TOKEN` in this environment, so the preview channel was not published. No Supabase or other backend, no GHIN. Mike has an Apple Developer account; this environment did not sign into it.
 - No licensed course map or GPS yardages. Manual distance only.
 - No LLM rephrase. The language provider returns the deterministic text.
 - No launch-monitor connection. Practice entry is manual. The founder transcript is an import, not a live session.
@@ -35,7 +36,8 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 
 ## Blockers
 
-- Apple Developer account (identity and payment) for TestFlight or the App Store.
+- `EXPO_TOKEN` from the Expo account Mike will use in Expo Go. Without it, `npm run preview:publish` stops. Since 12 May 2026 Expo Go only opens an update owned by that account.
+- Apple sign-in on a machine Mike controls, the first time `eas build -p ios --profile preview` runs. The command and the submit step are in `docs/PREVIEW.md`. No certificate is in the repo.
 - Licensed course and GPS data. Nothing in this repo is a course map.
 - Backend accounts if sync should leave the device. The schema is ready; the project is not.
 - GHIN, or any other official handicap service, before a number can be called a Handicap Index.
@@ -73,7 +75,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 
 ## Tests
 
-`npm test` — 4 files, 32 tests, all passing.
+`npm test` — 5 files, 35 tests, all passing.
 
 `npm run typecheck` — `tsc -b` for domain, tokens, engine, seed, and db, then the Expo app.
 

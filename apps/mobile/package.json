@@ -6,7 +6,8 @@
   "scripts": {
     "start": "expo start",
     "typecheck": "tsc --noEmit",
-    "bundle": "expo export --platform web --output-dir dist"
+    "bundle": "expo export --platform web --output-dir dist",
+    "preview:publish": "node ./scripts/preview-publish.mjs"
   },
   "dependencies": {
     "@coopr/db": "*",

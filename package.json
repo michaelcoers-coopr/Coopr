@@ -14,7 +14,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc -b && npm run typecheck -w @coopr/mobile",
-    "bundle": "npm run bundle -w @coopr/mobile"
+    "bundle": "npm run bundle -w @coopr/mobile",
+    "preview:publish": "npm run preview:publish -w @coopr/mobile"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
