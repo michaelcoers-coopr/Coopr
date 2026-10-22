@@ -67,6 +67,8 @@ export interface CaddieCard {
 const SAMPLE_FLOOR = 5;
 const FIRM_SAMPLE = 8;
 const STOCK_GAP_YARDS = 8;
+/** A stock farther than this from the shot is not called. The gap is yards, not a probability. */
+export const STOCK_REACH_YARDS = 15;
 
 /**
  * Geometry only. This function does not read a miss pattern, and there is no
@@ -320,6 +322,20 @@ export function recommend(request: CaddieRequest): CaddieCard {
   }
 
   const gap = Math.abs(winner.stockYards - request.targetDistanceYards);
+  if (gap > STOCK_REACH_YARDS) {
+    return decline(request, {
+      clubId: null,
+      clubLabel: null,
+      swingMode: null,
+      pattern: null,
+      carry: null,
+      total: null,
+      metricUsed: null,
+      keyRisk: `The shot is ${yards(gap)} yards from the closest measured stock.`,
+      reason: `No club. The closest ${metric} is ${winner.clubLabel} at ${yards(winner.stockYards)}, ${yards(gap)} yards from ${yards(request.targetDistanceYards)}. A call stays within ${STOCK_REACH_YARDS} yards of a measured stock. Nothing is stretched to fit.`,
+      instruction: null,
+    });
+  }
   const posture: CaddieCard['posture'] =
     winner.sampleSize < FIRM_SAMPLE || winner.confidence === 'limited' || gap > STOCK_GAP_YARDS ? 'conservative' : 'recommend';
   const carry = winner.metric === 'carry' ? band(winner) : null;

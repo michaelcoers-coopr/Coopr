@@ -7,7 +7,6 @@ import { Muted } from './ui';
 import type { HoleMapProps } from './hole-map-props';
 
 const WIDTH = 350;
-const HEIGHT = 320;
 
 function pointsOf(ring: readonly LatLon[], projection: ReturnType<typeof projectPoints>): string {
   return ring.map((point) => {
@@ -20,13 +19,14 @@ function pointsOf(ring: readonly LatLon[], projection: ReturnType<typeof project
 export function HoleMap(props: HoleMapProps) {
   const cloud = [props.line, ...props.fairways, ...props.green, ...props.bunkers, ...props.hazards, ...(props.ellipse ? [props.ellipse] : []), ...props.dispersionLine, ...props.measure].flat();
   if (cloud.length === 0) return <Muted>This hole has no open geometry to draw.</Muted>;
-  const projection = projectPoints(cloud, WIDTH, HEIGHT, 18);
+  const height = props.height ?? 220;
+  const projection = projectPoints(cloud, WIDTH, height, 12);
   return (
     <View style={styles.frame}>
       <Svg
         width="100%"
-        height={HEIGHT}
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        height={height}
+        viewBox={`0 0 ${WIDTH} ${height}`}
         onPress={(event) => {
           const x = event.nativeEvent.locationX;
           const y = event.nativeEvent.locationY;
@@ -55,9 +55,9 @@ export function HoleMap(props: HoleMapProps) {
         ) : null}
         {props.measure.length > 1 ? <Polyline points={pointsOf(props.measure, projection)} fill="none" stroke={colors.red} strokeWidth={3} /> : null}
       </Svg>
-      <View pointerEvents="none" style={styles.float}>
+      <View pointerEvents="none" style={[styles.float, { top: height - 74 }]}>
         <View>
-          <Text style={styles.kicker}>Raw</Text>
+          <Text style={styles.kicker}>Shot</Text>
           <Text style={styles.raw}>{props.rawLabel}</Text>
         </View>
         <View>
@@ -65,18 +65,16 @@ export function HoleMap(props: HoleMapProps) {
           <Text style={styles.plays}>{props.playsLabel}</Text>
         </View>
       </View>
-      <Muted>Open geometry. Satellite imagery is on the iPhone. A tap is a map distance, not a shot.</Muted>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  frame: { borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: colors.navy, backgroundColor: colors.bg },
+  frame: { borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2', backgroundColor: colors.bg },
   float: {
     position: 'absolute',
     left: 12,
     right: 12,
-    top: 248,
     backgroundColor: colors.white,
     borderRadius: 16,
     borderWidth: 2,

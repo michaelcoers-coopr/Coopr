@@ -102,6 +102,39 @@ export function holeOverlay(features: readonly MapFeature[], scorecard: readonly
   };
 }
 
+export interface TaggedHazardLine {
+  yards: number;
+  kind: 'bunker' | 'hazard';
+  note: string;
+}
+
+/**
+ * Ground distance from `from` to the nearest hazard or bunker tagged with this hole number.
+ * An intersecting polygon with no hole tag is ignored. Null when there is no position or no tag.
+ * The yards are not a carry.
+ */
+export function taggedHazardLine(features: readonly MapFeature[], holeNumber: number, from: LatLon | null): TaggedHazardLine | null {
+  if (!from) return null;
+  const tagged = features.filter(
+    (feature): feature is MapFeature & { kind: 'bunker' | 'hazard' } =>
+      (feature.kind === 'bunker' || feature.kind === 'hazard') && feature.holeRef === holeNumber,
+  );
+  let best: { yards: number; kind: 'bunker' | 'hazard' } | null = null;
+  for (const feature of tagged) {
+    for (const ring of feature.rings) {
+      const yards = distanceToRingYards(from, ring);
+      if (yards == null) continue;
+      if (!best || yards < best.yards) best = { yards, kind: feature.kind };
+    }
+  }
+  if (!best) return null;
+  return {
+    yards: Math.round(best.yards * 10) / 10,
+    kind: best.kind,
+    note: 'Ground distance to a hazard tagged on this hole. Not a carry and not a survey.',
+  };
+}
+
 function yardageGap(scorecard: ScorecardHole, derivedCenter: number | null): string | null {
   const published = Object.values(scorecard.yardagesByTee);
   if (derivedCenter == null || published.length === 0) return null;

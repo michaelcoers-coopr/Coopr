@@ -75,7 +75,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 
 ## Tests
 
-`npm test` — 10 files, 68 tests, all passing.
+`npm test` — 10 files, 71 tests, all passing.
 
 `npm run typecheck` — `tsc -b` for domain, tokens, engine, seed, and db, then the Expo app.
 

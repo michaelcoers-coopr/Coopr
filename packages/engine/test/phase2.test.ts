@@ -14,8 +14,13 @@ import {
   parseOpenMeteoCurrent,
   parseOpenMeteoElevation,
   playsLike,
+  recommend,
+  shortShotCall,
+  taggedHazardLine,
   wedgeCarry,
+  type DistanceProfile,
 } from '@coopr/engine';
+import type { MapFeature } from '@coopr/domain';
 import { loadHighCedarsPilot } from '@coopr/course';
 
 describe('plays-like', () => {
@@ -111,6 +116,114 @@ describe('miss side, wedges, and debrief', () => {
     const shape = dispersionShape({ metric: 'carry', dispersionKnown: true, p20: 150, p80: 170, stockYards: 160, sampleSize: 10 });
     expect(shape?.alongYards).toBe(10);
     expect(shape?.metric).toBe('carry');
+  });
+});
+
+describe('round calls', () => {
+  const stock = (partial: Partial<DistanceProfile>): DistanceProfile => ({
+    clubId: 'driver',
+    clubLabel: 'Driver',
+    environment: 'simulator',
+    swingMode: 'unknown',
+    metric: 'total',
+    sampleSize: 8,
+    p20: 190,
+    p50: 213,
+    p80: 230,
+    iqr: 40,
+    mad: 10,
+    shortMissCount: 0,
+    longMissCount: 0,
+    shortMissShare: 0,
+    longMissShare: 0,
+    confidence: 'moderate',
+    longestYards: 253,
+    stockYards: 213,
+    lateralMiss: 'none',
+    blended: false,
+    reported: false,
+    dispersionKnown: true,
+    sampleWarning: null,
+    ...partial,
+  });
+
+  it('declines a club that is not within 15 yards of the shot', () => {
+    const card = recommend({
+      targetDistanceYards: 484,
+      targetMetric: 'total',
+      hazards: [],
+      intent: 'neutral',
+      riskPreference: 'neutral',
+      profiles: [stock({})],
+    });
+    expect(card.posture).toBe('decline');
+    expect(card.clubId).toBeNull();
+    expect(card.lines.reason).toMatch(/No club/);
+    expect(card.lines.reason).toMatch(/213/);
+    const close = recommend({
+      targetDistanceYards: 210,
+      targetMetric: 'total',
+      hazards: [],
+      intent: 'neutral',
+      riskPreference: 'neutral',
+      profiles: [stock({})],
+    });
+    expect(close.clubLabel).toBe('Driver');
+    expect(close.posture).not.toBe('decline');
+  });
+
+  it('uses a stored wedge carry inside 40 yards and ignores a full-swing stock', () => {
+    const empty = shortShotCall(18, []);
+    expect(empty.clubId).toBeNull();
+    expect(empty.reason).toMatch(/full-swing stock is not used/);
+    const far = shortShotCall(18, [{ clubId: 'sw', clubLabel: '56°', length: 'full', carryYards: 91 }]);
+    expect(far.clubId).toBeNull();
+    expect(far.reason).toMatch(/56°/);
+    const pitch = shortShotCall(18, [
+      { clubId: 'sw', clubLabel: '56°', length: 'full', carryYards: 91 },
+      { clubId: 'sw', clubLabel: '56°', length: 'half', carryYards: 20 },
+    ]);
+    expect(pitch.clubId).toBe('sw');
+    expect(pitch.length).toBe('half');
+    expect(pitch.carryYards).toBe(20);
+    expect(pitch.reason).not.toMatch(/total/);
+  });
+
+  it('sets a carry line only from a tagged hazard and a real position', () => {
+    const ring = [
+      { lat: 0.001, lon: -0.0002 },
+      { lat: 0.001, lon: 0.0002 },
+      { lat: 0.0014, lon: 0.0002 },
+      { lat: 0.0014, lon: -0.0002 },
+    ];
+    const hazard = {
+      osmType: 'way',
+      osmId: 1,
+      kind: 'hazard',
+      holeRef: 1,
+      par: null,
+      handicap: null,
+      tags: {},
+      rings: [ring],
+      provenance: {
+        provider: 'openstreetmap',
+        externalId: 'way/1',
+        license: 'ODbL-1.0',
+        attribution: '© OpenStreetMap contributors',
+        retrievedOn: '2026-10-22',
+        datasetClass: 'open',
+        upstreamTimestamp: null,
+      },
+    } as MapFeature;
+    const untagged = { ...hazard, osmId: 2, holeRef: null };
+    const from = { lat: 0, lon: 0 };
+    const line = taggedHazardLine([hazard], 1, from);
+    expect(line?.kind).toBe('hazard');
+    expect(line?.yards).toBeGreaterThan(50);
+    expect(line?.note).toMatch(/Not a carry/);
+    expect(taggedHazardLine([untagged], 1, from)).toBeNull();
+    expect(taggedHazardLine([hazard], 1, null)).toBeNull();
+    expect(taggedHazardLine([hazard], 2, from)).toBeNull();
   });
 });
 

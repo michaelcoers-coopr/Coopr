@@ -30,7 +30,7 @@ export default function WedgeScreen() {
   return (
     <Screen>
       <Title>Wedge matrix</Title>
-      <Muted>Three carries per wedge. A blank cell stays blank. A total is not copied in as a carry.</Muted>
+      <Muted>Enter carries before the round. Inside 40 yards, a pitch uses these and nothing else. A blank stays blank. A total is not copied in as a carry.</Muted>
       {wedgeClubs.length === 0 ? <Muted>No wedge is in the bag yet.</Muted> : null}
       {wedgeClubs.map((club) => (
         <Card key={club.id}>

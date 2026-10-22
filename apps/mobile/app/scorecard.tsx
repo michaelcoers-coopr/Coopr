@@ -35,7 +35,8 @@ export default function ScorecardScreen() {
           ))}
         </Card>
       ))}
-      {holes.map((strokes, index) => {
+      <Text style={styles.nine}>Front nine</Text>
+      {holes.slice(0, 9).map((strokes, index) => {
         const hole = pars.find((item) => item.holeNumber === index + 1);
         const par = hole?.par ?? null;
         return (
@@ -49,6 +50,22 @@ export default function ScorecardScreen() {
           </View>
         );
       })}
+      <Text style={styles.nine}>Back nine</Text>
+      {holes.slice(9).map((strokes, index) => {
+        const holeNumber = index + 10;
+        const hole = pars.find((item) => item.holeNumber === holeNumber);
+        const par = hole?.par ?? null;
+        return (
+          <View key={holeNumber} style={styles.row}>
+            <Text style={styles.hole}>{holeNumber}</Text>
+            <Text style={styles.par}>{`Par ${par ?? '—'}`}</Text>
+            <Text style={styles.strokes}>{strokes ?? '—'}</Text>
+            <Text style={styles.versus}>{strokes == null ? '' : versus(strokes, par)}</Text>
+            <Choice label="−" selected={false} onPress={() => setStrokes(holeNumber, strokes == null || strokes <= 1 ? null : strokes - 1)} />
+            <Choice label="+" selected={false} onPress={() => setStrokes(holeNumber, (strokes ?? 0) + 1)} />
+          </View>
+        );
+      })}
       <Button label="Back to the hole" onPress={() => router.push('/play')} />
     </Screen>
   );
@@ -56,6 +73,7 @@ export default function ScorecardScreen() {
 
 const styles = StyleSheet.create({
   gross: { color: colors.navy, fontSize: 36, fontWeight: '800' },
+  nine: { color: colors.navy, fontSize: 24, fontWeight: '800', marginTop: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
   hole: { color: colors.navy, width: 28, fontSize: 20, fontWeight: '800' },
   par: { color: colors.muted, width: 64, fontSize: 16 },

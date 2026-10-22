@@ -187,6 +187,64 @@ export function missReport(marks: readonly MissMark[]): MissReport {
 export const WEDGE_LENGTHS = ['full', 'three_quarter', 'half'] as const;
 export type WedgeLength = (typeof WEDGE_LENGTHS)[number];
 
+/** Full-swing stocks are not used at or inside this distance. */
+export const SHORT_SHOT_YARDS = 40;
+/** A stored wedge carry farther than this from the shot is not called. */
+export const WEDGE_REACH_YARDS = 15;
+
+export interface ShortShotCell {
+  clubId: string;
+  clubLabel: string;
+  length: WedgeLength;
+  carryYards: number | null;
+}
+
+export interface ShortShotCall {
+  clubId: string | null;
+  clubLabel: string | null;
+  length: WedgeLength | null;
+  carryYards: number | null;
+  gapYards: number | null;
+  reason: string;
+}
+
+/**
+ * Inside 40 yards the call comes only from stored wedge-matrix carries.
+ * A full-swing total or carry is not consulted. An empty matrix stays empty.
+ */
+export function shortShotCall(targetYards: number, cells: readonly ShortShotCell[]): ShortShotCall {
+  const empty: ShortShotCall = { clubId: null, clubLabel: null, length: null, carryYards: null, gapYards: null, reason: '' };
+  if (!Number.isFinite(targetYards) || targetYards <= 0 || targetYards > SHORT_SHOT_YARDS) {
+    return { ...empty, reason: 'A full-swing stock is still the call past 40 yards.' };
+  }
+  const usable = cells.filter((cell) => cell.carryYards != null && Number.isFinite(cell.carryYards) && cell.carryYards > 0);
+  if (usable.length === 0) {
+    return { ...empty, reason: 'No wedge carry is stored. A full-swing stock is not used inside 40 yards.' };
+  }
+  const ranked = [...usable].sort((a, b) => {
+    const gap = Math.abs(a.carryYards! - targetYards) - Math.abs(b.carryYards! - targetYards);
+    if (gap !== 0) return gap;
+    return a.clubLabel.localeCompare(b.clubLabel);
+  });
+  const best = ranked[0]!;
+  const gapYards = roundTenth(Math.abs(best.carryYards! - targetYards));
+  if (gapYards > WEDGE_REACH_YARDS) {
+    return {
+      ...empty,
+      gapYards,
+      reason: `No stored wedge carry is within ${WEDGE_REACH_YARDS} yards of ${roundTenth(targetYards)}. The closest is ${best.clubLabel} ${best.length.replace(/_/g, ' ')} at ${best.carryYards}. A full-swing stock is not used.`,
+    };
+  }
+  return {
+    clubId: best.clubId,
+    clubLabel: best.clubLabel,
+    length: best.length,
+    carryYards: best.carryYards,
+    gapYards,
+    reason: `${best.clubLabel} ${best.length.replace(/_/g, ' ')} carry ${best.carryYards} is a stored wedge matrix number, ${gapYards} yards from the shot.`,
+  };
+}
+
 export function wedgeCarry(raw: number | null): number | null | { error: string } {
   if (raw == null) return null;
   if (!Number.isFinite(raw) || raw <= 0 || raw > 180) return { error: 'A wedge carry stays empty unless it is between 0 and 180 yards.' };

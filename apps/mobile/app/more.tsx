@@ -1,0 +1,45 @@
+import { useEffect, useState } from 'react';
+import { router } from 'expo-router';
+import { Button, Card, Muted, Screen, Title } from '../src/ui';
+import { bootDatabase } from '../src/boot-db';
+import { useLocalStore } from '../src/local-store';
+
+export default function MoreScreen() {
+  const { founderTools, displayName, caddieName, personalityLabel } = useLocalStore();
+  const [dbStatus, setDbStatus] = useState('Opening the on-device course cache…');
+
+  useEffect(() => {
+    let cancelled = false;
+    bootDatabase()
+      .then((status) => {
+        if (!cancelled) setDbStatus(status);
+      })
+      .catch(() => {
+        if (!cancelled) setDbStatus('Local database unavailable on this runtime. The round still stays on this device.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <Screen>
+      <Title>More</Title>
+      <Muted>Setup and the card. The round starts from Play.</Muted>
+      <Button label="Game plan" tone="ghost" onPress={() => router.push('/plan')} />
+      <Button label="Scorecard" tone="ghost" onPress={() => router.push('/scorecard')} />
+      <Button label="Debrief" tone="ghost" onPress={() => router.push('/debrief')} />
+      <Button label="Bag" tone="ghost" onPress={() => router.push('/bag')} />
+      <Button label="Wedge matrix" tone="ghost" onPress={() => router.push('/wedges')} />
+      <Button label="Add from photos" tone="ghost" onPress={() => router.push('/import')} />
+      <Button label="Caddie" tone="ghost" onPress={() => router.push('/caddie')} />
+      <Button label="Course quality" tone="ghost" onPress={() => router.push('/course')} />
+      <Card>
+        <Muted>High Cedars, Orting, is the only course on this phone. The shot number is what you type until a green is verified.</Muted>
+        <Muted>{dbStatus}</Muted>
+        {founderTools ? <Muted>{`${displayName}. Caddie ${caddieName}, ${personalityLabel}.`}</Muted> : <Muted>Public shell.</Muted>}
+      </Card>
+      {founderTools ? <Button label="Founder verification" tone="ghost" onPress={() => router.push('/founder')} /> : null}
+    </Screen>
+  );
+}

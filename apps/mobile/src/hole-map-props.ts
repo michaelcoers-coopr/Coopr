@@ -12,4 +12,5 @@ export interface HoleMapProps {
   onTap: (point: LatLon) => void;
   rawLabel: string;
   playsLabel: string;
+  height?: number;
 }

@@ -23,7 +23,7 @@ export function HoleMap(props: HoleMapProps) {
     longitudeDelta: Math.max(0.002, (Math.max(...lons) - Math.min(...lons)) * 1.7),
   };
   return (
-    <View style={styles.frame}>
+    <View style={[styles.frame, { height: props.height ?? 320 }]}>
       <MapView
         style={styles.map}
         mapType="satellite"
@@ -53,7 +53,7 @@ export function HoleMap(props: HoleMapProps) {
       </MapView>
       <View pointerEvents="none" style={styles.float}>
         <View>
-          <Text style={styles.kicker}>Raw</Text>
+          <Text style={styles.kicker}>Shot</Text>
           <Text style={styles.raw}>{props.rawLabel}</Text>
         </View>
         <View>
@@ -66,7 +66,7 @@ export function HoleMap(props: HoleMapProps) {
 }
 
 const styles = StyleSheet.create({
-  frame: { height: 360, borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: colors.navy },
+  frame: { borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2' },
   map: { flex: 1 },
   float: {
     position: 'absolute',
