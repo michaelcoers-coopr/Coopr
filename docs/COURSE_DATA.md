@@ -90,7 +90,6 @@ Association rules, and nothing else:
 - Hole 8: No bunker is tagged with this hole number. A count of zero intersections is not proof the hole has no bunker.
 - Hole 8: 1 water-hazard polygon intersects the hole line or the associated green and is not tagged to this hole.
 - Hole 8: Front, center, and back can be derived from the green polygon. They are unverified open-data distances, not a survey, and not a carry.
-- Hole 8: Derived tee-to-center is 113 yards from the hole-way start, more than 40 yards from every published tee yardage. The start of the hole way is not treated as a surveyed tee.
 - Hole 8: GPS play stays on manual distance until an admin verifies this green.
 - Hole 9: 2 tee geometries sit within 25 m of the hole-way start. None are tagged with a tee name or color, so Blue, White, Gold, and Red are not coordinates.
 - Hole 9: No bunker is tagged with this hole number. A count of zero intersections is not proof the hole has no bunker.
@@ -106,7 +105,6 @@ Association rules, and nothing else:
 - Hole 11: No bunker is tagged with this hole number. A count of zero intersections is not proof the hole has no bunker.
 - Hole 11: No water hazard is tagged with this hole number.
 - Hole 11: Front, center, and back can be derived from the green polygon. They are unverified open-data distances, not a survey, and not a carry.
-- Hole 11: Derived tee-to-center is 238 yards from the hole-way start, more than 40 yards from every published tee yardage. The start of the hole way is not treated as a surveyed tee.
 - Hole 11: GPS play stays on manual distance until an admin verifies this green.
 - Hole 12: 2 tee geometries sit within 25 m of the hole-way start. None are tagged with a tee name or color, so Blue, White, Gold, and Red are not coordinates.
 - Hole 12: No bunker is tagged with this hole number. A count of zero intersections is not proof the hole has no bunker.
@@ -132,7 +130,6 @@ Association rules, and nothing else:
 - Hole 16: No bunker is tagged with this hole number. A count of zero intersections is not proof the hole has no bunker.
 - Hole 16: 1 water-hazard polygon intersects the hole line or the associated green and is not tagged to this hole.
 - Hole 16: Front, center, and back can be derived from the green polygon. They are unverified open-data distances, not a survey, and not a carry.
-- Hole 16: Derived tee-to-center is 365 yards from the hole-way start, more than 40 yards from every published tee yardage. The start of the hole way is not treated as a surveyed tee.
 - Hole 16: GPS play stays on manual distance until an admin verifies this green.
 - Hole 17: 1 tee geometry sits within 25 m of the hole-way start. None are tagged with a tee name or color, so Blue, White, Gold, and Red are not coordinates.
 - Hole 17: 2 fairway polygons intersect the hole line. The report does not pick one.

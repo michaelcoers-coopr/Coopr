@@ -6,7 +6,7 @@ export interface SavedTag {
   hole: number;
   clubId: string;
   clubLabel: string;
-  result: 'fairway' | 'left' | 'right' | 'short' | 'hazard';
+  result: 'fairway' | 'left' | 'right' | 'short' | 'rough' | 'green' | 'hazard';
   shownYards: number | null;
   carry: number | null;
   total: number | null;
@@ -50,6 +50,23 @@ export const EMPTY_CONDITIONS: RoundConditions = {
   usePlaysLike: false,
 };
 
+/** A new round applies fetched weather. An old save without the switch stays off. */
+export const FRESH_CONDITIONS: RoundConditions = { ...EMPTY_CONDITIONS, usePlaysLike: true };
+
+export type SavedLie = 'fairway' | 'rough' | 'left' | 'right' | 'green' | 'hazard';
+
+export interface SavedMark {
+  id: string;
+  hole: number;
+  lat: number;
+  lon: number;
+  clubId: string | null;
+  clubLabel: string | null;
+  /** Ground yards from the previous mark on this hole. Null until the next mark. Not a carry. */
+  yards: number | null;
+  lie: SavedLie | null;
+}
+
 export const EMPTY_PUTTS = Array.from({ length: 18 }, () => null) as Array<number | null>;
 
 export interface RoundSave {
@@ -67,6 +84,8 @@ export interface RoundSave {
   putts: Array<number | null>;
   /** Wind, elevation, temperature, and the plays-like switch for this round. */
   conditions: RoundConditions;
+  /** GPS marks. Absent on older saves. */
+  marks: SavedMark[];
 }
 
 function holeNumber(value: unknown): number | null {
@@ -107,7 +126,17 @@ function tagsOf(value: unknown): SavedTag[] {
     const hole = holeNumber(row.hole);
     const result = row.result;
     if (!hole || typeof row.id !== 'string' || typeof row.clubId !== 'string' || typeof row.clubLabel !== 'string') continue;
-    if (result !== 'fairway' && result !== 'left' && result !== 'right' && result !== 'short' && result !== 'hazard') continue;
+    if (
+      result !== 'fairway' &&
+      result !== 'left' &&
+      result !== 'right' &&
+      result !== 'short' &&
+      result !== 'rough' &&
+      result !== 'green' &&
+      result !== 'hazard'
+    ) {
+      continue;
+    }
     const shown = optionalYards(row.shownYards);
     const carry = optionalYards(row.carry);
     const total = optionalYards(row.total);
@@ -233,6 +262,30 @@ function conditionsOf(value: unknown): RoundConditions {
   };
 }
 
+const LIES = new Set(['fairway', 'rough', 'left', 'right', 'green', 'hazard']);
+
+function marksOf(value: unknown): SavedMark[] {
+  if (!Array.isArray(value)) return [];
+  const marks: SavedMark[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    const hole = holeNumber(row.hole);
+    if (!hole || typeof row.id !== 'string') continue;
+    if (typeof row.lat !== 'number' || typeof row.lon !== 'number' || !Number.isFinite(row.lat) || !Number.isFinite(row.lon)) continue;
+    const yards = row.yards == null ? null : positiveYards(row.yards);
+    if (row.yards != null && yards == null) continue;
+    const lie = row.lie == null ? null : LIES.has(String(row.lie)) ? (row.lie as SavedMark['lie']) : null;
+    if (row.lie != null && lie == null) continue;
+    const clubId = row.clubId == null ? null : typeof row.clubId === 'string' ? row.clubId : null;
+    const clubLabel = row.clubLabel == null ? null : typeof row.clubLabel === 'string' ? row.clubLabel : null;
+    if (row.clubId != null && clubId == null) continue;
+    if (row.clubLabel != null && clubLabel == null) continue;
+    marks.push({ id: row.id, hole, lat: row.lat, lon: row.lon, clubId, clubLabel, yards, lie });
+  }
+  return marks;
+}
+
 function plansOf(value: unknown): RoundSave['plans'] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const plans: RoundSave['plans'] = {};
@@ -275,6 +328,7 @@ export function parseRoundSave(raw: string | null): RoundSave | null {
     localShots: shotsOf(row.localShots),
     putts: puttsOf(row.putts),
     conditions: conditionsOf(row.conditions),
+    marks: marksOf(row.marks),
   };
 }
 

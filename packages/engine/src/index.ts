@@ -9,6 +9,7 @@ export * from './photo-import';
 export * from './extract-http';
 export * from './caddie';
 export * from './phase2';
+export * from './walk';
 export * from './scoring';
 export * from './bag-advice';
 export * from './export-data';

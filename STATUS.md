@@ -17,6 +17,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 - Expo Go preview is on SDK 58 (React Native 0.88, React 19.3) and linked to EAS project `@mikecoers/coopr` (`998f1644-05ec-4980-a0b9-58e5703951d7`). The preview runtime is `exposdk:58.0.0`. `npm run preview:publish` republishes that preview channel when `EXPO_TOKEN` is set and does not create a new project. The update published before this upgrade is still SDK 54 and will not load in App Store Expo Go until Mike publishes again. `eas.json` profile `preview` is a store-distribution iOS build (`app.coopr.mobile.preview`, founder tools on) for TestFlight. Steps are in `docs/PREVIEW.md`. Apple was not signed in from this environment.
 - Pure stats, caddie, and scoring. CSV and JSON export. Soft-delete of an account.
 - Screens: Home, Play (High Cedars hole view), Bag with CSV import, Caddie, Scorecard, Practice, course quality, and private founder flows A–D.
+- A round is one mark per shot and a score confirm. Ground distance is the phone to the open green. Wind, temperature, and pressure come from Open-Meteo when plays-like is on. The finish is read from the next mark when the polygon says so. Par and two putts stay grey until confirmed.
 - Brand from the 22 Oct founder decision: navy `#0B1F3A`, white, and red `#C8102E` for a lay-up or a hazard. No green fill. Tagline "The smartest caddie you'll ever carry." The home screen uses the official Navy Fill crest raster. It is not redrawn. Phases are in `docs/ROADMAP.md`. Phase 1 is the round. Phase 1.5 reads a photo on a server. Phase 2 is the caddie layer: plays-like, a plan, a debrief, miss side, wedge carries, tone presets, and a satellite hole view. Phase 3 has not started.
 - Null provider defaults. No secrets in the repo.
 
@@ -24,14 +25,14 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 
 - No cloud sync. The outbox is written and never pushed. Postgres is a file, not a database.
 - No Supabase or other backend, no GHIN. Mike has an Apple Developer account; this environment did not sign into it. Republishing the preview channel still needs `EXPO_TOKEN` on the `@mikecoers` account.
-- High Cedars (Orting) is the course-data pilot: OpenGolfAPI scorecard plus an OpenStreetMap extract. No hole is admin-verified, so GPS distances stay off and play still uses a manual distance. iGolf is not licensed. The commercial adapter is a stub. Detail is in `docs/COURSE_DATA.md`.
+- High Cedars (Orting) is the course-data pilot: OpenGolfAPI scorecard plus an OpenStreetMap extract. No hole is admin-verified. The hole screen still shows ground distance from the phone to the open green, and a long-press number only when the phone has no position. iGolf is not licensed. The commercial adapter is a stub. Detail is in `docs/COURSE_DATA.md`.
 - No LLM rephrase. The language provider returns the deterministic text.
 - No live launch-monitor connection. A TrackMan-style CSV can be pasted, and a photo of a screen can be sent to the extraction server in `docs/PHOTO_IMPORT.md`. Without `COOPR_VISION_API_KEY` the server does not read the photo. The founder transcript is an import, not a live session. A TrackMan partnership is not approved.
 - No partial-swing model. A 41-yard pitch with no sample declines and asks for an outcome.
 - Pricing, privacy copy, and App Store submission are not done. The navy, white, and red brand is in the app. The home screen uses the official Navy Fill crest raster. A vector redraw comes later.
 - Bag edits in the app stay in on-device memory for this session. They are not a cloud write.
 - The live scorecard starts empty. High Cedars stays on the founder route as history.
-- Web bundle is the check that the app bundles on this Linux runner. It is not an iOS simulator run. Android is the same React Native project and has not had a device build.
+- Web bundle is the check that the app bundles on this Linux runner. It is not an iOS simulator run. Android is the same React Native project and has not had a device build. Phone GPS, Open-Meteo, and walking up to the next tee were checked with a simulated position in the browser, not on a course.
 - Handicap is unknown for the founder. Nothing here computes an official index.
 
 ## Blockers
@@ -75,7 +76,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 
 ## Tests
 
-`npm test` — 12 files, 81 tests, all passing.
+`npm test` — 13 files, 84 tests, all passing. The schema tests start Node with `--experimental-sqlite`, so a process that disabled that builtin still has a database.
 
 `npm run typecheck` — `tsc -b` for domain, tokens, engine, seed, and db, then the Expo app.
 

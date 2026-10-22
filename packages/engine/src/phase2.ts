@@ -111,7 +111,7 @@ export function openMeteoCurrentUrl(lat: number, lon: number): string {
   const query = new URLSearchParams({
     latitude: String(lat),
     longitude: String(lon),
-    current: 'temperature_2m,wind_speed_10m,wind_direction_10m',
+    current: 'temperature_2m,surface_pressure,wind_speed_10m,wind_direction_10m',
     temperature_unit: 'fahrenheit',
     wind_speed_unit: 'mph',
   });
@@ -126,17 +126,20 @@ export interface OpenMeteoCurrent {
   temperatureF: number;
   windMph: number;
   windFromDeg: number;
+  /** Millibars. Null when the feed leaves it out. Not a plays-like term. */
+  surfacePressureHpa: number | null;
 }
 
 export function parseOpenMeteoCurrent(payload: unknown): OpenMeteoCurrent | { error: string } {
   if (typeof payload !== 'object' || payload === null) return { error: 'Weather was not JSON.' };
   const current = (payload as { current?: unknown }).current;
   if (typeof current !== 'object' || current === null) return { error: 'Weather had no current observation.' };
-  const row = current as { temperature_2m?: unknown; wind_speed_10m?: unknown; wind_direction_10m?: unknown };
+  const row = current as { temperature_2m?: unknown; wind_speed_10m?: unknown; wind_direction_10m?: unknown; surface_pressure?: unknown };
   if (typeof row.temperature_2m !== 'number' || typeof row.wind_speed_10m !== 'number' || typeof row.wind_direction_10m !== 'number') {
     return { error: 'Weather left out temperature or wind. Nothing was filled in.' };
   }
-  return { temperatureF: row.temperature_2m, windMph: row.wind_speed_10m, windFromDeg: row.wind_direction_10m };
+  const pressure = typeof row.surface_pressure === 'number' && Number.isFinite(row.surface_pressure) ? row.surface_pressure : null;
+  return { temperatureF: row.temperature_2m, windMph: row.wind_speed_10m, windFromDeg: row.wind_direction_10m, surfacePressureHpa: pressure };
 }
 
 export function parseOpenMeteoElevation(payload: unknown): { meters: number[] } | { error: string } {
