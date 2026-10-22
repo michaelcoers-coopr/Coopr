@@ -1,3 +1,4 @@
+import type { CourseDataProvider } from './course';
 import type { CaddiePersonality } from './types';
 
 export type IntegrationState = 'available' | 'manual_import' | 'partner_required' | 'planned' | 'not_available';
@@ -20,11 +21,6 @@ export interface SyncProvider {
 export interface LanguageProvider {
   readonly id: string;
   rephrase(input: { text: string; personality: CaddiePersonality }): Promise<string>;
-}
-
-export interface CourseDataProvider {
-  readonly id: string;
-  readonly state: IntegrationState;
 }
 
 export interface WeatherProvider {
@@ -73,7 +69,14 @@ export function nullProviders(): ProviderRegistry {
       id: 'null',
       rephrase: async ({ text }) => text,
     },
-    courseData: { id: 'null', state: 'planned' },
+    courseData: {
+      id: 'null',
+      state: 'planned',
+      datasetClass: 'none',
+      search: async () => [],
+      loadScorecard: async () => null,
+      loadGeometry: async () => [],
+    },
     weather: { id: 'null', state: 'manual_import' },
     launchMonitor: { id: 'null', state: 'manual_import' },
     scoringImport: { id: 'null', state: 'planned' },

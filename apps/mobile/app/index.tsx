@@ -30,6 +30,7 @@ export default function HomeScreen() {
       <Button label="PRACTICE & CALIBRATE" onPress={() => router.push('/practice')} />
       <Button label="Bag" onPress={() => router.push('/bag')} />
       <Button label="Caddie" onPress={() => router.push('/caddie')} />
+      <Button label="Course" onPress={() => router.push('/course')} />
       <Card>
         <Muted>{dbStatus}</Muted>
         {founderTools ? (

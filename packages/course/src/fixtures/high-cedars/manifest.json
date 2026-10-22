@@ -1,0 +1,21 @@
+{
+  "pilot": "Cedars At High Cedars Golf Club",
+  "locality": "Orting",
+  "region": "WA",
+  "retrievedOn": "2026-10-22",
+  "opengolfapi": {
+    "courseId": "2d198fce-e499-4e5e-9372-5329346fa54d",
+    "searchUrl": "https://api.opengolfapi.org/v1/courses/search?q=High%20Cedars&state=WA",
+    "courseUrl": "https://api.opengolfapi.org/v1/courses/2d198fce-e499-4e5e-9372-5329346fa54d",
+    "license": "ODbL-1.0",
+    "attribution": "\u00a9 OpenStreetMap contributors (ODbL 1.0) via OpenGolfAPI \u2014 https://opengolfapi.org/attribution"
+  },
+  "openstreetmap": {
+    "endpoint": "https://overpass.openstreetmap.fr/api/interpreter",
+    "osmTimestamp": "2026-07-12T12:08:28Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.",
+    "license": "ODbL-1.0",
+    "attribution": "\u00a9 OpenStreetMap contributors",
+    "note": "overpass-api.de returned HTTP 502. This extract is the mirror timestamp above, not a claim that the map was current on the pull date."
+  }
+}

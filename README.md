@@ -23,6 +23,8 @@ Home is **Play golf** and **Practice & calibrate**. On a dev build and on the Ex
 
 iPhone preview and the TestFlight command are in `docs/PREVIEW.md`. Publish the Expo Go channel with `npm run preview:publish` after `EXPO_TOKEN` is set in the environment. Do not commit the token.
 
+Course data for the High Cedars pilot is open: OpenGolfAPI for the scorecard and OpenStreetMap for geometry. The quality table, the gaps, and the ODbL attribution are in `docs/COURSE_DATA.md`. GPS distances wait until a green is admin-verified. Until then the scorecard, a manual distance, and the caddie still work. No iGolf license is required to run that path.
+
 ## Layout
 
 - `packages/domain` — types, UUIDv7, provider interfaces, null defaults

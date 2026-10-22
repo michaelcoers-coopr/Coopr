@@ -1,5 +1,6 @@
 export * from './ids';
 export * from './types';
+export * from './course';
 export * from './providers';
 
 import type { UserRecord } from './types';

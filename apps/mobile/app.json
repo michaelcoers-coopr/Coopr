@@ -23,7 +23,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "COOPR uses your location to measure ground distance to a green you have verified. That distance is not saved as a shot."
+        }
+      ]
     ],
     "updates": {
       "url": "https://u.expo.dev/998f1644-05ec-4980-a0b9-58e5703951d7"

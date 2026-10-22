@@ -1,4 +1,5 @@
-import { createIdFactory, deterministicEntropy, uuidv7, type FounderDataset } from '@coopr/domain';
+import { createIdFactory, deterministicEntropy, uuidv7, type FounderDataset, type MapFeature, type OpenCourseRecord } from '@coopr/domain';
+import { SQLITE_MIGRATION_V1, SQLITE_MIGRATION_V2 } from './sql';
 import type { SqlExecutor } from './sql-executor';
 
 function bit(value: boolean): number {
@@ -15,6 +16,11 @@ function num(row: Record<string, unknown> | undefined, key: string): number {
 export function migrate(db: SqlExecutor, sql: string): void {
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(sql);
+}
+
+export function migrateAll(db: SqlExecutor): void {
+  migrate(db, SQLITE_MIGRATION_V1);
+  if (schemaVersion(db) < 2) migrate(db, SQLITE_MIGRATION_V2);
 }
 
 export function schemaVersion(db: SqlExecutor): number {
@@ -462,4 +468,111 @@ export function softDeleteUser(db: SqlExecutor, userId: string, nowMs: number): 
     `INSERT INTO audit_events (id, user_id, action, entity_type, entity_id, payload_json, created_at_ms)
      VALUES (?, ?, 'delete_account', 'user', ?, '{}', ?)`,
   ).run(id, userId, userId, nowMs);
+}
+
+export function cacheOpenCourse(
+  db: SqlExecutor,
+  input: {
+    courseKey: string;
+    record: OpenCourseRecord;
+    features: readonly MapFeature[];
+    osmAttribution: string;
+    osmLicense: string;
+    osmTimestamp: string | null;
+    retrievedOn: string;
+    nowMs: number;
+  },
+): void {
+  const already = db
+    .prepare('SELECT id FROM open_courses WHERE provider = ? AND external_id = ?')
+    .get(input.record.provider, input.record.externalId);
+  if (already) return;
+  const ids = createIdFactory(input.nowMs);
+  const scorecardDatasetId = ids();
+  const geometryDatasetId = ids();
+  const courseId = ids();
+  db.prepare(
+    `INSERT INTO open_datasets (id, provider, license, attribution, retrieved_on, upstream_timestamp, dataset_class)
+     VALUES (?, ?, ?, ?, ?, NULL, 'open')`,
+  ).run(scorecardDatasetId, input.record.provider, input.record.license, input.record.attribution, input.retrievedOn);
+  db.prepare(
+    `INSERT INTO open_datasets (id, provider, license, attribution, retrieved_on, upstream_timestamp, dataset_class)
+     VALUES (?, 'openstreetmap', ?, ?, ?, ?, 'open')`,
+  ).run(geometryDatasetId, input.osmLicense, input.osmAttribution, input.retrievedOn, input.osmTimestamp);
+  db.prepare(
+    `INSERT INTO open_courses (
+      id, dataset_id, provider, external_id, name, locality, region, latitude, longitude, hole_count, par, attribution, license
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    courseId,
+    scorecardDatasetId,
+    input.record.provider,
+    input.record.externalId,
+    input.record.name,
+    input.record.locality,
+    input.record.region,
+    input.record.latitude,
+    input.record.longitude,
+    input.record.holeCount,
+    input.record.par,
+    input.record.attribution,
+    input.record.license,
+  );
+  for (const hole of input.record.scorecard) {
+    db.prepare(
+      `INSERT INTO open_scorecard_holes (id, course_id, hole_number, par, stroke_index, yardage_json)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(ids(), courseId, hole.holeNumber, hole.par, hole.strokeIndex, JSON.stringify(hole.yardagesByTee));
+  }
+  for (const tee of input.record.teeSets) {
+    db.prepare(
+      `INSERT INTO open_tee_sets (
+        id, course_id, tee_key, tee_name, tee_color, gender, yardage, par, course_rating, slope
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(ids(), courseId, tee.key, tee.name, tee.color, tee.gender, tee.yardage, tee.par, tee.courseRating, tee.slope);
+  }
+  for (const feature of input.features) {
+    if (feature.provenance.datasetClass !== 'open') {
+      throw new Error('Refusing to cache a non-open feature in the ODbL tables');
+    }
+    db.prepare(
+      `INSERT INTO open_map_features (
+        id, dataset_id, course_key, osm_type, osm_id, kind, hole_ref, par, geometry_json, tags_json, attribution, license
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      ids(),
+      geometryDatasetId,
+      input.courseKey,
+      feature.osmType,
+      String(feature.osmId),
+      feature.kind,
+      feature.holeRef,
+      feature.par,
+      JSON.stringify(feature.rings),
+      JSON.stringify(feature.tags),
+      feature.provenance.attribution,
+      feature.provenance.license,
+    );
+  }
+}
+
+/** A review names an OSM feature. It does not store a coordinate. */
+export function recordAdminReview(
+  db: SqlExecutor,
+  input: {
+    courseKey: string;
+    holeNumber: number;
+    osmType: string | null;
+    osmId: string | null;
+    decision: 'verified' | 'rejected';
+    note: string | null;
+    nowMs: number;
+  },
+): void {
+  const id = uuidv7(input.nowMs, deterministicEntropy(8_001 + input.holeNumber));
+  db.prepare(
+    `INSERT INTO course_admin_reviews (
+      id, course_key, hole_number, osm_type, osm_id, decision, note, dataset_class, created_at_ms
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'proprietary', ?)`,
+  ).run(id, input.courseKey, input.holeNumber, input.osmType, input.osmId, input.decision, input.note, input.nowMs);
 }

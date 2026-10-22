@@ -1,3 +1,5 @@
+export * from './geo';
+export * from './course';
 export * from './stats';
 export * from './profile';
 export * from './caddie';

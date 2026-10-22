@@ -1,4 +1,4 @@
-# COOPR 2.0 data model (schema version 1)
+# COOPR 2.0 data model (schema version 2)
 
 SQLite migration: `packages/db/sql/sqlite/001_init.sql`.
 Postgres mirror, not applied to a server yet: `packages/db/sql/postgres/001_init.sql`.
@@ -27,5 +27,7 @@ The app embeds the SQLite text from `@coopr/db`. A test fails if that embed drif
 ## Tables
 
 `users`, `player_profiles`, `caddie_profiles`, `data_sources`, `raw_records`, `clubs`, `bags`, `bag_memberships`, `simulator_sessions`, `shots`, `shot_measurements`, `rounds`, `rating_candidates`, `hole_scores`, `gps_observations`, `club_use_observations`, `calibrations`, `club_notes`, `audit_events`, `sync_outbox`, `schema_meta`.
+
+Schema 2 adds an open course cache that is not mixed with player rows: `open_datasets`, `open_courses`, `open_scorecard_holes`, `open_tee_sets`, `open_map_features`. Those rows are ODbL. `course_admin_reviews` is a proprietary overlay: it stores a decision and an OSM id, not a coordinate. A commercial course license would use that proprietary side. The High Cedars pilot and the attribution rules are in `docs/COURSE_DATA.md`.
 
 The founder transcript is stored whole in `raw_records.body`. Normalized rows point at the same data source. Event dates (`played_on`, `dominant_hand_confirmed_on`) are dates from the source. `created_at_ms` on the import is a sync clock (`2026-10-22T00:00:00Z`), not a claim about when a shot was hit.

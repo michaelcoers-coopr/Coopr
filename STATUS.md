@@ -24,7 +24,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 
 - No cloud sync. The outbox is written and never pushed. Postgres is a file, not a database.
 - No Supabase or other backend, no GHIN. Mike has an Apple Developer account; this environment did not sign into it. Republishing the preview channel still needs `EXPO_TOKEN` on the `@mikecoers` account.
-- No licensed course map or GPS yardages. Manual distance only.
+- High Cedars (Orting) is the course-data pilot: OpenGolfAPI scorecard plus an OpenStreetMap extract. No hole is admin-verified, so GPS distances stay off and play still uses a manual distance. iGolf is not licensed. The commercial adapter is a stub. Detail is in `docs/COURSE_DATA.md`.
 - No LLM rephrase. The language provider returns the deterministic text.
 - No launch-monitor connection. Practice entry is manual. The founder transcript is an import, not a live session.
 - No partial-swing model. A 41-yard pitch with no sample declines and asks for an outcome.
@@ -38,7 +38,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 
 - `EXPO_TOKEN` from the Expo account Mike will use in Expo Go. Without it, `npm run preview:publish` stops. Since 12 May 2026 Expo Go only opens an update owned by that account.
 - Apple sign-in on a machine Mike controls, the first time `eas build -p ios --profile preview` runs. The command and the submit step are in `docs/PREVIEW.md`. No certificate is in the repo.
-- Licensed course and GPS data. Nothing in this repo is a course map.
+- A commercial course license (iGolf, Golf Intelligence, or equivalent). The adapter is a stub and holds no vendor data. Open-data geometry for courses other than High Cedars. Admin verification of the High Cedars greens, which is still undone, so GPS yardages are not shown as playable.
 - Backend accounts if sync should leave the device. The schema is ready; the project is not.
 - GHIN, or any other official handicap service, before a number can be called a Handicap Index.
 - Founder decisions still open, listed below. The in-play 14 is provisional, not a locked bag.
@@ -75,7 +75,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 
 ## Tests
 
-`npm test` — 5 files, 35 tests, all passing.
+`npm test` — 7 files, 41 tests, all passing.
 
 `npm run typecheck` — `tsc -b` for domain, tokens, engine, seed, and db, then the Expo app.
 

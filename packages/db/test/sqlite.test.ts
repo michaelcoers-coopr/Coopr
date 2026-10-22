@@ -4,15 +4,21 @@ import { describe, expect, it } from 'vitest';
 import { IN_PLAY_CLUB_LIMIT } from '@coopr/domain';
 import {
   POSTGRES_SCHEMA_V1,
+  POSTGRES_SCHEMA_V2,
   SQLITE_MIGRATION_V1,
+  SQLITE_MIGRATION_V2,
   addInPlayClub,
+  cacheOpenCourse,
   countWhere,
   migrate,
+  migrateAll,
   persistFounder,
+  recordAdminReview,
   schemaVersion,
   shotMetricCount,
   softDeleteUser,
 } from '@coopr/db';
+import { loadHighCedarsPilot } from '@coopr/course';
 import { loadFounderDataset } from '@coopr/seed';
 import { openMemory } from '../src/node-sqlite';
 
@@ -29,7 +35,9 @@ describe('schema files', () => {
   it('embeds the canonical SQL migrations', () => {
     const root = fileURLToPath(new URL('..', import.meta.url));
     expect(readFileSync(`${root}sql/sqlite/001_init.sql`, 'utf8')).toBe(SQLITE_MIGRATION_V1);
+    expect(readFileSync(`${root}sql/sqlite/002_courses.sql`, 'utf8')).toBe(SQLITE_MIGRATION_V2);
     expect(readFileSync(`${root}sql/postgres/001_init.sql`, 'utf8')).toBe(POSTGRES_SCHEMA_V1);
+    expect(readFileSync(`${root}sql/postgres/002_courses.sql`, 'utf8')).toBe(POSTGRES_SCHEMA_V2);
     const tables = [...SQLITE_MIGRATION_V1.matchAll(/CREATE TABLE (\w+)/g)].map((match) => match[1]);
     for (const table of tables) expect(POSTGRES_SCHEMA_V1).toContain(`CREATE TABLE ${table}`);
     expect(schemaVersion(migrated())).toBe(1);
@@ -109,5 +117,53 @@ describe('sqlite founder import', () => {
     expect(countWhere(db, 'shots', 'user_id = ? AND deleted_at_ms IS NULL', [dataset.user.id])).toBe(0);
     expect(countWhere(db, 'shot_measurements', 'user_id = ? AND deleted_at_ms IS NULL', [dataset.user.id])).toBe(0);
     expect(countWhere(db, 'audit_events', "user_id = ? AND action = 'delete_account'", [dataset.user.id])).toBe(1);
+  });
+});
+
+describe('open course cache', () => {
+  it('keeps High Cedars open data apart from an admin review and still rejects a GPS shot', () => {
+    const db = openMemory();
+    migrateAll(db);
+    persistFounder(db, dataset);
+    expect(schemaVersion(db)).toBe(2);
+    const pilot = loadHighCedarsPilot();
+    cacheOpenCourse(db, {
+      courseKey: pilot.courseKey,
+      record: pilot.record,
+      features: pilot.features,
+      osmAttribution: pilot.osmAttribution,
+      osmLicense: 'ODbL-1.0',
+      osmTimestamp: pilot.osmTimestamp,
+      retrievedOn: '2026-10-22',
+      nowMs: Date.UTC(2026, 9, 22),
+    });
+    expect(countWhere(db, 'open_scorecard_holes', 'par IS NOT NULL', [])).toBe(18);
+    expect(countWhere(db, 'open_map_features', "license = 'ODbL-1.0'", [])).toBe(pilot.features.length);
+    expect(countWhere(db, 'open_datasets', "dataset_class = 'open'", [])).toBe(2);
+    const attribution = db.prepare('SELECT attribution FROM open_courses').get();
+    expect(attribution?.attribution).toBe(pilot.attribution);
+    recordAdminReview(db, {
+      courseKey: pilot.courseKey,
+      holeNumber: 1,
+      osmType: 'way',
+      osmId: String(pilot.quality[0]?.greenOsmId),
+      decision: 'verified',
+      note: 'Checked on the ground.',
+      nowMs: Date.UTC(2026, 9, 22),
+    });
+    const review = db.prepare('SELECT dataset_class AS dataset_class, decision FROM course_admin_reviews').get();
+    expect(review?.dataset_class).toBe('proprietary');
+    expect(review?.decision).toBe('verified');
+    const columns = db.prepare('PRAGMA table_info(course_admin_reviews)').all();
+    expect(columns.some((column) => String(column.name).includes('geometry') || String(column.name).includes('lat'))).toBe(false);
+    expect(() =>
+      db
+        .prepare(
+          `INSERT INTO gps_observations (
+            id, user_id, round_id, hole_number, sequence, kind, distance_yards, is_shot, quality, source_id, created_at_ms, updated_at_ms, deleted_at_ms
+          ) VALUES ('00000000-0000-7000-8000-000000000099', ?, NULL, 1, 1, 'to_center', 150, 1, 'derived', ?, 0, 0, NULL)`,
+        )
+        .run(dataset.user.id, dataset.sources[0]?.id ?? ''),
+    ).toThrow();
   });
 });

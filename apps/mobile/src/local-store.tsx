@@ -82,6 +82,8 @@ interface LocalStore {
   setStrokes: (hole: number, strokes: number | null) => void;
   profiles: DistanceProfile[];
   score: ReturnType<typeof scoreRound>;
+  courseReviews: Readonly<Record<number, 'verified' | 'rejected'>>;
+  setCourseReview: (hole: number, decision: 'verified' | 'rejected') => void;
 }
 
 const Ctx = createContext<LocalStore | null>(null);
@@ -91,6 +93,7 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
   const [holes, setHoles] = useState<Array<number | null>>(Array.from({ length: 18 }, () => null));
   const [clubs, setClubs] = useState<PlayingClub[]>(SHELL?.clubs ?? []);
   const [bagMessage, setBagMessage] = useState('');
+  const [courseReviews, setCourseReviews] = useState<Record<number, 'verified' | 'rejected'>>({});
 
   const value = useMemo<LocalStore>(() => {
     const observations: DistanceObservation[] = [];
@@ -137,8 +140,13 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
         setHoles((current) => current.map((value, index) => (index === hole - 1 ? strokes : value))),
       profiles: [...(SHELL?.profiles ?? []), ...buildProfiles(observations)],
       score: scoreRound(entered),
+      courseReviews,
+      setCourseReview: (hole, decision) => {
+        if (!FOUNDER_TOOLS_ENABLED) return;
+        setCourseReviews((current) => ({ ...current, [hole]: decision }));
+      },
     };
-  }, [shots, holes, clubs, bagMessage]);
+  }, [shots, holes, clubs, bagMessage, courseReviews]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
