@@ -15,6 +15,7 @@ import {
   formatDistance,
   holeOverlay,
   layupDecision,
+  missReport,
   recommend,
   resolveHolePlay,
   ringCentroid,
@@ -26,6 +27,8 @@ import {
   unitLabel,
   WEDGE_LENGTHS,
   type DistanceProfile,
+  type DistanceUnit,
+  type MissMark,
   type WedgeLength,
 } from '@coopr/engine';
 import { loadHighCedarsPilot } from '@coopr/course';
@@ -74,6 +77,28 @@ function lengthLabel(length: WedgeLength): string {
   return length;
 }
 
+function carryWords(profile: DistanceProfile, unit: DistanceUnit): string {
+  const show = (value: number) => formatDistance(value, unit);
+  if (!profile.dispersionKnown) return `Carry normal ${show(profile.stockYards)}. The short and long ends were not measured.`;
+  return `Carry short ${show(profile.p20)}, normal ${show(profile.stockYards)}, long ${show(profile.p80)}. The long one is not the plan.`;
+}
+
+function longestWords(profile: DistanceProfile, unit: DistanceUnit): string | null {
+  if (Math.abs(profile.longestYards - profile.stockYards) < 0.5) return null;
+  return `Longest total ${formatDistance(profile.longestYards, unit)} from ${profile.sampleSize} shots. Not the number to plan.`;
+}
+
+function plainMiss(marks: readonly MissMark[]): string | null {
+  if (marks.length === 0) return null;
+  const report = missReport(marks);
+  if (report.aimOffsetYards != null) {
+    const way = report.aimOffsetYards < -0.5 ? 'left' : report.aimOffsetYards > 0.5 ? 'right' : 'on the target';
+    return `Misses lean ${report.side}. Aim ${Math.abs(report.aimOffsetYards)} yards ${way}. No new yardage was invented.`;
+  }
+  if (report.side === 'left' || report.side === 'right') return `Misses lean ${report.side}. No yard aim yet.`;
+  return 'Not enough misses yet.';
+}
+
 export default function PlayScreen() {
   const {
     clubs,
@@ -95,6 +120,10 @@ export default function PlayScreen() {
     wedges,
     debriefs,
     setDebrief,
+    putts,
+    setPutts,
+    conditions,
+    setConditions,
   } = useLocalStore();
   const hole = pilot.quality.find((item) => item.holeNumber === currentHole);
   const [metric, setMetric] = useState<DistanceMetric>('total');
@@ -109,13 +138,15 @@ export default function PlayScreen() {
   const [tagNote, setTagNote] = useState('');
   const [player, setPlayer] = useState<LatLon | null>(null);
   const [measure, setMeasure] = useState<LatLon[]>([]);
-  const [windChoice, setWindChoice] = useState<'head' | 'tail' | 'cross' | null>(null);
-  const [windDraft, setWindDraft] = useState('');
-  const [elevationDraft, setElevationDraft] = useState('');
-  const [elevationChoice, setElevationChoice] = useState<'up' | 'down' | null>(null);
-  const [temperatureDraft, setTemperatureDraft] = useState('');
   const [weatherNote, setWeatherNote] = useState('');
-  const [usePlaysLike, setUsePlaysLike] = useState(false);
+  const [why, setWhy] = useState(false);
+  const [flightOpen, setFlightOpen] = useState(false);
+  const windChoice = conditions.windChoice;
+  const windDraft = conditions.wind;
+  const elevationDraft = conditions.elevation;
+  const elevationChoice = conditions.elevationChoice;
+  const temperatureDraft = conditions.temperature;
+  const usePlaysLike = conditions.usePlaysLike;
 
   useEffect(() => {
     const saved = manualYards[currentHole];
@@ -129,6 +160,8 @@ export default function PlayScreen() {
     setShotNote('');
     setMeasure([]);
     setTagNote('');
+    setWhy(false);
+    setFlightOpen(false);
     // The saved shot for this hole is restored. Carry-to-clear starts empty on purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentHole]);
@@ -249,6 +282,11 @@ export default function PlayScreen() {
   const par = hole.par;
   const over = strokes != null && par != null ? strokes - par : null;
   const holeTags = tagged.filter((shot) => shot.hole === hole.holeNumber);
+  const puttCount = putts[hole.holeNumber - 1] ?? null;
+  const missLine = plainMiss(
+    calledId == null ? [] : tagged.filter((shot) => shot.clubId === calledId).map((shot) => ({ side: shot.result, sideYards: null })),
+  );
+  const longTotal = !putting && !short && totalStock ? longestWords(totalStock, unit) : null;
   const disclaimer = measureYards != null
     ? `Map distance ${formatDistance(measureYards, unit)} ${unitLabel(unit)}. Not a shot and not a carry.`
     : hazard
@@ -391,7 +429,7 @@ export default function PlayScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.meta}>{`Par ${par ?? '—'}  ·  SI ${hole.strokeIndex ?? '—'}  ·  Card ${hole.yardagesByTee.white ?? '—'}`}</Text>
         <HoleMap
-          height={210}
+          height={112}
           line={overlay.line}
           fairways={ringsOf(overlay.fairways)}
           green={overlay.green ? ringsOf([overlay.green]) : []}
@@ -405,7 +443,6 @@ export default function PlayScreen() {
           playsLabel={playsLikeYards == null ? '—' : formatDistance(playsLikeYards, unit)}
         />
         <Text style={styles.line}>{disclaimer}</Text>
-        {shape ? <Text style={styles.line}>{`Carry dispersion ${shape.alongYards} yards either side of ${Math.round(shape.centerYards)}. Width was not measured.`}</Text> : null}
         {play.mode === 'gps' ? (
           <View style={styles.ends}>
             <Text style={styles.end}>{`Front ${formatDistance(play.frontYards, unit)}`}</Text>
@@ -432,23 +469,33 @@ export default function PlayScreen() {
                     ? 'Type the shot. The card yardage stays on the card.'
                     : 'No club.'}
         </Text>
-        <TextInput
-          value={carryDraft}
-          onChangeText={setCarryDraft}
-          placeholder={hazard ? `Tagged line ${hazard.yards}` : 'Carry to clear'}
-          keyboardType="decimal-pad"
-          placeholderTextColor="#D5D8DE"
-          style={styles.input}
-          accessibilityLabel="Carry to clear"
-        />
-        {carryNote ? <Text style={styles.line}>{carryNote}</Text> : null}
-        {layup && layup.call !== 'unsure' ? <Text style={[styles.gap, layup.call === 'lay_up' && styles.warn]}>{layup.reason}</Text> : null}
+        {card?.passedCloser && !putting && !short ? <Text style={styles.line}>{card.passedCloser}</Text> : null}
+        {missLine && !putting ? <Text style={styles.line}>{missLine}</Text> : null}
         <View style={styles.chips}>
           <Chip label="Shot" selected={!putting} onPress={() => setPutting(false)} />
           <Chip label="Putt" selected={putting} onPress={() => setPutting(true)} />
           <Chip label="Total" selected={metric === 'total'} onPress={() => setMetric('total')} />
           <Chip label="Carry" selected={metric === 'carry'} onPress={() => setMetric('carry')} />
         </View>
+        {!putting ? (
+          <View style={styles.chips}>
+            {RESULTS.map((result) => (
+              <Chip key={result.id} label={result.label} selected={false} onPress={() => commitTag(result.id)} />
+            ))}
+            {card && !short && !putting && card.posture !== 'decline' ? (
+              <Chip label={why ? 'Hide why' : 'Why'} selected={why} onPress={() => setWhy((open) => !open)} />
+            ) : null}
+          </View>
+        ) : null}
+        {why && card && !short && !putting ? <Text style={styles.line}>{card.lines.reason}</Text> : null}
+        {carryStock && !putting ? <Text style={styles.line}>{carryWords(carryStock, unit)}</Text> : null}
+        {calledId && !putting && !short && !carryStock ? <Text style={styles.line}>Carry was not measured.</Text> : null}
+        {longTotal ? <Text style={styles.line}>{longTotal}</Text> : null}
+        {shape && !putting ? <Text style={styles.line}>{`Carry dispersion ${shape.alongYards} yards either side of ${Math.round(shape.centerYards)}. Width was not measured.`}</Text> : null}
+        {short && short.clubId == null && short.reason.startsWith('No wedge carry is stored') ? (
+          <Button label="Enter wedge carries" tone="ghost" onPress={() => router.push('/wedges')} />
+        ) : null}
+        {tagNote ? <Text style={styles.line}>{tagNote}</Text> : null}
         <TextInput
           value={draft}
           onChangeText={setDraft}
@@ -461,21 +508,21 @@ export default function PlayScreen() {
         <Button label="Use this shot" tone="ghost" onPress={() => { saveShot(); }} />
         {shotNote ? <Text style={styles.line}>{shotNote}</Text> : null}
         <View style={styles.chips}>
-          <Chip label="Head" selected={windChoice === 'head'} onPress={() => setWindChoice('head')} />
-          <Chip label="Tail" selected={windChoice === 'tail'} onPress={() => setWindChoice('tail')} />
-          <Chip label="Cross" selected={windChoice === 'cross'} onPress={() => setWindChoice('cross')} />
-          <Chip label="Uphill" selected={elevationChoice === 'up'} onPress={() => setElevationChoice('up')} />
-          <Chip label="Downhill" selected={elevationChoice === 'down'} onPress={() => setElevationChoice('down')} />
+          <Chip label="Head" selected={windChoice === 'head'} onPress={() => setConditions({ windChoice: 'head' })} />
+          <Chip label="Tail" selected={windChoice === 'tail'} onPress={() => setConditions({ windChoice: 'tail' })} />
+          <Chip label="Cross" selected={windChoice === 'cross'} onPress={() => setConditions({ windChoice: 'cross' })} />
+          <Chip label="Uphill" selected={elevationChoice === 'up'} onPress={() => setConditions({ elevationChoice: 'up' })} />
+          <Chip label="Downhill" selected={elevationChoice === 'down'} onPress={() => setConditions({ elevationChoice: 'down' })} />
         </View>
         <View style={styles.row}>
-          <TextInput value={windDraft} onChangeText={setWindDraft} placeholder="Wind" keyboardType="decimal-pad" placeholderTextColor="#D5D8DE" style={[styles.input, styles.third]} accessibilityLabel="Wind speed" />
-          <TextInput value={elevationDraft} onChangeText={setElevationDraft} placeholder="Feet" keyboardType="decimal-pad" placeholderTextColor="#D5D8DE" style={[styles.input, styles.third]} accessibilityLabel="Elevation feet" />
-          <TextInput value={temperatureDraft} onChangeText={setTemperatureDraft} placeholder="°F" keyboardType="decimal-pad" placeholderTextColor="#D5D8DE" style={[styles.input, styles.third]} accessibilityLabel="Temperature" />
+          <TextInput value={windDraft} onChangeText={(wind) => setConditions({ wind })} placeholder="Wind" keyboardType="decimal-pad" placeholderTextColor="#D5D8DE" style={[styles.input, styles.third]} accessibilityLabel="Wind speed" />
+          <TextInput value={elevationDraft} onChangeText={(elevation) => setConditions({ elevation })} placeholder="Feet" keyboardType="decimal-pad" placeholderTextColor="#D5D8DE" style={[styles.input, styles.third]} accessibilityLabel="Elevation feet" />
+          <TextInput value={temperatureDraft} onChangeText={(temperature) => setConditions({ temperature })} placeholder="°F" keyboardType="decimal-pad" placeholderTextColor="#D5D8DE" style={[styles.input, styles.third]} accessibilityLabel="Temperature" />
         </View>
         <Chip
           label={usePlaysLike ? 'Club uses plays-like' : 'Club uses the shot'}
           selected={usePlaysLike}
-          onPress={() => setUsePlaysLike((value) => !value)}
+          onPress={() => setConditions({ usePlaysLike: !usePlaysLike })}
         />
         {adjustment && 'error' in adjustment ? (
           <Text style={styles.line}>{adjustment.error}</Text>
@@ -498,31 +545,41 @@ export default function PlayScreen() {
             const greenCenter = green?.rings[0] ? ringCentroid(green.rings[0]) : null;
             void readWeather({ at, holeLine: overlay.line, greenCenter }).then((read) => {
               setWeatherNote(read.note);
-              if (read.current) setTemperatureDraft(String(Math.round(read.current.temperatureF)));
+              const next: Partial<typeof conditions> = {};
+              if (read.current) next.temperature = String(Math.round(read.current.temperatureF));
               if (read.headwindMph != null) {
-                setWindDraft(String(Math.abs(Math.round(read.headwindMph))));
-                setWindChoice(read.headwindMph > 0.5 ? 'head' : read.headwindMph < -0.5 ? 'tail' : 'cross');
+                next.wind = String(Math.abs(Math.round(read.headwindMph)));
+                next.windChoice = read.headwindMph > 0.5 ? 'head' : read.headwindMph < -0.5 ? 'tail' : 'cross';
               }
               if (read.elevationFeet != null) {
-                setElevationDraft(String(Math.abs(Math.round(read.elevationFeet))));
-                setElevationChoice(read.elevationFeet < -0.5 ? 'down' : 'up');
+                next.elevation = String(Math.abs(Math.round(read.elevationFeet)));
+                next.elevationChoice = read.elevationFeet < -0.5 ? 'down' : 'up';
               }
+              if (Object.keys(next).length > 0) setConditions(next);
             });
           }}
         />
-        {!putting ? (
-          <View style={styles.chips}>
-            {RESULTS.map((result) => (
-              <Chip key={result.id} label={result.label} selected={false} onPress={() => commitTag(result.id)} />
-            ))}
-          </View>
+        <TextInput
+          value={carryDraft}
+          onChangeText={setCarryDraft}
+          placeholder={hazard ? `Tagged line ${hazard.yards}` : 'Carry to clear'}
+          keyboardType="decimal-pad"
+          placeholderTextColor="#D5D8DE"
+          style={styles.input}
+          accessibilityLabel="Carry to clear"
+        />
+        {carryNote ? <Text style={styles.line}>{carryNote}</Text> : null}
+        {layup && layup.call !== 'unsure' ? <Text style={[styles.gap, layup.call === 'lay_up' && styles.warn]}>{layup.reason}</Text> : null}
+        <Chip label={flightOpen ? 'Hide flight yards' : 'Add flight yards'} selected={flightOpen} onPress={() => setFlightOpen((open) => !open)} />
+        {flightOpen ? (
+          <>
+            <Text style={styles.line}>Flight yardage. Leave a box blank. The shot number is not copied.</Text>
+            <View style={styles.row}>
+              <TextInput value={flightCarry} onChangeText={setFlightCarry} placeholder="Flight carry" keyboardType="decimal-pad" placeholderTextColor="#D5D8DE" style={[styles.input, styles.half]} accessibilityLabel="Flight carry" />
+              <TextInput value={flightTotal} onChangeText={setFlightTotal} placeholder="Flight total" keyboardType="decimal-pad" placeholderTextColor="#D5D8DE" style={[styles.input, styles.half]} accessibilityLabel="Flight total" />
+            </View>
+          </>
         ) : null}
-        {tagNote ? <Text style={styles.line}>{tagNote}</Text> : null}
-        <Text style={styles.line}>Flight yardage. Leave a box blank. The shot number is not copied.</Text>
-        <View style={styles.row}>
-          <TextInput value={flightCarry} onChangeText={setFlightCarry} placeholder="Flight carry" keyboardType="decimal-pad" placeholderTextColor="#D5D8DE" style={[styles.input, styles.half]} accessibilityLabel="Flight carry" />
-          <TextInput value={flightTotal} onChangeText={setFlightTotal} placeholder="Flight total" keyboardType="decimal-pad" placeholderTextColor="#D5D8DE" style={[styles.input, styles.half]} accessibilityLabel="Flight total" />
-        </View>
         {holeTags.map((shot) => (
           <Text key={shot.id} style={styles.line}>{`${shot.clubLabel.split('·')[0]?.trim()} · ${shot.result} · flight carry ${shot.carry ?? '—'} · flight total ${shot.total ?? '—'}`}</Text>
         ))}
@@ -556,11 +613,23 @@ export default function PlayScreen() {
       <View style={styles.footer}>
         <View style={styles.scoreRow}>
           <Text style={styles.footerTitle}>Score</Text>
-          <Chip label="−" selected={false} onPress={() => setStrokes(hole.holeNumber, strokes == null || strokes <= 1 ? null : strokes - 1)} />
+          <Chip label="−" accessibilityLabel="Score minus" selected={false} onPress={() => setStrokes(hole.holeNumber, strokes == null || strokes <= 1 ? null : strokes - 1)} />
           <Text style={styles.score}>{strokes ?? '—'}</Text>
-          <Chip label="+" selected={false} onPress={() => setStrokes(hole.holeNumber, (strokes ?? 0) + 1)} />
+          <Chip label="+" accessibilityLabel="Score plus" selected={false} onPress={() => setStrokes(hole.holeNumber, (strokes ?? 0) + 1)} />
           <Text style={styles.line}>{previous == null ? '' : `Hole ${currentHole - 1} · ${previous}`}</Text>
         </View>
+        <View style={styles.scoreRow}>
+          <Text style={styles.footerTitle}>Putts</Text>
+          <Chip
+            label="−"
+            accessibilityLabel="Putt minus"
+            selected={false}
+            onPress={() => setPutts(hole.holeNumber, puttCount == null ? null : puttCount <= 0 ? null : puttCount - 1)}
+          />
+          <Text style={styles.score}>{puttCount ?? '—'}</Text>
+          <Chip label="+" accessibilityLabel="Putt plus" selected={false} onPress={() => setPutts(hole.holeNumber, puttCount == null ? 1 : Math.min(99, puttCount + 1))} />
+        </View>
+        <Text style={styles.line}>Putts are not added to the score.</Text>
         {ask && over != null && over > 0 ? (
           <>
             <Text style={styles.footerTitle}>{`Hole ${hole.holeNumber} was ${over} over par. Plan or swing?`}</Text>
@@ -590,9 +659,19 @@ export default function PlayScreen() {
   );
 }
 
-function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+function Chip({
+  label,
+  selected,
+  onPress,
+  accessibilityLabel,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  accessibilityLabel?: string;
+}) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={[styles.chip, selected && styles.chipOn]}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} style={[styles.chip, selected && styles.chipOn]}>
       <Text style={[styles.chipText, selected && styles.chipTextOn]}>{label}</Text>
     </Pressable>
   );
@@ -608,7 +687,7 @@ function ClubPulse({ clubLabel, call, yards }: { clubLabel: string | null; call:
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: NAVY },
-  scroll: { padding: 16, paddingBottom: 24, gap: 10 },
+  scroll: { padding: 12, paddingBottom: 8, gap: 6 },
   meta: { color: INK, fontSize: 18, fontWeight: '800' },
   line: { color: INK, fontSize: 16, lineHeight: 22 },
   ends: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
@@ -618,9 +697,9 @@ const styles = StyleSheet.create({
   gap: { color: INK, fontSize: 18, lineHeight: 24 },
   warn: { color: colors.red, fontWeight: '800' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minHeight: 48, borderRadius: 999, borderWidth: 2, borderColor: INK, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  chip: { minHeight: 44, borderRadius: 999, borderWidth: 2, borderColor: INK, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
   chipOn: { backgroundColor: INK },
-  chipText: { color: INK, fontSize: 18, fontWeight: '800' },
+  chipText: { color: INK, fontSize: 16, fontWeight: '800' },
   chipTextOn: { color: NAVY },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   input: {
@@ -634,7 +713,7 @@ const styles = StyleSheet.create({
   },
   third: { flex: 1 },
   half: { flex: 1 },
-  footer: { borderTopWidth: 2, borderTopColor: INK, padding: 12, gap: 8, backgroundColor: NAVY },
+  footer: { borderTopWidth: 2, borderTopColor: INK, padding: 8, gap: 4, backgroundColor: NAVY },
   footerTitle: { color: INK, fontSize: 20, fontWeight: '800' },
   scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   score: { color: INK, fontSize: 36, fontWeight: '800', minWidth: 40, textAlign: 'center' },

@@ -62,6 +62,11 @@ export interface CaddieCard {
   lines: CaddieLines;
   /** Selection cost in yards-equivalent. Not a probability and not shown as one. */
   selectionCost: number | null;
+  /**
+   * A closer stock that was not called. Null when the called club is the closest,
+   * or when no club is called. The winner does not change because this exists.
+   */
+  passedCloser: string | null;
 }
 
 const SAMPLE_FLOOR = 5;
@@ -167,6 +172,7 @@ interface Draft {
   reason: string;
   instruction: string | null;
   selectionCost: number | null;
+  passedCloser?: string | null;
 }
 
 function finish(request: CaddieRequest, draft: Draft): CaddieCard {
@@ -196,7 +202,33 @@ function finish(request: CaddieRequest, draft: Draft): CaddieCard {
     metricUsed: draft.metricUsed,
     lines,
     selectionCost: draft.selectionCost,
+    passedCloser: draft.passedCloser ?? null,
   };
+}
+
+/** Closer stocks that lost. Thin samples and scattered samples stay named, and they are not called. */
+function closerLeftOut(request: CaddieRequest, metric: DistanceMetric, winner: DistanceProfile): string | null {
+  const winnerGap = Math.abs(winner.stockYards - request.targetDistanceYards);
+  const front = request.hazards.filter((hazard) => hazard.side === 'front');
+  const key = (profile: DistanceProfile) =>
+    `${profile.clubId}|${profile.swingMode}|${profile.environment}|${profile.metric}|${profile.blended ? 'blend' : 'raw'}`;
+  const winnerKey = key(winner);
+  const closer = poolFor(request, metric)
+    .filter((profile) => key(profile) !== winnerKey)
+    .filter((profile) => Math.abs(profile.stockYards - request.targetDistanceYards) + 0.05 < winnerGap)
+    .sort(
+      (a, b) =>
+        Math.abs(a.stockYards - request.targetDistanceYards) - Math.abs(b.stockYards - request.targetDistanceYards) ||
+        a.clubLabel.localeCompare(b.clubLabel),
+    );
+  const lines = closer.slice(0, 2).map((profile) => {
+    const gap = Math.abs(profile.stockYards - request.targetDistanceYards);
+    const head = `Closer club left out: ${profile.clubLabel} ${metric} ${yards(profile.stockYards)} is ${yards(gap)} yards off from ${profile.sampleSize} shots`;
+    if (profile.sampleSize < SAMPLE_FLOOR) return `${head}, only ${profile.sampleSize} shots, so it stays out.`;
+    if (front.length > 0 && !clearsFront(profile, front)) return `${head}, and it does not clear the carry line, so it stays out.`;
+    return `${head}, and those shots scatter, so it stays out.`;
+  });
+  return lines.length === 0 ? null : lines.join(' ');
 }
 
 function voice(personality: CaddiePersonality, reason: string): string {
@@ -356,6 +388,7 @@ export function recommend(request: CaddieRequest): CaddieCard {
   if (expectedCarry == null) riskParts.push('Carry is unknown, so this cannot clear a hazard.');
   if (winner.sampleWarning) riskParts.push(winner.sampleWarning);
   if (front.length > 0) riskParts.push(`Front ${front[0]!.kind} checked with carry P20 ${yards(winner.p20)}.`);
+  const passedCloser = closerLeftOut(request, metric, winner);
 
   return finish(request, {
     posture,
@@ -367,7 +400,8 @@ export function recommend(request: CaddieRequest): CaddieCard {
     total: expectedTotal,
     metricUsed: metric,
     keyRisk: riskParts.join(' '),
-    reason: `${winner.clubLabel} ${metric} ${winner.blended ? 'blended median' : 'median'} is ${yards(winner.stockYards)} from ${winner.sampleSize} ${winner.blended ? 'combined' : winner.environment} ${winner.reported ? 'reported' : 'shots'} (${winner.swingMode} swing). Confidence is ${winner.confidence}. The longest shot in the sample is ${yards(winner.longestYards)} and is not the stock.${winner.reported ? ' This is their reported number, not a COOPR measurement.' : ''}${footnote(request)}`,
+    passedCloser,
+    reason: `${winner.clubLabel} ${metric} ${winner.blended ? 'blended median' : 'median'} is ${yards(winner.stockYards)} from ${winner.sampleSize} ${winner.blended ? 'combined' : winner.environment} ${winner.reported ? 'reported' : 'shots'} (${winner.swingMode} swing). Confidence is ${winner.confidence}. The longest shot in the sample is ${yards(winner.longestYards)} and is not the stock.${winner.reported ? ' This is their reported number, not a COOPR measurement.' : ''}${footnote(request)}${passedCloser ? ` ${passedCloser}` : ''}`,
     instruction: [
       expectedCarry == null && metric === 'total' ? 'Do not use this total to clear a hazard.' : null,
       winner.swingMode === 'unknown' ? 'The source did not record a swing mode. Do not assume a full stock swing.' : null,

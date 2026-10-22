@@ -39,13 +39,15 @@ export function Choice({
   label,
   selected,
   onPress,
+  accessibilityLabel,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
+  accessibilityLabel?: string;
 }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={[styles.choice, selected && styles.choiceOn]}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} style={[styles.choice, selected && styles.choiceOn]}>
       <Text style={[styles.choiceText, selected && styles.choiceTextOn]}>{label}</Text>
     </Pressable>
   );

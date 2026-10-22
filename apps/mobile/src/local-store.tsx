@@ -19,7 +19,7 @@ import {
 import { loadFounderDataset, profilesFromFounder } from '@coopr/seed';
 import { FOUNDER_TOOLS_ENABLED } from './founder-flag';
 import { hasWebStorage, readRound, readRoundSync, writeRound } from './round-save-io';
-import type { RoundSave } from './round-save';
+import { EMPTY_CONDITIONS, EMPTY_PUTTS, type RoundConditions, type RoundSave } from './round-save';
 
 export type { DistanceUnit };
 export type LandingResult = 'fairway' | 'left' | 'right' | 'short' | 'hazard';
@@ -176,6 +176,10 @@ interface LocalStore {
   setDebrief: (entry: { hole: number; choice: 'plan' | 'swing'; note: string }) => void;
   wedges: Readonly<Record<string, Partial<Record<WedgeLength, number | null>>>>;
   setWedgeCarry: (clubId: string, length: WedgeLength, yards: number | null) => void;
+  putts: readonly (number | null)[];
+  setPutts: (hole: number, count: number | null) => void;
+  conditions: RoundConditions;
+  setConditions: (patch: Partial<RoundConditions>) => void;
   startNewRound: () => void;
 }
 
@@ -343,6 +347,8 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
   const [plans, setPlans] = useState<Record<number, { clubLabel: string; target: string }>>(plansFrom(boot));
   const [debriefs, setDebriefs] = useState<Array<{ hole: number; choice: 'plan' | 'swing'; note: string }>>(boot?.debriefs ?? []);
   const [wedges, setWedges] = useState<Record<string, Partial<Record<WedgeLength, number | null>>>>(boot?.wedges ?? {});
+  const [putts, setPutts] = useState<Array<number | null>>(boot?.putts ?? [...EMPTY_PUTTS]);
+  const [conditions, setConditionsState] = useState<RoundConditions>(boot?.conditions ?? { ...EMPTY_CONDITIONS });
 
   const value = useMemo<LocalStore>(() => {
     const observations: DistanceObservation[] = [];
@@ -546,6 +552,12 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
       wedges,
       setWedgeCarry: (clubId, length, yards) =>
         setWedges((current) => ({ ...current, [clubId]: { ...current[clubId], [length]: yards } })),
+      putts,
+      setPutts: (hole, count) => {
+        setPutts((current) => current.map((value, index) => (index === hole - 1 ? count : value)));
+      },
+      conditions,
+      setConditions: (patch) => setConditionsState((current) => ({ ...current, ...patch })),
       startNewRound: () => {
         setHoles(EMPTY_HOLES);
         setCurrentHole(1);
@@ -555,9 +567,11 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
         setPlans({});
         setShots((current) => current.filter((shot) => shot.origin !== 'tag'));
         setUnit('yd');
+        setPutts([...EMPTY_PUTTS]);
+        setConditionsState({ ...EMPTY_CONDITIONS });
       },
     };
-  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, plans, debriefs, wedges]);
+  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, plans, debriefs, wedges, putts, conditions]);
 
   useEffect(() => {
     if (hasWebStorage()) return;
@@ -574,6 +588,8 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
         setPlans(plansFrom(save));
         setDebriefs(save.debriefs);
         setWedges(save.wedges);
+        setPutts(save.putts);
+        setConditionsState(save.conditions);
       })
       .catch(() => undefined)
       .finally(() => {
@@ -611,8 +627,10 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
       unit,
       plans: planSave,
       localShots: shots,
+      putts,
+      conditions,
     });
-  }, [hydrated, holes, currentHole, manualYards, tagged, debriefs, wedges, unit, plans, shots]);
+  }, [hydrated, holes, currentHole, manualYards, tagged, debriefs, wedges, unit, plans, shots, putts, conditions]);
 
   if (!hydrated) return null;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

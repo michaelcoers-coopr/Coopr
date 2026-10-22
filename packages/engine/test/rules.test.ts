@@ -69,6 +69,31 @@ describe('totals are not carry', () => {
     expect(profiles[0]?.metric).toBe('total');
     expect(profiles[0]?.stockYards).toBeCloseTo(162.05, 5);
     expect(profiles[0]?.stockYards).not.toBe(profiles[0]?.longestYards);
+    const seven = profile({
+      clubId: '7i',
+      clubLabel: '7-iron',
+      metric: 'total',
+      p20: 148,
+      p50: 154,
+      p80: 160,
+      stockYards: 154,
+      sampleSize: 10,
+      confidence: 'moderate',
+      iqr: 8,
+      longestYards: 166,
+    });
+    const card = recommend({
+      targetDistanceYards: 160,
+      targetMetric: 'total',
+      hazards: [],
+      intent: 'neutral',
+      riskPreference: 'neutral',
+      profiles: [profiles[0]!, seven],
+    });
+    expect(card.clubId).toBe('7i');
+    expect(card.passedCloser).toMatch(/5-iron/);
+    expect(card.passedCloser).toMatch(/scatter/);
+    expect(card.lines.reason).toMatch(/only 10 shots|scatter/);
   });
 
   it('refuses to convert a total into a carry', () => {

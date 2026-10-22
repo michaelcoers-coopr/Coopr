@@ -197,6 +197,46 @@ describe('round calls', () => {
     });
     expect(close.clubLabel).toBe('Driver');
     expect(close.posture).not.toBe('decline');
+    expect(close.passedCloser).toBeNull();
+  });
+
+  it('names a closer club that lost on scatter and still calls the tighter stock', () => {
+    const card = recommend({
+      targetDistanceYards: 160,
+      targetMetric: 'total',
+      hazards: [],
+      intent: 'neutral',
+      riskPreference: 'neutral',
+      profiles: [
+        stock({ clubId: '5i', clubLabel: '5-iron', stockYards: 162, p20: 80, p50: 162, p80: 185, iqr: 40, confidence: 'limited', longestYards: 185, sampleSize: 10 }),
+        stock({ clubId: '7i', clubLabel: '7-iron', stockYards: 154, p20: 148, p50: 154, p80: 160, iqr: 8, confidence: 'moderate', longestYards: 166, sampleSize: 10 }),
+      ],
+    });
+    expect(card.clubId).toBe('7i');
+    expect(card.clubLabel).toBe('7-iron');
+    expect(card.passedCloser).toMatch(/5-iron/);
+    expect(card.passedCloser).toMatch(/scatter/);
+    expect(card.passedCloser).toMatch(/162/);
+    expect(card.lines.reason).toMatch(/5-iron/);
+    expect(card.lines.reason).toMatch(/scatter/);
+  });
+
+  it('names a closer club with too few shots and does not call it', () => {
+    const card = recommend({
+      targetDistanceYards: 160,
+      targetMetric: 'total',
+      hazards: [],
+      intent: 'neutral',
+      riskPreference: 'neutral',
+      profiles: [
+        stock({ clubId: '6i', clubLabel: '6-iron', stockYards: 158, sampleSize: 3, confidence: 'insufficient', iqr: 4, longestYards: 160 }),
+        stock({ clubId: '7i', clubLabel: '7-iron', stockYards: 154, p20: 148, p50: 154, p80: 160, iqr: 8, confidence: 'moderate', longestYards: 166, sampleSize: 10 }),
+      ],
+    });
+    expect(card.clubId).toBe('7i');
+    expect(card.passedCloser).toMatch(/6-iron/);
+    expect(card.passedCloser).toMatch(/only 3 shots/);
+    expect(card.lines.club).not.toMatch(/6-iron/);
   });
 
   it('uses a stored wedge carry inside 40 yards and ignores a full-swing stock', () => {

@@ -54,7 +54,7 @@ export default function MoreScreen() {
           router.push('/play');
         }}
       />
-      {armed ? <Muted>Tap clear scores to wipe the strokes, the hole, and the tagged shots. Wedge carries stay.</Muted> : null}
+      {armed ? <Muted>Tap clear scores to wipe the strokes, the putts, the hole, the wind, and the tagged shots. Wedge carries stay.</Muted> : null}
     </Screen>
   );
 }

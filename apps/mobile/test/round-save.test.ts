@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { scoreRound } from '@coopr/engine';
 import { parseRoundSave } from '../src/round-save';
 
 function save(patch: Record<string, unknown> = {}): string {
@@ -36,6 +37,45 @@ describe('round save', () => {
     expect(round?.wedges.miura56).toEqual({ half: 20, three_quarter: 40 });
     expect(round?.plans['1']?.target).toBe('Left center');
     expect(round?.holes).not.toContain(0);
+    expect(round?.putts.every((putt) => putt == null)).toBe(true);
+    expect(round?.conditions.usePlaysLike).toBe(false);
+    expect(round?.conditions.wind).toBe('');
+  });
+
+  it('keeps a chip-in putt and the round conditions without adding putts to the gross', () => {
+    const round = parseRoundSave(
+      save({
+        putts: [0, 2, -1, 1.5, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+        conditions: { wind: '8', windChoice: 'head', elevation: '12', elevationChoice: 'up', temperature: '59', usePlaysLike: true },
+      }),
+    );
+    expect(round?.putts[0]).toBe(0);
+    expect(round?.putts[1]).toBe(2);
+    expect(round?.putts[2]).toBeNull();
+    expect(round?.putts[3]).toBeNull();
+    expect(round?.conditions).toEqual({
+      wind: '8',
+      windChoice: 'head',
+      elevation: '12',
+      elevationChoice: 'up',
+      temperature: '59',
+      usePlaysLike: true,
+    });
+    const messy = parseRoundSave(save({ putts: [4], conditions: { wind: 'breezy', windChoice: 'gale', usePlaysLike: 'yes' } }));
+    expect(messy?.putts.every((putt) => putt == null)).toBe(true);
+    expect(messy?.conditions).toEqual({
+      wind: '',
+      windChoice: null,
+      elevation: '',
+      elevationChoice: null,
+      temperature: '',
+      usePlaysLike: false,
+    });
+    const gross = scoreRound(
+      (round?.holes ?? []).flatMap((strokes, index) => (strokes == null ? [] : [{ hole: index + 1, strokes }])),
+    );
+    expect(gross.gross).toBe(12);
+    expect(gross.gross).not.toBe(14);
   });
 
   it('refuses a scorecard that is not 18 holes or has a zero', () => {

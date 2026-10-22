@@ -32,6 +32,26 @@ export interface SavedDebrief {
   note: string;
 }
 
+export interface RoundConditions {
+  wind: string;
+  windChoice: 'head' | 'tail' | 'cross' | null;
+  elevation: string;
+  elevationChoice: 'up' | 'down' | null;
+  temperature: string;
+  usePlaysLike: boolean;
+}
+
+export const EMPTY_CONDITIONS: RoundConditions = {
+  wind: '',
+  windChoice: null,
+  elevation: '',
+  elevationChoice: null,
+  temperature: '',
+  usePlaysLike: false,
+};
+
+export const EMPTY_PUTTS = Array.from({ length: 18 }, () => null) as Array<number | null>;
+
 export interface RoundSave {
   version: 1;
   holes: Array<number | null>;
@@ -43,6 +63,10 @@ export interface RoundSave {
   unit: 'yd' | 'm';
   plans: Record<string, { clubLabel: string; target: string }>;
   localShots: SavedShot[];
+  /** Putts beside the score. 0 is a chip-in. Null means unknown. Never added to strokes. */
+  putts: Array<number | null>;
+  /** Wind, elevation, temperature, and the plays-like switch for this round. */
+  conditions: RoundConditions;
 }
 
 function holeNumber(value: unknown): number | null {
@@ -176,6 +200,39 @@ function yardsOf(value: unknown): Record<string, number> {
   return yards;
 }
 
+function puttsOf(value: unknown): Array<number | null> {
+  if (!Array.isArray(value) || value.length !== 18) return [...EMPTY_PUTTS];
+  return value.map((item) => {
+    if (item == null) return null;
+    if (typeof item !== 'number' || !Number.isInteger(item) || item < 0 || item > 99) return null;
+    return item;
+  });
+}
+
+function numericText(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (trimmed === '') return '';
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return '';
+  return trimmed;
+}
+
+function conditionsOf(value: unknown): RoundConditions {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...EMPTY_CONDITIONS };
+  const row = value as Record<string, unknown>;
+  const windChoice = row.windChoice === 'head' || row.windChoice === 'tail' || row.windChoice === 'cross' ? row.windChoice : null;
+  const elevationChoice = row.elevationChoice === 'up' || row.elevationChoice === 'down' ? row.elevationChoice : null;
+  return {
+    wind: numericText(row.wind),
+    windChoice,
+    elevation: numericText(row.elevation),
+    elevationChoice,
+    temperature: numericText(row.temperature),
+    usePlaysLike: row.usePlaysLike === true,
+  };
+}
+
 function plansOf(value: unknown): RoundSave['plans'] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const plans: RoundSave['plans'] = {};
@@ -216,6 +273,8 @@ export function parseRoundSave(raw: string | null): RoundSave | null {
     unit: row.unit,
     plans: plansOf(row.plans),
     localShots: shotsOf(row.localShots),
+    putts: puttsOf(row.putts),
+    conditions: conditionsOf(row.conditions),
   };
 }
 
