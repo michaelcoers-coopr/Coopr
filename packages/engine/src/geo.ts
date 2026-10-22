@@ -88,25 +88,27 @@ export function pointInOrOnRing(point: LatLon, ring: readonly LatLon[], edgeMete
   return yards != null && yards * METERS_PER_YARD <= edgeMeters;
 }
 
-/** Area-weighted centroid in geographic degrees. Suitable for a green, not a continent. */
+/**
+ * Area-weighted centroid on a local meter plane.
+ * Degree-space shoelace drifts off a green at mid latitudes.
+ */
 export function ringCentroid(ring: readonly LatLon[]): LatLon | null {
   const closed = closeRing(ring);
   if (closed.length < 4) return null;
+  const origin = closed[0]!;
   let twiceArea = 0;
   let cx = 0;
   let cy = 0;
   for (let i = 0; i < closed.length - 1; i++) {
-    const x1 = closed[i]!.lon;
-    const y1 = closed[i]!.lat;
-    const x2 = closed[i + 1]!.lon;
-    const y2 = closed[i + 1]!.lat;
-    const cross = x1 * y2 - x2 * y1;
+    const first = toLocal(origin, closed[i]!);
+    const second = toLocal(origin, closed[i + 1]!);
+    const cross = first.x * second.y - second.x * first.y;
     twiceArea += cross;
-    cx += (x1 + x2) * cross;
-    cy += (y1 + y2) * cross;
+    cx += (first.x + second.x) * cross;
+    cy += (first.y + second.y) * cross;
   }
-  if (Math.abs(twiceArea) < 1e-14) return null;
-  return { lon: cx / (3 * twiceArea), lat: cy / (3 * twiceArea) };
+  if (Math.abs(twiceArea) < 1e-4) return null;
+  return fromLocal(origin, cx / (3 * twiceArea), cy / (3 * twiceArea));
 }
 
 function segmentsCross(a: LatLon, b: LatLon, c: LatLon, d: LatLon): boolean {

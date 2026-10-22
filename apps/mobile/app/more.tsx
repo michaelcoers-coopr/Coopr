@@ -5,7 +5,7 @@ import { bootDatabase } from '../src/boot-db';
 import { useLocalStore } from '../src/local-store';
 
 export default function MoreScreen() {
-  const { founderTools, displayName, caddieName, personalityLabel, startNewRound } = useLocalStore();
+  const { founderTools, displayName, caddieName, personalityLabel, startNewRound, unit, setUnit, conditions, setConditions } = useLocalStore();
   const [armed, setArmed] = useState(false);
   const [dbStatus, setDbStatus] = useState('Opening the on-device course cache…');
 
@@ -35,8 +35,14 @@ export default function MoreScreen() {
       <Button label="Add from photos" tone="ghost" onPress={() => router.push('/import')} />
       <Button label="Caddie" tone="ghost" onPress={() => router.push('/caddie')} />
       <Button label="Course quality" tone="ghost" onPress={() => router.push('/course')} />
+      <Button
+        label={conditions.usePlaysLike ? 'Plays-like is on' : 'Plays-like is off'}
+        tone="ghost"
+        onPress={() => setConditions({ usePlaysLike: !conditions.usePlaysLike })}
+      />
+      <Button label={unit === 'yd' ? 'Showing yards' : 'Showing meters'} tone="ghost" onPress={() => setUnit(unit === 'yd' ? 'm' : 'yd')} />
       <Card>
-        <Muted>High Cedars, Orting, is the only course on this phone. The shot number is what you type until a green is verified.</Muted>
+        <Muted>High Cedars, Orting, is the only course on this phone. The hole uses the phone position. Wind and temperature come from the course, and plays-like can be switched off here.</Muted>
         <Muted>{dbStatus}</Muted>
         {founderTools ? <Muted>{`${displayName}. Caddie ${caddieName}, ${personalityLabel}.`}</Muted> : <Muted>Public shell.</Muted>}
       </Card>
@@ -54,7 +60,7 @@ export default function MoreScreen() {
           router.push('/play');
         }}
       />
-      {armed ? <Muted>Tap clear scores to wipe the strokes, the putts, the hole, the wind, and the tagged shots. Wedge carries stay.</Muted> : null}
+      {armed ? <Muted>Tap clear scores to wipe the strokes, the putts, the hole, and the marked shots. Wedge carries stay.</Muted> : null}
     </Screen>
   );
 }

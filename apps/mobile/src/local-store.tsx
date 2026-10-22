@@ -19,10 +19,11 @@ import {
 import { loadFounderDataset, profilesFromFounder } from '@coopr/seed';
 import { FOUNDER_TOOLS_ENABLED } from './founder-flag';
 import { hasWebStorage, readRound, readRoundSync, writeRound } from './round-save-io';
-import { EMPTY_CONDITIONS, EMPTY_PUTTS, type RoundConditions, type RoundSave } from './round-save';
+import { EMPTY_PUTTS, FRESH_CONDITIONS, type RoundConditions, type RoundSave, type SavedLie, type SavedMark } from './round-save';
 
 export type { DistanceUnit };
-export type LandingResult = 'fairway' | 'left' | 'right' | 'short' | 'hazard';
+export type LandingResult = 'fairway' | 'left' | 'right' | 'short' | 'rough' | 'green' | 'hazard';
+export type { SavedMark };
 
 export interface LocalShot {
   id: string;
@@ -178,6 +179,8 @@ interface LocalStore {
   setWedgeCarry: (clubId: string, length: WedgeLength, yards: number | null) => void;
   putts: readonly (number | null)[];
   setPutts: (hole: number, count: number | null) => void;
+  marks: readonly SavedMark[];
+  recordMark: (mark: { hole: number; lat: number; lon: number; clubId: string | null; clubLabel: string | null; close: { yards: number; lie: SavedLie | null } | null }) => void;
   conditions: RoundConditions;
   setConditions: (patch: Partial<RoundConditions>) => void;
   startNewRound: () => void;
@@ -348,7 +351,8 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
   const [debriefs, setDebriefs] = useState<Array<{ hole: number; choice: 'plan' | 'swing'; note: string }>>(boot?.debriefs ?? []);
   const [wedges, setWedges] = useState<Record<string, Partial<Record<WedgeLength, number | null>>>>(boot?.wedges ?? {});
   const [putts, setPutts] = useState<Array<number | null>>(boot?.putts ?? [...EMPTY_PUTTS]);
-  const [conditions, setConditionsState] = useState<RoundConditions>(boot?.conditions ?? { ...EMPTY_CONDITIONS });
+  const [marks, setMarks] = useState<SavedMark[]>(boot?.marks ?? []);
+  const [conditions, setConditionsState] = useState<RoundConditions>(boot?.conditions ?? { ...FRESH_CONDITIONS });
 
   const value = useMemo<LocalStore>(() => {
     const observations: DistanceObservation[] = [];
@@ -556,6 +560,32 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
       setPutts: (hole, count) => {
         setPutts((current) => current.map((value, index) => (index === hole - 1 ? count : value)));
       },
+      marks,
+      recordMark: (mark) => {
+        setMarks((current) => {
+          const next = current.map((item) => ({ ...item }));
+          if (mark.close) {
+            for (let index = next.length - 1; index >= 0; index -= 1) {
+              const prior = next[index];
+              if (prior && prior.hole === mark.hole && prior.yards == null) {
+                next[index] = { ...prior, yards: mark.close.yards, lie: mark.close.lie };
+                break;
+              }
+            }
+          }
+          next.push({
+            id: `mark-${next.length + 1}`,
+            hole: mark.hole,
+            lat: mark.lat,
+            lon: mark.lon,
+            clubId: mark.clubId,
+            clubLabel: mark.clubLabel,
+            yards: null,
+            lie: null,
+          });
+          return next;
+        });
+      },
       conditions,
       setConditions: (patch) => setConditionsState((current) => ({ ...current, ...patch })),
       startNewRound: () => {
@@ -563,15 +593,16 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
         setCurrentHole(1);
         setManual({});
         setTagged([]);
+        setMarks([]);
         setDebriefs([]);
         setPlans({});
         setShots((current) => current.filter((shot) => shot.origin !== 'tag'));
         setUnit('yd');
         setPutts([...EMPTY_PUTTS]);
-        setConditionsState({ ...EMPTY_CONDITIONS });
+        setConditionsState({ ...FRESH_CONDITIONS });
       },
     };
-  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, plans, debriefs, wedges, putts, conditions]);
+  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, plans, debriefs, wedges, putts, conditions, marks]);
 
   useEffect(() => {
     if (hasWebStorage()) return;
@@ -589,6 +620,7 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
         setDebriefs(save.debriefs);
         setWedges(save.wedges);
         setPutts(save.putts);
+        setMarks(save.marks);
         setConditionsState(save.conditions);
       })
       .catch(() => undefined)
@@ -629,8 +661,9 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
       localShots: shots,
       putts,
       conditions,
+      marks,
     });
-  }, [hydrated, holes, currentHole, manualYards, tagged, debriefs, wedges, unit, plans, shots, putts, conditions]);
+  }, [hydrated, holes, currentHole, manualYards, tagged, debriefs, wedges, unit, plans, shots, putts, conditions, marks]);
 
   if (!hydrated) return null;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

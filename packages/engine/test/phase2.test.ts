@@ -62,6 +62,10 @@ describe('plays-like', () => {
     const parsed = parseOpenMeteoCurrent({ current: { temperature_2m: 62, wind_speed_10m: 8, wind_direction_10m: 200 } });
     if ('error' in parsed) throw new Error(parsed.error);
     expect(parsed.temperatureF).toBe(62);
+    expect(parsed.surfacePressureHpa).toBeNull();
+    const withPressure = parseOpenMeteoCurrent({ current: { temperature_2m: 62, wind_speed_10m: 8, wind_direction_10m: 200, surface_pressure: 1014 } });
+    if ('error' in withPressure) throw new Error(withPressure.error);
+    expect(withPressure.surfacePressureHpa).toBe(1014);
     expect('error' in parseOpenMeteoElevation({ elevation: [100, null] })).toBe(true);
     expect(elevationChangeFeet(100, 109.144)).toBeCloseTo(30, 0);
   });

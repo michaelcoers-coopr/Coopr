@@ -40,6 +40,24 @@ describe('round save', () => {
     expect(round?.putts.every((putt) => putt == null)).toBe(true);
     expect(round?.conditions.usePlaysLike).toBe(false);
     expect(round?.conditions.wind).toBe('');
+    expect(round?.marks).toEqual([]);
+  });
+
+  it('keeps a GPS mark and drops a mark with no position', () => {
+    const round = parseRoundSave(
+      save({
+        marks: [
+          { id: 'm1', hole: 1, lat: 47.1, lon: -122.2, clubId: '7i', clubLabel: '7-iron', yards: 168.2, lie: 'fairway' },
+          { id: 'm2', hole: 1, lat: 47.2, lon: -122.2, clubId: null, clubLabel: null, yards: null, lie: null },
+          { id: 'bad', hole: 1, lat: 'nope', lon: -122.2, clubId: null, clubLabel: null, yards: null, lie: null },
+          { id: 'bad-lie', hole: 1, lat: 47.1, lon: -122.2, clubId: null, clubLabel: null, yards: 10, lie: 'trees' },
+        ],
+      }),
+    );
+    expect(round?.marks).toEqual([
+      { id: 'm1', hole: 1, lat: 47.1, lon: -122.2, clubId: '7i', clubLabel: '7-iron', yards: 168.2, lie: 'fairway' },
+      { id: 'm2', hole: 1, lat: 47.2, lon: -122.2, clubId: null, clubLabel: null, yards: null, lie: null },
+    ]);
   });
 
   it('keeps a chip-in putt and the round conditions without adding putts to the gross', () => {
