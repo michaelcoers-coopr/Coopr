@@ -3,6 +3,7 @@
     "name": "COOPR",
     "slug": "coopr",
     "scheme": "coopr",
+    "owner": "mikecoers",
     "version": "2.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -24,6 +25,14 @@
     "plugins": [
       "expo-router",
       "expo-sqlite"
-    ]
+    ],
+    "updates": {
+      "url": "https://u.expo.dev/998f1644-05ec-4980-a0b9-58e5703951d7"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "998f1644-05ec-4980-a0b9-58e5703951d7"
+      }
+    }
   }
 }

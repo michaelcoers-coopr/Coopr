@@ -14,7 +14,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 - Simulator session is TrackMan. The numbers stay on the verbatim source. The monitor confirmation is the master-spec source.
 - Provisional in-play 14, editable in the app, status `provisional`. Rationale on the bag: these are the clubs he actually used on course. 4-wood ownership is confirmed. Putter is a PXG 211 blade (length, loft, and shaft still null).
 - The founder is the default local profile on a dev build and on the Expo Go preview channel. `EXPO_PUBLIC_FOUNDER_TOOLS=0` swaps `@coopr/seed` for a stub so a production bundle does not contain that history. The public-demo guard still refuses a private account.
-- Expo Go preview is configured for SDK 54 (the App Store Expo Go). `npm run preview:publish` publishes the `preview` channel when `EXPO_TOKEN` is set. `eas.json` profile `preview` is a store-distribution iOS build (`app.coopr.mobile.preview`, founder tools on) for TestFlight. Steps are in `docs/PREVIEW.md`. Nothing was published: this environment has no `EXPO_TOKEN`, and Apple was not signed in.
+- Expo Go preview is on SDK 54 and linked to EAS project `@mikecoers/coopr` (`998f1644-05ec-4980-a0b9-58e5703951d7`). `npm run preview:publish` republishes that preview channel when `EXPO_TOKEN` is set and does not create a new project. `eas.json` profile `preview` is a store-distribution iOS build (`app.coopr.mobile.preview`, founder tools on) for TestFlight. Steps are in `docs/PREVIEW.md`. Apple was not signed in from this environment.
 - Pure stats, caddie, and scoring. CSV and JSON export. Soft-delete of an account.
 - Screens: Home (Play golf / Practice & calibrate), Bag, Caddie with manual distance, Scorecard, and private founder flows A–D plus founder bag and High Cedars.
 - Neutral wireframe. Accent token `#8AC926` on `#0B0D0F` / `#FFFFFF`.
@@ -23,7 +23,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 ## Not done
 
 - No cloud sync. The outbox is written and never pushed. Postgres is a file, not a database.
-- No Expo project linked yet, and no `EXPO_TOKEN` in this environment, so the preview channel was not published. No Supabase or other backend, no GHIN. Mike has an Apple Developer account; this environment did not sign into it.
+- No Supabase or other backend, no GHIN. Mike has an Apple Developer account; this environment did not sign into it. Republishing the preview channel still needs `EXPO_TOKEN` on the `@mikecoers` account.
 - No licensed course map or GPS yardages. Manual distance only.
 - No LLM rephrase. The language provider returns the deterministic text.
 - No launch-monitor connection. Practice entry is manual. The founder transcript is an import, not a live session.

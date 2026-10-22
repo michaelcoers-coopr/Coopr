@@ -55,6 +55,24 @@ describe('Expo Go preview and TestFlight profile', () => {
     expect(production.ios?.bundleIdentifier).toBe('app.coopr.mobile');
     expect(production.name).toBe('COOPR');
 
+    const staticConfig = appJson.expo as {
+      owner?: string;
+      updates?: { url?: string };
+      extra?: { eas?: { projectId?: string } };
+    };
+    expect(staticConfig.owner).toBe('mikecoers');
+    expect(staticConfig.extra?.eas?.projectId).toBe('998f1644-05ec-4980-a0b9-58e5703951d7');
+    expect(staticConfig.updates?.url).toBe('https://u.expo.dev/998f1644-05ec-4980-a0b9-58e5703951d7');
+    delete process.env.EXPO_PROJECT_ID;
+    delete process.env.APP_VARIANT;
+    const linked = configure({ config: appJson.expo });
+    expect(linked.extra?.eas?.projectId).toBe('998f1644-05ec-4980-a0b9-58e5703951d7');
+    expect(linked.updates?.url).toBe('https://u.expo.dev/998f1644-05ec-4980-a0b9-58e5703951d7');
+    if (previous === undefined) delete process.env.APP_VARIANT;
+    else process.env.APP_VARIANT = previous;
+    if (previousProject === undefined) delete process.env.EXPO_PROJECT_ID;
+    else process.env.EXPO_PROJECT_ID = previousProject;
+
     const eas = JSON.parse(readFileSync(easPath, 'utf8')) as {
       build: {
         preview: { distribution: string; channel: string; env: Record<string, string> };

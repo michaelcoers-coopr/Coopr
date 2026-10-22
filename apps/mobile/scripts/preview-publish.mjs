@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -56,19 +57,19 @@ function readConfig() {
   return JSON.parse(text.slice(start));
 }
 
-console.log('Publishing the preview channel with EXPO_PUBLIC_FOUNDER_TOOLS=1.');
+const linked = JSON.parse(readFileSync(path.join(appRoot, 'app.json'), 'utf8'));
+const committedProjectId = linked.expo?.extra?.eas?.projectId;
+if (!committedProjectId) {
+  fail('apps/mobile/app.json is missing expo.extra.eas.projectId. This repo is linked to @mikecoers/coopr and must not create a new EAS project.');
+}
+
+console.log(`Publishing the preview channel for @${linked.expo.owner}/coopr with EXPO_PUBLIC_FOUNDER_TOOLS=1.`);
 run(['--yes', 'eas-cli@latest', 'whoami', '--non-interactive']);
 
-let config = readConfig();
-let projectId = config.extra?.eas?.projectId;
-if (!projectId) {
-  console.log('No EAS project id yet. Linking one with eas init.');
-  run(['--yes', 'eas-cli@latest', 'init', '--non-interactive']);
-  config = readConfig();
-  projectId = config.extra?.eas?.projectId;
-}
-if (!projectId) {
-  fail('EAS did not link a project id. In apps/mobile, with EXPO_TOKEN set, run: npx eas-cli@latest init');
+const config = readConfig();
+const projectId = config.extra?.eas?.projectId;
+if (projectId !== committedProjectId) {
+  fail(`Resolved project id ${projectId ?? '(missing)'} does not match the committed id ${committedProjectId}. Refusing to run eas init.`);
 }
 
 const runtimeVersion = typeof config.runtimeVersion === 'string' ? config.runtimeVersion : 'exposdk:54.0.0';

@@ -24,14 +24,16 @@ npm run preview:publish
 
 Do not commit the token. `.env` is gitignored.
 
-The script links an EAS project if this repo does not have one yet, publishes the `preview` channel with founder tools on, and prints:
+The app is linked to EAS project `@mikecoers/coopr` (`998f1644-05ec-4980-a0b9-58e5703951d7`). `preview:publish` uses that id and does not create another project. It publishes the `preview` channel with founder tools on, and prints:
 
 - a QR image: `https://qr.expo.dev/eas-update?projectId=...&runtimeVersion=exposdk:54.0.0&channel=preview&slug=exp`
 - the same link with `&format=url` for the `exp://` address
 
 Open the QR with the iPhone camera. `slug=exp` targets Expo Go rather than a custom dev client.
 
-This environment did not have `EXPO_TOKEN`, so nothing was published.
+The stable QR for this project is:
+
+https://qr.expo.dev/eas-update?projectId=998f1644-05ec-4980-a0b9-58e5703951d7&runtimeVersion=exposdk:54.0.0&channel=preview&slug=exp
 
 ## 2. TestFlight-ready iOS build
 
