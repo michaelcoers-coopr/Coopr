@@ -1,65 +1,93 @@
-import { useState } from 'react';
-import { View, Text } from 'react-native';
-import { useRouter } from 'expo-router';
+import { router, Stack } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../src/theme';
-import { Button, Wordmark, Body } from '../src/ui';
-import { getMode, resetExperience } from '../src/db/settings';
-import { enterSample, enterOwnSetup } from '../src/features/session-mode';
+import { colors, font, radius, TAGLINE, touch } from '@coopr/tokens';
+import { bagGlance, resumeLine } from '../src/design/home-copy';
+import { useLocalStore } from '../src/local-store';
+import { Crest } from '../src/ui';
 
-// Branded landing / hero. On first run it forks into "explore the sample" vs "quick
-// start" vs "set up my own". Placeholder wordmark until the final brand asset.
-export default function Hero() {
-  const t = useTheme();
-  const router = useRouter();
-  const [mode, setModeState] = useState(getMode());
-
-  const sample = () => {
-    enterSample();
-    router.replace('/home');
-  };
-  const ownSetup = () => {
-    enterOwnSetup();
-    router.replace('/onboarding');
-  };
-  const startOver = () => {
-    resetExperience();
-    setModeState(null);
-  };
+export default function HomeScreen() {
+  const { currentHole, score, clubs } = useLocalStore();
+  const inPlay = clubs.filter((club) => club.slot === 'in_play').length;
+  const resume = resumeLine({
+    hole: currentHole,
+    holesEntered: score.holesEntered,
+    gross: score.holesEntered > 0 ? score.gross : null,
+  });
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.ink }} edges={['top', 'bottom']}>
-      <View style={{ flex: 1, paddingHorizontal: t.spacing.xl, justifyContent: 'space-between', paddingVertical: t.spacing.xxl }}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Wordmark size={56} />
-          <Text style={{ color: t.accent, fontSize: t.fontSize.sm, fontWeight: '800', letterSpacing: 3, marginTop: t.spacing.xl, textAlign: 'center' }}>
-            KNOW YOUR GAME.{'\n'}PLAY YOUR GAME.
-          </Text>
-          <Text style={{ color: t.textSecondary, fontSize: t.fontSize.md, textAlign: 'center', lineHeight: 24, marginTop: t.spacing.xl, maxWidth: 320 }}>
-            The smartest shot, every time — built on your numbers, not generic averages.
-          </Text>
+    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView contentContainerStyle={styles.content}>
+        <Crest size={168} />
+        <Text style={styles.word}>COOPR</Text>
+        <Text style={styles.tag}>{TAGLINE}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Play High Cedars" onPress={() => router.push('/play')} style={styles.play}>
+          <Text style={styles.kicker}>High Cedars</Text>
+          <Text style={styles.playTitle}>{resume.title}</Text>
+          <Text style={styles.playDetail}>{resume.detail}</Text>
+        </Pressable>
+        <View style={styles.glance}>
+          <Glance label="In the bag" value={bagGlance(inPlay)} />
+          <Glance label="Gross" value={score.holesEntered > 0 ? String(score.gross) : '—'} />
+          <Glance label="Handicap" value="—" note="Unknown" />
         </View>
-
-        <View>
-          {mode ? (
-            <>
-              <Button title="ENTER COOPR" onPress={() => router.replace('/home')} />
-              <Button title="Hand it to someone new" kind="ghost" onPress={startOver} />
-            </>
-          ) : (
-            <>
-              <Body muted style={{ textAlign: 'center', marginBottom: t.spacing.sm, fontSize: t.fontSize.xs }}>
-                Try it in ten seconds.
-              </Body>
-              <Button title="EXPLORE THE SAMPLE GOLFER" onPress={sample} />
-              <Button title="QUICK START — PICK YOUR HANDICAP" kind="ghost" onPress={() => router.push('/quick-start')} />
-              <Body onPress={ownSetup} muted style={{ textAlign: 'center', marginTop: t.spacing.md }}>
-                Enter my own shots ›
-              </Body>
-            </>
-          )}
-        </View>
-      </View>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/more')} style={styles.more}>
+          <Text style={styles.moreText}>More</Text>
+        </Pressable>
+      </ScrollView>
     </SafeAreaView>
   );
 }
+
+function Glance({ label, value, note }: { label: string; value: string; note?: string }) {
+  return (
+    <View style={styles.stat}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue}>{value}</Text>
+      {note ? <Text style={styles.statNote}>{note}</Text> : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bg },
+  content: { paddingHorizontal: 24, paddingBottom: 32, gap: 8 },
+  word: { color: colors.navy, fontFamily: font.family, fontSize: 40, fontWeight: '700', letterSpacing: -1, textAlign: 'center' },
+  tag: { color: colors.muted, fontFamily: font.family, fontSize: 16, lineHeight: 22, textAlign: 'center', marginBottom: 8 },
+  play: {
+    backgroundColor: colors.navy,
+    borderRadius: radius.card,
+    minHeight: 148,
+    padding: 24,
+    gap: 6,
+    justifyContent: 'center',
+    shadowColor: colors.navy,
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6,
+  },
+  kicker: { color: 'rgba(255,255,255,0.72)', fontFamily: font.family, fontSize: 13, fontWeight: '700', letterSpacing: 1.1, textTransform: 'uppercase' },
+  playTitle: { color: colors.white, fontFamily: font.family, fontSize: 32, fontWeight: '700', letterSpacing: -0.5 },
+  playDetail: { color: 'rgba(255,255,255,0.82)', fontFamily: font.family, fontSize: 16 },
+  glance: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  stat: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
+    minHeight: touch,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  statLabel: { color: colors.muted, fontFamily: font.family, fontSize: 11, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
+  statValue: { color: colors.navy, fontFamily: font.family, fontSize: 20, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  statNote: { color: colors.muted, fontFamily: font.family, fontSize: 11 },
+  more: { minHeight: touch, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  moreText: { color: colors.navy, fontFamily: font.family, fontSize: 17, fontWeight: '700' },
+});

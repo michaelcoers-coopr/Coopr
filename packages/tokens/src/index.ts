@@ -1,68 +1,71 @@
-// Design tokens. NEUTRAL WIREFRAME until the founder brand system is approved
-// (spec sections 62-64). Two rules the app must never break:
-//   1. The accent is a single swappable token — never hardcode a brand color in
-//      feature code. Read `tokens.accent`.
-//   2. Semantic colors (danger/warning/success, hazard, over/under par) are
-//      INDEPENDENT of the accent and can never be overridden by a user's accent
-//      (spec section 60).
+/**
+ * Navy, white, and crest red. One ice accent is reserved for a live number.
+ * There is no green fill. The Navy Fill crest is the supplied raster. It is not redrawn.
+ * Menus use the light palette. The hole screen uses the play palette.
+ */
+export const TAGLINE = "The smartest caddie you'll ever carry";
 
-export interface AccentTheme {
-  accent: string;
-  accentOn: string; // text/icon color on top of accent
-}
-
-// COOPR launch accent — performance green (spec section 59). The accent is a token;
-// any colorway (pink, patriotic, team, personal) swaps in via this same shape and
-// feature code never changes.
-export const cooprAccent: AccentTheme = {
-  accent: '#8AC926',
-  accentOn: '#0B0D0F', // near-black reads best on the light green
-};
-
-// Neutral placeholder, kept for wireframe/preview contexts.
-export const wireframeAccent: AccentTheme = {
-  accent: '#5B6670',
-  accentOn: '#FFFFFF',
-};
-
-// Permanent core neutrals (the one part of the palette the spec fixes).
-export const neutrals = {
-  ink: '#0B0D0F',
-  surface: '#141518',
-  surfaceRaised: '#1E2024',
-  border: '#2A2D32',
-  textPrimary: '#F5F6F7',
-  textSecondary: '#A7ADB4',
-  textMuted: '#6C727A',
+export const colors = {
+  bg: '#F7F5F2',
+  text: '#0B1F3A',
+  accent: '#0B1F3A',
+  onAccent: '#FFFFFF',
+  muted: '#3D4C60',
+  card: '#FFFFFF',
+  line: '#E4E1DC',
+  danger: '#C8102E',
+  navy: '#0B1F3A',
   white: '#FFFFFF',
+  red: '#C8102E',
 } as const;
 
-// Semantic colors — independent, accessibility-safe, never accent-driven.
-export const semantic = {
-  danger: '#E5484D',
-  warning: '#F1A10D',
-  success: '#30A46C',
-  hazardWater: '#3B82F6',
-  hazardSand: '#D9A441',
-  overPar: '#E5484D',
-  underPar: '#30A46C',
-  even: '#A7ADB4',
+/** Near-black play field. The ice accent is the live yardage only. */
+export const play = {
+  bg: '#070B10',
+  sheet: '#10161E',
+  card: '#171E28',
+  ink: '#F4F7FB',
+  muted: '#9AA6B5',
+  line: 'rgba(255,255,255,0.14)',
+  glass: 'rgba(7,11,16,0.62)',
+  live: '#5CE1FF',
+  shadow: 'rgba(0,0,0,0.45)',
 } as const;
 
-// Risk levels map to semantic colors, not the accent.
-export const riskColor = {
-  low: semantic.success,
-  moderate: semantic.warning,
-  elevated: '#F1750D',
-  high: semantic.danger,
+export const space = {
+  1: 8,
+  2: 16,
+  3: 24,
+  4: 32,
+  5: 40,
+  6: 48,
+  7: 56,
 } as const;
 
-export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
-export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
-export const fontSize = { xs: 12, sm: 14, md: 16, lg: 20, xl: 28, xxl: 40 } as const;
+export const radius = {
+  chip: 999,
+  card: 24,
+  control: 16,
+  sheet: 28,
+} as const;
 
-export function makeTheme(accent: AccentTheme = cooprAccent) {
-  return { ...accent, ...neutrals, semantic, riskColor, spacing, radius, fontSize };
-}
+export const type = {
+  hero: 72,
+  title: 34,
+  club: 32,
+  body: 17,
+  caption: 13,
+  micro: 11,
+} as const;
 
-export type Theme = ReturnType<typeof makeTheme>;
+export const touch = 56;
+
+export const font = {
+  family: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
+} as const;
+
+export const motion = {
+  springFriction: 7,
+  springTension: 80,
+  rollFrames: 10,
+} as const;

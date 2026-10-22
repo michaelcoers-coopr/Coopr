@@ -1,15 +1,49 @@
-// Dynamic Expo config. The native config plugins (secure-store, sqlite,
-// apple-authentication) are only needed to configure a real native build — they modify
-// entitlements and Info.plist. Expo Go uses its own prebuilt runtime and ignores them,
-// and loading them under Node 22 crashes the CLI (a require(ESM) resolution bug in
-// Expo SDK 51). So we include them only for actual builds. The native MODULES still work
-// in Expo Go regardless; this only affects build-time config.
-const IS_NATIVE_BUILD = process.env.EAS_BUILD === 'true' || process.env.COOPR_NATIVE === '1';
-
+/**
+ * Static fields live in app.json. This file applies the preview/production
+ * variant at bundle and build time.
+ *
+ * APP_VARIANT=preview  → bundle id app.coopr.mobile.preview (TestFlight app)
+ * APP_VARIANT=production → store bundle id, used with EXPO_PUBLIC_FOUNDER_TOOLS=0
+ * Unset → Expo Go / local dev, bundle id app.coopr.mobile
+ *
+ * App Store Expo Go is SDK 58. runtimeVersion policy `sdkVersion` resolves to
+ * exposdk:58.0.0, which is the runtime that build of Expo Go will load.
+ * SDK 55 removed the newArchEnabled flag; the New Architecture is required.
+ */
 module.exports = ({ config }) => {
-  const plugins = ['expo-router'];
-  if (IS_NATIVE_BUILD) {
-    plugins.push('expo-secure-store', 'expo-sqlite', 'expo-apple-authentication');
-  }
-  return { ...config, plugins };
+  const variant = process.env.APP_VARIANT === 'preview' ? 'preview' : process.env.APP_VARIANT === 'production' ? 'production' : 'dev';
+  const preview = variant === 'preview';
+  const projectId = process.env.EXPO_PROJECT_ID || config.extra?.eas?.projectId || null;
+  const bundleIdentifier = preview ? 'app.coopr.mobile.preview' : 'app.coopr.mobile';
+
+  return {
+    ...config,
+    name: preview ? 'COOPR Preview' : config.name,
+    ios: {
+      ...config.ios,
+      bundleIdentifier,
+      infoPlist: {
+        ...(config.ios?.infoPlist ?? {}),
+        ITSAppUsesNonExemptEncryption: false,
+      },
+    },
+    android: {
+      ...config.android,
+      package: preview ? 'app.coopr.mobile.preview' : config.android?.package,
+    },
+    runtimeVersion: {
+      policy: 'sdkVersion',
+    },
+    updates: projectId
+      ? {
+          url: `https://u.expo.dev/${projectId}`,
+        }
+      : {
+          enabled: false,
+        },
+    extra: {
+      ...(config.extra ?? {}),
+      eas: projectId ? { projectId } : { ...(config.extra?.eas ?? {}) },
+    },
+  };
 };

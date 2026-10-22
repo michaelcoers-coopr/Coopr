@@ -7,13 +7,13 @@
     "lib": ["ES2022"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "declarationMap": true,
     "composite": true,
-    "resolveJsonModule": true
+    "sourceMap": true,
+    "verbatimModuleSyntax": false
   }
 }

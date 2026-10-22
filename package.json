@@ -1,19 +1,25 @@
 {
   "name": "coopr",
   "private": true,
-  "version": "0.1.0",
-  "description": "COOPR — personal golf operating system. Know your game. Play your game.",
+  "version": "2.0.0",
+  "description": "COOPR 2.0 — personal golf caddie. Know your game. Play your game.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
   "workspaces": [
     "packages/*",
     "apps/*"
   ],
   "scripts": {
-    "test": "npm run test --workspace @coopr/engine",
-    "typecheck": "tsc -b packages/core packages/engine",
-    "build": "tsc -b packages/core packages/engine"
+    "test": "vitest run",
+    "typecheck": "tsc -b && npm run typecheck -w @coopr/mobile",
+    "bundle": "npm run bundle -w @coopr/mobile",
+    "preview:publish": "npm run preview:publish -w @coopr/mobile"
   },
   "devDependencies": {
-    "typescript": "^5.5.4",
-    "vitest": "^2.0.5"
+    "@types/node": "^22.10.0",
+    "typescript": "~5.9.2",
+    "vitest": "^2.1.8"
   }
 }

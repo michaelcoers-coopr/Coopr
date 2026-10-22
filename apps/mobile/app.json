@@ -3,25 +3,48 @@
     "name": "COOPR",
     "slug": "coopr",
     "scheme": "coopr",
-    "version": "0.1.0",
+    "owner": "mikecoers",
+    "version": "2.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "userInterfaceStyle": "light",
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.coopr.mobile",
-      "usesAppleSignIn": true,
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "COOPR uses your location for on-course GPS distances during a round.",
-        "NSCameraUsageDescription": "COOPR uses the camera to capture launch-monitor and GPS screenshots you choose to import.",
-        "NSPhotoLibraryUsageDescription": "COOPR imports screenshots you select from your photo library."
-      }
+      "bundleIdentifier": "app.coopr.mobile"
     },
     "android": {
       "package": "app.coopr.mobile"
     },
     "experiments": {
       "typedRoutes": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "COOPR uses your location to measure ground distance to a green you have verified. That distance is not saved as a shot."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "COOPR reads a photo you choose so a server can extract golf numbers. The photo is not kept on the server. You review every number before it is saved.",
+          "cameraPermission": "COOPR uses the camera for a photo of a screen, scorecard, or club. The photo is not kept on the server. You review every number before it is saved."
+        }
+      ]
+    ],
+    "updates": {
+      "url": "https://u.expo.dev/998f1644-05ec-4980-a0b9-58e5703951d7"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "998f1644-05ec-4980-a0b9-58e5703951d7"
+      }
     }
   }
 }

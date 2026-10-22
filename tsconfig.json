@@ -1,0 +1,11 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/domain" },
+    { "path": "packages/tokens" },
+    { "path": "packages/engine" },
+    { "path": "packages/seed" },
+    { "path": "packages/db" },
+    { "path": "packages/course" }
+  ]
+}
