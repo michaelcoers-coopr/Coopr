@@ -479,8 +479,8 @@ export default function PlayScreen() {
       </View>
       <Animated.View style={[styles.sheet, { transform: [{ translateY: rise }] }]}>
         <View style={styles.handle} />
+        {ask.banner ? <View style={styles.askBanner}>{ask.banner}</View> : null}
         <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
-          {ask.banner}
           <View style={styles.heroRow}>
             <View style={styles.heroCol}>
               <Text style={styles.kicker}>Shot</Text>
@@ -672,7 +672,8 @@ const styles = StyleSheet.create({
   tiny: { color: 'rgba(244,247,251,0.72)', fontSize: 11, marginTop: 4 },
   sheet: {
     marginTop: 'auto',
-    maxHeight: '72%',
+    maxHeight: '86%',
+    overflow: 'hidden',
     backgroundColor: field.sheet,
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
@@ -684,7 +685,8 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)', marginTop: 8 },
-  sheetScroll: { flexGrow: 0, flexShrink: 1 },
+  sheetScroll: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
+  askBanner: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
   sheetBody: { paddingHorizontal: 16, paddingBottom: 8, gap: 8 },
   heroRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
   heroCol: { flex: 1.3 },
