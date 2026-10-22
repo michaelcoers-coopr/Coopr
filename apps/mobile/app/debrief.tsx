@@ -9,7 +9,7 @@ import { Card, Choice, Muted, Screen, Title } from '../src/ui';
 const pilot = loadHighCedarsPilot();
 
 export default function DebriefScreen() {
-  const { holes, score, debrief, setDebrief } = useLocalStore();
+  const { holes, score, debriefs, setDebrief } = useLocalStore();
   const [grossAtOpen] = useState(score.gross);
   const target = debriefTarget(
     pilot.record.scorecard.map((hole) => ({
@@ -36,17 +36,21 @@ export default function DebriefScreen() {
           <Text style={styles.question}>{`Hole ${target.hole} was ${target.over} over par (${target.strokes} on a par ${target.par}). Was that the plan or the swing?`}</Text>
           <Choice
             label="The plan"
-            selected={debrief?.choice === 'plan' && debrief.hole === target.hole}
+            selected={debriefs.some((item) => item.choice === 'plan' && item.hole === target.hole)}
             onPress={() => setDebrief({ hole: target.hole, choice: 'plan', note: debriefNote('plan', target) })}
           />
           <Choice
             label="The swing"
-            selected={debrief?.choice === 'swing' && debrief.hole === target.hole}
+            selected={debriefs.some((item) => item.choice === 'swing' && item.hole === target.hole)}
             onPress={() => setDebrief({ hole: target.hole, choice: 'swing', note: debriefNote('swing', target) })}
           />
-          {debrief ? <Muted>{debrief.note}</Muted> : null}
         </Card>
       )}
+      {debriefs.map((item) => (
+        <Card key={item.hole}>
+          <Muted>{item.note}</Muted>
+        </Card>
+      ))}
     </Screen>
   );
 }

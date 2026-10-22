@@ -1,9 +1,10 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PERSONALITY_LABELS, type CaddiePersonality, type EnvironmentName } from '@coopr/domain';
 import {
   buildProfiles,
   confirmedPhotoImport,
   parseSimulatorCsv,
+  rememberDebrief,
   reportedDistanceProfile,
   scoreRound,
   withSameMetricBlends,
@@ -17,6 +18,8 @@ import {
 } from '@coopr/engine';
 import { loadFounderDataset, profilesFromFounder } from '@coopr/seed';
 import { FOUNDER_TOOLS_ENABLED } from './founder-flag';
+import { hasWebStorage, readRound, readRoundSync, writeRound } from './round-save-io';
+import type { RoundSave } from './round-save';
 
 export type { DistanceUnit };
 export type LandingResult = 'fairway' | 'left' | 'right' | 'short' | 'hazard';
@@ -169,10 +172,11 @@ interface LocalStore {
   setPersonality: (personality: CaddiePersonality) => void;
   plans: Readonly<Record<number, { clubLabel: string; target: string }>>;
   setPlan: (hole: number, patch: { clubLabel?: string; target?: string }) => void;
-  debrief: { hole: number; choice: 'plan' | 'swing'; note: string } | null;
-  setDebrief: (entry: { hole: number; choice: 'plan' | 'swing'; note: string } | null) => void;
+  debriefs: readonly { hole: number; choice: 'plan' | 'swing'; note: string }[];
+  setDebrief: (entry: { hole: number; choice: 'plan' | 'swing'; note: string }) => void;
   wedges: Readonly<Record<string, Partial<Record<WedgeLength, number | null>>>>;
   setWedgeCarry: (clubId: string, length: WedgeLength, yards: number | null) => void;
+  startNewRound: () => void;
 }
 
 const Ctx = createContext<LocalStore | null>(null);
@@ -306,25 +310,39 @@ function placeClub(current: PlayingClub[], club: PlayingClub): PlayingClub[] {
   return [...current, { ...club, slot: inPlay >= 14 ? 'testing' : club.slot }];
 }
 
+const EMPTY_HOLES = Array.from({ length: 18 }, () => null) as Array<number | null>;
+
+function manualFrom(save: RoundSave | null): Record<number, number | null> {
+  if (!save) return {};
+  return Object.fromEntries(Object.entries(save.manualYards).map(([hole, yards]) => [Number(hole), yards]));
+}
+
+function plansFrom(save: RoundSave | null): Record<number, { clubLabel: string; target: string }> {
+  if (!save) return {};
+  return Object.fromEntries(Object.entries(save.plans).map(([hole, plan]) => [Number(hole), plan]));
+}
+
 export function LocalStoreProvider({ children }: { children: ReactNode }) {
-  const [shots, setShots] = useState<LocalShot[]>([]);
+  const [boot] = useState(readRoundSync);
+  const [hydrated, setHydrated] = useState(hasWebStorage());
+  const [shots, setShots] = useState<LocalShot[]>(boot?.localShots ?? []);
   const [reportedAverages, setReportedAverages] = useState<ReportedAverage[]>([]);
   const [photoScorecards, setPhotoScorecards] = useState<PhotoScorecard[]>([]);
   const [keptPhotos, setKeptPhotos] = useState<KeptPhoto[]>([]);
   const [knownClubs, setKnownClubs] = useState<ExistingPhotoRecords['clubs']>([]);
-  const [holes, setHoles] = useState<Array<number | null>>(Array.from({ length: 18 }, () => null));
+  const [holes, setHoles] = useState<Array<number | null>>(boot?.holes ?? EMPTY_HOLES);
   const [clubs, setClubs] = useState<PlayingClub[]>(SHELL?.clubs ?? []);
   const [bagMessage, setBagMessage] = useState('');
   const [courseReviews, setCourseReviews] = useState<Record<number, 'verified' | 'rejected'>>({});
-  const [unit, setUnit] = useState<DistanceUnit>('yd');
-  const [currentHole, setCurrentHole] = useState(1);
-  const [manualYards, setManual] = useState<Record<number, number | null>>({});
-  const [tagged, setTagged] = useState<TaggedShot[]>([]);
+  const [unit, setUnit] = useState<DistanceUnit>(boot?.unit ?? 'yd');
+  const [currentHole, setCurrentHole] = useState(boot?.currentHole ?? 1);
+  const [manualYards, setManual] = useState<Record<number, number | null>>(manualFrom(boot));
+  const [tagged, setTagged] = useState<TaggedShot[]>(boot?.tagged ?? []);
   const [caddieName, setCaddieName] = useState(SHELL?.caddieName ?? 'COOPR');
   const [personality, setPersonality] = useState<CaddiePersonality>(SHELL?.personality ?? 'funny_knowledgeable');
-  const [plans, setPlans] = useState<Record<number, { clubLabel: string; target: string }>>({});
-  const [debrief, setDebrief] = useState<{ hole: number; choice: 'plan' | 'swing'; note: string } | null>(null);
-  const [wedges, setWedges] = useState<Record<string, Partial<Record<WedgeLength, number | null>>>>({});
+  const [plans, setPlans] = useState<Record<number, { clubLabel: string; target: string }>>(plansFrom(boot));
+  const [debriefs, setDebriefs] = useState<Array<{ hole: number; choice: 'plan' | 'swing'; note: string }>>(boot?.debriefs ?? []);
+  const [wedges, setWedges] = useState<Record<string, Partial<Record<WedgeLength, number | null>>>>(boot?.wedges ?? {});
 
   const value = useMemo<LocalStore>(() => {
     const observations: DistanceObservation[] = [];
@@ -455,8 +473,10 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
         return { saved: true, message: saved.message };
       },
       holes,
-      setStrokes: (hole, strokes) =>
-        setHoles((current) => current.map((value, index) => (index === hole - 1 ? strokes : value))),
+      setStrokes: (hole, strokes) => {
+        setHoles((current) => current.map((value, index) => (index === hole - 1 ? strokes : value)));
+        setDebriefs((current) => current.filter((item) => item.hole !== hole));
+      },
       profiles: withSameMetricBlends([
         ...(SHELL?.profiles ?? []),
         ...buildProfiles(observations),
@@ -521,14 +541,80 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
             target: patch.target ?? current[hole]?.target ?? '',
           },
         })),
-      debrief,
-      setDebrief,
+      debriefs,
+      setDebrief: (entry) => setDebriefs((current) => rememberDebrief(current, entry)),
       wedges,
       setWedgeCarry: (clubId, length, yards) =>
         setWedges((current) => ({ ...current, [clubId]: { ...current[clubId], [length]: yards } })),
+      startNewRound: () => {
+        setHoles(EMPTY_HOLES);
+        setCurrentHole(1);
+        setManual({});
+        setTagged([]);
+        setDebriefs([]);
+        setPlans({});
+        setShots((current) => current.filter((shot) => shot.origin !== 'tag'));
+        setUnit('yd');
+      },
     };
-  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, plans, debrief, wedges]);
+  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, plans, debriefs, wedges]);
 
+  useEffect(() => {
+    if (hasWebStorage()) return;
+    let cancel = false;
+    readRound()
+      .then((save) => {
+        if (cancel || !save) return;
+        setShots(save.localShots);
+        setHoles(save.holes);
+        setUnit(save.unit);
+        setCurrentHole(save.currentHole);
+        setManual(manualFrom(save));
+        setTagged(save.tagged);
+        setPlans(plansFrom(save));
+        setDebriefs(save.debriefs);
+        setWedges(save.wedges);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancel) setHydrated(true);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const manual: Record<string, number> = {};
+    for (const [hole, yards] of Object.entries(manualYards)) {
+      if (yards != null && yards > 0) manual[hole] = yards;
+    }
+    const wedgeSave: RoundSave['wedges'] = {};
+    for (const [clubId, cells] of Object.entries(wedges)) {
+      const next: Partial<Record<WedgeLength, number>> = {};
+      for (const [length, yards] of Object.entries(cells ?? {})) {
+        if (typeof yards === 'number' && yards > 0) next[length as WedgeLength] = yards;
+      }
+      if (Object.keys(next).length > 0) wedgeSave[clubId] = next;
+    }
+    const planSave: RoundSave['plans'] = {};
+    for (const [hole, plan] of Object.entries(plans)) planSave[hole] = plan;
+    void writeRound({
+      version: 1,
+      holes,
+      currentHole,
+      manualYards: manual,
+      tagged,
+      debriefs,
+      wedges: wedgeSave,
+      unit,
+      plans: planSave,
+      localShots: shots,
+    });
+  }, [hydrated, holes, currentHole, manualYards, tagged, debriefs, wedges, unit, plans, shots]);
+
+  if (!hydrated) return null;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

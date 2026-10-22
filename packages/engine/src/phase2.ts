@@ -212,9 +212,19 @@ export interface ShortShotCall {
  * Inside 40 yards the call comes only from stored wedge-matrix carries.
  * A full-swing total or carry is not consulted. An empty matrix stays empty.
  */
+/** A typed shot. Zero, blank, and negative are not distances and are not stored. */
+export function acceptShotYards(raw: number): number | { error: string } {
+  if (!Number.isFinite(raw)) return { error: 'The shot needs a number. Nothing was saved.' };
+  if (raw <= 0) return { error: 'The shot has to be more than 0. Nothing was saved.' };
+  return raw;
+}
+
 export function shortShotCall(targetYards: number, cells: readonly ShortShotCell[]): ShortShotCall {
   const empty: ShortShotCall = { clubId: null, clubLabel: null, length: null, carryYards: null, gapYards: null, reason: '' };
-  if (!Number.isFinite(targetYards) || targetYards <= 0 || targetYards > SHORT_SHOT_YARDS) {
+  if (!Number.isFinite(targetYards) || targetYards <= 0) {
+    return { ...empty, reason: 'That is not a shot distance. A full-swing stock is not used.' };
+  }
+  if (targetYards > SHORT_SHOT_YARDS) {
     return { ...empty, reason: 'A full-swing stock is still the call past 40 yards.' };
   }
   const usable = cells.filter((cell) => cell.carryYards != null && Number.isFinite(cell.carryYards) && cell.carryYards > 0);
@@ -247,7 +257,7 @@ export function shortShotCall(targetYards: number, cells: readonly ShortShotCell
 
 export function wedgeCarry(raw: number | null): number | null | { error: string } {
   if (raw == null) return null;
-  if (!Number.isFinite(raw) || raw <= 0 || raw > 180) return { error: 'A wedge carry stays empty unless it is between 0 and 180 yards.' };
+  if (!Number.isFinite(raw) || raw <= 0 || raw > 180) return { error: 'A wedge carry stays empty unless it is above 0 and at most 180 yards.' };
   return roundTenth(raw);
 }
 
@@ -302,6 +312,17 @@ export function debriefTarget(holes: readonly { hole: number; strokes: number | 
 export function debriefNote(choice: 'plan' | 'swing', target: DebriefHole): string {
   const reason = choice === 'plan' ? 'the plan' : 'the swing';
   return `Hole ${target.hole} was ${target.over} over par. You called it ${reason}. The score was not changed.`;
+}
+
+export interface DebriefAnswer {
+  hole: number;
+  choice: 'plan' | 'swing';
+  note: string;
+}
+
+/** Keep one answer per hole. A later hole does not erase an earlier one, and the score is untouched. */
+export function rememberDebrief(existing: readonly DebriefAnswer[], next: DebriefAnswer): DebriefAnswer[] {
+  return [...existing.filter((item) => item.hole !== next.hole), next].sort((a, b) => a.hole - b.hole);
 }
 
 export function shotBearing(line: readonly LatLon[]): number | null {

@@ -5,7 +5,8 @@ import { bootDatabase } from '../src/boot-db';
 import { useLocalStore } from '../src/local-store';
 
 export default function MoreScreen() {
-  const { founderTools, displayName, caddieName, personalityLabel } = useLocalStore();
+  const { founderTools, displayName, caddieName, personalityLabel, startNewRound } = useLocalStore();
+  const [armed, setArmed] = useState(false);
   const [dbStatus, setDbStatus] = useState('Opening the on-device course cache…');
 
   useEffect(() => {
@@ -40,6 +41,20 @@ export default function MoreScreen() {
         {founderTools ? <Muted>{`${displayName}. Caddie ${caddieName}, ${personalityLabel}.`}</Muted> : <Muted>Public shell.</Muted>}
       </Card>
       {founderTools ? <Button label="Founder verification" tone="ghost" onPress={() => router.push('/founder')} /> : null}
+      <Button
+        label={armed ? 'Clear scores' : 'New round'}
+        tone="ghost"
+        onPress={() => {
+          if (!armed) {
+            setArmed(true);
+            return;
+          }
+          startNewRound();
+          setArmed(false);
+          router.push('/play');
+        }}
+      />
+      {armed ? <Muted>Tap clear scores to wipe the strokes, the hole, and the tagged shots. Wedge carries stay.</Muted> : null}
     </Screen>
   );
 }

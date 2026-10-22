@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   bearingDegrees,
+  acceptShotYards,
   debriefNote,
   debriefTarget,
+  rememberDebrief,
   destinationPoint,
   dispersionShape,
   distanceYards,
@@ -106,6 +108,31 @@ describe('miss side, wedges, and debrief', () => {
     expect(debriefNote('swing', target!).includes('score was not changed')).toBe(true);
     expect(strokes).toEqual([4, null, 6]);
     expect(debriefTarget([{ hole: 1, strokes: null, par: 4 }])).toBeNull();
+    const first = { hole: 1, choice: 'swing' as const, note: 'Hole 1 was 1 over par. You called it the swing. The score was not changed.' };
+    const second = { hole: 4, choice: 'plan' as const, note: 'Hole 4 was 2 over par. You called it the plan. The score was not changed.' };
+    const kept = rememberDebrief(rememberDebrief([], first), second);
+    expect(kept.map((item) => item.hole)).toEqual([1, 4]);
+    expect(rememberDebrief(kept, { ...first, choice: 'plan' })).toEqual([
+      { ...first, choice: 'plan' },
+      second,
+    ]);
+    expect(strokes).toEqual([4, null, 6]);
+  });
+
+  it('rejects a shot of zero or less and still accepts a long number', () => {
+    expect(acceptShotYards(0)).toEqual({ error: expect.stringMatching(/more than 0/) });
+    expect(acceptShotYards(-8)).toEqual({ error: expect.stringMatching(/more than 0/) });
+    expect(acceptShotYards(Number.NaN)).toEqual({ error: expect.stringMatching(/needs a number/) });
+    expect(acceptShotYards(600)).toBe(600);
+    expect(acceptShotYards(18)).toBe(18);
+    expect(shortShotCall(0, []).clubId).toBeNull();
+    expect(shortShotCall(0, []).reason).not.toMatch(/past 40/);
+    expect(shortShotCall(-4, []).reason).toMatch(/not a shot distance/);
+    const tooFar = playsLike({ rawYards: 600, headwindMph: 8, elevationFeet: 12, temperatureF: 59 });
+    expect(tooFar).toEqual({ error: expect.stringMatching(/500/) });
+    expect('playsLikeYards' in tooFar).toBe(false);
+    const zero = playsLike({ rawYards: 0, headwindMph: 8, elevationFeet: 12, temperatureF: 59 });
+    expect(zero).toEqual({ error: expect.stringMatching(/above 0/) });
   });
 
   it('refuses a dispersion ellipse when the spread was not measured', () => {

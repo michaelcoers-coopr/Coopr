@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors } from '@coopr/tokens';
 import { wedgeCarry, WEDGE_LENGTHS, type WedgeLength } from '@coopr/engine';
@@ -16,15 +17,24 @@ function looksLikeWedge(label: string): boolean {
 
 export default function WedgeScreen() {
   const { clubs, wedges, setWedgeCarry, profiles } = useLocalStore();
+  const [cellNote, setCellNote] = useState<Record<string, string>>({});
   const wedgeClubs = clubs.filter((club) => looksLikeWedge(club.label));
 
   const commit = (clubId: string, length: WedgeLength, text: string) => {
+    const key = `${clubId}:${length}`;
     if (text.trim() === '') {
       setWedgeCarry(clubId, length, null);
+      setCellNote((current) => ({ ...current, [key]: '' }));
       return;
     }
     const parsed = wedgeCarry(Number(text));
-    if (parsed == null || typeof parsed === 'number') setWedgeCarry(clubId, length, parsed);
+    if (typeof parsed === 'number') {
+      setWedgeCarry(clubId, length, parsed);
+      setCellNote((current) => ({ ...current, [key]: '' }));
+      return;
+    }
+    if (parsed == null) return;
+    setCellNote((current) => ({ ...current, [key]: parsed.error }));
   };
 
   return (
@@ -39,18 +49,23 @@ export default function WedgeScreen() {
             const sample = profiles.find(
               (profile) => profile.clubId === club.id && profile.metric === 'carry' && profile.swingMode === length && profile.dispersionKnown,
             );
+            const note = cellNote[`${club.id}:${length}`];
             return (
-              <View key={length} style={styles.row}>
-                <Text style={styles.length}>{LABELS[length]}</Text>
-                <TextInput
-                  defaultValue={wedges[club.id]?.[length] == null ? '' : String(wedges[club.id]?.[length])}
-                  onEndEditing={(event) => commit(club.id, length, event.nativeEvent.text)}
-                  placeholder={sample ? `Sample carry ${Math.round(sample.stockYards)}` : 'Carry yards'}
-                  keyboardType="decimal-pad"
-                  placeholderTextColor={colors.muted}
-                  style={styles.input}
-                  accessibilityLabel={`${club.label} ${LABELS[length]} carry`}
-                />
+              <View key={length} style={styles.cell}>
+                <View style={styles.row}>
+                  <Text style={styles.length}>{LABELS[length]}</Text>
+                  <TextInput
+                    defaultValue={wedges[club.id]?.[length] == null ? '' : String(wedges[club.id]?.[length])}
+                    onChangeText={(text) => commit(club.id, length, text)}
+                    onEndEditing={(event) => commit(club.id, length, event.nativeEvent.text)}
+                    placeholder={sample ? `Sample carry ${Math.round(sample.stockYards)}` : 'Carry yards'}
+                    keyboardType="decimal-pad"
+                    placeholderTextColor={colors.muted}
+                    style={styles.input}
+                    accessibilityLabel={`${club.label} ${LABELS[length]} carry`}
+                  />
+                </View>
+                {note ? <Text style={styles.error}>{note}</Text> : null}
               </View>
             );
           })}
@@ -62,7 +77,9 @@ export default function WedgeScreen() {
 
 const styles = StyleSheet.create({
   label: { color: colors.navy, fontSize: 22, fontWeight: '800' },
+  cell: { gap: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  error: { color: colors.red, fontSize: 16, fontWeight: '800' },
   length: { color: colors.navy, fontSize: 16, fontWeight: '800', width: 120 },
   input: {
     flex: 1,

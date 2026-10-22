@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { DistanceMetric, GeometryVerification, LatLon, MapFeature } from '@coopr/domain';
 import { colors } from '@coopr/tokens';
 import {
+  acceptShotYards,
+  debriefNote,
   destinationPoint,
   dispersionShape,
   displayToYards,
@@ -84,13 +86,14 @@ export default function PlayScreen() {
     setManualYards,
     holes,
     setStrokes,
+    score,
     courseReviews,
     setCourseReview,
     founderTools,
     tagShot,
     tagged,
     wedges,
-    debrief,
+    debriefs,
     setDebrief,
   } = useLocalStore();
   const hole = pilot.quality.find((item) => item.holeNumber === currentHole);
@@ -101,6 +104,8 @@ export default function PlayScreen() {
   const [flightTotal, setFlightTotal] = useState('');
   const [putting, setPutting] = useState(false);
   const [ask, setAsk] = useState(false);
+  const [done, setDone] = useState(false);
+  const [shotNote, setShotNote] = useState('');
   const [tagNote, setTagNote] = useState('');
   const [player, setPlayer] = useState<LatLon | null>(null);
   const [measure, setMeasure] = useState<LatLon[]>([]);
@@ -113,14 +118,19 @@ export default function PlayScreen() {
   const [usePlaysLike, setUsePlaysLike] = useState(false);
 
   useEffect(() => {
-    setDraft('');
+    const saved = manualYards[currentHole];
+    setDraft(saved == null ? '' : formatDistance(saved, unit));
     setCarryDraft('');
     setFlightCarry('');
     setFlightTotal('');
     setPutting(false);
     setAsk(false);
+    setDone(false);
+    setShotNote('');
     setMeasure([]);
     setTagNote('');
+    // The saved shot for this hole is restored. Carry-to-clear starts empty on purpose.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentHole]);
 
   if (!hole) {
@@ -212,9 +222,14 @@ export default function PlayScreen() {
   const stockYards = card?.metricUsed === 'carry' ? carryStock?.stockYards ?? null : totalStock?.stockYards ?? short?.carryYards ?? null;
   const gapYards = callYards != null && stockYards != null && calledId ? Math.round(Math.abs(stockYards - callYards)) : null;
   const typedClear = carryDraft.trim() === '' ? null : Number(carryDraft);
+  const typedClearYards =
+    typedClear != null && Number.isFinite(typedClear) && typedClear > 0 ? displayToYards(typedClear, unit) : null;
   const hazard = taggedHazardLine(pilot.features, hole.holeNumber, player);
-  const carryToClear =
-    typedClear != null && Number.isFinite(typedClear) ? displayToYards(typedClear, unit) : hazard?.yards ?? null;
+  const carryToClear = typedClearYards ?? hazard?.yards ?? null;
+  const carryNote =
+    typedClear != null && Number.isFinite(typedClear) && typedClear <= 0
+      ? 'The carry line has to be more than 0. Nothing was set.'
+      : null;
   const layup =
     !shortMode && !putting
       ? layupDecision({ carry: carryStock, carryToClearYards: carryToClear })
@@ -242,16 +257,60 @@ export default function PlayScreen() {
         ? 'Open shapes, not a survey. Satellite is on the phone. No hazard is tagged, so no carry line is set.'
         : 'A hazard is tagged. The line stays empty until this phone has a position.';
 
-  const saveShot = () => {
+  const saveShot = (): number | null => {
+    const stored = manualYards[hole.holeNumber] ?? null;
     if (draft.trim() === '') {
       setManualYards(hole.holeNumber, null);
       setCarryDraft('');
-      return;
+      setShotNote('');
+      return null;
     }
-    const value = Number(draft);
-    if (!Number.isFinite(value)) return;
-    setManualYards(hole.holeNumber, displayToYards(value, unit));
+    const accepted = acceptShotYards(Number(draft));
+    if (typeof accepted !== 'number') {
+      setShotNote(accepted.error);
+      return stored;
+    }
+    const yards = displayToYards(accepted, unit);
+    if (stored != null && Math.abs(yards - stored) < 0.05) {
+      setShotNote('');
+      return stored;
+    }
+    setManualYards(hole.holeNumber, yards);
     setCarryDraft('');
+    setShotNote('');
+    return yards;
+  };
+
+  const switchUnit = (next: 'yd' | 'm') => {
+    if (next === unit) return;
+    const stored = manualYards[hole.holeNumber] ?? null;
+    const accepted = draft.trim() === '' ? null : acceptShotYards(Number(draft));
+    let kept = stored;
+    let shotChanged = false;
+    if (draft.trim() === '') {
+      if (stored != null) shotChanged = true;
+      setManualYards(hole.holeNumber, null);
+      kept = null;
+    } else if (typeof accepted === 'number') {
+      const yards = displayToYards(accepted, unit);
+      if (stored == null || Math.abs(yards - stored) >= 0.05) {
+        setManualYards(hole.holeNumber, yards);
+        shotChanged = true;
+      }
+      kept = yards;
+      setShotNote('');
+    } else if (accepted && typeof accepted !== 'number') {
+      setShotNote(accepted.error);
+    }
+    setDraft(kept == null ? '' : formatDistance(kept, next));
+    if (shotChanged) setCarryDraft('');
+    else if (carryDraft.trim() !== '') {
+      const line = Number(carryDraft);
+      setCarryDraft(Number.isFinite(line) && line > 0 ? formatDistance(displayToYards(line, unit), next) : '');
+    }
+    setFlightCarry('');
+    setFlightTotal('');
+    setUnit(next);
   };
 
   const commitTag = (result: LandingResult) => {
@@ -260,10 +319,12 @@ export default function PlayScreen() {
       setTagNote('No club is called.');
       return;
     }
-    const carry = flightCarry.trim() === '' ? null : Number(flightCarry);
-    const total = flightTotal.trim() === '' ? null : Number(flightTotal);
-    if ((carry != null && !Number.isFinite(carry)) || (total != null && !Number.isFinite(total))) {
-      setTagNote('Flight carry and total need numbers, or stay blank.');
+    const carryRaw = flightCarry.trim() === '' ? null : Number(flightCarry);
+    const totalRaw = flightTotal.trim() === '' ? null : Number(flightTotal);
+    const carryAccepted = carryRaw == null ? null : acceptShotYards(carryRaw);
+    const totalAccepted = totalRaw == null ? null : acceptShotYards(totalRaw);
+    if ((carryAccepted != null && typeof carryAccepted !== 'number') || (totalAccepted != null && typeof totalAccepted !== 'number')) {
+      setTagNote('Flight carry and total have to be more than 0, or stay blank.');
       return;
     }
     tagShot({
@@ -272,8 +333,8 @@ export default function PlayScreen() {
       clubLabel: club.label,
       result,
       shownYards: shotYards,
-      carry: carry == null ? null : displayToYards(carry, unit),
-      total: total == null ? null : displayToYards(total, unit),
+      carry: typeof carryAccepted === 'number' ? displayToYards(carryAccepted, unit) : null,
+      total: typeof totalAccepted === 'number' ? displayToYards(totalAccepted, unit) : null,
       swingMode: short?.length ?? card?.swingMode ?? 'unknown',
     });
     setFlightCarry('');
@@ -281,25 +342,38 @@ export default function PlayScreen() {
     setTagNote(`${club.label.split('·')[0]?.trim()} · ${result}. Flight yardage is only what you type in the flight boxes.`);
   };
 
+  const answered = debriefs.some((item) => item.hole === hole.holeNumber);
+  const advance = () => {
+    setAsk(false);
+    if (hole.holeNumber >= 18) {
+      setDone(true);
+      return;
+    }
+    setCurrentHole(hole.holeNumber + 1);
+  };
+
   const leaveHole = () => {
-    if (over != null && over > 0 && debrief?.hole !== hole.holeNumber) {
+    if (over != null && over > 0 && !answered) {
       setAsk(true);
       return;
     }
-    setAsk(false);
-    setCurrentHole(hole.holeNumber + 1);
+    advance();
   };
 
   const answer = (choice: 'plan' | 'swing') => {
     if (strokes == null || par == null || over == null || over <= 0) return;
-    const reason = choice === 'plan' ? 'the plan' : 'the swing';
     setDebrief({
       hole: hole.holeNumber,
       choice,
-      note: `Hole ${hole.holeNumber} was ${over} over par. You called it ${reason}. The score was not changed.`,
+      note: debriefNote(choice, { hole: hole.holeNumber, strokes, par, over }),
     });
+    advance();
+  };
+
+  const goBack = () => {
     setAsk(false);
-    setCurrentHole(hole.holeNumber + 1);
+    setDone(false);
+    setCurrentHole(hole.holeNumber - 1);
   };
 
   return (
@@ -367,6 +441,7 @@ export default function PlayScreen() {
           style={styles.input}
           accessibilityLabel="Carry to clear"
         />
+        {carryNote ? <Text style={styles.line}>{carryNote}</Text> : null}
         {layup && layup.call !== 'unsure' ? <Text style={[styles.gap, layup.call === 'lay_up' && styles.warn]}>{layup.reason}</Text> : null}
         <View style={styles.chips}>
           <Chip label="Shot" selected={!putting} onPress={() => setPutting(false)} />
@@ -377,14 +452,14 @@ export default function PlayScreen() {
         <TextInput
           value={draft}
           onChangeText={setDraft}
-          onEndEditing={saveShot}
           placeholder="Shot yards"
           keyboardType="decimal-pad"
           placeholderTextColor="#D5D8DE"
           style={styles.input}
           accessibilityLabel="Shot yards"
         />
-        <Button label="Use this shot" tone="ghost" onPress={saveShot} />
+        <Button label="Use this shot" tone="ghost" onPress={() => { saveShot(); }} />
+        {shotNote ? <Text style={styles.line}>{shotNote}</Text> : null}
         <View style={styles.chips}>
           <Chip label="Head" selected={windChoice === 'head'} onPress={() => setWindChoice('head')} />
           <Chip label="Tail" selected={windChoice === 'tail'} onPress={() => setWindChoice('tail')} />
@@ -402,7 +477,9 @@ export default function PlayScreen() {
           selected={usePlaysLike}
           onPress={() => setUsePlaysLike((value) => !value)}
         />
-        {adjustment && !('error' in adjustment) && playsLikeYards != null ? (
+        {adjustment && 'error' in adjustment ? (
+          <Text style={styles.line}>{adjustment.error}</Text>
+        ) : adjustment && !('error' in adjustment) && playsLikeYards != null ? (
           <Text style={styles.line}>{`Wind ${adjustment.wind?.yards ?? '—'} · Elevation ${adjustment.elevation?.yards ?? '—'} · Temperature ${adjustment.temperature?.yards ?? '—'}`}</Text>
         ) : (
           <Text style={styles.line}>
@@ -450,8 +527,8 @@ export default function PlayScreen() {
           <Text key={shot.id} style={styles.line}>{`${shot.clubLabel.split('·')[0]?.trim()} · ${shot.result} · flight carry ${shot.carry ?? '—'} · flight total ${shot.total ?? '—'}`}</Text>
         ))}
         <View style={styles.chips}>
-          <Chip label="Yards" selected={unit === 'yd'} onPress={() => setUnit('yd')} />
-          <Chip label="Meters" selected={unit === 'm'} onPress={() => setUnit('m')} />
+          <Chip label="Yards" selected={unit === 'yd'} onPress={() => switchUnit('yd')} />
+          <Chip label="Meters" selected={unit === 'm'} onPress={() => switchUnit('m')} />
         </View>
         {founderTools ? (
           <View style={styles.row}>
@@ -477,6 +554,13 @@ export default function PlayScreen() {
         ) : null}
       </ScrollView>
       <View style={styles.footer}>
+        <View style={styles.scoreRow}>
+          <Text style={styles.footerTitle}>Score</Text>
+          <Chip label="−" selected={false} onPress={() => setStrokes(hole.holeNumber, strokes == null || strokes <= 1 ? null : strokes - 1)} />
+          <Text style={styles.score}>{strokes ?? '—'}</Text>
+          <Chip label="+" selected={false} onPress={() => setStrokes(hole.holeNumber, (strokes ?? 0) + 1)} />
+          <Text style={styles.line}>{previous == null ? '' : `Hole ${currentHole - 1} · ${previous}`}</Text>
+        </View>
         {ask && over != null && over > 0 ? (
           <>
             <Text style={styles.footerTitle}>{`Hole ${hole.holeNumber} was ${over} over par. Plan or swing?`}</Text>
@@ -485,18 +569,22 @@ export default function PlayScreen() {
               <View style={styles.half}><Chip label="The swing" selected={false} onPress={() => answer('swing')} /></View>
             </View>
           </>
-        ) : (
-          <>
-            <View style={styles.scoreRow}>
-              <Text style={styles.footerTitle}>Score</Text>
-              <Chip label="−" selected={false} onPress={() => setStrokes(hole.holeNumber, strokes == null || strokes <= 1 ? null : strokes - 1)} />
-              <Text style={styles.score}>{strokes ?? '—'}</Text>
-              <Chip label="+" selected={false} onPress={() => setStrokes(hole.holeNumber, (strokes ?? 0) + 1)} />
-              <Text style={styles.line}>{previous == null ? '' : `Hole ${currentHole - 1} · ${previous}`}</Text>
+        ) : null}
+        {done ? <Text style={styles.footerTitle}>{score.holesEntered === 0 ? 'Round is in. No strokes yet.' : `Round is in. Gross ${score.gross}.`}</Text> : null}
+        <View style={styles.row}>
+          {currentHole > 1 ? (
+            <View style={styles.half}>
+              <Button label="Previous hole" tone="ghost" onPress={goBack} />
             </View>
-            <Button label="Next hole" tone="ghost" onPress={leaveHole} />
-          </>
-        )}
+          ) : null}
+          <View style={styles.half}>
+            {done ? (
+              <Button label="Scorecard" onPress={() => router.push('/scorecard')} />
+            ) : ask ? null : (
+              <Button label="Next hole" tone="ghost" onPress={leaveHole} />
+            )}
+          </View>
+        </View>
       </View>
     </SafeAreaView>
   );
