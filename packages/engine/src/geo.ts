@@ -164,3 +164,75 @@ export function greenYardsFrom(from: LatLon, ring: readonly LatLon[]): GreenYard
   if (!Number.isFinite(front)) return null;
   return { frontYards: front, centerYards: distanceYards(from, center), backYards: back };
 }
+
+/** Degrees clockwise from north, 0 to 360. */
+export function bearingDegrees(from: LatLon, to: LatLon): number | null {
+  if (from.lat === to.lat && from.lon === to.lon) return null;
+  const phi1 = radians(from.lat);
+  const phi2 = radians(to.lat);
+  const dLambda = radians(to.lon - from.lon);
+  const y = Math.sin(dLambda) * Math.cos(phi2);
+  const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
+  const degrees = (Math.atan2(y, x) * 180) / Math.PI;
+  return (degrees + 360) % 360;
+}
+
+/** Ground point reached by walking `yards` on the bearing. Not a carry. */
+export function destinationPoint(from: LatLon, bearing: number, yards: number): LatLon {
+  const delta = (yards * METERS_PER_YARD) / EARTH_RADIUS_M;
+  const theta = radians(bearing);
+  const phi1 = radians(from.lat);
+  const lambda1 = radians(from.lon);
+  const phi2 = Math.asin(Math.sin(phi1) * Math.cos(delta) + Math.cos(phi1) * Math.sin(delta) * Math.cos(theta));
+  const lambda2 = lambda1 + Math.atan2(Math.sin(theta) * Math.sin(delta) * Math.cos(phi1), Math.cos(delta) - Math.sin(phi1) * Math.sin(phi2));
+  return { lat: (phi2 * 180) / Math.PI, lon: (((lambda2 * 180) / Math.PI + 540) % 360) - 180 };
+}
+
+/** A ring around `center`. `alongYards` follows the bearing. `acrossYards` is perpendicular. */
+export function ellipseRing(center: LatLon, bearing: number, alongYards: number, acrossYards: number, steps = 24): LatLon[] {
+  const count = Math.max(12, steps);
+  const points: LatLon[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const t = (i / count) * Math.PI * 2;
+    const along = alongYards * Math.cos(t);
+    const across = acrossYards * Math.sin(t);
+    const moved = destinationPoint(center, bearing, along);
+    points.push(destinationPoint(moved, bearing + 90, across));
+  }
+  const first = points[0];
+  if (first) points.push(first);
+  return points;
+}
+
+export interface MapProjection {
+  toXY: (point: LatLon) => { x: number; y: number };
+  toLatLon: (x: number, y: number) => LatLon;
+}
+
+/** Fits points into a rectangle. Y grows downward so a map on screen matches north-up. */
+export function projectPoints(points: readonly LatLon[], width: number, height: number, pad = 16): MapProjection {
+  const usable = points.filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+  const lats = usable.map((point) => point.lat);
+  const lons = usable.map((point) => point.lon);
+  const minLat = lats.length ? Math.min(...lats) : 0;
+  const maxLat = lats.length ? Math.max(...lats) : 1;
+  const minLon = lons.length ? Math.min(...lons) : 0;
+  const maxLon = lons.length ? Math.max(...lons) : 1;
+  const spanLat = maxLat - minLat || 0.0001;
+  const spanLon = maxLon - minLon || 0.0001;
+  const innerW = Math.max(1, width - pad * 2);
+  const innerH = Math.max(1, height - pad * 2);
+  const scale = Math.min(innerW / spanLon, innerH / spanLat);
+  const offsetX = pad + (innerW - spanLon * scale) / 2;
+  const offsetY = pad + (innerH - spanLat * scale) / 2;
+  return {
+    toXY: (point) => ({
+      x: offsetX + (point.lon - minLon) * scale,
+      y: offsetY + (maxLat - point.lat) * scale,
+    }),
+    toLatLon: (x, y) => ({
+      lon: minLon + (x - offsetX) / scale,
+      lat: maxLat - (y - offsetY) / scale,
+    }),
+  };
+}

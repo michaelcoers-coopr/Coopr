@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import type { DistanceMetric } from '@coopr/domain';
+import { PERSONALITY_LABELS, PERSONALITIES, type DistanceMetric } from '@coopr/domain';
 import { colors } from '@coopr/tokens';
 import { orderedLines, recommend } from '@coopr/engine';
 import { useLocalStore } from '../src/local-store';
-import { Button, Card, Lines, Muted, Screen, Title } from '../src/ui';
+import { Button, Card, Choice, Lines, Muted, Screen, Title } from '../src/ui';
 
 export default function CaddieScreen() {
-  const { profiles, caddieName, personality, personalityLabel, founderTools } = useLocalStore();
+  const { profiles, caddieName, personality, personalityLabel, founderTools, setCaddieName, setPersonality } = useLocalStore();
   const [distance, setDistance] = useState('');
   const [metric, setMetric] = useState<DistanceMetric>('carry');
   const [front, setFront] = useState('');
@@ -38,6 +38,20 @@ export default function CaddieScreen() {
   return (
     <Screen>
       <Title>{caddieName || 'Caddie'}</Title>
+      <TextInput
+        value={caddieName}
+        onChangeText={setCaddieName}
+        placeholder="Caddie name"
+        placeholderTextColor={colors.muted}
+        style={styles.input}
+        accessibilityLabel="Caddie name"
+      />
+      <Muted>The default stays COOPR, Funny but Knowledgeable, until you pick another. The hole screen uses this tone.</Muted>
+      <View style={styles.wrap}>
+        {PERSONALITIES.map((item) => (
+          <Choice key={item} label={PERSONALITY_LABELS[item]} selected={personality === item} onPress={() => setPersonality(item)} />
+        ))}
+      </View>
       <Muted>
         {founderTools
           ? `${caddieName}, ${personalityLabel}. Distances below are the founder profile. A manual distance still cannot invent a number.`
@@ -70,6 +84,7 @@ export default function CaddieScreen() {
 const styles = StyleSheet.create({
   input: { color: colors.navy, backgroundColor: colors.white, borderColor: colors.navy, borderWidth: 2, borderRadius: 14, minHeight: 56, paddingHorizontal: 14, fontSize: 20 },
   row: { flexDirection: 'row', gap: 8 },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { color: colors.navy, borderColor: colors.navy, borderWidth: 2, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 12, fontSize: 18, fontWeight: '700', overflow: 'hidden' },
   chipOn: { color: colors.white, backgroundColor: colors.navy, borderColor: colors.navy },
 });

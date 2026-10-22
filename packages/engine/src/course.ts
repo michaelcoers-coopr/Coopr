@@ -77,6 +77,31 @@ export function associateHoleGeometry(features: readonly MapFeature[], scorecard
   return result;
 }
 
+export interface HoleOverlay {
+  holeNumber: number;
+  line: readonly LatLon[];
+  green: MapFeature | null;
+  fairways: readonly MapFeature[];
+  bunkers: readonly MapFeature[];
+  hazards: readonly MapFeature[];
+}
+
+/** Shapes that meet this championship hole. A polygon that misses the hole line is left out. */
+export function holeOverlay(features: readonly MapFeature[], scorecard: readonly ScorecardHole[], holeNumber: number): HoleOverlay {
+  const geometry = associateHoleGeometry(features, scorecard).find((hole) => hole.holeNumber === holeNumber);
+  const line = geometry?.line ?? [];
+  const touching = (kind: MapFeature['kind']) =>
+    line.length < 2 ? [] : features.filter((feature) => feature.kind === kind && intersects(feature, line));
+  return {
+    holeNumber,
+    line,
+    green: geometry?.green ?? null,
+    fairways: touching('fairway'),
+    bunkers: touching('bunker'),
+    hazards: touching('hazard'),
+  };
+}
+
 function yardageGap(scorecard: ScorecardHole, derivedCenter: number | null): string | null {
   const published = Object.values(scorecard.yardagesByTee);
   if (derivedCenter == null || published.length === 0) return null;

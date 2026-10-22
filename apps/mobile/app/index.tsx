@@ -29,8 +29,11 @@ export default function HomeScreen() {
       <Title>COOPR</Title>
       <Muted>{TAGLINE}</Muted>
       <Button label="Play High Cedars" onPress={() => router.push('/play')} />
+      <Button label="Game plan" tone="ghost" onPress={() => router.push('/plan')} />
       <Button label="Scorecard" tone="ghost" onPress={() => router.push('/scorecard')} />
+      <Button label="Debrief" tone="ghost" onPress={() => router.push('/debrief')} />
       <Button label="Bag" tone="ghost" onPress={() => router.push('/bag')} />
+      <Button label="Wedge matrix" tone="ghost" onPress={() => router.push('/wedges')} />
       <Button label="Add from photos" tone="ghost" onPress={() => router.push('/import')} />
       <Button label="Caddie" tone="ghost" onPress={() => router.push('/caddie')} />
       <Button label="Course quality" tone="ghost" onPress={() => router.push('/course')} />

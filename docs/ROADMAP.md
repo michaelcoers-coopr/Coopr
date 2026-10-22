@@ -78,7 +78,13 @@ Acceptance and the deploy steps are in `docs/PHOTO_IMPORT.md`.
 
 ## Phase 2 — Caddie
 
-Not started. Starts only after Phase 1 and Phase 1.5 are approved.
+Status: built on this branch. Waiting on Mike's iPhone pass. Phase 3 has not started.
+
+Plays-like is an adjustment, shown next to the raw yardage. Wind is 1% of the raw distance per mph of headwind or tailwind. A crosswind adds nothing. Elevation is 1 yard per 3 feet. Temperature is 2 yards per 10°F from 75°F, scaled by the raw distance over 250. The plays-like number stays blank until all three inputs exist. Weather is Open-Meteo, keyless. A typed value replaces it. The club call stays on the raw number until Mike switches it.
+
+The dispersion drawing uses measured carry P20 and P80. If the side-to-side spread was not measured, the map draws a line and says the width is unknown. A tap-to-measure line is a map distance. It is not a shot and not a carry. Satellite imagery is Apple Maps on the iPhone. The web drawing is the same open shapes without the photo.
+
+The crest on screen is still the stand-in. The official Navy Fill file is not in the repo.
 
 Scope:
 

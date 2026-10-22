@@ -13,6 +13,7 @@ import {
   type DistanceUnit,
   type ExistingPhotoRecords,
   type PhotoReviewItem,
+  type WedgeLength,
 } from '@coopr/engine';
 import { loadFounderDataset, profilesFromFounder } from '@coopr/seed';
 import { FOUNDER_TOOLS_ENABLED } from './founder-flag';
@@ -164,6 +165,14 @@ interface LocalStore {
   setManualYards: (hole: number, yards: number | null) => void;
   tagged: readonly TaggedShot[];
   tagShot: (shot: Omit<TaggedShot, 'id'> & { swingMode: string }) => void;
+  setCaddieName: (name: string) => void;
+  setPersonality: (personality: CaddiePersonality) => void;
+  plans: Readonly<Record<number, { clubLabel: string; target: string }>>;
+  setPlan: (hole: number, patch: { clubLabel?: string; target?: string }) => void;
+  debrief: { hole: number; choice: 'plan' | 'swing'; note: string } | null;
+  setDebrief: (entry: { hole: number; choice: 'plan' | 'swing'; note: string } | null) => void;
+  wedges: Readonly<Record<string, Partial<Record<WedgeLength, number | null>>>>;
+  setWedgeCarry: (clubId: string, length: WedgeLength, yards: number | null) => void;
 }
 
 const Ctx = createContext<LocalStore | null>(null);
@@ -311,6 +320,11 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
   const [currentHole, setCurrentHole] = useState(1);
   const [manualYards, setManual] = useState<Record<number, number | null>>({});
   const [tagged, setTagged] = useState<TaggedShot[]>([]);
+  const [caddieName, setCaddieName] = useState(SHELL?.caddieName ?? 'COOPR');
+  const [personality, setPersonality] = useState<CaddiePersonality>(SHELL?.personality ?? 'funny_knowledgeable');
+  const [plans, setPlans] = useState<Record<number, { clubLabel: string; target: string }>>({});
+  const [debrief, setDebrief] = useState<{ hole: number; choice: 'plan' | 'swing'; note: string } | null>(null);
+  const [wedges, setWedges] = useState<Record<string, Partial<Record<WedgeLength, number | null>>>>({});
 
   const value = useMemo<LocalStore>(() => {
     const observations: DistanceObservation[] = [];
@@ -328,11 +342,10 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
       if (shot.total != null) observations.push({ ...base, metric: 'total', yards: shot.total });
     }
     const entered = holes.flatMap((strokes, index) => (strokes == null ? [] : [{ hole: index + 1, strokes }]));
-    const personality = SHELL?.personality ?? 'funny_knowledgeable';
     return {
       founderTools: FOUNDER_TOOLS_ENABLED,
       displayName: SHELL?.displayName ?? '',
-      caddieName: SHELL?.caddieName ?? 'COOPR',
+      caddieName,
       personality,
       personalityLabel: PERSONALITY_LABELS[personality],
       bagStatus: SHELL?.bagStatus ?? null,
@@ -497,8 +510,24 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
           ]);
         }
       },
+      setCaddieName: (name) => setCaddieName(name.trim() || 'COOPR'),
+      setPersonality,
+      plans,
+      setPlan: (hole, patch) =>
+        setPlans((current) => ({
+          ...current,
+          [hole]: {
+            clubLabel: patch.clubLabel ?? current[hole]?.clubLabel ?? '',
+            target: patch.target ?? current[hole]?.target ?? '',
+          },
+        })),
+      debrief,
+      setDebrief,
+      wedges,
+      setWedgeCarry: (clubId, length, yards) =>
+        setWedges((current) => ({ ...current, [clubId]: { ...current[clubId], [length]: yards } })),
     };
-  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged]);
+  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, plans, debrief, wedges]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

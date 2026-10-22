@@ -17,7 +17,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 - Expo Go preview is on SDK 58 (React Native 0.88, React 19.3) and linked to EAS project `@mikecoers/coopr` (`998f1644-05ec-4980-a0b9-58e5703951d7`). The preview runtime is `exposdk:58.0.0`. `npm run preview:publish` republishes that preview channel when `EXPO_TOKEN` is set and does not create a new project. The update published before this upgrade is still SDK 54 and will not load in App Store Expo Go until Mike publishes again. `eas.json` profile `preview` is a store-distribution iOS build (`app.coopr.mobile.preview`, founder tools on) for TestFlight. Steps are in `docs/PREVIEW.md`. Apple was not signed in from this environment.
 - Pure stats, caddie, and scoring. CSV and JSON export. Soft-delete of an account.
 - Screens: Home, Play (High Cedars hole view), Bag with CSV import, Caddie, Scorecard, Practice, course quality, and private founder flows A–D.
-- Brand from the 22 Oct founder decision: navy `#0B1F3A`, white, and red `#C8102E` for a lay-up or a hazard. No green fill. Tagline "The smartest caddie you'll ever carry." The crest on screen is a stand-in until the official Navy Fill file is supplied. Phases are in `docs/ROADMAP.md`. Phase 1 is the round. Phase 1.5 reads a photo on a server, then asks Mike to review the numbers before anything is saved. The vision key is not in the repo. Phase 2 has not started.
+- Brand from the 22 Oct founder decision: navy `#0B1F3A`, white, and red `#C8102E` for a lay-up or a hazard. No green fill. Tagline "The smartest caddie you'll ever carry." The crest on screen is a stand-in until the official Navy Fill file is supplied. Phases are in `docs/ROADMAP.md`. Phase 1 is the round. Phase 1.5 reads a photo on a server. Phase 2 is the caddie layer: plays-like, a plan, a debrief, miss side, wedge carries, tone presets, and a satellite hole view. Phase 3 has not started.
 - Null provider defaults. No secrets in the repo.
 
 ## Not done
@@ -75,7 +75,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 
 ## Tests
 
-`npm test` — 9 files, 60 tests, all passing.
+`npm test` — 10 files, 68 tests, all passing.
 
 `npm run typecheck` — `tsc -b` for domain, tokens, engine, seed, and db, then the Expo app.
 

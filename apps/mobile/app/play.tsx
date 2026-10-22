@@ -1,19 +1,30 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Stack } from 'expo-router';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
-import type { DistanceMetric, GeometryVerification, LatLon } from '@coopr/domain';
+import { Animated, StyleSheet, Text, TextInput, View } from 'react-native';
+import type { DistanceMetric, GeometryVerification, LatLon, MapFeature } from '@coopr/domain';
 import { colors } from '@coopr/tokens';
 import {
+  destinationPoint,
+  dispersionShape,
   displayToYards,
+  distanceYards,
   formatDistance,
+  holeOverlay,
   layupDecision,
+  missReport,
+  playsLike,
   recommend,
   resolveHolePlay,
+  ringCentroid,
+  shotBearing,
   unitLabel,
   type DistanceProfile,
 } from '@coopr/engine';
 import { loadHighCedarsPilot } from '@coopr/course';
 import { readDevicePosition } from '../src/device-position';
+import { HoleMap } from '../src/hole-map';
+import { pulse } from '../src/haptics';
+import { readWeather } from '../src/weather';
 import { useLocalStore, type LandingResult } from '../src/local-store';
 import { Button, Card, Choice, Muted, Screen } from '../src/ui';
 
@@ -30,6 +41,10 @@ function verificationFor(decision: 'verified' | 'rejected' | undefined): Geometr
   if (decision === 'verified') return 'admin_verified';
   if (decision === 'rejected') return 'admin_rejected';
   return 'unverified';
+}
+
+function ringsOf(features: readonly MapFeature[]): LatLon[][] {
+  return features.flatMap((feature) => feature.rings.filter((ring) => ring.length >= 3).map((ring) => [...ring]));
 }
 
 function carryProfile(profiles: readonly DistanceProfile[], clubId: string | null, swingMode: string | null): DistanceProfile | null {
@@ -55,6 +70,7 @@ export default function PlayScreen() {
     founderTools,
     tagShot,
     tagged,
+    personality,
   } = useLocalStore();
   const hole = pilot.quality.find((item) => item.holeNumber === currentHole);
   const [metric, setMetric] = useState<DistanceMetric>('total');
@@ -66,6 +82,15 @@ export default function PlayScreen() {
   const [tagNote, setTagNote] = useState('Tap a club, then where it finished.');
   const [player, setPlayer] = useState<LatLon | null>(null);
   const [gpsLine, setGpsLine] = useState<string | null>(null);
+  const [measure, setMeasure] = useState<LatLon[]>([]);
+  const [windChoice, setWindChoice] = useState<'head' | 'tail' | 'cross' | null>(null);
+  const [windDraft, setWindDraft] = useState('');
+  const [elevationDraft, setElevationDraft] = useState('');
+  const [elevationChoice, setElevationChoice] = useState<'up' | 'down' | null>(null);
+  const [temperatureDraft, setTemperatureDraft] = useState('');
+  const [weatherNote, setWeatherNote] = useState('Weather has not been read. Type it, or leave a field blank.');
+  const [usePlaysLike, setUsePlaysLike] = useState(false);
+  const fade = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     setDraft('');
@@ -73,7 +98,10 @@ export default function PlayScreen() {
     setMeasuredCarry('');
     setMeasuredTotal('');
     setSelectedClubId(null);
-  }, [currentHole, unit]);
+    setMeasure([]);
+    fade.setValue(0.35);
+    Animated.timing(fade, { toValue: 1, duration: 240, useNativeDriver: true }).start();
+  }, [currentHole, unit, fade]);
 
   if (!hole) {
     return (
@@ -96,19 +124,50 @@ export default function PlayScreen() {
   const typed = manualYards[hole.holeNumber] ?? null;
   const gpsCenter = play.mode === 'gps' ? play.centerYards : null;
   const playingYards = typed ?? gpsCenter;
-  const inPlay = clubs.filter((club) => club.slot === 'in_play');
-  const card =
+  const overlay = holeOverlay(pilot.features, pilot.record.scorecard, hole.holeNumber);
+  const windSpeed = windDraft.trim() === '' ? null : Number(windDraft);
+  const headwind =
+    windSpeed == null || !Number.isFinite(windSpeed)
+      ? null
+      : windChoice === 'tail'
+        ? -Math.abs(windSpeed)
+        : windChoice === 'cross'
+          ? 0
+          : windChoice === 'head'
+            ? Math.abs(windSpeed)
+            : null;
+  const elevationMagnitude = elevationDraft.trim() === '' ? null : Number(elevationDraft);
+  const elevationFeet =
+    elevationMagnitude == null || !Number.isFinite(elevationMagnitude) || elevationChoice == null
+      ? null
+      : elevationChoice === 'down'
+        ? -Math.abs(elevationMagnitude)
+        : Math.abs(elevationMagnitude);
+  const temperatureF = temperatureDraft.trim() === '' ? null : Number(temperatureDraft);
+  const adjustment =
     playingYards == null
       ? null
+      : playsLike({
+          rawYards: playingYards,
+          headwindMph: headwind,
+          elevationFeet: elevationFeet != null && Number.isFinite(elevationFeet) ? elevationFeet : null,
+          temperatureF: temperatureF != null && Number.isFinite(temperatureF) ? temperatureF : null,
+        });
+  const playsLikeYards = adjustment && !('error' in adjustment) ? adjustment.playsLikeYards : null;
+  const callYards = usePlaysLike && playsLikeYards != null ? playsLikeYards : playingYards;
+  const inPlay = clubs.filter((club) => club.slot === 'in_play');
+  const card =
+    callYards == null
+      ? null
       : recommend({
-          targetDistanceYards: playingYards,
+          targetDistanceYards: callYards,
           targetMetric: metric,
           hazards: [],
           intent: 'neutral',
           riskPreference: 'neutral',
           profiles,
           candidateClubIds: inPlay.length > 0 ? inPlay.map((club) => club.id) : undefined,
-          personality: 'direct_analytical',
+          personality,
         });
   const carryToClearRaw = carryLine.trim() === '' ? null : Number(carryLine);
   const carryToClear = carryToClearRaw != null && Number.isFinite(carryToClearRaw) ? displayToYards(carryToClearRaw, unit) : null;
@@ -119,6 +178,23 @@ export default function PlayScreen() {
   const strokes = holes[hole.holeNumber - 1] ?? null;
   const selected = inPlay.find((club) => club.id === selectedClubId) ?? null;
   const holeTags = tagged.filter((shot) => shot.hole === hole.holeNumber);
+  const misses = missReport(
+    holeTags.map((shot) => ({
+      side: shot.result,
+      sideYards: null,
+    })),
+  );
+  const carryShape = metric === 'carry' ? dispersionShape(carryProfile(profiles, card?.clubId ?? null, card?.swingMode ?? null)) : null;
+  const bearing = shotBearing(overlay.line);
+  const dispersionLine =
+    carryShape && bearing != null && overlay.line[0] && carryShape.alongYards > 0
+      ? [
+          destinationPoint(destinationPoint(overlay.line[0], bearing, carryShape.centerYards), bearing + 180, carryShape.alongYards),
+          destinationPoint(destinationPoint(overlay.line[0], bearing, carryShape.centerYards), bearing, carryShape.alongYards),
+        ]
+      : [];
+  const measureYards = measure.length === 2 ? distanceYards(measure[0]!, measure[1]!) : null;
+  const greenCenter = overlay.green?.rings[0] ? ringCentroid(overlay.green.rings[0]) : null;
 
   const saveTyped = () => {
     if (draft.trim() === '') {
@@ -167,14 +243,41 @@ export default function PlayScreen() {
 
   return (
     <Screen>
+      <ClubPulse clubLabel={card?.clubLabel ?? null} call={layup.call} yards={playingYards} />
       <Stack.Screen options={{ title: `Hole ${hole.holeNumber}` }} />
+      <HoleMap
+        line={overlay.line}
+        fairways={ringsOf(overlay.fairways)}
+        green={overlay.green ? ringsOf([overlay.green]) : []}
+        bunkers={ringsOf(overlay.bunkers)}
+        hazards={ringsOf(overlay.hazards)}
+        ellipse={null}
+        dispersionLine={dispersionLine}
+        measure={measure}
+        onTap={(point) => setMeasure((current) => (current.length >= 2 ? [point] : [...current, point]))}
+      />
+      <Muted>
+        {measureYards == null
+          ? 'Tap two points for a map distance. It is not saved as a shot or a carry.'
+          : `Map distance ${formatDistance(measureYards, unit)} ${unitLabel(unit)}. Not a shot. Not a carry.`}
+      </Muted>
+      <Muted>
+        {overlay.green
+          ? 'OpenStreetMap shapes on the satellite photo. The green is not a survey until you verify it. Red is water. White is fairway, bunker, or green.'
+          : 'This hole has no single green polygon. The map does not invent one.'}
+      </Muted>
+      {carryShape ? <Muted>{`${carryShape.note} Width is unknown, so the map draws a line, not an ellipse.`}</Muted> : <Muted>No measured carry dispersion for this club, so no ellipse is drawn.</Muted>}
       <View style={styles.metaRow}>
         <Text style={styles.meta}>{`Par ${hole.par ?? '—'}`}</Text>
         <Text style={styles.meta}>{`SI ${hole.strokeIndex ?? '—'}`}</Text>
         <Text style={styles.meta}>{`Card ${formatDistance(hole.yardagesByTee.white ?? null, unit)} ${unit}`}</Text>
       </View>
-      <Text style={styles.hero}>{formatDistance(playingYards, unit)}</Text>
-      <Text style={styles.heroUnit}>{playingYards == null ? `Type the ${unitLabel(unit)}` : unitLabel(unit)}</Text>
+      <Animated.View style={{ opacity: fade }}>
+        <Text style={styles.hero}>{formatDistance(playingYards, unit)}</Text>
+        <Text style={styles.heroUnit}>{playingYards == null ? `Type the ${unitLabel(unit)}` : `Raw ${unitLabel(unit)}`}</Text>
+        <Text style={styles.plays}>{playsLikeYards == null ? '—' : formatDistance(playsLikeYards, unit)}</Text>
+        <Text style={styles.heroUnit}>{playsLikeYards == null ? 'Plays-like waits until wind, elevation, and temperature are all filled.' : `Plays like, ${unitLabel(unit)}. An adjustment, not a measurement.`}</Text>
+      </Animated.View>
       <View style={styles.ends}>
         <View style={styles.end}>
           <Text style={styles.endLabel}>Front</Text>
@@ -211,11 +314,65 @@ export default function PlayScreen() {
         accessibilityLabel="Playing distance"
       />
       <Button label="Use this distance" onPress={saveTyped} />
+      <Card>
+        <Text style={styles.section}>Plays like</Text>
+        <Muted>{weatherNote}</Muted>
+        <Button
+          label="Read weather"
+          tone="ghost"
+          onPress={() => {
+            const at = overlay.line[0];
+            if (!at) {
+              setWeatherNote('This hole has no open start point, so weather was not requested.');
+              return;
+            }
+            void readWeather({ at, holeLine: overlay.line, greenCenter }).then((read) => {
+              setWeatherNote(read.note);
+              if (read.current) {
+                setTemperatureDraft(String(Math.round(read.current.temperatureF)));
+                setWindDraft(String(Math.abs(Math.round(read.current.windMph))));
+              }
+              if (read.headwindMph != null) {
+                setWindDraft(String(Math.abs(Math.round(read.headwindMph))));
+                setWindChoice(read.headwindMph > 0.5 ? 'head' : read.headwindMph < -0.5 ? 'tail' : 'cross');
+              }
+              if (read.elevationFeet != null) {
+                setElevationDraft(String(Math.abs(Math.round(read.elevationFeet))));
+                setElevationChoice(read.elevationFeet < -0.5 ? 'down' : 'up');
+              }
+            });
+          }}
+        />
+        <TextInput value={windDraft} onChangeText={setWindDraft} placeholder="Wind mph" keyboardType="decimal-pad" placeholderTextColor={colors.muted} style={styles.input} accessibilityLabel="Wind speed" />
+        <View style={styles.wrap}>
+          <Choice label="Head" selected={windChoice === 'head'} onPress={() => setWindChoice('head')} />
+          <Choice label="Tail" selected={windChoice === 'tail'} onPress={() => setWindChoice('tail')} />
+          <Choice label="Cross" selected={windChoice === 'cross'} onPress={() => setWindChoice('cross')} />
+        </View>
+        <TextInput value={elevationDraft} onChangeText={setElevationDraft} placeholder="Elevation change, feet" keyboardType="decimal-pad" placeholderTextColor={colors.muted} style={styles.input} accessibilityLabel="Elevation feet" />
+        <View style={styles.wrap}>
+          <Choice label="Uphill" selected={elevationChoice === 'up'} onPress={() => setElevationChoice('up')} />
+          <Choice label="Downhill" selected={elevationChoice === 'down'} onPress={() => setElevationChoice('down')} />
+        </View>
+        <TextInput value={temperatureDraft} onChangeText={setTemperatureDraft} placeholder="Temperature °F" keyboardType="decimal-pad" placeholderTextColor={colors.muted} style={styles.input} accessibilityLabel="Temperature" />
+        {adjustment && !('error' in adjustment) ? (
+          <Muted>
+            {`Wind ${adjustment.wind ? formatDistance(adjustment.wind.yards, unit) : '—'}. Elevation ${adjustment.elevation ? formatDistance(adjustment.elevation.yards, unit) : '—'}. Temperature ${adjustment.temperature ? formatDistance(adjustment.temperature.yards, unit) : '—'}. ${[adjustment.wind?.note, adjustment.elevation?.note, adjustment.temperature?.note].filter(Boolean).join(' ')}`}
+          </Muted>
+        ) : (
+          <Muted>Enter a raw distance before an adjustment.</Muted>
+        )}
+        <Choice label={usePlaysLike ? 'Club call uses plays-like' : 'Club call uses the raw number'} selected={usePlaysLike} onPress={() => setUsePlaysLike((value) => !value)} />
+      </Card>
+      <Card>
+        <Text style={styles.section}>Miss side</Text>
+        <Muted>{misses.note}</Muted>
+      </Card>
       <Card warning={layup.call === 'lay_up'}>
         <Text style={styles.club}>{card?.clubLabel ?? 'No club yet'}</Text>
         <Muted>
           {card
-            ? card.lines.reason
+            ? `${usePlaysLike && playsLikeYards != null ? 'This call uses the plays-like adjustment. ' : 'This call uses the raw number. '}${card.lines.reason}`
             : 'Enter a distance before asking for a club. Nothing is filled in for you.'}
         </Muted>
         {card?.lines.instruction ? <Muted>{card.lines.instruction}</Muted> : null}
@@ -311,10 +468,19 @@ export default function PlayScreen() {
   );
 }
 
+function ClubPulse({ clubLabel, call, yards }: { clubLabel: string | null; call: string; yards: number | null }) {
+  useEffect(() => {
+    if (!clubLabel || yards == null) return;
+    void pulse(call === 'lay_up' ? 2 : 1);
+  }, [clubLabel, call, yards]);
+  return null;
+}
+
 const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   meta: { color: colors.navy, fontSize: 18, fontWeight: '700' },
-  hero: { color: colors.navy, fontSize: 72, fontWeight: '800', textAlign: 'center', letterSpacing: -2, lineHeight: 80 },
+  hero: { color: colors.navy, fontSize: 84, fontWeight: '800', textAlign: 'center', letterSpacing: -2, lineHeight: 92 },
+  plays: { color: colors.navy, fontSize: 48, fontWeight: '800', textAlign: 'center', letterSpacing: -1 },
   heroUnit: { color: colors.muted, fontSize: 18, textAlign: 'center', marginTop: -8 },
   ends: { flexDirection: 'row', gap: 12 },
   end: { flex: 1, backgroundColor: colors.white, borderRadius: 16, borderWidth: 1, borderColor: colors.line, padding: 12, alignItems: 'center' },
