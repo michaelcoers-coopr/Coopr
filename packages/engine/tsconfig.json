@@ -1,13 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "./src",
-    "outDir": "./dist",
-    "types": [],
-    "paths": {
-      "@coopr/core": ["../core/src/index.ts"]
-    }
+    "outDir": "dist",
+    "rootDir": "src"
   },
-  "references": [{ "path": "../core" }],
-  "include": ["src/**/*.ts"]
+  "include": ["src"],
+  "references": [{ "path": "../domain" }]
 }

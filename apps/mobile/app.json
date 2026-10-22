@@ -3,25 +3,27 @@
     "name": "COOPR",
     "slug": "coopr",
     "scheme": "coopr",
-    "version": "0.1.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.coopr.mobile",
-      "usesAppleSignIn": true,
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "COOPR uses your location for on-course GPS distances during a round.",
-        "NSCameraUsageDescription": "COOPR uses the camera to capture launch-monitor and GPS screenshots you choose to import.",
-        "NSPhotoLibraryUsageDescription": "COOPR imports screenshots you select from your photo library."
-      }
+      "bundleIdentifier": "app.coopr.mobile"
     },
     "android": {
       "package": "app.coopr.mobile"
     },
     "experiments": {
       "typedRoutes": false
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite"
+    ]
   }
 }
