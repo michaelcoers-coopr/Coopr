@@ -1,40 +1,68 @@
+import { useMemo } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text } from 'react-native';
 import { colors } from '@coopr/tokens';
 import { orderedLines, scoreRound } from '@coopr/engine';
 import { founderFlows, loadFounderDataset } from '@coopr/seed';
+import { FOUNDER_TOOLS_ENABLED } from '../../src/founder-flag';
 import { Card, Lines, Muted, Screen, Title } from '../../src/ui';
 
-const dataset = loadFounderDataset();
-const flows = founderFlows(dataset);
-
 export default function FounderDemoScreen() {
+  if (!FOUNDER_TOOLS_ENABLED) {
+    return (
+      <Screen>
+        <Title>Founder verification</Title>
+        <Muted>Founder tools are off in this build.</Muted>
+      </Screen>
+    );
+  }
+  return <FounderDemoBody />;
+}
+
+function FounderDemoBody() {
   const params = useLocalSearchParams<{ demo: string }>();
   const demo = params.demo;
+  const { dataset, flows } = useMemo(() => {
+    const loaded = loadFounderDataset();
+    return { dataset: loaded, flows: founderFlows(loaded) };
+  }, []);
 
   if (demo === 'bag') {
-    const byClub = new Map<string, string[]>();
-    for (const club of dataset.clubs.filter((item) => !item.historicalOnly && item.ownership !== 'not_owned')) {
-      const profiles = flows.profiles.filter((profile) => profile.clubId === club.id);
-      const lines =
-        profiles.length === 0
-          ? ['No shot sample. Summary rows are not a stock distance.']
-          : profiles.map(
-              (profile) =>
-                `${profile.metric} median ${profile.stockYards.toFixed(1)} · n=${profile.sampleSize} · ${profile.confidence} · source: founder verbatim, ${profile.environment}`,
-            );
-      byClub.set(club.label, lines);
-    }
+    const inPlay = dataset.bags.find((bag) => bag.kind === 'in_play');
+    const testing = dataset.bags.find((bag) => bag.kind === 'testing');
+    const rows = (bagId: string | undefined) =>
+      dataset.memberships.flatMap((membership) => {
+        if (membership.bagId !== bagId) return [];
+        const club = dataset.clubs.find((item) => item.id === membership.clubId);
+        if (!club) return [];
+        const profiles = flows.profiles.filter((profile) => profile.clubId === club.id);
+        const lines =
+          profiles.length === 0
+            ? ['No shot sample. Summary rows are not a stock distance.']
+            : profiles.map(
+                (profile) =>
+                  `${profile.metric} median ${profile.stockYards.toFixed(1)} · n=${profile.sampleSize} · ${profile.confidence} · source: founder verbatim, ${profile.environment}`,
+              );
+        return [{ id: club.id, label: club.label, note: membership.note, lines }];
+      });
     return (
       <Screen>
         <Title>Founder bag</Title>
-        <Muted>In-play bag is empty until 14 clubs are chosen. Confidence and source are on each card.</Muted>
-        {[...byClub.entries()].map(([label, lines]) => (
-          <Card key={label}>
-            <Text style={styles.label}>{label}</Text>
-            {lines.map((line) => (
+        <Muted>{inPlay?.note ?? 'In-play bag has no note.'}</Muted>
+        <Muted>{`Status: ${inPlay?.status ?? 'unknown'}. Caddie: ${dataset.caddie.name}.`}</Muted>
+        {rows(inPlay?.id).map((row) => (
+          <Card key={row.id}>
+            <Text style={styles.label}>{row.label}</Text>
+            {row.lines.map((line) => (
               <Muted key={line}>{line}</Muted>
             ))}
+          </Card>
+        ))}
+        <Muted>Out of play, owned and testing</Muted>
+        {rows(testing?.id).map((row) => (
+          <Card key={row.id}>
+            <Text style={styles.label}>{row.label}</Text>
+            {row.note ? <Muted>{row.note}</Muted> : null}
           </Card>
         ))}
       </Screen>

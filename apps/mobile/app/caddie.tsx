@@ -7,7 +7,7 @@ import { useLocalStore } from '../src/local-store';
 import { Button, Card, Lines, Muted, Screen, Title } from '../src/ui';
 
 export default function CaddieScreen() {
-  const { profiles } = useLocalStore();
+  const { profiles, caddieName, personality, personalityLabel, founderTools } = useLocalStore();
   const [distance, setDistance] = useState('');
   const [metric, setMetric] = useState<DistanceMetric>('carry');
   const [front, setFront] = useState('');
@@ -30,15 +30,19 @@ export default function CaddieScreen() {
       intent: 'neutral',
       riskPreference: 'neutral',
       profiles,
-      personality: 'funny_knowledgeable',
+      personality,
     });
     setLines(orderedLines(card));
   };
 
   return (
     <Screen>
-      <Title>Caddie</Title>
-      <Muted>Manual distance. The card is math first. A personality may rephrase later and cannot pick the club.</Muted>
+      <Title>{caddieName || 'Caddie'}</Title>
+      <Muted>
+        {founderTools
+          ? `${caddieName}, ${personalityLabel}. Distances below are the founder profile. A manual distance still cannot invent a number.`
+          : 'Manual distance. The card is math first. A personality may rephrase later and cannot pick the club.'}
+      </Muted>
       <TextInput value={distance} onChangeText={setDistance} placeholder="Distance (yards)" keyboardType="decimal-pad" placeholderTextColor={colors.muted} style={styles.input} />
       <View style={styles.row}>
         {(['carry', 'total'] as const).map((item) => (
@@ -54,7 +58,11 @@ export default function CaddieScreen() {
           <Lines lines={lines} />
         </Card>
       ) : null}
-      <Muted>{profiles.length === 0 ? 'No measured profiles yet. Practice first, or open founder verification.' : `${profiles.length} local profile${profiles.length === 1 ? '' : 's'}.`}</Muted>
+      <Muted>
+        {profiles.length === 0
+          ? 'No measured profiles yet. Practice first.'
+          : `${profiles.length} profile${profiles.length === 1 ? '' : 's'} on this device.`}
+      </Muted>
     </Screen>
   );
 }

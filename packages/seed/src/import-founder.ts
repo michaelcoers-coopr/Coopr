@@ -48,7 +48,17 @@ export function importFounder(raw: string, options: Options): FounderDataset {
     ref: 'packages/seed/fixtures/founder-raw-data.md',
     capturedOn: null,
     quality: 'measured',
-    note: 'Line items come from the verbatim transcript. The import brief calls the session TrackMan; the file does not name the monitor brand. Environment is simulator because the same transcript states a simulator-bias hypothesis.',
+    note: 'Line items come from the verbatim transcript. The transcript does not name the monitor brand. Environment is simulator because the same transcript states a simulator-bias hypothesis. The founder confirmed TrackMan on a separate source.',
+  };
+  const decisionSource: DataSource = {
+    ...stamp(),
+    id: next(),
+    userId,
+    kind: 'founder_master_spec',
+    ref: "founder's master spec 2026-10-22",
+    capturedOn: '2026-10-22',
+    quality: 'user_confirmed',
+    note: 'Founder decisions on 2026-10-22. Confirms the simulator session was TrackMan, names the caddie COOPR, confirms 4-wood ownership, names the putter as a PXG 211 blade, and sets a provisional in-play 14. The verbatim transcript is unchanged.',
   };
 
   const clubs: Club[] = [];
@@ -121,9 +131,10 @@ export function importFounder(raw: string, options: Options): FounderDataset {
       id: next(),
       userId,
       environment: 'simulator',
-      label: 'Founder launch-monitor transcript',
+      label: 'TrackMan',
       validationRequired: false,
       validationNote: null,
+      sourceId: decisionSource.id,
     };
     return session;
   };
@@ -400,8 +411,7 @@ export function importFounder(raw: string, options: Options): FounderDataset {
 
       const fourW = /^4W (.+) \(verify ownership\)$/.exec(take(2));
       if (!fourW?.[1]) throw new Error(take(2));
-      baseClub('4w', '4W', 'wood', take(2), { ...brandModel(fourW[1]), ownership: 'unverified' });
-      flag('FOUR_WOOD_OWNERSHIP_UNVERIFIED', '4W Callaway Steelhead XR is listed with verify ownership. It is not in the in-play bag.');
+      baseClub('4w', '4W', 'wood', take(2), { ...brandModel(fourW[1]), ownership: 'owned' });
 
       const twoH = /^2H (.+) \(model\/loft verify\)$/.exec(take(3));
       if (!twoH?.[1]) throw new Error(take(3));
@@ -463,8 +473,16 @@ export function importFounder(raw: string, options: Options): FounderDataset {
       baseClub('w58', '58°', 'wedge', take(13), { ...brandModel(w58[1]), loftDeg: Number(w58[2]), bounceDeg: Number(w58[3]) });
 
       if (take(14) !== 'Putter unknown') throw new Error(take(14));
-      baseClub('putter', 'Putter', 'putter', take(14), { flex: null });
-      flag('PUTTER_UNKNOWN', 'Putter brand, model, and shaft are unknown.');
+      baseClub('putter', 'PXG 211 blade', 'putter', take(14), {
+        flex: null,
+        brand: 'PXG',
+        model: '211 blade',
+        loftDeg: null,
+      });
+      flag(
+        'PUTTER_LENGTH_LOFT_SHAFT_UNKNOWN',
+        'Putter is a confirmed PXG 211 blade (2026-10-22). Length, loft, and shaft were not given and stay null. The verbatim line still says Putter unknown.',
+      );
       section = 'bag_done';
       continue;
     }
@@ -764,13 +782,25 @@ export function importFounder(raw: string, options: Options): FounderDataset {
     if (useCounts[key] !== count) throw new Error(`Club use checksum failed for ${key}`);
   }
 
-  const ownedCount = clubs.filter((club) => !club.historicalOnly && club.ownership !== 'not_owned').length;
-  if (ownedCount > 14) {
-    flag(
-      'IN_PLAY_BAG_UNRESOLVED',
-      `${ownedCount} clubs are owned or unverified, above the 14-club in-play limit. The in-play bag is empty until the founder chooses.`,
-    );
-  }
+  const confirm = (key: string, body: string) => {
+    notes.push({
+      ...stamp(),
+      id: next(),
+      userId,
+      clubId: live(key).id,
+      body,
+      quality: 'user_confirmed',
+      sourceId: decisionSource.id,
+    });
+  };
+  confirm(
+    '4w',
+    'Ownership confirmed on 2026-10-22. Still owned. The verbatim bag line says verify ownership; that unverified flag is cleared.',
+  );
+  confirm(
+    'putter',
+    'Founder confirmed on 2026-10-22: PXG 211 blade putter. Manufacturer PXG, model 211 blade. Length, loft, and shaft were not given and stay null.',
+  );
 
   const roundId = next();
   const round: Round = {
@@ -839,18 +869,48 @@ export function importFounder(raw: string, options: Options): FounderDataset {
     rawText: use.raw,
   }));
 
-  const ownedBag: Bag = { ...stamp(), id: next(), userId, name: 'Owned', kind: 'owned' };
-  const inPlay: Bag = { ...stamp(), id: next(), userId, name: 'In play', kind: 'in_play' };
-  const testing: Bag = { ...stamp(), id: next(), userId, name: 'Testing', kind: 'testing' };
-  const historical: Bag = { ...stamp(), id: next(), userId, name: 'Historical ideal (history only)', kind: 'historical' };
-  const memberships: BagMembership[] = [];
-  for (const club of clubs) {
-    if (club.historicalOnly) {
-      memberships.push({ ...stamp(), id: next(), userId, bagId: historical.id, clubId: club.id });
-    } else if (club.ownership !== 'not_owned') {
-      memberships.push({ ...stamp(), id: next(), userId, bagId: ownedBag.id, clubId: club.id });
-    }
+  const inPlayKeys = ['driver', '4w', '3h', '4h', '5i', '6i', '7i', '8i', '9i', 'pw', 'miura48', 'w54', 'miura56', 'putter'] as const;
+  const testingNotes: Record<string, string> = {
+    '2h': 'Out of play. Owned and testing. Founder said it felt poor.',
+    '3i': 'Out of play. Owned and testing.',
+    aw49: 'Out of play. Owned and testing. Overlaps the Miura 48.',
+    w58: 'Out of play. Owned and testing.',
+  };
+  if (inPlayKeys.length !== 14) throw new Error('The provisional in-play list must be 14 clubs');
+  for (const key of Object.keys(testingNotes)) {
+    if ((inPlayKeys as readonly string[]).includes(key)) throw new Error(`${key} cannot be both in play and testing`);
   }
+
+  const ownedBag: Bag = { ...stamp(), id: next(), userId, name: 'Owned', kind: 'owned', status: null, note: null };
+  const inPlay: Bag = {
+    ...stamp(),
+    id: next(),
+    userId,
+    name: 'In play',
+    kind: 'in_play',
+    status: 'provisional',
+    note: 'Provisional in-play 14. Founder decision 2026-10-22. These match the clubs he actually used on course. The founder can edit this bag in the app.',
+  };
+  const testingBag: Bag = { ...stamp(), id: next(), userId, name: 'Testing', kind: 'testing', status: null, note: null };
+  const historical: Bag = {
+    ...stamp(),
+    id: next(),
+    userId,
+    name: 'Historical ideal (history only)',
+    kind: 'historical',
+    status: null,
+    note: null,
+  };
+  const memberships: BagMembership[] = [];
+  const member = (bagId: string, clubId: string, note: string | null) => {
+    memberships.push({ ...stamp(), id: next(), userId, bagId, clubId, note });
+  };
+  for (const club of clubs) {
+    if (club.historicalOnly) member(historical.id, club.id, null);
+    else if (club.ownership !== 'not_owned') member(ownedBag.id, club.id, null);
+  }
+  for (const key of inPlayKeys) member(inPlay.id, live(key).id, null);
+  for (const [key, note] of Object.entries(testingNotes)) member(testingBag.id, live(key).id, note);
 
   const noDataKeys = ['w54', 'w58', '3i', '2h', '3h', '4h', '4w'];
   for (const key of noDataKeys) {
@@ -883,10 +943,10 @@ export function importFounder(raw: string, options: Options): FounderDataset {
       ...stamp(),
       id: next(),
       userId,
-      name: '',
+      name: 'COOPR',
       personality: 'funny_knowledgeable',
     },
-    sources: [source],
+    sources: [source, decisionSource],
     rawRecords: [
       {
         ...stamp(),
@@ -898,7 +958,7 @@ export function importFounder(raw: string, options: Options): FounderDataset {
       },
     ],
     clubs,
-    bags: [ownedBag, inPlay, testing, historical],
+    bags: [ownedBag, inPlay, testingBag, historical],
     memberships,
     sessions: [session],
     shots,

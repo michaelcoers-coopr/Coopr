@@ -99,9 +99,12 @@ describe('sqlite founder import', () => {
 
   it('enforces the 14-club in-play limit and soft-deletes the account', () => {
     const db = migrated();
-    const clubs = dataset.clubs.filter((item) => !item.historicalOnly).slice(0, 15);
-    for (const item of clubs.slice(0, 14)) addInPlayClub(db, dataset.user.id, item.id, dataset.user.updatedAtMs);
-    expect(() => addInPlayClub(db, dataset.user.id, clubs[14]!.id, dataset.user.updatedAtMs)).toThrow(/14/);
+    const inPlay = db.prepare(`SELECT id, status FROM bags WHERE user_id = ? AND kind = 'in_play'`).get(dataset.user.id);
+    expect(inPlay?.status).toBe('provisional');
+    expect(countWhere(db, 'bag_memberships', 'bag_id = ? AND deleted_at_ms IS NULL', [String(inPlay?.id)])).toBe(14);
+    const twoHybrid = dataset.clubs.find((item) => item.stableKey === '2h' && !item.historicalOnly);
+    if (!twoHybrid) throw new Error('2h missing');
+    expect(() => addInPlayClub(db, dataset.user.id, twoHybrid.id, dataset.user.updatedAtMs)).toThrow(/14/);
     softDeleteUser(db, dataset.user.id, dataset.user.updatedAtMs + 10);
     expect(countWhere(db, 'shots', 'user_id = ? AND deleted_at_ms IS NULL', [dataset.user.id])).toBe(0);
     expect(countWhere(db, 'shot_measurements', 'user_id = ? AND deleted_at_ms IS NULL', [dataset.user.id])).toBe(0);

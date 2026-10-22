@@ -53,10 +53,10 @@ The same mislabel covers the 6-iron, 7-iron, 8-iron, 9-iron, and AW 49°. Driver
 - GPS rows are not shots (`is_shot` must be 0). The 357-yard figure is an unverified tee estimate.
 - Club-use rows are user-confirmed, outcome unknown, and `calibration_eligible` must be 0. All 17 are stored that way.
 - Profiles are per club, swing mode, and environment. Blending throws.
-- The in-play bag is empty until the founder picks 14. The limit is enforced on insert.
+- The in-play bag is a provisional 14 the founder can edit. The limit is enforced on insert.
 - Scoring reads strokes only. Narrative text cannot change a gross. An estimate is labeled "not an official GHIN Handicap Index." The founder handicap is unknown.
 - Replacement advice is brand-neutral. The historical ideal bag is stored as history and is not an input to that advice.
-- Founder verification is a private route. Home, bag, caddie, practice, and scorecard start empty of founder data.
+- The founder is the default local golfer when `EXPO_PUBLIC_FOUNDER_TOOLS` is unset or `1`. A public or store build sets it to `0`. Metro then loads a stub with none of the founder history.
 
 ## Hypothesis
 

@@ -94,6 +94,8 @@ CREATE TABLE bags (
   user_id TEXT NOT NULL REFERENCES users(id),
   name TEXT NOT NULL,
   kind TEXT NOT NULL CHECK (kind IN ('owned', 'in_play', 'testing', 'historical')),
+  status TEXT CHECK (status IN ('provisional', 'confirmed') OR status IS NULL),
+  note TEXT,
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
   deleted_at_ms INTEGER
@@ -104,6 +106,7 @@ CREATE TABLE bag_memberships (
   user_id TEXT NOT NULL REFERENCES users(id),
   bag_id TEXT NOT NULL REFERENCES bags(id),
   club_id TEXT NOT NULL REFERENCES clubs(id),
+  note TEXT,
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
   deleted_at_ms INTEGER,
@@ -117,6 +120,7 @@ CREATE TABLE simulator_sessions (
   label TEXT NOT NULL,
   validation_required INTEGER NOT NULL CHECK (validation_required IN (0, 1)),
   validation_note TEXT,
+  source_id TEXT REFERENCES data_sources(id),
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
   deleted_at_ms INTEGER

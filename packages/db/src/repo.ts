@@ -123,20 +123,22 @@ export function persistFounder(db: SqlExecutor, dataset: FounderDataset): void {
 
   for (const bag of dataset.bags) {
     db.prepare(
-      `INSERT INTO bags (id, user_id, name, kind, created_at_ms, updated_at_ms, deleted_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).run(bag.id, bag.userId, bag.name, bag.kind, bag.createdAtMs, bag.updatedAtMs, bag.deletedAtMs);
+      `INSERT INTO bags (id, user_id, name, kind, status, note, created_at_ms, updated_at_ms, deleted_at_ms)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(bag.id, bag.userId, bag.name, bag.kind, bag.status, bag.note, bag.createdAtMs, bag.updatedAtMs, bag.deletedAtMs);
     enqueue('bags', bag.id, bag.updatedAtMs);
   }
 
   for (const membership of dataset.memberships) {
     db.prepare(
-      `INSERT INTO bag_memberships (id, user_id, bag_id, club_id, created_at_ms, updated_at_ms, deleted_at_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO bag_memberships (id, user_id, bag_id, club_id, note, created_at_ms, updated_at_ms, deleted_at_ms)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       membership.id,
       membership.userId,
       membership.bagId,
       membership.clubId,
+      membership.note,
       membership.createdAtMs,
       membership.updatedAtMs,
       membership.deletedAtMs,
@@ -147,8 +149,9 @@ export function persistFounder(db: SqlExecutor, dataset: FounderDataset): void {
   for (const session of dataset.sessions) {
     db.prepare(
       `INSERT INTO simulator_sessions (
-        id, user_id, environment, label, validation_required, validation_note, created_at_ms, updated_at_ms, deleted_at_ms
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, user_id, environment, label, validation_required, validation_note, source_id,
+        created_at_ms, updated_at_ms, deleted_at_ms
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       session.id,
       session.userId,
@@ -156,6 +159,7 @@ export function persistFounder(db: SqlExecutor, dataset: FounderDataset): void {
       session.label,
       bit(session.validationRequired),
       session.validationNote,
+      session.sourceId,
       session.createdAtMs,
       session.updatedAtMs,
       session.deletedAtMs,

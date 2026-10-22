@@ -38,6 +38,9 @@ export const PERSONALITY_LABELS: Record<CaddiePersonality, string> = {
 export const BAG_KINDS = ['owned', 'in_play', 'testing', 'historical'] as const;
 export type BagKind = (typeof BAG_KINDS)[number];
 
+export const BAG_STATUSES = ['provisional', 'confirmed'] as const;
+export type BagStatus = (typeof BAG_STATUSES)[number];
+
 export const IN_PLAY_CLUB_LIMIT = 14;
 
 export const CONFIDENCE_BANDS = ['insufficient', 'limited', 'moderate', 'solid'] as const;
@@ -79,7 +82,7 @@ export interface PlayerProfile extends SyncStamp {
 export interface CaddieProfile extends SyncStamp {
   id: string;
   userId: string;
-  /** Empty until the golfer names the caddie. The platform name is not a person. */
+  /** Name the golfer gave this caddie. */
   name: string;
   personality: CaddiePersonality;
 }
@@ -125,6 +128,9 @@ export interface Bag extends SyncStamp {
   userId: string;
   name: string;
   kind: BagKind;
+  /** Provisional until the golfer confirms the 14. Null on bags that are not a choice. */
+  status: BagStatus | null;
+  note: string | null;
 }
 
 export interface BagMembership extends SyncStamp {
@@ -132,6 +138,7 @@ export interface BagMembership extends SyncStamp {
   userId: string;
   bagId: string;
   clubId: string;
+  note: string | null;
 }
 
 export interface SimulatorSession extends SyncStamp {
@@ -141,6 +148,8 @@ export interface SimulatorSession extends SyncStamp {
   label: string;
   validationRequired: boolean;
   validationNote: string | null;
+  /** Monitor or session attribution. Shot numbers keep their own measurement source. */
+  sourceId: string | null;
 }
 
 export interface Shot extends SyncStamp {

@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { FOUNDER_TOOLS_ENABLED } from '../../src/founder-flag';
 import { Button, Card, Muted, Screen, Title } from '../../src/ui';
 
 const FLOWS = [
@@ -11,6 +12,14 @@ const FLOWS = [
 ] as const;
 
 export default function FounderIndex() {
+  if (!FOUNDER_TOOLS_ENABLED) {
+    return (
+      <Screen>
+        <Title>Founder verification</Title>
+        <Muted>Founder tools are off in this build.</Muted>
+      </Screen>
+    );
+  }
   return (
     <Screen>
       <Title>Founder verification</Title>

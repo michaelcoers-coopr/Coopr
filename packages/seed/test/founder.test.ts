@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { assertPublicDemoAllowed } from '@coopr/domain';
 import { exportJson, exportMeasurementsCsv, orderedLines, scoreRound } from '@coopr/engine';
-import { FOUNDER_RAW, founderFlows, loadFounderDataset } from '@coopr/seed';
+import { FOUNDER_RAW, PUBLIC_DEMO, founderFlows, loadFounderDataset } from '@coopr/seed';
 
 const fixture = readFileSync(fileURLToPath(new URL('../fixtures/founder-raw-data.md', import.meta.url)), 'utf8');
 const dataset = loadFounderDataset();
@@ -24,8 +25,18 @@ describe('verbatim founder import', () => {
     expect(dataset.player.dominantHandConfirmedOn).toBe('2026-10-22');
     expect(dataset.player.handicapValue).toBeNull();
     expect(dataset.player.handicapOfficial).toBe(false);
-    expect(dataset.caddie.name).toBe('');
+    expect(dataset.caddie.name).toBe('COOPR');
     expect(dataset.caddie.personality).toBe('funny_knowledgeable');
+    const session = dataset.sessions[0];
+    const monitor = dataset.sources.find((item) => item.id === session?.sourceId);
+    expect(session?.label).toBe('TrackMan');
+    expect(monitor).toMatchObject({
+      kind: 'founder_master_spec',
+      ref: "founder's master spec 2026-10-22",
+      capturedOn: '2026-10-22',
+      quality: 'user_confirmed',
+    });
+    expect(dataset.sources.some((item) => item.kind === 'founder_verbatim' && item.quality === 'measured')).toBe(true);
   });
 
   it('keeps 5-iron through AW distances as totals and does not invent carry', () => {
@@ -54,12 +65,19 @@ describe('verbatim founder import', () => {
       'RATING_SLOPE_UNVERIFIED',
       'DISPLAYED_NET_UNVERIFIED',
       'MIURA48_USABLE_CRITERIA_UNKNOWN',
-      'FOUR_WOOD_OWNERSHIP_UNVERIFIED',
-      'IN_PLAY_BAG_UNRESOLVED',
+      'HYBRID_2H_MODEL_UNVERIFIED',
+      'HYBRID_3H_LOFT_UNVERIFIED',
+      'THREE_IRON_LOFT_UNKNOWN',
+      'PUTTER_LENGTH_LOFT_SHAFT_UNKNOWN',
+      'PW_BRAND_NOT_ON_LINE',
+      'GPS_TEE_ESTIMATES_UNVERIFIED',
       'HISTORICAL_FLEX_SLOT_UNRESOLVED',
     ]) {
       expect(codes).toContain(code);
     }
+    expect(codes).not.toContain('FOUR_WOOD_OWNERSHIP_UNVERIFIED');
+    expect(codes).not.toContain('PUTTER_UNKNOWN');
+    expect(codes).not.toContain('IN_PLAY_BAG_UNRESOLVED');
     const eight = dataset.measurements.filter(
       (measurement) => measurement.clubId === club('8i').id && measurement.aggregation === 'shot',
     );
@@ -76,14 +94,48 @@ describe('verbatim founder import', () => {
     expect(dataset.round.displayedNetQuality).toBe('provisional');
     expect(dataset.calibration.applyAutomatically).toBe(false);
     expect(dataset.calibration.status).toBe('suspected');
-    expect(club('4w').ownership).toBe('unverified');
+    expect(club('4w').ownership).toBe('owned');
+    expect(club('4w').rawText).toMatch(/verify ownership/);
+    expect(club('4w')).toMatchObject({ brand: 'Callaway', model: 'Steelhead XR' });
     expect(club('3w').ownership).toBe('not_owned');
-    expect(club('putter').brand).toBeNull();
+    expect(club('putter').rawText).toBe('Putter unknown');
+    expect(club('putter')).toMatchObject({ brand: 'PXG', model: '211 blade', loftDeg: null, flex: null, label: 'PXG 211 blade' });
     expect(club('pw').brand).toBeNull();
-    expect(dataset.bags.find((bag) => bag.kind === 'in_play')).toBeTruthy();
-    expect(dataset.memberships.some((membership) => membership.bagId === dataset.bags.find((bag) => bag.kind === 'in_play')?.id)).toBe(
-      false,
+    const inPlay = dataset.bags.find((bag) => bag.kind === 'in_play');
+    const testing = dataset.bags.find((bag) => bag.kind === 'testing');
+    expect(inPlay).toMatchObject({
+      status: 'provisional',
+      note: expect.stringMatching(/clubs he actually used on course/),
+    });
+    expect(inPlay?.note).toMatch(/edit this bag/);
+    const keysIn = (bagId: string | undefined) =>
+      dataset.memberships
+        .filter((membership) => membership.bagId === bagId)
+        .map((membership) => dataset.clubs.find((item) => item.id === membership.clubId)?.stableKey);
+    expect(keysIn(inPlay?.id)).toEqual([
+      'driver',
+      '4w',
+      '3h',
+      '4h',
+      '5i',
+      '6i',
+      '7i',
+      '8i',
+      '9i',
+      'pw',
+      'miura48',
+      'w54',
+      'miura56',
+      'putter',
+    ]);
+    expect(keysIn(testing?.id)).toEqual(['2h', '3i', 'aw49', 'w58']);
+    const testingNotes = new Map(
+      dataset.memberships.filter((membership) => membership.bagId === testing?.id).map((membership) => [membership.clubId, membership.note]),
     );
+    expect(testingNotes.get(club('2h').id)).toMatch(/felt poor/);
+    expect(testingNotes.get(club('aw49').id)).toMatch(/Overlaps the Miura 48/);
+    expect(dataset.clubNotes.some((note) => note.clubId === club('4w').id && note.quality === 'user_confirmed')).toBe(true);
+    expect(dataset.clubNotes.some((note) => note.clubId === club('putter').id && note.body.includes('211 blade'))).toBe(true);
   });
 
   it('does not apply the simulator bias to any stored yardage', () => {
@@ -179,6 +231,20 @@ describe('founder verification flows', () => {
     expect(flows.replace.alsoUnreliable.map((item) => item.clubLabel)).toContain('6-iron');
     expect(flows.replace.reason).not.toMatch(/G440|Srixon|Ping|Callaway|TaylorMade|Odyssey|Cleveland|Miura/);
     expect(dataset.clubs.some((item) => item.historicalOnly && item.model === 'G440 Max')).toBe(true);
+  });
+});
+
+describe('public and store builds', () => {
+  it('refuses founder data on the public demo and keeps the store stub free of it', () => {
+    expect(PUBLIC_DEMO.clubs).toEqual([]);
+    expect(PUBLIC_DEMO.shots).toEqual([]);
+    expect(PUBLIC_DEMO.measurements).toEqual([]);
+    expect(() => assertPublicDemoAllowed(dataset.user)).toThrow(/public demo/);
+    const stub = readFileSync(fileURLToPath(new URL('../src/store-stub.ts', import.meta.url)), 'utf8');
+    const metro = readFileSync(fileURLToPath(new URL('../../../apps/mobile/metro.config.js', import.meta.url)), 'utf8');
+    expect(stub).not.toMatch(/Coers|162\.05|High Cedars|Steelhead|TrackMan|PXG|211 blade/);
+    expect(metro).toMatch(/EXPO_PUBLIC_FOUNDER_TOOLS === '0'/);
+    expect(metro).toMatch(/store-stub/);
   });
 });
 

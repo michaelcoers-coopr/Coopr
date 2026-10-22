@@ -18,6 +18,8 @@ The app embeds the SQLite text from `@coopr/db`. A test fails if that embed drif
 - `gps_observations.is_shot` must be 0. A GPS distance is not a carry.
 - `club_use_observations.calibration_eligible` must be 0.
 - Bag kind is `owned`, `in_play`, `testing`, or `historical`. In-play inserts stop at 14 clubs.
+- `bags.status` is `provisional`, `confirmed`, or null. `bags.note` holds the reason for that bag. `bag_memberships.note` is optional.
+- `simulator_sessions.source_id` attributes the monitor. Shot measurements keep their own source.
 - Shots are the only rows that feed a distance profile, and only when `aggregation = 'shot'`. Session averages, usable-strike summaries, and "best" shots do not.
 - Environment is `simulator`, `range`, or `course`. Profiles are not merged across those.
 - `audience = 'private'` cannot be opened by the public-demo guard.

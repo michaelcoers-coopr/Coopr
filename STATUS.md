@@ -9,6 +9,11 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 - Monorepo: domain, engine, seed, db, tokens, Expo app.
 - Schema version 1 for SQLite, with a Postgres mirror that has the same tables. UUIDv7, `updated_at_ms`, `deleted_at_ms`, `sync_outbox`.
 - Founder import from the verbatim transcript, raw text stored beside normalized rows, discrepancy flags for the known gaps.
+- Founder decisions dated 2026-10-22, stored as their own `user_confirmed` source (`founder's master spec 2026-10-22`). The verbatim file is not rewritten.
+- Caddie name is COOPR. Personality is Funny but Knowledgeable.
+- Simulator session is TrackMan. The numbers stay on the verbatim source. The monitor confirmation is the master-spec source.
+- Provisional in-play 14, editable in the app, status `provisional`. Rationale on the bag: these are the clubs he actually used on course. 4-wood ownership is confirmed. Putter is a PXG 211 blade (length, loft, and shaft still null).
+- The founder is the default local profile on a dev build. `EXPO_PUBLIC_FOUNDER_TOOLS=0` swaps `@coopr/seed` for a stub so a public or store bundle does not contain that history. The public-demo guard still refuses a private account.
 - Pure stats, caddie, and scoring. CSV and JSON export. Soft-delete of an account.
 - Screens: Home (Play golf / Practice & calibrate), Bag, Caddie with manual distance, Scorecard, and private founder flows A–D plus founder bag and High Cedars.
 - Neutral wireframe. Accent token `#8AC926` on `#0B0D0F` / `#FFFFFF`.
@@ -23,9 +28,8 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 - No launch-monitor connection. Practice entry is manual. The founder transcript is an import, not a live session.
 - No partial-swing model. A 41-yard pitch with no sample declines and asks for an outcome.
 - No final brand, pricing, privacy copy, screenshots, or App Store submission.
-- The in-play bag is empty. The founder has not chosen 14 clubs.
-- The caddie has no name yet.
-- Founder verification is compiled into this milestone build and gated as a private route. A public store build must not ship `packages/seed` founder data.
+- Bag edits in the app stay in on-device memory for this session. They are not a cloud write.
+- The live scorecard starts empty. High Cedars stays on the founder route as history.
 - Web bundle is the check that the app bundles on this Linux runner. It is not an iOS simulator run. Android is the same React Native project and has not had a device build.
 - Handicap is unknown for the founder. Nothing here computes an official index.
 
@@ -35,16 +39,24 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 - Licensed course and GPS data. Nothing in this repo is a course map.
 - Backend accounts if sync should leave the device. The schema is ready; the project is not.
 - GHIN, or any other official handicap service, before a number can be called a Handicap Index.
-- Founder decisions listed below, before the in-play bag or any calibration correction is filled in.
+- Founder decisions still open, listed below. The in-play 14 is provisional, not a locked bag.
+
+## Resolved 2026-10-22
+
+- The founder is the primary test golfer. Default local profile when the dev/founder flag is on.
+- Caddie name: COOPR. Personality: Funny but Knowledgeable.
+- Simulator session: TrackMan, `user_confirmed`, source `founder's master spec 2026-10-22`.
+- Provisional in-play 14: Callaway XR driver; Callaway Steelhead XR 4W; Cleveland Launcher 3H; Cleveland Launcher 4H; Steelhead XR 5i, 6i, 7i, 8i, 9i, PW 44; Miura 48; Callaway MD3 54/10; Miura 56; PXG 211 blade putter.
+- Out of play, owned and testing: Cleveland 2H (felt poor), PXG 3i utility, Steelhead XR AW 49 (overlaps Miura 48), Callaway MD3 58/9.
+- 4-wood ownership confirmed. The verbatim line still says "verify ownership".
+- Putter identity confirmed: manufacturer PXG, model 211 blade.
 
 ## Open founder decisions
 
-- Which 14 clubs are actually in play. Owned plus unverified is more than 14, so the in-play bag is empty.
-- Whether the 4-wood is owned.
 - 2-hybrid model and loft.
 - 3-hybrid loft: 19 or 21. Neither is stored as the loft.
 - 3-iron utility loft.
-- Putter identity.
+- Putter length, loft, and shaft. Identity is confirmed. Those specs stay null.
 - PW and AW lines do not repeat "Callaway". Brand is null there rather than inherited.
 - High Cedars white tee rating/slope: 69.1/113 or 70.1/115. Neither is selected.
 - Displayed net 78. Stored as unverified. Not used as the score.
@@ -54,18 +66,15 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 - Shaft models. Flex is stiff where the bag header says so. Shaft model is null. Putter flex is null.
 - Simulator bias of +10 to +15 yards. Suspected, low confidence, not applied. Needs an outdoor comparison before anyone turns it on.
 - Historical flex slot: existing 4-hybrid or a gapped fairway wood. Not stored as a club. The historical bag is not a shopping list.
-- Caddie name.
 - No handicap value was in the verbatim file. v1's 35 was not imported.
-- The import brief calls the session TrackMan. The transcript does not name the monitor, so the row does not either.
 - Per-hole pars were not in the source.
 - GPS to-center distances line up with the club-use list and are still stored as separate records. They are not shots.
+- The in-play 14 is provisional. The founder can move clubs in the app. A 15th club is refused.
 
 ## Tests
 
-`npm test` — 4 files, 31 tests, all passing.
+`npm test` — 4 files, 32 tests, all passing.
 
-`npm run typecheck` — `tsc -b` for domain, tokens, engine, seed, and db, then the Expo app. Clean.
+`npm run typecheck` — `tsc -b` for domain, tokens, engine, seed, and db, then the Expo app.
 
-`npm run bundle` — `expo export --platform web` succeeds. The web preview does not load `expo-sqlite` (the wa-sqlite worker is not in this export). iOS and Android use `boot-db.ts` and the same migration text. Node tests apply that migration with SQLite. This runner did not launch an iOS simulator.
-
-The suite covers: total never becomes carry, hole scores 105 (52/53), 17 club uses none calibration-eligible, the 357-yard GPS estimate is not a shot, driver stock carry is not 220, no aim offset for a miss pattern, hazard clearance uses a carry percentile, and a too-small sample declines.
+`npm run bundle` — `expo export --platform web` succeeds. With `EXPO_PUBLIC_FOUNDER_TOOLS=0`, the web bundle has none of the founder transcript, club names, or yardages. This runner did not launch an iOS simulator.

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 apps/mobile/dist/
+apps/mobile/dist-store/
 build/
 coverage/
 .expo/

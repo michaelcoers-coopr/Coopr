@@ -19,7 +19,7 @@ The app:
 npm run start -w @coopr/mobile
 ```
 
-Home is **Play golf** and **Practice & calibrate**. Founder history is only under **Founder verification (private)**. It is not the public demo.
+Home is **Play golf** and **Practice & calibrate**. On a dev build the first-run local profile is the founder (caddie name COOPR). Set `EXPO_PUBLIC_FOUNDER_TOOLS=0` for a public or store build so that history is not bundled. The public demo path still refuses a private account.
 
 ## Layout
 
