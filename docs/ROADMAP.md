@@ -78,7 +78,7 @@ Acceptance and the deploy steps are in `docs/PHOTO_IMPORT.md`.
 
 ## Phase 2 — Caddie
 
-Status: built on this branch. Waiting on Mike's iPhone pass. Phase 3 has not started.
+Status: built on this branch. Waiting on Mike's iPhone pass.
 
 Plays-like is an adjustment, shown next to the raw yardage. Wind is 1% of the raw distance per mph of headwind or tailwind. A crosswind adds nothing. Elevation is 1 yard per 3 feet. Temperature is 2 yards per 10°F from 75°F, scaled by the raw distance over 250. The plays-like number stays blank until all three inputs exist. Weather is Open-Meteo, keyless. A typed value replaces it. The club call stays on the raw number until Mike switches it.
 
@@ -103,19 +103,25 @@ iPhone test: play one hole with a made-up wind and elevation, confirm both numbe
 
 ## Phase 3 — Voice and music
 
-Not started. This phase needs an EAS development build. Expo Go cannot host the ElevenLabs React Native SDK or MusicKit. The development profile is added when this phase is approved, not before.
+Ask COOPR is the hold-to-talk path that runs in Expo Go SDK 58. Music has not started. MusicKit, Spotify, Amazon Music, and the ElevenLabs React Native SDK are not in the app. A development build is still required before on-device speech or music.
 
-Scope:
+Voice, in Expo Go today:
 
-- Spoken club calls through ElevenLabs, via a server-side proxy. The key is never in the app.
-- On-device speech as the offline fallback.
-- Apple Music through MusicKit. Music ducks under the caddie and comes back after. Earbuds, push-to-talk, short lines.
+- One hold-to-talk button on the hole screen. `expo-audio` records. `expo-speech` speaks the caddie line.
+- `POST /v1/voice` on the extract server sends the clip to ElevenLabs Scribe. `ELEVENLABS_API_KEY` stays on the server. With no key, the server returns a canned transcript and does not hear the clip.
+- A rule parser reads distance, lie, hazards, and a question or a score, putt, next-hole, or miss command. German and Spanish share the intent shape and stay empty. An optional model may fill only a field the rules left null. The phone does not call that model.
+- The existing engine answers. Rough and sand add a documented yard estimate. The line says it is an estimate.
+
+Later, on a development build, not built here:
+
+- On-device iOS speech recognition for airplane mode. Same parser. The recording would not leave the phone.
+- Apple Music through MusicKit. Music ducks under the caddie and comes back after.
 - Spotify behind a flag for Mike's test builds only. Development mode is capped, and public quota is not assumed.
 - Amazon Music is a link out. There is no playback SDK to ship.
 
-Acceptance: a club call is spoken on a development build with no key in the binary. Airplane mode uses the on-device voice. Apple Music gets quieter while the caddie talks and returns after. Spotify is absent from a production build.
+Acceptance for the music half, still open: Apple Music gets quieter while the caddie talks and returns after. Spotify is absent from a production build. Airplane mode uses on-device speech.
 
-Founder approval before any API key, MusicKit entitlement, or Spotify allowlist.
+Founder approval before any API key, MusicKit entitlement, or Spotify allowlist. The Scribe key is the one Ask COOPR needs now. It is named in `docs/VOICE.md`.
 
 ## Phase 4 — Watch and languages
 

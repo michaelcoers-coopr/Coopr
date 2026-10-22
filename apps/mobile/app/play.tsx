@@ -44,6 +44,7 @@ import { holeSwipe, rollSteps } from '../src/design/motion';
 import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
 import { useLocalStore, type LandingResult } from '../src/local-store';
+import { useAskCoopr } from '../src/ask-coopr';
 
 const pilot = loadHighCedarsPilot();
 
@@ -117,6 +118,7 @@ export default function PlayScreen() {
     marks,
     recordMark,
     conditions,
+    removeTag,
   } = useLocalStore();
   const hole = pilot.quality.find((item) => item.holeNumber === currentHole);
   const [player, setPlayer] = useState<LatLon | null>(null);
@@ -134,6 +136,12 @@ export default function PlayScreen() {
   const backRef = useRef<() => void>(() => {});
   const holeNo = useRef(1);
   const advanced = useRef(0);
+  const voiceClub = useRef<{
+    clubId: string | null;
+    clubLabel: string;
+    carryToClearYards: number | null;
+    carry: DistanceProfile | null;
+  }>({ clubId: null, clubLabel: 'Shot', carryToClearYards: null, carry: null });
   const pan = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 24 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.4,
@@ -151,6 +159,51 @@ export default function PlayScreen() {
   const manual = hole ? manualYards[hole.holeNumber] ?? null : null;
   const shotYards = player ? ground?.centerYards ?? null : manual;
   const heroBase = shotYards == null ? null : Math.round(shotYards);
+  const voiceClubs = clubs.filter((club) => club.slot === 'in_play');
+  const ask = useAskCoopr({
+    hole: currentHole,
+    gpsYards: player ? ground?.centerYards ?? null : null,
+    headwindMph: conditions.usePlaysLike ? sky?.headwindMph ?? null : null,
+    elevationFeet: conditions.usePlaysLike ? sky?.elevationFeet ?? null : null,
+    temperatureF: conditions.usePlaysLike ? sky?.current?.temperatureF ?? null : null,
+    profiles,
+    candidateClubIds: voiceClubs.length > 0 ? voiceClubs.map((club) => club.id) : undefined,
+    wedges: voiceClubs.flatMap((club) =>
+      WEDGE_LENGTHS.map((length) => ({
+        clubId: club.id,
+        clubLabel: club.label.split('·')[0]?.trim() || club.label,
+        length,
+        carryYards: wedges[club.id]?.[length] ?? null,
+      })),
+    ),
+    marks: tagged.flatMap((shot) => {
+      if (shot.result !== 'left' && shot.result !== 'right' && shot.result !== 'fairway' && shot.result !== 'hazard' && shot.result !== 'short') return [];
+      return [{ side: shot.result, sideYards: null as number | null }];
+    }),
+    club: voiceClub,
+    readScore: () => holes[currentHole - 1] ?? null,
+    readPutts: () => putts[currentHole - 1] ?? null,
+    readHole: () => holeNo.current,
+    onScore: setStrokes,
+    onPutts: setPutts,
+    onNext: () => leaveRef.current(),
+    onBack: () => backRef.current(),
+    onMiss: (side, clubId, clubLabel) => {
+      const id = `tag-${tagged.length + 1}`;
+      tagShot({
+        hole: holeNo.current,
+        clubId: clubId ?? 'voice',
+        clubLabel,
+        result: side,
+        shownYards: player ? ground?.centerYards ?? null : null,
+        carry: null,
+        total: null,
+        swingMode: 'unknown',
+      });
+      return id;
+    },
+    onRemoveTag: removeTag,
+  });
 
   useEffect(() => {
     setWhy(false);
@@ -292,6 +345,12 @@ export default function PlayScreen() {
   const shownTarget = callYards == null ? null : Math.round(callYards);
   const gapYards = shownStock != null && shownTarget != null && calledId ? Math.abs(shownStock - shownTarget) : null;
   const hazard = taggedHazardLine(pilot.features, hole.holeNumber, player);
+  voiceClub.current = {
+    clubId: calledId,
+    clubLabel: calledLabel ?? 'Shot',
+    carryToClearYards: hazard?.yards ?? null,
+    carry: carryStock,
+  };
   const layup = !shortMode && !onGreen && hazard ? layupDecision({ carry: carryStock, carryToClearYards: hazard.yards }) : null;
   const hazardYards = player ? nearestHazardYards(player, [...polygons.hazards, ...polygons.bunkers]) : null;
   const shape = dispersionShape(carryStock);
@@ -420,6 +479,7 @@ export default function PlayScreen() {
       </View>
       <Animated.View style={[styles.sheet, { transform: [{ translateY: rise }] }]}>
         <View style={styles.handle} />
+        {ask.banner ? <View style={styles.askBanner}>{ask.banner}</View> : null}
         <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
           <View style={styles.heroRow}>
             <View style={styles.heroCol}>
@@ -558,6 +618,8 @@ export default function PlayScreen() {
             <Text style={styles.pinLabel}>{score.holesEntered === 0 ? 'Round is in.' : `Round is in. Gross ${score.gross}.`}</Text>
           ) : null}
         </View>
+        {ask.undo}
+        {ask.button}
       </Animated.View>
       {why && card ? (
         <Pressable style={styles.scrim} onPress={() => setWhy(false)} accessibilityRole="button" accessibilityLabel="Hide why">
@@ -610,7 +672,8 @@ const styles = StyleSheet.create({
   tiny: { color: 'rgba(244,247,251,0.72)', fontSize: 11, marginTop: 4 },
   sheet: {
     marginTop: 'auto',
-    maxHeight: '72%',
+    maxHeight: '86%',
+    overflow: 'hidden',
     backgroundColor: field.sheet,
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
@@ -622,7 +685,8 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)', marginTop: 8 },
-  sheetScroll: { flexGrow: 0, flexShrink: 1 },
+  sheetScroll: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
+  askBanner: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
   sheetBody: { paddingHorizontal: 16, paddingBottom: 8, gap: 8 },
   heroRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
   heroCol: { flex: 1.3 },

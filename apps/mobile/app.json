@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "web": {
       "bundler": "metro",
-      "output": "single"
+      "output": "server"
     },
     "ios": {
       "supportsTablet": false,
@@ -24,6 +24,12 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "COOPR listens while you hold Ask COOPR. The recording goes to the server to be transcribed and is not kept."
+        }
+      ],
       [
         "expo-location",
         {
