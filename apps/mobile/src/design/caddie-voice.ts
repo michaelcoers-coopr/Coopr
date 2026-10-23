@@ -28,6 +28,31 @@ function unitWord(unit: DistanceUnit, count: number): string {
   return count === 1 ? 'yard' : 'yards';
 }
 
+/** A club this far short of the green is not getting home. The line does not speak this gap. */
+const OUT_OF_REACH_YARDS = 40;
+
+/**
+ * Par 4 and par 5 tee shots that cannot reach the green.
+ * The par is real. No landing yardage is invented.
+ */
+export function teeLandingLine(input: {
+  voice: CaddieVoice;
+  par: number | null;
+  atTee: boolean;
+  clubLabel: string | null;
+  stockYards: number | null;
+  greenYards: number | null;
+}): string | null {
+  if (!input.atTee || input.par == null || !Number.isFinite(input.par) || input.par < 4 || !input.clubLabel) return null;
+  if (input.stockYards == null || input.greenYards == null) return null;
+  if (!Number.isFinite(input.stockYards) || !Number.isFinite(input.greenYards)) return null;
+  if (input.greenYards - input.stockYards < OUT_OF_REACH_YARDS) return null;
+  const name = clubName(input.clubLabel);
+  const par = Math.round(input.par);
+  if (input.voice === 'chill') return `Par ${par}. ${name} will not reach the green.`;
+  return `Par ${par}. Nobody's getting home. ${name}, find the short grass.`;
+}
+
 /**
  * Chirpy speaks only when a real club and a real number are in hand.
  * A missing stock, target, or wind stays out of the sentence.
@@ -83,8 +108,19 @@ export function caddieVoiceLine(input: {
   playsLikeYards: number | null;
   lowConfidence: boolean;
   unit: DistanceUnit;
+  par?: number | null;
+  atTee?: boolean;
 }): string | null {
   if (!input.clubLabel) return null;
+  const landing = teeLandingLine({
+    voice: input.voice,
+    par: input.par ?? null,
+    atTee: input.atTee === true,
+    clubLabel: input.clubLabel,
+    stockYards: input.stockYards,
+    greenYards: input.playsLikeYards ?? input.targetYards,
+  });
+  if (landing) return landing;
   if (input.voice === 'chill') {
     return caddieLine({
       personality: input.personality,

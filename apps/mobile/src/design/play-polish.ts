@@ -131,12 +131,17 @@ export function patternCaption(input: {
   sample: boolean;
   oval: { carryStdYards: number; lateralStdYards: number } | null;
   invite: string;
+  /** The caddie already said the sample is thin. The invite would repeat it. */
+  thinLine?: boolean;
 }): string | null {
   if (input.onGreen || input.noShots) return null;
   if (input.oval) return `${input.sample ? 'Sample pattern · ' : ''}±${input.oval.carryStdYards} × ±${input.oval.lateralStdYards} yd`;
-  if (input.lowConfidence) return null;
+  if (input.lowConfidence || input.thinLine) return null;
   return input.invite;
 }
+
+/** Closed club card. Tall enough for the club, a two-line call, the strip, and one caption. */
+export const CLOSED_CARD = 256;
 
 /** Invitation on a club card that has no measured shots. */
 export const SHOT_LOG_TIP = 'Log a shot after each swing, or upload a TrackMan photo';

@@ -15,6 +15,7 @@ import {
   destinationPoint,
   displayToYards,
   formatDistance,
+  distanceYards,
   gpsPreset,
   greenTargets,
   greenYardsFrom,
@@ -30,6 +31,7 @@ import {
   shotBearing,
   taggedHazardLine,
   playsLike,
+  NEXT_TEE_YARDS,
   SAMPLE_PATTERN,
   PATTERN_INVITE,
   CONFIDENCE_LOW,
@@ -57,7 +59,7 @@ import { loadHighCedarsPilot } from '@coopr/course';
 import { HoleMap } from '../src/hole-map';
 import { boom, celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { holeSwipe, rollSteps } from '../src/design/motion';
-import { cardGravity, clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreGlance, scoreMoment, scoreStamp, sheetSnap, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { cardGravity, CLOSED_CARD, clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreGlance, scoreMoment, scoreStamp, sheetSnap, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { caddieVoiceLine } from '../src/design/caddie-voice';
 import { useDisplayFace } from '../src/design/display-font';
 import { MomentOverlay } from '../src/design/moments';
@@ -73,7 +75,7 @@ import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
 
 const pilot = loadHighCedarsPilot();
-const SHEET_CLOSED = 200;
+const SHEET_CLOSED = CLOSED_CARD;
 const SHEET_OPEN = 420;
 const SHEET_SPRING = { damping: 18, stiffness: 190, mass: 0.75 };
 
@@ -568,6 +570,8 @@ export default function PlayScreen() {
         playsLikeYards: focusedPlays,
         lowConfidence,
         unit,
+        par: hole.par,
+        atTee: player != null && overlay.line[0] != null && distanceYards(player, overlay.line[0]) <= NEXT_TEE_YARDS,
       });
   const thinCopy = 'The sample is thin. Treat the number softly.';
   const oneLiner =
@@ -584,6 +588,7 @@ export default function PlayScreen() {
     sample: sampleOn,
     oval,
     invite: PATTERN_INVITE,
+    thinLine: Boolean(oneLiner && /sample is thin|Thin sample/i.test(oneLiner)),
   });
   const closedSheet = closedPlaySheet(SHEET_CLOSED);
   closedSheetRef.current = closedSheet;
@@ -1127,7 +1132,7 @@ const styles = StyleSheet.create({
   sheet: { position: 'absolute', left: 12, right: 12, overflow: 'hidden' },
   sheetGlass: { flex: 1 },
   sheetFill: { flex: 1 },
-  grab: { paddingTop: 2, paddingHorizontal: 16, paddingBottom: 0 },
+  grab: { paddingTop: 2, paddingHorizontal: 16, paddingBottom: 14 },
   grabSpread: { flex: 1, gap: 4 },
   tipHit: { marginTop: 2 },
   tip: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold },

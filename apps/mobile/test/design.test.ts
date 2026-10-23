@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { projectAlongHole } from '@coopr/engine';
+import { holeOverlay, projectAlongHole, shotBearing } from '@coopr/engine';
+import { loadHighCedarsPilot } from '@coopr/course';
 import { colors, font, motion, play, radius, signal, space, touch, type } from '@coopr/tokens';
 import { caddieLine } from '@coopr/engine';
 import { DEFAULT_VOICE, caddieVoiceLine } from '../src/design/caddie-voice';
-import { bagGlance, courseCall, hypeHero, resumeLine, skyLine, TEE_IT_UP } from '../src/design/home-copy';
+import { bagGlance, courseCall, holeSubline, hypeHero, resumeLine, skyLine, TEE_IT_UP } from '../src/design/home-copy';
+import { HOLE_BLEED_PAD, holeFitPoints } from '../src/hole-fit';
 import { CONSOLATION, scoreMoment, scoreStamp } from '../src/design/play-polish';
 import { RESULT_ICONS } from '../src/design/icons';
 import { holeSwipe, rollSteps } from '../src/design/motion';
@@ -66,6 +68,10 @@ describe('hole swipe', () => {
 describe('home glance', () => {
   it('resumes a started round and does not invent a handicap or a bag count', () => {
     expect(resumeLine({ hole: 1, holesEntered: 0, gross: null }).title).toBe('Play High Cedars');
+    expect(resumeLine({ hole: 1, holesEntered: 0, gross: null }).detail).toBe('White tees · Hole 1');
+    expect(resumeLine({ hole: 1, holesEntered: 0, gross: null, par: 5 }).detail).toBe('White tees · Hole 1 · Par 5');
+    expect(holeSubline({ hole: 1, par: 5, tee: 'Blue tees' })).toBe('Blue tees · Hole 1 · Par 5');
+    expect(resumeLine({ hole: 1, holesEntered: 0, gross: null, par: 5 }).detail).not.toMatch(/waiting/i);
     expect(resumeLine({ hole: 7, holesEntered: 6, gross: 28 })).toEqual({ title: 'Resume hole 7', detail: 'Gross 28' });
     expect(bagGlance(14)).toBe('14 of 14');
     expect(RESULT_ICONS).toEqual({ fairway: 'flag', left: 'left', right: 'right', short: 'down', hazard: 'hazard' });
@@ -115,6 +121,43 @@ describe('caddie voice', () => {
     const ungrounded = caddieVoiceLine({ ...measured, voice: 'chirpy', playsLikeYards: null, targetYards: null, stockYards: null });
     expect(ungrounded ?? '').not.toMatch(/\d/);
     expect(caddieVoiceLine({ ...measured, voice: 'chirpy', clubLabel: null })).toBeNull();
+    const tee = {
+      ...measured,
+      clubLabel: 'Driver',
+      stockYards: 213,
+      targetYards: 442,
+      playsLikeYards: 442,
+      par: 5,
+      atTee: true,
+    };
+    expect(caddieVoiceLine({ ...tee, voice: 'chirpy' })).toBe("Par 5. Nobody's getting home. Driver, find the short grass.");
+    expect(caddieVoiceLine({ ...tee, voice: 'chirpy', par: 4 })).toBe("Par 4. Nobody's getting home. Driver, find the short grass.");
+    expect(caddieVoiceLine({ ...tee, voice: 'chill' })).toBe('Par 5. Driver will not reach the green.');
+    expect(caddieVoiceLine({ ...tee, voice: 'chirpy', atTee: false })).toBe('Short is dead. Driver is 229 yards short of 442.');
+    expect(caddieVoiceLine({ ...tee, voice: 'chirpy', par: 3 })).toBe('Short is dead. Driver is 229 yards short of 442.');
+    expect(caddieVoiceLine({ ...tee, voice: 'chirpy', stockYards: 420 })).toBe('Short is dead. Driver is 22 yards short of 442.');
+    expect(caddieVoiceLine({ ...tee, voice: 'chirpy', stockYards: null })).toBe('Grip it and rip it. Driver, 442.');
+  });
+});
+
+describe('hole fit', () => {
+  it('fits the hole polygon into the map so a par 5 fairway is not a sliver', () => {
+    const pilot = loadHighCedarsPilot();
+    const hole = holeOverlay(pilot.features, pilot.record.scorecard, 1);
+    const fairways = hole.fairways.flatMap((feature) => feature.rings);
+    const green = hole.green ? hole.green.rings : [];
+    const points = holeFitPoints({ line: hole.line, fairways, green, bunkers: [], hazards: [] });
+    const bearing = shotBearing(hole.line);
+    const origin = hole.line[0];
+    expect(bearing).not.toBeNull();
+    expect(origin).toBeTruthy();
+    const projection = projectAlongHole(points, 390, 844, HOLE_BLEED_PAD, bearing!, origin!);
+    const xy = points.map((point) => projection.toXY(point));
+    const width = Math.max(...xy.map((point) => point.x)) - Math.min(...xy.map((point) => point.x));
+    const height = Math.max(...xy.map((point) => point.y)) - Math.min(...xy.map((point) => point.y));
+    expect(width).toBeGreaterThan(180);
+    expect(height).toBeGreaterThan(700);
+    expect(points.some((point) => point.lat === origin!.lat && point.lon === origin!.lon)).toBe(false);
   });
 });
 

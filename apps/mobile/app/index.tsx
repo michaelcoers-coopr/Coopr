@@ -35,10 +35,12 @@ export default function HomeScreen() {
   const roundsKept = holes.length >= 18 && holes.every((strokes) => strokes != null) ? 1 : 0;
   const progress = roundProgress(roundsKept);
   const inPlay = clubs.filter((club) => club.slot === 'in_play').length;
+  const cardHole = pilot.record.scorecard.find((item) => item.holeNumber === currentHole);
   const resume = resumeLine({
     hole: currentHole,
     holesEntered: score.holesEntered,
     gross: score.holesEntered > 0 ? score.gross : null,
+    par: cardHole?.par ?? null,
   });
   const [washH, setWashH] = useState(844);
   const [sky, setSky] = useState<WeatherRead | null>(null);

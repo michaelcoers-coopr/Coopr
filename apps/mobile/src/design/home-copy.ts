@@ -20,10 +20,18 @@ export function hypeHero(input: { name: string; course: string }): string {
 
 export const TEE_IT_UP = 'TEE IT UP';
 
+/** The card under the hero. Par is omitted when the card does not have one. */
+export function holeSubline(input: { hole: number; par: number | null; tee?: string }): string {
+  const tee = input.tee?.trim() || 'White tees';
+  const hole = Number.isFinite(input.hole) ? Math.round(input.hole) : 1;
+  const par = input.par != null && Number.isFinite(input.par) ? ` · Par ${Math.round(input.par)}` : '';
+  return `${tee} · Hole ${hole}${par}`;
+}
+
 /** Home card. A blank round is an invitation. A started round resumes. Handicap is never filled in. */
-export function resumeLine(input: { hole: number; holesEntered: number; gross: number | null }): { title: string; detail: string } {
+export function resumeLine(input: { hole: number; holesEntered: number; gross: number | null; par?: number | null }): { title: string; detail: string } {
   if (input.holesEntered <= 0) {
-    return { title: 'Play High Cedars', detail: 'White tees. Hole 1 is waiting.' };
+    return { title: 'Play High Cedars', detail: holeSubline({ hole: input.hole, par: input.par ?? null }) };
   }
   return {
     title: `Resume hole ${input.hole}`,

@@ -6,6 +6,7 @@ import { colors, font } from '@coopr/tokens';
 import { projectAlongHole, projectPoints } from '@coopr/engine';
 import { Muted } from './ui';
 import type { HoleMapProps } from './hole-map-props';
+import { HOLE_BLEED_PAD, holeFitPoints } from './hole-fit';
 import { clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark } from './map-label-layout';
 
 const ROUGH = '#0E3320';
@@ -131,14 +132,23 @@ export function HoleMap(props: HoleMapProps) {
   const uid = rawId.replace(/:/g, '');
   const cloud = [props.line, ...props.fairways, ...props.green, ...props.bunkers, ...props.hazards, ...(props.ellipse ? [props.ellipse] : []), ...props.dispersionLine, ...props.measure].flat();
   const height = props.height ?? 220;
-  const pad = props.pad ?? (props.bleed ? { top: 48, right: 16, bottom: 56, left: 16 } : 12);
+  const pad = props.pad ?? (props.bleed ? HOLE_BLEED_PAD : 12);
   const frame = padInsets(pad);
+  const fitPad = props.bleed ? HOLE_BLEED_PAD : pad;
+  const shaped = holeFitPoints({
+    line: props.line,
+    fairways: props.fairways,
+    green: props.green,
+    bunkers: props.bunkers,
+    hazards: props.hazards,
+  });
+  const fitPoints = shaped.length > 0 ? shaped : cloud;
   const projection =
-    cloud.length === 0
+    fitPoints.length === 0
       ? null
       : props.orient != null
-        ? projectAlongHole(cloud, width, height, pad, props.orient.bearing, props.orient.origin)
-        : projectPoints(cloud, width, height, pad);
+        ? projectAlongHole(fitPoints, width, height, fitPad, props.orient.bearing, props.orient.origin)
+        : projectPoints(fitPoints, width, height, fitPad);
   const bleed = props.bleed === true;
   const ink = bleed ? '#F4FFF6' : colors.navy;
   const tee = bleed && projection && props.line[0] ? projection.toXY(props.line[0]) : null;
