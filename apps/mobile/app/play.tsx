@@ -928,7 +928,7 @@ const styles = StyleSheet.create({
   pillFill: { paddingHorizontal: 8, paddingTop: 8, paddingBottom: 10, gap: 2 },
   windSlot: { position: 'relative' },
   windPill: { minHeight: 56, minWidth: 56 },
-  windFill: { minHeight: 56, minWidth: 56, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  windFill: { minHeight: 56, minWidth: 72, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   wind: { width: 22, height: 16, justifyContent: 'space-between' },
   windLine: { height: 2, borderRadius: 1, backgroundColor: '#FFFFFF' },
   windLineShort: { height: 2, width: 14, borderRadius: 1, backgroundColor: '#FFFFFF' },
@@ -980,7 +980,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 14,
   },
   hint: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, textAlign: 'center' },
-  chips: { position: 'absolute', top: 120, right: 0, width: 136, gap: 8, zIndex: 8, alignItems: 'flex-end' },
+  chips: { position: 'absolute', top: 292, right: 0, width: 136, gap: 8, zIndex: 8, alignItems: 'flex-end' },
   chip: {
     color: '#FFFFFF',
     fontFamily: font.family,

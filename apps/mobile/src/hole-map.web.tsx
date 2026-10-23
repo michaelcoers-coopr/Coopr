@@ -40,7 +40,7 @@ function drawEllipse(xy: readonly { x: number; y: number }[]) {
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
   const ring = (factor: number) => xy.map((point) => `${cx + (point.x - cx) * factor},${cy + (point.y - cy) * factor}`).join(' ');
-  const halos = scale > 1 ? [1.65, 2.15] : [1.28, 1.55];
+  const halos = scale > 1 ? [1.7, 2.2] : [1.28, 1.55];
   return {
     cx,
     cy,
@@ -139,27 +139,25 @@ export function HoleMap(props: HoleMapProps) {
         const spots =
           key === 'front'
             ? [
-                { x: xy.x - 22, y: xy.y },
-                { x: xy.x - 26, y: xy.y - 18 },
-                { x: xy.x - 20, y: xy.y + 18 },
+                { x: xy.x - 36, y: xy.y },
+                { x: xy.x - 40, y: xy.y - 22 },
+                { x: xy.x - 34, y: xy.y + 24 },
               ]
             : key === 'center'
               ? [
-                  { x: xy.x + 22, y: xy.y },
-                  { x: xy.x + 24, y: xy.y - 18 },
-                  { x: xy.x + 20, y: xy.y + 18 },
+                  { x: xy.x + 36, y: xy.y - 30 },
+                  { x: xy.x + 44, y: xy.y + 6 },
+                  { x: xy.x + 20, y: xy.y + 36 },
+                  { x: xy.x - 6, y: xy.y - 40 },
                 ]
               : [
-                  { x: xy.x, y: xy.y + 22 },
-                  { x: xy.x - 22, y: xy.y + 16 },
-                  { x: xy.x + 22, y: xy.y + 16 },
+                  { x: xy.x, y: xy.y + 40 },
+                  { x: xy.x - 34, y: xy.y + 36 },
+                  { x: xy.x + 34, y: xy.y + 36 },
                 ];
-        const picked =
-          spots.find((spot) => {
-            const box = { x: spot.x - 9, y: spot.y - 16, w: 18, h: 18 };
-            return letterObstacles.every((other) => !boxesHit(box, other));
-          }) ?? spots[0]!;
-        letterObstacles.push({ x: picked.x - 9, y: picked.y - 16, w: 18, h: 18 });
+        const letterBox = (spot: { x: number; y: number }): LabelBox => ({ x: spot.x - 12, y: spot.y - 28, w: 24, h: 36 });
+        const picked = spots.find((spot) => letterObstacles.every((other) => !boxesHit(letterBox(spot), other, 6))) ?? spots[0]!;
+        letterObstacles.push(letterBox(picked));
         return { key, word, x: picked.x, y: picked.y };
       })
     : [];
@@ -265,8 +263,8 @@ export function HoleMap(props: HoleMapProps) {
         ) : null}
         {ellipseDraw ? (
           <G>
-            <Polygon points={ellipseDraw.glowSoft} fill={props.ellipseColor ?? '#8AC926'} fillOpacity={0.08} stroke="none" />
-            <Polygon points={ellipseDraw.glow} fill={props.ellipseColor ?? '#8AC926'} fillOpacity={0.16} stroke="none" />
+            <Polygon points={ellipseDraw.glowSoft} fill={props.ellipseColor ?? '#8AC926'} fillOpacity={0.14} stroke="none" />
+            <Polygon points={ellipseDraw.glow} fill={props.ellipseColor ?? '#8AC926'} fillOpacity={0.28} stroke="none" />
             <Polygon points={ellipseDraw.solid} fill={props.ellipseColor ?? '#8AC926'} fillOpacity={0.38} stroke={props.ellipseColor ?? '#8AC926'} strokeWidth={2} />
           </G>
         ) : null}
