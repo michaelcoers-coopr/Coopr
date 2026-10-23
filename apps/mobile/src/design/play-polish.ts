@@ -103,17 +103,18 @@ export function holeShift(from: number, to: number): 'forward' | 'back' | 'none'
 
 /**
  * The flag is drawn above the green point, and the tee mark hangs below the line.
- * Those ornaments have to clear the yardage pill and the closed sheet.
+ * The score bar floats on the map, so it does not stack under the sheet.
  */
-const PIN_CLEAR = 40;
-const TEE_CLEAR = 20;
-const SHEET_GAP = 8;
+const PIN_CLEAR = 30;
+const TEE_CLEAR = 16;
+/** Room so the tee mark sits above the floating Score / Mark / Ask chips. */
+const SCORE_CLEAR = 68;
 
 /**
- * Room the map keeps for the yardage panel.
+ * Room the map keeps for the compact yardage HUD.
  * The panel's measured height is not an input, so opening the breakdown does not move the hole.
  */
-export const MAP_PANEL_CLEAR = 214;
+export const MAP_PANEL_CLEAR = 92;
 
 export function mapHudInset(safeTop: number): number {
   const safe = Number.isFinite(safeTop) ? Math.max(0, safeTop) : 0;
@@ -140,8 +141,8 @@ export function patternCaption(input: {
   return input.invite;
 }
 
-/** Closed club card. Tall enough for the club, a two-line call, the strip, and one caption. */
-export const CLOSED_CARD = 256;
+/** Closed club card. Club, ring, one caddie line, and a strip peek. The rest waits for the swipe. */
+export const CLOSED_CARD = 116;
 
 /** Invitation on a club card that has no measured shots. */
 export const SHOT_LOG_TIP = 'Log a shot after each swing, or upload a TrackMan photo';
@@ -169,13 +170,14 @@ export function holeFrame(input: { hudHeight: number; dockHeight: number; sheetC
   left: number;
 } {
   const hud = Number.isFinite(input.hudHeight) ? Math.max(0, input.hudHeight) : 0;
-  const dock = Number.isFinite(input.dockHeight) ? Math.max(0, input.dockHeight) : 0;
   const sheet = Number.isFinite(input.sheetClosed) ? Math.max(0, input.sheetClosed) : 0;
+  // The score bar floats over the map, so its measured height does not shrink the hole.
+  void input.dockHeight;
   return {
     top: hud + PIN_CLEAR,
-    right: 18,
-    bottom: dock + SHEET_GAP + sheet + TEE_CLEAR,
-    left: 18,
+    right: 16,
+    bottom: sheet + SCORE_CLEAR + TEE_CLEAR,
+    left: 16,
   };
 }
 

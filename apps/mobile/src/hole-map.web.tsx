@@ -6,15 +6,27 @@ import { colors, font, signal } from '@coopr/tokens';
 import { projectAlongHole, projectPoints } from '@coopr/engine';
 import { Muted } from './ui';
 import type { HoleMapProps } from './hole-map-props';
-import { HOLE_BLEED_PAD, holeFitPoints, projectHoleFill, projectPlayFrame } from './hole-fit';
+import { HOLE_BLEED_PAD, holeFitPoints, playingWidthMeters, projectHoleFill, projectPlayFrame } from './hole-fit';
 import { clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark } from './map-label-layout';
 
-const ROUGH = '#0E3320';
-const FAIRWAY_DARK = '#176B3A';
-const FAIRWAY_LIGHT = '#228848';
-const GREEN = '#C6F5B4';
+const SURROUND = '#143524';
+const TREE = '#0C2418';
+const TREE_MID = '#1E5234';
+const ROUGH = '#A9D48C';
+const FAIRWAY_DARK = '#1E7A3C';
+const FAIRWAY_LIGHT = '#3EAE58';
+const GREEN = '#D8FFB4';
 const SAND = '#E4C98A';
 const SAND_GRAIN = '#C6A86C';
+
+function pxPerMeter(projection: { toXY: (point: LatLon) => { x: number; y: number } }, origin: LatLon): number {
+  const start = projection.toXY(origin);
+  const shifted = projection.toXY({
+    lat: origin.lat + (20 / 6_371_000) * (180 / Math.PI),
+    lon: origin.lon,
+  });
+  return Math.hypot(shifted.x - start.x, shifted.y - start.y) / 20;
+}
 
 function pointsOf(ring: readonly LatLon[], projection: ReturnType<typeof projectPoints>): string {
   return ring
@@ -151,6 +163,7 @@ export function HoleMap(props: HoleMapProps) {
         ? projectPlayFrame({
             line: props.line,
             around,
+            fairway: props.fairways.flat(),
             width,
             height,
             view: frame,
@@ -266,9 +279,18 @@ export function HoleMap(props: HoleMapProps) {
                 <Polygon key={`clip-sand-${index}`} points={pointsOf(ring, projection)} />
               ))}
             </ClipPath>
-            <Pattern id={`${uid}-mow`} width={width} height={16} patternUnits="userSpaceOnUse">
-              <Rect x={0} y={0} width={width} height={8} fill={FAIRWAY_DARK} />
-              <Rect x={0} y={8} width={width} height={8} fill={FAIRWAY_LIGHT} />
+            <Pattern id={`${uid}-mow`} width={width} height={18} patternUnits="userSpaceOnUse">
+              <Rect x={0} y={0} width={width} height={9} fill={FAIRWAY_DARK} />
+              <Rect x={0} y={9} width={width} height={9} fill={FAIRWAY_LIGHT} />
+            </Pattern>
+            <Pattern id={`${uid}-trees`} width={72} height={72} patternUnits="userSpaceOnUse">
+              <Circle cx={14} cy={18} r={8} fill={TREE} />
+              <Circle cx={18} cy={16} r={4} fill={TREE_MID} />
+              <Circle cx={48} cy={46} r={10} fill={TREE} />
+              <Circle cx={52} cy={42} r={5} fill={TREE_MID} />
+              <Circle cx={30} cy={8} r={4} fill={TREE} />
+              <Circle cx={8} cy={52} r={5} fill={TREE_MID} />
+              <Circle cx={62} cy={14} r={3.5} fill={TREE} />
             </Pattern>
             <Pattern id={`${uid}-grain`} width={10} height={10} patternUnits="userSpaceOnUse">
               <Rect width={10} height={10} fill={SAND} />
@@ -282,9 +304,9 @@ export function HoleMap(props: HoleMapProps) {
               <Stop offset="1" stopColor={GREEN} stopOpacity="0" />
             </RadialGradient>
             <LinearGradient id={`${uid}-fairgrad`} x1="0" y1="1" x2="0" y2="0">
-              <Stop offset="0" stopColor="#0E4A28" />
-              <Stop offset="0.55" stopColor="#1F8A4C" />
-              <Stop offset="1" stopColor="#7DDEA0" />
+              <Stop offset="0" stopColor="#146B32" />
+              <Stop offset="0.5" stopColor="#2E9A4C" />
+              <Stop offset="1" stopColor="#8FE7A4" />
             </LinearGradient>
             {ellipseDraw ? (
               <RadialGradient id={`${uid}-ovalfill`} cx="50%" cy="42%" r="68%">
@@ -295,12 +317,31 @@ export function HoleMap(props: HoleMapProps) {
             ) : null}
           </Defs>
         ) : null}
-        {bleed ? <Rect x={0} y={0} width={width} height={height} fill={ROUGH} /> : null}
+        {bleed ? <Rect x={0} y={0} width={width} height={height} fill={SURROUND} /> : null}
+        {bleed ? <Rect x={0} y={0} width={width} height={height} fill={`url(#${uid}-trees)`} /> : null}
+        {bleed && lineXY.length > 1
+          ? (() => {
+              const playing = props.orient ? playingWidthMeters(props.fairways.flat(), props.orient.bearing, props.orient.origin) : null;
+              const ppm = props.orient ? pxPerMeter(projection, props.orient.origin) : 0;
+              const fairwayPx = playing && ppm ? playing * ppm : 0;
+              const roughPx = Math.min(width * 0.72, Math.max(width * 0.3, fairwayPx > 0 ? fairwayPx * 1.85 : width * 0.42));
+              return (
+                <Polyline
+                  points={xyString(lineXY)}
+                  fill="none"
+                  stroke={ROUGH}
+                  strokeWidth={roughPx}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              );
+            })()
+          : null}
         {props.fairways.map((ring, index) => (
           <Polygon key={`fairway-${index}`} points={pointsOf(ring, projection)} fill={bleed ? FAIRWAY_DARK : 'rgba(255,255,255,0.9)'} stroke={bleed ? '#145C32' : ink} strokeWidth={bleed ? 1.5 : 2} />
         ))}
         {bleed && props.fairways.length > 0 ? <Rect x={0} y={0} width={width} height={height} fill={`url(#${uid}-mow)`} clipPath={`url(#${uid}-fair)`} /> : null}
-        {bleed && props.fairways.length > 0 ? <Rect x={0} y={0} width={width} height={height} fill={`url(#${uid}-fairgrad)`} fillOpacity={0.55} clipPath={`url(#${uid}-fair)`} /> : null}
+        {bleed && props.fairways.length > 0 ? <Rect x={0} y={0} width={width} height={height} fill={`url(#${uid}-fairgrad)`} fillOpacity={0.28} clipPath={`url(#${uid}-fair)`} /> : null}
         {props.bunkers.map((ring, index) => (
           <Polygon key={`bunker-${index}`} points={pointsOf(ring, projection)} fill={bleed ? SAND : colors.white} stroke={bleed ? '#F8E7C0' : ink} strokeWidth={1.5} />
         ))}
@@ -440,7 +481,7 @@ export function HoleMap(props: HoleMapProps) {
 
 const styles = StyleSheet.create({
   frame: { borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2', backgroundColor: colors.bg },
-  bleed: { width: '100%', borderRadius: 0, borderWidth: 0, backgroundColor: ROUGH },
+  bleed: { width: '100%', borderRadius: 0, borderWidth: 0, backgroundColor: SURROUND },
   dotHits: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   dotHit: { position: 'absolute', width: 28, height: 28 },
   float: {

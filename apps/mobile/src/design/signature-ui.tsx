@@ -46,8 +46,7 @@ export function ThruBar({ label, pips }: { label: string | null; pips: readonly 
 }
 
 /** Circular confidence. An unknown sample draws the track only. */
-export function ConfidenceRing({ percent, label }: { percent: number | null; label?: string }) {
-  const size = 44;
+export function ConfidenceRing({ percent, label, size = 44 }: { percent: number | null; label?: string; size?: number }) {
   const stroke = 4;
   const radius = (size - stroke) / 2;
   const center = size / 2;
@@ -91,6 +90,7 @@ export function ClubStrip({
   selectedDetail,
   onIndex,
   onOpen,
+  peek = false,
 }: {
   clubs: readonly { id: string; label: string }[];
   index: number | null;
@@ -98,6 +98,8 @@ export function ClubStrip({
   selectedDetail?: string | null;
   onIndex: (index: number) => void;
   onOpen?: () => void;
+  /** Closed sheet shows the names only, short enough to peek under one caddie line. */
+  peek?: boolean;
 }) {
   const [width, setWidth] = useState(0);
   const reduce = useReduceMotion();
@@ -131,7 +133,7 @@ export function ClubStrip({
       accessibilityRole="adjustable"
       accessibilityLabel="Clubs"
       accessibilityHint="Drag sideways to change the club."
-      style={styles.strip}
+      style={[styles.strip, peek && styles.stripPeek]}
     >
       {visible.map((club) => {
         const clubIndex = clubs.indexOf(club);
@@ -147,7 +149,7 @@ export function ClubStrip({
               if (on) onOpen?.();
               else commit(clubIndex);
             }}
-            style={({ pressed }) => [styles.club, on && styles.clubOn, pressed && !reduce ? styles.pressed : null]}
+            style={({ pressed }) => [styles.club, peek && styles.clubPeek, on && styles.clubOn, pressed && !reduce ? styles.pressed : null]}
           >
             <Text style={[styles.clubText, on && styles.clubTextOn]} numberOfLines={1}>
               {on && selectedDetail ? selectedDetail : name}
@@ -171,7 +173,9 @@ const styles = StyleSheet.create({
   roundOn: { backgroundColor: signal.go },
   roundOff: { backgroundColor: 'transparent', borderWidth: 2, borderColor: '#FFFFFF' },
   strip: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
+  stripPeek: { alignItems: 'center' },
   club: { flex: 1, minWidth: 56, minHeight: 56, paddingHorizontal: 2, alignItems: 'center', justifyContent: 'center' },
+  clubPeek: { minHeight: 32 },
   clubOn: { flex: 1.4, minWidth: 88 },
   pressed: { transform: [{ scale: 0.96 }] },
   clubText: { color: 'rgba(255,255,255,0.72)', fontFamily: font.family, fontSize: type.caption, fontWeight: font.semibold },

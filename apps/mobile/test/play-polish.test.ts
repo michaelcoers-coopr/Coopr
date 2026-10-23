@@ -39,14 +39,17 @@ describe('score glance', () => {
 });
 
 describe('map inset', () => {
-  it('keeps the same top inset when the yardage panel changes height', () => {
+  it('keeps a compact HUD and lets the score bar float without moving the hole', () => {
     const inset = mapHudInset(0);
-    const closed = holeFrame({ hudHeight: inset, dockHeight: 80, sheetClosed: 200 });
-    const open = holeFrame({ hudHeight: mapHudInset(0), dockHeight: 80, sheetClosed: 200 });
-    expect(open.top).toBe(closed.top);
-    expect(open.top).toBe(254);
-    expect(mapHudInset(47)).toBe(261);
-    expect(mapHudInset(Number.NaN)).toBe(214);
+    const floating = holeFrame({ hudHeight: inset, dockHeight: 0, sheetClosed: CLOSED_CARD });
+    const measured = holeFrame({ hudHeight: mapHudInset(0), dockHeight: 96, sheetClosed: CLOSED_CARD });
+    expect(measured).toEqual(floating);
+    expect(mapHudInset(0)).toBe(92);
+    expect(mapHudInset(47)).toBe(139);
+    expect(mapHudInset(Number.NaN)).toBe(92);
+    expect(floating.top).toBeLessThanOrEqual(140);
+    const open = 844 - floating.top - floating.bottom;
+    expect(open).toBeGreaterThan(844 * 0.55);
   });
 });
 
@@ -65,7 +68,8 @@ describe('club card without shots', () => {
     expect(
       patternCaption({ onGreen: false, noShots: false, lowConfidence: false, sample: true, oval, invite: PATTERN_INVITE, thinLine: true }),
     ).toBe(`Sample pattern · ±${oval!.carryStdYards} × ±${oval!.lateralStdYards} yd`);
-    expect(CLOSED_CARD).toBeGreaterThanOrEqual(256);
+    expect(CLOSED_CARD).toBeGreaterThanOrEqual(108);
+    expect(CLOSED_CARD).toBeLessThanOrEqual(124);
     expect(SHOT_LOG_TIP).toBe('Log a shot after each swing, or upload a TrackMan photo');
     expect(greenMarkLabel('Front', '144', 'yd')).toBe('Front, 144 yards');
     expect(greenMarkLabel('Center', '150.5', 'm')).toBe('Center, 150.5 meters');

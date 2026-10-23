@@ -59,10 +59,10 @@ export function Vignette() {
     <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
       <Defs>
         <LinearGradient id="cooprVignette" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#070B10" stopOpacity="0.28" />
-          <Stop offset="0.16" stopColor="#070B10" stopOpacity="0" />
-          <Stop offset="0.72" stopColor="#070B10" stopOpacity="0" />
-          <Stop offset="1" stopColor="#070B10" stopOpacity="0.4" />
+          <Stop offset="0" stopColor="#0C2416" stopOpacity="0.16" />
+          <Stop offset="0.14" stopColor="#0C2416" stopOpacity="0" />
+          <Stop offset="0.78" stopColor="#0C2416" stopOpacity="0" />
+          <Stop offset="1" stopColor="#0C2416" stopOpacity="0.2" />
         </LinearGradient>
       </Defs>
       <Rect width="100" height="100" fill="url(#cooprVignette)" />

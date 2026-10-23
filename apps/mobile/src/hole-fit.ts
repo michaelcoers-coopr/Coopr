@@ -127,8 +127,44 @@ export function projectHoleFill(
   };
 }
 
-/** How far past a measured stock carry the tee camera looks. */
+/** How far past a measured stock carry the tee camera looks, before the width rule crops it. */
 export const PAST_STOCK_YARDS = 40;
+
+/** Tee-shot fairway width as a fraction of the screen width. The width rule wins over the far yard marks. */
+export const TEE_WIDTH_FRACTION = 0.35;
+
+/**
+ * Median fairway cross-section, in meters.
+ * A dogleg's bounding box is wider than the grass, so the camera uses the grass.
+ */
+export function playingWidthMeters(points: readonly LatLon[], bearingDeg: number, origin: LatLon): number | null {
+  const usable = points.filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+  if (usable.length < 2 || !Number.isFinite(bearingDeg)) return null;
+  const theta = radians(bearingDeg);
+  const framed = usable.map((point) => {
+    const { east, north } = localMeters(origin, point);
+    return {
+      along: east * Math.sin(theta) + north * Math.cos(theta),
+      across: east * Math.cos(theta) - north * Math.sin(theta),
+    };
+  });
+  const minAlong = Math.min(...framed.map((item) => item.along));
+  const maxAlong = Math.max(...framed.map((item) => item.along));
+  const spanAlong = maxAlong - minAlong;
+  if (spanAlong < 8) return null;
+  const bins = 8;
+  const widths: number[] = [];
+  for (let index = 0; index < bins; index += 1) {
+    const low = minAlong + (spanAlong * index) / bins;
+    const high = low + spanAlong / bins;
+    const slice = framed.filter((item) => item.along >= low && item.along < high + (index === bins - 1 ? 1 : 0));
+    if (slice.length < 2) continue;
+    const width = Math.max(...slice.map((item) => item.across)) - Math.min(...slice.map((item) => item.across));
+    if (width >= 8) widths.push(width);
+  }
+  if (widths.length === 0) return null;
+  return median(widths);
+}
 
 /** Yard marks drawn on the tee shot. */
 export const TEE_SHOT_MARKS = [150, 200, 250] as const;
@@ -184,13 +220,15 @@ export interface PlayView {
 }
 
 /**
- * Frames the hole in the open band between the yardage panel and the sheet.
- * Tee and full-hole put the tee on the bottom edge of that band.
- * Ball-to-green puts the ball on that edge and the green on the top edge.
+ * Frames the hole in the open band between the yardage HUD and the sheet.
+ * The tee shot pins the tee to the bottom and zooms until the fairway's own width
+ * is at least 35% of the screen. That crop wins over the 200 and 250 marks.
+ * Full hole and ball-to-green fit their span in the band, so they stay zoomed out.
  */
 export function projectPlayFrame(input: {
   line: readonly LatLon[];
   around: readonly LatLon[];
+  fairway?: readonly LatLon[];
   width: number;
   height: number;
   view: PlayView;
@@ -232,12 +270,24 @@ export function projectPlayFrame(input: {
   const minSpan = 40 * 0.9144;
   if (far - near < minSpan) near = far - minSpan;
   const spanAlong = far - near || 1;
-  const fitTop = input.view.top + 20;
-  const fitBottom = input.view.bottom + 10;
+  const fitTop = input.view.top + 6;
+  const fitBottom = input.view.bottom + 4;
   const innerW = Math.max(1, input.width - input.view.left - input.view.right);
   const innerH = Math.max(1, input.height - fitTop - fitBottom);
   if (innerH < 48 || innerW < 48) return contain();
-  const scale = innerH / spanAlong;
+  let scale = innerH / spanAlong;
+  if (input.kind === 'tee' && end.along >= start.along) {
+    const playing = playingWidthMeters(input.fairway ?? [], input.bearing, input.origin);
+    if (playing != null && playing >= 8) {
+      const widthScale = (input.width * TEE_WIDTH_FRACTION) / playing;
+      if (widthScale > scale) {
+        scale = widthScale;
+        const visible = innerH / scale;
+        near = start.along;
+        far = start.along + visible;
+      }
+    }
+  }
   let minAcross = Number.POSITIVE_INFINITY;
   let maxAcross = Number.NEGATIVE_INFINITY;
   for (const point of [...input.line, ...input.around, startPoint, endPoint]) {
