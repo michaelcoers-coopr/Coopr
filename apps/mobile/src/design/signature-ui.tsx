@@ -76,7 +76,7 @@ export function ClubStrip({
           <Pressable
             key={club.id}
             accessibilityRole="button"
-            accessibilityLabel={`Club ${name}`}
+            accessibilityLabel={on ? `Club ${name}, selected` : `Club ${name}`}
             accessibilityState={{ selected: on }}
             onPress={() => onIndex(clubIndex)}
             style={[styles.club, on && styles.clubOn]}

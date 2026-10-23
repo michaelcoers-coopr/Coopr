@@ -70,7 +70,7 @@ import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
 
 const pilot = loadHighCedarsPilot();
-const SHEET_CLOSED = 240;
+const SHEET_CLOSED = 168;
 const SHEET_OPEN = 420;
 const SHEET_SPRING = { damping: 18, stiffness: 190, mass: 0.75 };
 
@@ -168,8 +168,8 @@ export default function PlayScreen() {
   const [saved, setSaved] = useState<string | null>(null);
   const [roll, setRoll] = useState<number | null>(null);
   const [mapH, setMapH] = useState(844);
-  const [dockH, setDockH] = useState(200);
-  const [hudH, setHudH] = useState(200);
+  const [dockH, setDockH] = useState(148);
+  const [hudH, setHudH] = useState(210);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
   const [breakdown, setBreakdown] = useState(false);
@@ -620,7 +620,7 @@ export default function PlayScreen() {
   };
 
   const heroText = roll != null ? String(Math.round(roll)) : heroBase == null ? '' : formatDistance(heroBase, unit);
-  const figure = clubFigure(playsLikeYards, shotYards, player != null);
+  const figure = clubFigure(scrubClub ? focusedPlays : playsLikeYards, scrubClub ? focusedRaw : shotYards, scrubClub ? false : player != null);
   const whyLine = clubWhy({
     layupReason: layup?.call === 'lay_up' ? layup.reason : null,
     stockYards: calledId ? stockYards : null,
@@ -664,6 +664,7 @@ export default function PlayScreen() {
           hazards={ringsOf(overlay.hazards)}
           ellipse={ellipse}
           ellipseColor={safety ? patternColor(safety) : null}
+          ellipseNote={oval ? `${sampleOn ? 'Sample ' : ''}±${oval.carryStdYards} by ±${oval.lateralStdYards} yd` : null}
           flight={flight}
           reduceMotion={reduceMotion}
           dispersionLine={dispersionLine}
@@ -737,13 +738,13 @@ export default function PlayScreen() {
               )}
             </Pressable>
             <End label="Back" value={ground ? formatDistance(ground.backYards, unit) : ''} />
+            <Pressable accessibilityRole="button" accessibilityLabel={breakdown ? 'Hide conditions' : 'Conditions'} onPress={() => setBreakdown((open) => !open)} style={styles.condHit}>
+              <Glass radius={18} intensity={48} overlay="rgba(11,31,58,0.55)" style={styles.condPill} contentStyle={styles.condFill}>
+                <Text style={styles.condText}>{breakdown ? 'Hide' : 'Conditions'}</Text>
+              </Glass>
+            </Pressable>
           </View>
           {!player && !overrideOpen ? <Text style={styles.hint}>Hold the number to type the yards.</Text> : null}
-        </Glass>
-        <Glass radius={24} style={styles.conditionsPill} contentStyle={styles.conditionsFill}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Conditions" onPress={() => setBreakdown((open) => !open)} style={styles.conditions}>
-            <Text style={styles.hint}>{breakdown ? 'Hide conditions' : 'Conditions'}</Text>
-          </Pressable>
           {breakdown ? (
             <View style={styles.chips}>
               <Text style={styles.chip}>{focusedChips?.wind ?? 'Wind ?'}</Text>
@@ -847,7 +848,7 @@ export default function PlayScreen() {
           onIndex={setScrubIndex}
         />
         <View style={styles.dockRow}>
-          <CountChip minHeight={96} value={face.strokes} confirmed={face.strokesConfirmed} par={par} floor={1} idleLabel="Score" onWrite={writeStrokes} />
+          <CountChip minHeight={64} value={face.strokes} confirmed={face.strokesConfirmed} par={par} floor={1} idleLabel="Score" onWrite={writeStrokes} />
           <Pressable accessibilityRole="button" accessibilityLabel="Mark shot" onPress={markHere} style={styles.markHit}>
             <Glass radius={24} style={styles.mark} contentStyle={styles.markFill}>
               <Text style={styles.markText}>Mark shot</Text>
@@ -955,9 +956,10 @@ const styles = StyleSheet.create({
     textShadowRadius: 14,
   },
   hint: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, textAlign: 'center' },
-  conditionsPill: { alignSelf: 'center' },
-  conditionsFill: { paddingHorizontal: 8, paddingBottom: 8 },
-  conditions: { minHeight: 56, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  condHit: { width: 92, minHeight: 56, justifyContent: 'flex-end' },
+  condPill: { minHeight: 56 },
+  condFill: { minHeight: 56, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
+  condText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 20, fontWeight: '700', textAlign: 'center' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, paddingHorizontal: 8 },
   chip: {
     color: '#FFFFFF',
@@ -977,10 +979,10 @@ const styles = StyleSheet.create({
   sheet: { position: 'absolute', left: 12, right: 12, overflow: 'hidden' },
   sheetGlass: { flex: 1 },
   sheetFill: { flex: 1 },
-  grab: { paddingTop: 8, paddingHorizontal: 16, paddingBottom: 4 },
-  handleHit: { minHeight: 28, alignItems: 'center', justifyContent: 'center' },
+  grab: { paddingTop: 4, paddingHorizontal: 16, paddingBottom: 2 },
+  handleHit: { minHeight: 20, alignItems: 'center', justifyContent: 'center' },
   handle: { width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.72)' },
-  clubRow: { minHeight: 88, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  clubRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12 },
   ring: { flex: 1, minHeight: 56, borderRadius: 18, borderWidth: 3, borderColor: 'rgba(255,255,255,0.4)', paddingHorizontal: 10, paddingVertical: 4, justifyContent: 'center' },
   ringGo: { borderColor: signal.go },
   ringCaution: { borderColor: signal.caution },
@@ -993,8 +995,8 @@ const styles = StyleSheet.create({
   figureNum: {
     color: '#FFFFFF',
     fontFamily: font.family,
-    fontSize: 48,
-    lineHeight: 52,
+    fontSize: 28,
+    lineHeight: 32,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
     letterSpacing: -1,
@@ -1006,9 +1008,9 @@ const styles = StyleSheet.create({
   dock: { position: 'absolute', left: 12, right: 108, bottom: 0, gap: 8 },
   dockRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
   askFloat: { position: 'absolute', right: 12, zIndex: 6 },
-  markHit: { flex: 1, minHeight: 96 },
-  mark: { flex: 1, minHeight: 96 },
-  markFill: { minHeight: 96, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  markHit: { flex: 1, minHeight: 64 },
+  mark: { flex: 1, minHeight: 64 },
+  markFill: { minHeight: 64, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   markText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
   quiet: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, padding: 24 },
   savedWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },

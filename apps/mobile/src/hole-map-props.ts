@@ -10,6 +10,8 @@ export interface HoleMapProps {
   ellipse: readonly LatLon[] | null;
   /** Semantic fill for the dispersion oval. Omitted when there is no oval. */
   ellipseColor?: string | null;
+  /** Measured standard deviations, in yards. The map may magnify a tiny oval and must say so. */
+  ellipseNote?: string | null;
   /** Aim curve between two real points. A drawing, not a measured flight. */
   flight?: readonly LatLon[] | null;
   reduceMotion?: boolean;
