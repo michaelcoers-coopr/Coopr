@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { colors, font, motion, play, radius, space, touch, type } from '@coopr/tokens';
-import { bagGlance, resumeLine } from '../src/design/home-copy';
+import { bagGlance, resumeLine, skyLine } from '../src/design/home-copy';
 import { RESULT_ICONS } from '../src/design/icons';
 import { holeSwipe, rollSteps } from '../src/design/motion';
 
@@ -49,5 +49,9 @@ describe('home glance', () => {
     expect(resumeLine({ hole: 7, holesEntered: 6, gross: 28 })).toEqual({ title: 'Resume hole 7', detail: 'Gross 28' });
     expect(bagGlance(14)).toBe('14 of 14');
     expect(RESULT_ICONS).toEqual({ fairway: 'flag', left: 'left', right: 'right', short: 'down', hazard: 'hazard' });
+    expect(skyLine(null)).toBeNull();
+    expect(skyLine({ temperatureF: 64.2, windMph: 8.4, headwindMph: null })).toBe('64° · Wind 8 mph');
+    expect(skyLine({ temperatureF: 64, windMph: 9, headwindMph: 6.2 })).toBe('64° · Wind 9 mph · 6 in your face');
+    expect(skyLine({ temperatureF: 64, windMph: 9, headwindMph: -3.4 })).toBe('64° · Wind 9 mph · 3 helping');
   });
 });

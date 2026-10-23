@@ -46,6 +46,7 @@ import { holeSwipe, rollSteps } from '../src/design/motion';
 import { clubFigure, clubWhy, holeEnter, holeShift, scoreGlance, sheetSnap } from '../src/design/play-polish';
 import { Glass, Vignette } from '../src/design/glass';
 import { CountChip } from '../src/design/count-chip';
+import { holeLabels } from '../src/map-labels';
 import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
 import { useLocalStore, type LandingResult } from '../src/local-store';
@@ -323,7 +324,13 @@ export default function PlayScreen() {
   useEffect(() => {
     const geometry = holeOverlay(pilot.features, pilot.record.scorecard, currentHole);
     const ring = geometry.green?.rings[0] ?? null;
-    return subscribeGps(setPlayer, (stored) => (typeof stored === 'string' ? gpsPreset(stored, geometry.line, ring) : stored));
+    return subscribeGps((fix) => {
+      setPlayer((current) => {
+        if (fix == null) return current == null ? current : null;
+        if (current && current.lat === fix.lat && current.lon === fix.lon) return current;
+        return fix;
+      });
+    }, (stored) => (typeof stored === 'string' ? gpsPreset(stored, geometry.line, ring) : stored));
   }, [currentHole]);
 
   useEffect(() => {
@@ -532,7 +539,6 @@ export default function PlayScreen() {
     <View
       style={styles.screen}
       onLayout={(event) => setMapH(Math.max(1, Math.round(event.nativeEvent.layout.height)))}
-      {...pan.panHandlers}
     >
       <StatusBar style="light" />
       <Stack.Screen options={{ headerShown: false, title: `Hole ${hole.holeNumber}` }} />
@@ -541,7 +547,15 @@ export default function PlayScreen() {
         <HoleMap
           bleed
           height={mapH}
-          pad={{ top: insets.top + 188, bottom: dockH + SHEET_CLOSED + 28, left: 32, right: 32 }}
+          pad={{ top: 56, right: 14, bottom: 48, left: 14 }}
+          orient={bearing != null && overlay.line[0] ? { bearing, origin: overlay.line[0] } : null}
+          labels={holeLabels(
+            overlay.line,
+            unit,
+            player && bearing != null && callYards != null && callYards > 0
+              ? { at: destinationPoint(player, bearing, callYards), label: formatDistance(callYards, unit) }
+              : null,
+          )}
           line={overlay.line}
           fairways={ringsOf(overlay.fairways)}
           green={overlay.green ? ringsOf([overlay.green]) : []}
@@ -558,23 +572,26 @@ export default function PlayScreen() {
         <Vignette />
       </Animated.View>
       <View pointerEvents="box-none" style={[styles.hud, { paddingTop: insets.top + 8 }]}>
-        <View style={styles.chipRow}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Home" onPress={() => router.push('/')} style={styles.chipHit}>
-            <Glass radius={24} style={styles.chip} contentStyle={styles.chipFill}>
-              <Text style={styles.chipText}>Home</Text>
-            </Glass>
-          </Pressable>
-          <Glass radius={24} style={styles.chip} contentStyle={styles.chipFill}>
-            <Text style={styles.chipText}>{`Hole ${hole.holeNumber}`}</Text>
-          </Glass>
-          <Glass radius={24} style={styles.chip} contentStyle={styles.chipFill}>
-            <Text style={styles.chipText}>{`Par ${par ?? '—'}`}</Text>
-          </Glass>
-          <Glass radius={24} style={styles.chip} contentStyle={styles.chipFill}>
-            <Text style={styles.chipText}>{`SI ${hole.strokeIndex ?? '—'}`}</Text>
+        <View
+          {...pan.panHandlers}
+          accessibilityRole="adjustable"
+          accessibilityLabel={`Hole ${hole.holeNumber}, par ${par ?? 'unknown'}, stroke index ${hole.strokeIndex ?? 'unknown'}`}
+          accessibilityHint="Swipe left for the next hole. Swipe right for the previous hole."
+          accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+          onAccessibilityAction={(event) => {
+            if (event.nativeEvent.actionName === 'increment') leaveRef.current();
+            if (event.nativeEvent.actionName === 'decrement') backRef.current();
+          }}
+        >
+          <Glass radius={24} style={styles.header} contentStyle={styles.headerFill}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Home" onPress={() => router.push('/')} style={styles.backHit}>
+              <View style={styles.chevron} />
+            </Pressable>
+            <Text style={styles.headerTitle}>{`Hole ${hole.holeNumber} · Par ${par ?? '—'}`}</Text>
+            <Text style={styles.headerSi}>{`SI ${hole.strokeIndex ?? '—'}`}</Text>
           </Glass>
         </View>
-        <Glass radius={28} style={styles.pill} contentStyle={styles.pillFill}>
+        <Glass radius={28} intensity={40} overlay="rgba(11,31,58,0.46)" style={styles.pill} contentStyle={styles.pillFill}>
           <View style={styles.ends}>
             <End label="Front" value={ground ? formatDistance(ground.frontYards, unit) : ''} />
             <Pressable
@@ -694,7 +711,7 @@ export default function PlayScreen() {
       >
         {ask.undo}
         <View style={styles.dockRow}>
-          <CountChip value={face.strokes} confirmed={face.strokesConfirmed} par={par} floor={1} idleLabel="Score" onWrite={writeStrokes} />
+          <CountChip minHeight={96} value={face.strokes} confirmed={face.strokesConfirmed} par={par} floor={1} idleLabel="Score" onWrite={writeStrokes} />
           <Pressable accessibilityRole="button" accessibilityLabel="Mark shot" onPress={markHere} style={styles.markHit}>
             <Glass radius={24} style={styles.mark} contentStyle={styles.markFill}>
               <Text style={styles.markText}>Mark shot</Text>
@@ -736,11 +753,20 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#0C2418', overflow: 'hidden' },
   mapWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#0C2418' },
   hud: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 16, gap: 10 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chipHit: { minHeight: 56 },
-  chip: { minHeight: 56 },
-  chipFill: { minHeight: 56, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
-  chipText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
+  header: { minHeight: 64 },
+  headerFill: { minHeight: 64, flexDirection: 'row', alignItems: 'center', paddingRight: 16, gap: 4 },
+  backHit: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  chevron: {
+    width: 12,
+    height: 12,
+    borderLeftWidth: 3,
+    borderBottomWidth: 3,
+    borderColor: '#FFFFFF',
+    transform: [{ rotate: '45deg' }],
+    marginLeft: 4,
+  },
+  headerTitle: { flex: 1, color: '#FFFFFF', fontFamily: font.family, fontSize: 22, lineHeight: 28, fontWeight: '700' },
+  headerSi: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '600' },
   pill: { alignSelf: 'center', width: '100%', maxWidth: 360 },
   pillFill: { paddingHorizontal: 8, paddingTop: 8, paddingBottom: 10, gap: 2 },
   ends: { flexDirection: 'row', alignItems: 'flex-end' },
@@ -755,6 +781,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
     minHeight: 28,
+    textShadowColor: 'rgba(11,31,58,0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   centerNum: {
     color: '#FFFFFF',
@@ -766,6 +795,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     minWidth: 88,
     padding: 0,
+    textShadowColor: 'rgba(11,31,58,0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   centerInput: { minWidth: 108 },
   centerLive: { color: field.live },
@@ -797,9 +829,9 @@ const styles = StyleSheet.create({
   textHit: { minHeight: 56, justifyContent: 'center' },
   dock: { position: 'absolute', left: 12, right: 12, bottom: 0, gap: 8 },
   dockRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
-  markHit: { flex: 1, minHeight: 56 },
-  mark: { flex: 1, minHeight: 56 },
-  markFill: { minHeight: 56, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  markHit: { flex: 1, minHeight: 96 },
+  mark: { flex: 1, minHeight: 96 },
+  markFill: { minHeight: 96, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   markText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
   quiet: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, padding: 24 },
   savedWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },

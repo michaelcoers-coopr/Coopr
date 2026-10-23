@@ -276,3 +276,100 @@ export function projectPoints(points: readonly LatLon[], width: number, height: 
     }),
   };
 }
+
+function padBox(pad: number | MapPad): { top: number; right: number; bottom: number; left: number } {
+  return typeof pad === 'number'
+    ? { top: pad, right: pad, bottom: pad, left: pad }
+    : { top: pad.top ?? 16, right: pad.right ?? 16, bottom: pad.bottom ?? 16, left: pad.left ?? 16 };
+}
+
+function localMeters(origin: LatLon, point: LatLon): { east: number; north: number } {
+  const meanLat = radians((origin.lat + point.lat) / 2);
+  return {
+    north: radians(point.lat - origin.lat) * EARTH_RADIUS_M,
+    east: radians(point.lon - origin.lon) * EARTH_RADIUS_M * Math.cos(meanLat),
+  };
+}
+
+/**
+ * Fits a hole with the tee at the bottom and the green at the top.
+ * `bearingDeg` is the tee-to-green bearing. North-up `projectPoints` is unchanged.
+ */
+export function projectAlongHole(
+  points: readonly LatLon[],
+  width: number,
+  height: number,
+  pad: number | MapPad = 16,
+  bearingDeg: number,
+  origin: LatLon,
+): MapProjection {
+  const box = padBox(pad);
+  const theta = radians(bearingDeg);
+  const frame = (point: LatLon) => {
+    const { east, north } = localMeters(origin, point);
+    return {
+      along: east * Math.sin(theta) + north * Math.cos(theta),
+      across: east * Math.cos(theta) - north * Math.sin(theta),
+    };
+  };
+  const usable = points.filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+  const frames = (usable.length ? usable : [origin]).map(frame);
+  const minAlong = Math.min(...frames.map((item) => item.along));
+  const maxAlong = Math.max(...frames.map((item) => item.along));
+  const minAcross = Math.min(...frames.map((item) => item.across));
+  const maxAcross = Math.max(...frames.map((item) => item.across));
+  const spanAlong = maxAlong - minAlong || 1;
+  const spanAcross = maxAcross - minAcross || 1;
+  const innerW = Math.max(1, width - box.left - box.right);
+  const innerH = Math.max(1, height - box.top - box.bottom);
+  const scale = Math.min(innerW / spanAcross, innerH / spanAlong);
+  const offsetX = box.left + (innerW - spanAcross * scale) / 2;
+  const offsetY = box.top + (innerH - spanAlong * scale) / 2;
+  return {
+    toXY: (point) => {
+      const { along, across } = frame(point);
+      return {
+        x: offsetX + (across - minAcross) * scale,
+        y: offsetY + (maxAlong - along) * scale,
+      };
+    },
+    toLatLon: (x, y) => {
+      const across = minAcross + (x - offsetX) / scale;
+      const along = maxAlong - (y - offsetY) / scale;
+      const east = along * Math.sin(theta) + across * Math.cos(theta);
+      const north = along * Math.cos(theta) - across * Math.sin(theta);
+      const lat = origin.lat + (north / EARTH_RADIUS_M) * (180 / Math.PI);
+      const cosLat = Math.cos(radians(origin.lat)) || 1;
+      const lon = origin.lon + (east / (EARTH_RADIUS_M * cosLat)) * (180 / Math.PI);
+      return { lat, lon };
+    },
+  };
+}
+
+/** Ground distances along a surveyed line. Each mark is that many yards from the start. */
+export function lineMarks(line: readonly LatLon[], everyYards: number): { at: LatLon; yards: number }[] {
+  if (line.length < 2 || !Number.isFinite(everyYards) || everyYards <= 0) return [];
+  const marks: { at: LatLon; yards: number }[] = [];
+  let walked = 0;
+  let next = everyYards;
+  for (let index = 1; index < line.length; index += 1) {
+    const start = line[index - 1]!;
+    const end = line[index]!;
+    const span = distanceYards(start, end);
+    if (span <= 0) continue;
+    while (next <= walked + span + 1e-6) {
+      const clamped = Math.min(1, Math.max(0, (next - walked) / span));
+      marks.push({
+        at: {
+          lat: start.lat + (end.lat - start.lat) * clamped,
+          lon: start.lon + (end.lon - start.lon) * clamped,
+        },
+        yards: next,
+      });
+      next += everyYards;
+      if (marks.length > 24) return marks;
+    }
+    walked += span;
+  }
+  return marks;
+}

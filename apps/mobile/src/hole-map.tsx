@@ -1,7 +1,8 @@
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { StyleSheet, Text, View } from 'react-native';
 import type { LatLon } from '@coopr/domain';
-import { colors, play } from '@coopr/tokens';
+import { colors } from '@coopr/tokens';
+import { shotBearing } from '@coopr/engine';
 import type { HoleMapProps } from './hole-map-props';
 import { Muted } from './ui';
 
@@ -19,20 +20,30 @@ export function HoleMap(props: HoleMapProps) {
   const bleed = props.bleed === true;
   const latSpan = Math.max(...lats) - Math.min(...lats);
   const lonSpan = Math.max(...lons) - Math.min(...lons);
-  const latitudeDelta = Math.max(0.002, latSpan * (bleed ? 2.2 : 1.7));
-  const longitudeDelta = Math.max(0.002, lonSpan * (bleed ? 1.85 : 1.7));
-  const region = {
-    latitude: (Math.min(...lats) + Math.max(...lats)) / 2 - (bleed ? latitudeDelta * 0.1 : 0),
-    longitude: (Math.min(...lons) + Math.max(...lons)) / 2,
-    latitudeDelta,
-    longitudeDelta,
-  };
+  const span = Math.max(latSpan, lonSpan, 0.002);
+  const latitudeDelta = Math.max(0.002, span * (bleed ? 1.65 : 1.7));
+  const longitudeDelta = Math.max(0.002, span * (bleed ? 1.65 : 1.7));
+  const latitude = (Math.min(...lats) + Math.max(...lats)) / 2;
+  const longitude = (Math.min(...lons) + Math.max(...lons)) / 2;
+  const region = { latitude, longitude, latitudeDelta, longitudeDelta };
+  const bearing = props.orient?.bearing ?? shotBearing(props.line);
+  const meters = span * 111_320;
+  const camera =
+    bleed && bearing != null
+      ? {
+          center: { latitude, longitude },
+          pitch: 0,
+          heading: bearing,
+          altitude: Math.max(480, meters * 2.2),
+          zoom: Math.max(14, Math.min(17.2, 17.4 - Math.log2(Math.max(meters, 160) / 220))),
+        }
+      : null;
   return (
     <View style={[styles.frame, bleed && styles.bleed, { height: props.height ?? 320 }]}>
       <MapView
         style={styles.map}
         mapType="satellite"
-        initialRegion={region}
+        {...(camera ? { initialCamera: camera } : { initialRegion: region })}
         rotateEnabled={false}
         pitchEnabled={false}
         onPress={(event) => props.onTap({ lat: event.nativeEvent.coordinate.latitude, lon: event.nativeEvent.coordinate.longitude })}
@@ -96,7 +107,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.7)',
   },
-  markPrimary: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.white, borderWidth: 2, borderColor: play.live },
+  markPrimary: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.white, borderWidth: 2, borderColor: colors.navy },
   markText: { color: colors.navy, fontSize: 10, fontWeight: '700' },
   markTextPrimary: { fontSize: 13 },
   float: {

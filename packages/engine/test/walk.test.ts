@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { destinationPoint, distanceYards, greenYardsFrom, projectPoints } from '../src/geo';
+import { destinationPoint, distanceYards, greenYardsFrom, lineMarks, projectAlongHole, projectPoints } from '../src/geo';
 import {
   arrivedAtNextTee,
   classifyFinish,
@@ -130,5 +130,29 @@ describe('map projection', () => {
     const dropped = projectPoints(points, 200, 200, { top: 60, bottom: 20, left: 20, right: 20 });
     expect(even.toXY({ lat: 1, lon: 0 }).y).toBeGreaterThanOrEqual(20);
     expect(dropped.toXY({ lat: 1, lon: 0 }).y).toBeGreaterThan(even.toXY({ lat: 1, lon: 0 }).y);
+  });
+
+  it('stands an east-west hole up so the green is above the tee and the length fills the screen', () => {
+    const tee = { lat: 47.45, lon: -122.2 };
+    const green = destinationPoint(tee, 90, 480);
+    const left = destinationPoint(destinationPoint(tee, 90, 240), 0, 30);
+    const points = [tee, green, left];
+    const northUp = projectPoints(points, 390, 844, 16);
+    const stood = projectAlongHole(points, 390, 844, 16, 90, tee);
+    const flat = Math.abs(northUp.toXY(green).y - northUp.toXY(tee).y);
+    const tall = Math.abs(stood.toXY(green).y - stood.toXY(tee).y);
+    expect(stood.toXY(green).y).toBeLessThan(stood.toXY(tee).y);
+    expect(stood.toXY(left).x).toBeLessThan(stood.toXY(tee).x);
+    expect(tall).toBeGreaterThan(flat * 3);
+    expect(tall).toBeGreaterThan(700);
+  });
+
+  it('marks measured distances along the hole line', () => {
+    const tee = { lat: 47.45, lon: -122.2 };
+    const green = destinationPoint(tee, 0, 300);
+    const marks = lineMarks([tee, green], 150);
+    expect(marks.map((mark) => mark.yards)).toEqual([150, 300]);
+    expect(distanceYards(tee, marks[0]!.at)).toBeCloseTo(150, 0);
+    expect(lineMarks([tee], 150)).toEqual([]);
   });
 });

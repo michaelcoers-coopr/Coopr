@@ -17,6 +17,7 @@ export function CountChip({
   floor,
   idleLabel,
   onWrite,
+  minHeight = 88,
 }: {
   value: number | null;
   confirmed: boolean;
@@ -24,6 +25,7 @@ export function CountChip({
   floor: number;
   idleLabel: string;
   onWrite: (next: number) => void;
+  minHeight?: number;
 }) {
   const glance = scoreGlance(value, par, confirmed);
   const glow = scoreGlow(glance.motion);
@@ -87,17 +89,17 @@ export function CountChip({
         current.onWrite(scoreCommit(current.value, 'tap', current.floor));
         void tick();
       }}
-      style={styles.hit}
+      style={[styles.hit, { minHeight }]}
     >
       {glow ? <Animated.View pointerEvents="none" style={[styles.halo, { backgroundColor: glow }, ring]} /> : null}
       <Glass
         radius={24}
         intensity={80}
         overlay={hot ? 'rgba(200,16,46,0.92)' : undefined}
-        style={styles.shell}
-        contentStyle={styles.fill}
+        style={[styles.shell, { minHeight }]}
+        contentStyle={[styles.fill, { minHeight }]}
       >
-        <Animated.View style={[styles.fill, pop]}>
+        <Animated.View style={[styles.fill, { minHeight }, pop]}>
           <Text style={styles.value}>{value == null ? '' : String(value)}</Text>
           <Text style={styles.caption}>{caption}</Text>
         </Animated.View>
