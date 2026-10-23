@@ -8,7 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
 import { holeOverlay, ringCentroid, roundProgress, shotBearing } from '@coopr/engine';
 import { loadHighCedarsPilot } from '@coopr/course';
-import { colors, font, radius, space, TAGLINE, type } from '@coopr/tokens';
+import { colors, font, radius, space, type } from '@coopr/tokens';
+import { useReduceMotion } from '../src/design/reduce-motion';
 import { bagGlance, resumeLine, skyLine } from '../src/design/home-copy';
 import { Glass } from '../src/design/glass';
 import { Pips } from '../src/design/signature-ui';
@@ -43,14 +44,19 @@ export default function HomeScreen() {
       ? { temperatureF: sky.current.temperatureF, windMph: sky.current.windMph, headwindMph: sky.headwindMph }
       : null,
   );
-  const drift = useSharedValue(0);
+  const reduceMotion = useReduceMotion();
+  const drift = useSharedValue(0.5);
   const washStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1.12 }, { translateX: (drift.value - 0.5) * 36 }, { translateY: (0.5 - drift.value) * 22 }],
+    transform: [{ scale: 1.08 }, { translateX: (drift.value - 0.5) * 28 }, { translateY: (0.5 - drift.value) * 16 }],
   }));
 
   useEffect(() => {
+    if (reduceMotion) {
+      drift.value = 0.5;
+      return;
+    }
     drift.value = withRepeat(withTiming(1, { duration: 16000 }), -1, true);
-  }, [drift]);
+  }, [drift, reduceMotion]);
 
   useEffect(() => {
     const at = holeOne.line[0];
@@ -96,29 +102,31 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
           <View style={styles.crestPlate}>
-            <Crest size={72} />
+            <Crest size={56} />
           </View>
-          <Text style={styles.word}>COOPR</Text>
-          <View style={styles.rule} />
-          <Text style={styles.tag}>{TAGLINE}</Text>
-          {weather ? (
-            <Glass radius={24} style={styles.weather} contentStyle={styles.weatherFill}>
-              <WindMark />
-              <Text style={styles.weatherText}>{weather}</Text>
-            </Glass>
-          ) : null}
-          <Pressable accessibilityRole="button" accessibilityLabel="Play High Cedars" onPress={() => router.push('/play')}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Play High Cedars"
+            onPress={() => router.push('/play')}
+            style={({ pressed }) => [pressed && !reduceMotion && styles.pressed]}
+          >
             <Glass radius={radius.sheet} style={styles.play} contentStyle={styles.playFill}>
               <Text style={styles.kicker}>High Cedars</Text>
               <Text style={styles.playTitle}>{resume.title}</Text>
               <Text style={styles.playDetail}>{resume.detail}</Text>
+              <Text style={styles.playMeta}>{`${bagGlance(inPlay)} in the bag`}</Text>
+              {weather ? (
+                <View style={styles.weatherRow}>
+                  <WindMark />
+                  <Text style={styles.weatherText}>{weather}</Text>
+                </View>
+              ) : null}
               <View style={styles.playButton}>
                 <Text style={styles.playButtonText}>Play</Text>
               </View>
             </Glass>
           </Pressable>
           <View style={styles.glance}>
-            <Stat icon={<BagMark />} label="In the bag" value={bagGlance(inPlay)} />
             <Stat
               icon={<FlagMark />}
               label="Gross"
@@ -134,7 +142,7 @@ export default function HomeScreen() {
             <View style={styles.tabMark} />
             <Text style={styles.tabText}>Round</Text>
           </View>
-          <Pressable accessibilityRole="tab" accessibilityLabel="More" onPress={() => router.push('/more')} style={styles.tabItem}>
+          <Pressable accessibilityRole="tab" accessibilityLabel="More" onPress={() => router.push('/more')} style={({ pressed }) => [styles.tabItem, pressed && !reduceMotion && styles.pressed]}>
             <Text style={styles.tabText}>More</Text>
           </Pressable>
         </Glass>
@@ -166,15 +174,6 @@ function Stat({
       </View>
       {value ? <Text style={styles.statValue}>{value}</Text> : null}
     </Glass>
-  );
-}
-
-function BagMark() {
-  return (
-    <View style={styles.icon}>
-      <View style={styles.bagHandle} />
-      <View style={styles.bagBody} />
-    </View>
   );
 }
 
@@ -212,67 +211,46 @@ const styles = StyleSheet.create({
   scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(11,31,58,0.32)' },
   safe: { flex: 1 },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: space[3], paddingBottom: 28, gap: 12 },
+  content: { paddingHorizontal: space[3], paddingTop: space[2], paddingBottom: space[4], gap: space[2] },
+  pressed: { transform: [{ scale: 0.98 }] },
   crestPlate: {
     alignSelf: 'center',
     backgroundColor: colors.white,
     borderRadius: radius.sheet,
-    padding: 6,
+    padding: space[1],
   },
-  word: {
-    color: colors.white,
-    fontFamily: font.family,
-    fontSize: type.title,
-    lineHeight: 40,
-    fontWeight: '700',
-    letterSpacing: -0.8,
-    textAlign: 'center',
-  },
-  rule: { alignSelf: 'center', width: 36, height: 3, borderRadius: 2, backgroundColor: colors.red, marginTop: -8 },
-  tag: { color: colors.white, fontFamily: font.family, fontSize: type.body, lineHeight: 24, textAlign: 'center' },
-  weather: { alignSelf: 'center' },
-  weatherFill: { minHeight: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  weatherText: { color: colors.white, fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: '700' },
-  play: { minHeight: 180 },
-  playFill: { minHeight: 180, padding: space[2], gap: 6, justifyContent: 'center' },
+  weatherRow: { flexDirection: 'row', alignItems: 'center', gap: space[1], minHeight: 24 },
+  weatherText: { color: colors.white, fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
+  play: { minHeight: 220 },
+  playFill: { minHeight: 220, padding: space[3], gap: space[1], justifyContent: 'center' },
   kicker: {
-    color: 'rgba(255,255,255,0.92)',
+    color: '#FFFFFF',
     fontFamily: font.family,
-    fontSize: type.body,
-    fontWeight: '700',
-    letterSpacing: 1.1,
+    fontSize: type.caption,
+    fontWeight: font.semibold,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
-  playTitle: { color: colors.white, fontFamily: font.family, fontSize: type.title, lineHeight: 40, fontWeight: '700', letterSpacing: -0.5 },
-  playDetail: { color: colors.white, fontFamily: font.family, fontSize: type.body, lineHeight: 24 },
+  playTitle: { color: colors.white, fontFamily: font.family, fontSize: type.title, lineHeight: 40, fontWeight: font.bold, letterSpacing: -0.6 },
+  playDetail: { color: colors.white, fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: font.medium },
+  playMeta: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
   playButton: {
-    marginTop: 8,
+    marginTop: space[1],
     minHeight: 56,
     borderRadius: 16,
     backgroundColor: colors.red,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  playButtonText: { color: colors.white, fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
-  glance: { gap: 12 },
+  playButtonText: { color: colors.white, fontFamily: font.family, fontSize: type.body, fontWeight: font.bold },
+  glance: { gap: space[2] },
   stat: { minHeight: 72 },
-  statFill: { minHeight: 72, paddingHorizontal: space[2], paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  statCopy: { flex: 1, gap: 4 },
-  statLabel: { color: colors.white, fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
-  statValue: { color: colors.white, fontFamily: font.family, fontSize: type.club, lineHeight: 36, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  statNote: { color: colors.white, fontFamily: font.family, fontSize: type.body, lineHeight: 22 },
+  statFill: { minHeight: 72, paddingHorizontal: space[2], paddingVertical: space[2], flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  statCopy: { flex: 1, gap: space[1] },
+  statLabel: { color: colors.white, fontFamily: font.family, fontSize: type.body, fontWeight: font.bold },
+  statValue: { color: colors.white, fontFamily: font.family, fontSize: type.title, lineHeight: 40, fontWeight: font.bold, fontVariant: ['tabular-nums'] },
+  statNote: { color: colors.white, fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: font.medium },
   icon: { width: 28, height: 28, marginBottom: 4 },
-  bagHandle: {
-    alignSelf: 'center',
-    width: 10,
-    height: 6,
-    borderTopLeftRadius: 5,
-    borderTopRightRadius: 5,
-    borderWidth: 2,
-    borderBottomWidth: 0,
-    borderColor: colors.white,
-  },
-  bagBody: { alignSelf: 'center', width: 18, height: 16, borderRadius: 4, borderWidth: 2, borderColor: colors.white, marginTop: -1 },
   flagPole: { position: 'absolute', left: 6, top: 2, width: 2, height: 22, backgroundColor: colors.white },
   flagFly: {
     position: 'absolute',
@@ -296,5 +274,5 @@ const styles = StyleSheet.create({
   tabFill: { minHeight: 64, flexDirection: 'row', alignItems: 'stretch' },
   tabItem: { flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 4 },
   tabMark: { width: 18, height: 3, borderRadius: 2, backgroundColor: colors.red },
-  tabText: { color: colors.white, fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
+  tabText: { color: colors.white, fontFamily: font.family, fontSize: type.body, fontWeight: font.bold },
 });

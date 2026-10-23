@@ -42,8 +42,9 @@ describe('hole entrance', () => {
     expect(holeShift(3, 4)).toBe('forward');
     expect(holeShift(4, 3)).toBe('back');
     expect(holeShift(4, 4)).toBe('none');
-    expect(holeEnter('forward')).toEqual({ map: 64, sheet: 22 });
-    expect(holeEnter('back')).toEqual({ map: -64, sheet: -22 });
+    expect(holeEnter('forward')).toEqual({ map: 108, sheet: 20 });
+    expect(holeEnter('back')).toEqual({ map: -108, sheet: -20 });
+    expect(Math.abs(holeEnter('forward').map)).toBeGreaterThan(Math.abs(holeEnter('forward').sheet));
     expect(holeEnter('none')).toEqual({ map: 0, sheet: 0 });
     expect(Math.abs(holeEnter('forward').sheet)).toBeLessThan(Math.abs(holeEnter('forward').map));
   });

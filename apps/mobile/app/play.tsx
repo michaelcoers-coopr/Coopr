@@ -70,7 +70,7 @@ import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
 
 const pilot = loadHighCedarsPilot();
-const SHEET_CLOSED = 180;
+const SHEET_CLOSED = 200;
 const SHEET_OPEN = 420;
 const SHEET_SPRING = { damping: 18, stiffness: 190, mass: 0.75 };
 
@@ -177,6 +177,7 @@ export default function PlayScreen() {
   const reduceMotion = useReduceMotion();
   const insets = useSafeAreaInsets();
   const mapX = useSharedValue(0);
+  const mapScale = useSharedValue(1);
   const mapFade = useSharedValue(1);
   const sheetX = useSharedValue(0);
   const sheetH = useSharedValue(SHEET_CLOSED);
@@ -344,23 +345,26 @@ export default function PlayScreen() {
     const enter = holeEnter(holeShift(previous, currentHole));
     if (enter.map === 0) return;
     mapX.value = enter.map;
+    mapScale.value = 1.04;
     sheetX.value = enter.sheet;
-    mapFade.value = 0.4;
+    mapFade.value = 0.72;
     if (reduceMotion) {
       mapX.value = 0;
+      mapScale.value = 1;
       sheetX.value = 0;
       mapFade.value = 1;
     } else {
       mapX.value = withSpring(0, SHEET_SPRING);
+      mapScale.value = withSpring(1, SHEET_SPRING);
       sheetX.value = withSpring(0, SHEET_SPRING);
-      mapFade.value = withTiming(1, { duration: 320 });
+      mapFade.value = withTiming(1, { duration: 420 });
     }
     void holeFeel();
-  }, [currentHole, mapFade, mapX, reduceMotion, sheetX]);
+  }, [currentHole, mapFade, mapScale, mapX, reduceMotion, sheetX]);
 
   const mapStyle = useAnimatedStyle(() => ({
     opacity: mapFade.value,
-    transform: [{ translateX: mapX.value }],
+    transform: [{ translateX: mapX.value }, { scale: mapScale.value }],
   }));
   const sheetStyle = useAnimatedStyle(() => ({
     height: Math.min(SHEET_OPEN + 28, Math.max(96, sheetH.value - sheetDrag.value)),
@@ -701,7 +705,7 @@ export default function PlayScreen() {
           }}
         >
           <Glass radius={24} style={styles.header} contentStyle={styles.headerFill}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Home" onPress={() => router.push('/')} style={styles.backHit}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Home" onPress={() => router.push('/')} style={({ pressed }) => [styles.backHit, pressed && !reduceMotion && styles.pressed]}>
               <View style={styles.chevron} />
             </Pressable>
             <View style={styles.headerMid}>
@@ -712,7 +716,7 @@ export default function PlayScreen() {
           </Glass>
         </View>
         <View style={styles.pillRow}>
-          <Glass radius={28} intensity={40} overlay="rgba(11,31,58,0.46)" style={styles.pill} contentStyle={styles.pillFill}>
+          <Glass radius={28} style={styles.pill} contentStyle={styles.pillFill}>
             <View style={styles.ends}>
               <End label="Front" value={ground ? formatDistance(ground.frontYards, unit) : ''} />
               <Pressable
@@ -724,9 +728,9 @@ export default function PlayScreen() {
                   setOverrideDraft(manual == null ? '' : formatDistance(manual, unit));
                   setOverrideOpen(true);
                 }}
-                style={styles.centerHit}
+                style={({ pressed }) => [styles.centerHit, pressed && !reduceMotion && styles.pressed]}
               >
-                <Text style={styles.endLabel}>{scrubClub ? shownLabel ?? 'Club' : centerLive ? 'Center' : 'Yards'}</Text>
+                <Text style={styles.endLabel}>{focusedPlays != null ? 'Plays like' : centerLive ? 'Center' : 'Yards'}</Text>
                 {focusedPlays != null && focusedRaw != null ? <Text style={styles.struck}>{formatDistance(focusedRaw, unit)}</Text> : null}
                 {overrideOpen && !player ? (
                   <TextInput
@@ -748,15 +752,15 @@ export default function PlayScreen() {
               </Pressable>
               <End label="Back" value={ground ? formatDistance(ground.backYards, unit) : ''} />
             </View>
-            {!player && !overrideOpen ? <Text style={styles.hint}>Hold the number to type the yards.</Text> : null}
           </Glass>
           <View style={styles.windSlot}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={windKnown ? `Wind ${windText} miles per hour` : 'Wind unknown'}
               onPress={() => setBreakdown((open) => !open)}
+              style={({ pressed }) => [pressed && !reduceMotion && styles.pressed]}
             >
-              <Glass radius={22} intensity={48} overlay="rgba(11,31,58,0.5)" style={styles.windPill} contentStyle={styles.windFill}>
+              <Glass radius={22} style={styles.windPill} contentStyle={styles.windFill}>
                 <WindMark />
                 <Text style={styles.windNum}>{windText}</Text>
               </Glass>
@@ -782,22 +786,26 @@ export default function PlayScreen() {
             <View {...sheetPan.panHandlers} style={styles.handleHit}>
               <View style={styles.handle} />
             </View>
-            <View style={[styles.clubRow, lowConfidence && styles.dim]}>
+            <View style={[styles.clubRow, lowConfidence && styles.dim]} accessibilityLabel={shownLabel ? confidenceLabel(shownLabel, percent) : 'Club'}>
               <ConfidenceRing percent={percent} />
-              <View style={styles.stripSlot}>
-                <ClubStrip
-                  clubs={stripClubs.map((club) => ({ id: club.id, label: club.label }))}
-                  index={stripClubs.findIndex((club) => club.id === shownId)}
-                  band={band}
-                  selectedDetail={shownLabel ? confidenceLabel(shownLabel, percent) : null}
-                  onIndex={setScrubIndex}
-                  onOpen={() => applySheet.current(!sheetOpenRef.current)}
-                />
+              <View style={styles.clubCopy}>
+                <Text style={styles.clubName} numberOfLines={1}>
+                  {shownLabel ?? ''}
+                </Text>
+                {percent != null ? <Text style={styles.clubMeta}>{`${percent}%`}</Text> : null}
+                {band ? <Text style={styles.clubMeta}>{band}</Text> : null}
               </View>
             </View>
-            {oneLiner ? <Text style={styles.body}>{oneLiner}</Text> : null}
-            {risk ? <Text style={styles.body}>{risk.line}</Text> : null}
-            {patternLine ? <Text style={styles.body}>{patternLine}</Text> : null}
+            {oneLiner ? <Text style={styles.line}>{oneLiner}</Text> : null}
+            {risk ? <Text style={styles.line}>{risk.line}</Text> : null}
+            <ClubStrip
+              clubs={stripClubs.map((club) => ({ id: club.id, label: club.label }))}
+              index={stripClubs.findIndex((club) => club.id === shownId)}
+              band={null}
+              onIndex={setScrubIndex}
+              onOpen={() => applySheet.current(!sheetOpenRef.current)}
+            />
+            {patternLine ? <Text style={styles.sample}>{patternLine}</Text> : null}
           </View>
           {sheetOpen ? (
           <ScrollView style={styles.details} contentContainerStyle={styles.detailsBody} keyboardShouldPersistTaps="handled">
@@ -855,7 +863,7 @@ export default function PlayScreen() {
         {ask.undo}
         <View style={styles.dockRow}>
           <CountChip minHeight={64} value={face.strokes} confirmed={face.strokesConfirmed} par={par} floor={1} idleLabel="Score" onWrite={writeStrokes} />
-          <Pressable accessibilityRole="button" accessibilityLabel="Mark shot" onPress={markHere} style={styles.markHit}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Mark shot" onPress={markHere} style={({ pressed }) => [styles.markHit, pressed && !reduceMotion && styles.pressed]}>
             <Glass radius={24} style={styles.mark} contentStyle={styles.markFill}>
               <Text style={styles.markText}>Mark shot</Text>
             </Glass>
@@ -907,7 +915,8 @@ function ClubPulse({ clubLabel, yards }: { clubLabel: string | null; yards: numb
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#0C2418', overflow: 'hidden' },
   mapWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#0C2418' },
-  hud: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 16, gap: 10 },
+  hud: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 16, gap: 8 },
+  pressed: { transform: [{ scale: 0.96 }] },
   header: { minHeight: 64 },
   headerFill: { minHeight: 64, flexDirection: 'row', alignItems: 'center', paddingRight: 16, gap: 4 },
   backHit: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
@@ -921,8 +930,8 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   headerMid: { flex: 1, gap: 2 },
-  headerTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 22, lineHeight: 28, fontWeight: '700' },
-  headerSi: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '600' },
+  headerTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.club, lineHeight: 28, fontWeight: font.bold },
+  headerSi: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, fontWeight: font.semibold },
   pillRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   pill: { flex: 1 },
   pillFill: { paddingHorizontal: 8, paddingTop: 8, paddingBottom: 10, gap: 2 },
@@ -936,13 +945,13 @@ const styles = StyleSheet.create({
   ends: { flexDirection: 'row', alignItems: 'flex-end' },
   endCol: { flex: 1, alignItems: 'center', minHeight: 64, justifyContent: 'flex-end' },
   centerHit: { flex: 1.45, alignItems: 'center', minHeight: 84, justifyContent: 'flex-end' },
-  endLabel: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
+  endLabel: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, fontWeight: font.semibold },
   endNum: {
     color: '#FFFFFF',
     fontFamily: font.family,
-    fontSize: 22,
+    fontSize: type.club,
     lineHeight: 28,
-    fontWeight: '700',
+    fontWeight: font.bold,
     fontVariant: ['tabular-nums'],
     minHeight: 28,
     textShadowColor: 'rgba(11,31,58,0.7)',
@@ -952,9 +961,9 @@ const styles = StyleSheet.create({
   centerNum: {
     color: '#FFFFFF',
     fontFamily: font.family,
-    fontSize: 56,
+    fontSize: type.hero,
     lineHeight: 60,
-    fontWeight: '700',
+    fontWeight: font.bold,
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
     minWidth: 88,
@@ -984,11 +993,11 @@ const styles = StyleSheet.create({
   chip: {
     color: '#FFFFFF',
     fontFamily: font.family,
-    fontSize: type.body,
-    lineHeight: 24,
-    fontWeight: '700',
+    fontSize: type.caption,
+    lineHeight: 18,
+    fontWeight: font.semibold,
     fontVariant: ['tabular-nums'],
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(11,31,58,0.88)',
     borderRadius: 14,
     overflow: 'hidden',
     paddingHorizontal: 12,
@@ -1002,8 +1011,12 @@ const styles = StyleSheet.create({
   grab: { paddingTop: 4, paddingHorizontal: 16, paddingBottom: 2 },
   handleHit: { minHeight: 20, alignItems: 'center', justifyContent: 'center' },
   handle: { width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.72)' },
-  clubRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  stripSlot: { flex: 1 },
+  clubRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  clubCopy: { flex: 1, gap: 0 },
+  clubName: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.club, lineHeight: 28, fontWeight: font.bold },
+  clubMeta: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
+  line: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: font.medium },
+  sample: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
   dim: { opacity: 0.55 },
   kicker: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
   details: { flex: 1 },

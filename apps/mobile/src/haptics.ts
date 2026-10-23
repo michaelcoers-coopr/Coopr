@@ -1,3 +1,13 @@
+/** A selection tick when the club strip lands on a club. Quiet when the device has no haptics. */
+export async function select(): Promise<void> {
+  try {
+    const Haptics = await import('expo-haptics');
+    await Haptics.selectionAsync();
+  } catch {
+    // Expo web and a missing module stay silent.
+  }
+}
+
 /** A light tap for a score step, a sheet, or the mic. Quiet when the device has no haptics. */
 export async function tick(): Promise<void> {
   try {

@@ -2,16 +2,17 @@ import { useId, type ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { glassTheme } from './theme';
 
-/** Navy at 78% stays under white 17pt type even when the map behind it is bright. */
-export const GLASS_OVERLAY = 'rgba(11,31,58,0.78)';
+/** Navy glass stays under white type even when the map behind it is bright. */
+export const GLASS_OVERLAY = glassTheme.overlay;
 
 export function Glass({
   children,
   radius = 26,
   style,
   contentStyle,
-  intensity = 72,
+  intensity = glassTheme.blur,
   overlay = GLASS_OVERLAY,
 }: {
   children?: ReactNode;
@@ -25,12 +26,12 @@ export function Glass({
   return (
     <View style={[styles.shadow, { borderRadius: radius }, style]}>
       <View pointerEvents="box-none" style={[styles.clip, { borderRadius: radius }, contentStyle]}>
-        <BlurView pointerEvents="none" intensity={intensity} tint="dark" style={StyleSheet.absoluteFill} />
+        <BlurView pointerEvents="none" intensity={intensity} tint={glassTheme.tint} style={StyleSheet.absoluteFill} />
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: overlay }]} />
         <Svg pointerEvents="none" style={styles.sheen} width="100%" height="46%" viewBox="0 0 100 46" preserveAspectRatio="none">
           <Defs>
             <LinearGradient id={sheen} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.28" />
+              <Stop offset="0" stopColor="#FFFFFF" stopOpacity={glassTheme.sheen} />
               <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
             </LinearGradient>
           </Defs>
@@ -61,16 +62,16 @@ export function Vignette() {
 
 const styles = StyleSheet.create({
   shadow: {
-    shadowColor: '#000',
-    shadowOpacity: 0.38,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
+    shadowColor: glassTheme.shadow,
+    shadowOpacity: glassTheme.shadowOpacity,
+    shadowRadius: glassTheme.shadowRadius,
+    shadowOffset: { width: 0, height: glassTheme.shadowOffsetY },
     elevation: 8,
   },
   clip: {
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.55)',
+    borderColor: glassTheme.border,
     flexGrow: 1,
   },
   sheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '46%' },

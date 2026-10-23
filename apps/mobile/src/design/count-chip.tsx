@@ -123,9 +123,9 @@ const styles = StyleSheet.create({
   value: {
     color: '#FFFFFF',
     fontFamily: font.family,
-    fontSize: 32,
-    lineHeight: 36,
-    fontWeight: '700',
+    fontSize: type.title,
+    lineHeight: 40,
+    fontWeight: font.bold,
     fontVariant: ['tabular-nums'],
   },
   caption: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 22, fontWeight: '700' },

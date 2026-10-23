@@ -5,6 +5,7 @@ import { bagGlance, resumeLine, skyLine } from '../src/design/home-copy';
 import { RESULT_ICONS } from '../src/design/icons';
 import { holeSwipe, rollSteps } from '../src/design/motion';
 import { holeFrame } from '../src/design/play-polish';
+import { glassTheme } from '../src/design/theme';
 
 describe('design tokens', () => {
   it('keeps navy, white, and crest red, and reserves ice for a live number', () => {
@@ -18,9 +19,18 @@ describe('design tokens', () => {
     expect(play.bg).toBe('#070B10');
     expect(Object.values(space).every((value) => value % 8 === 0)).toBe(true);
     expect(touch).toBeGreaterThanOrEqual(56);
-    expect(type.hero).toBeGreaterThanOrEqual(64);
+    expect(type.hero).toBe(56);
+    expect(type.title).toBe(34);
+    expect(type.club).toBe(22);
+    expect(type.body).toBe(17);
+    expect(type.caption).toBe(13);
     expect(radius.card).toBeGreaterThanOrEqual(16);
     expect(font.family).toMatch(/SF Pro|apple-system/);
+    expect(font.semibold).toBe('600');
+    expect(glassTheme.blur).toBeGreaterThan(0);
+    expect(glassTheme.overlay).toMatch(/^rgba/);
+    expect(glassTheme.border).toMatch(/^rgba/);
+    expect(glassTheme.shadowOpacity).toBeGreaterThan(0);
     expect(motion.rollFrames).toBeGreaterThan(2);
   });
 });

@@ -56,6 +56,7 @@ function drawEllipse(xy: readonly { x: number; y: number }[]) {
 export function HoleMap(props: HoleMapProps) {
   const [width, setWidth] = useState(390);
   const [flightT, setFlightT] = useState(props.reduceMotion ? 1 : 0);
+  const [breath, setBreath] = useState(1);
   const flightKey = (props.flight ?? []).map((point) => `${point.lat.toFixed(5)},${point.lon.toFixed(5)}`).join('|');
   useEffect(() => {
     if (!props.flight || props.flight.length < 2) return;
@@ -74,6 +75,27 @@ export function HoleMap(props: HoleMapProps) {
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
   }, [flightKey, props.reduceMotion]);
+  const ovalOn = props.ellipse != null && props.ellipse.length > 2;
+  useEffect(() => {
+    if (!ovalOn || props.reduceMotion) {
+      setBreath(1);
+      return;
+    }
+    const started = performance.now();
+    let frame = 0;
+    let shown = 1;
+    const step = (now: number) => {
+      const wave = (Math.sin(((now - started) / 2800) * Math.PI * 2) + 1) / 2;
+      const next = 1 + wave * 0.045;
+      if (Math.abs(next - shown) >= 0.008) {
+        shown = next;
+        setBreath(next);
+      }
+      frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [ovalOn, props.reduceMotion]);
   const rawId = useId();
   const uid = rawId.replace(/:/g, '');
   const cloud = [props.line, ...props.fairways, ...props.green, ...props.bunkers, ...props.hazards, ...(props.ellipse ? [props.ellipse] : []), ...props.dispersionLine, ...props.measure].flat();
@@ -215,6 +237,13 @@ export function HoleMap(props: HoleMapProps) {
               <Stop offset="0.55" stopColor="#1F8A4C" />
               <Stop offset="1" stopColor="#7DDEA0" />
             </LinearGradient>
+            {ellipseDraw ? (
+              <RadialGradient id={`${uid}-ovalfill`} cx="50%" cy="42%" r="68%">
+                <Stop offset="0" stopColor={props.ellipseColor ?? '#8AC926'} stopOpacity="0.78" />
+                <Stop offset="0.62" stopColor={props.ellipseColor ?? '#8AC926'} stopOpacity="0.34" />
+                <Stop offset="1" stopColor={props.ellipseColor ?? '#8AC926'} stopOpacity="0.06" />
+              </RadialGradient>
+            ) : null}
           </Defs>
         ) : null}
         {bleed ? <Rect x={0} y={0} width={width} height={height} fill={ROUGH} /> : null}
@@ -261,13 +290,29 @@ export function HoleMap(props: HoleMapProps) {
             <Polygon points={`${pin.x},${pin.y - 30} ${pin.x + 16},${pin.y - 23} ${pin.x},${pin.y - 16}`} fill={colors.red} />
           </G>
         ) : null}
-        {ellipseDraw ? (
-          <G>
-            <Polygon points={ellipseDraw.glowSoft} fill={props.ellipseColor ?? '#8AC926'} fillOpacity={0.14} stroke="none" />
-            <Polygon points={ellipseDraw.glow} fill={props.ellipseColor ?? '#8AC926'} fillOpacity={0.28} stroke="none" />
-            <Polygon points={ellipseDraw.solid} fill={props.ellipseColor ?? '#8AC926'} fillOpacity={0.38} stroke={props.ellipseColor ?? '#8AC926'} strokeWidth={2} />
-          </G>
-        ) : null}
+        {ellipseDraw
+          ? (() => {
+              const ball = props.flight?.[0] ?? props.line[0];
+              const ballXY = ball ? projection.toXY(ball) : null;
+              const ink = props.ellipseColor ?? '#8AC926';
+              return (
+                <G>
+                  {ballXY ? (
+                    <G>
+                      <Line x1={ballXY.x} y1={ballXY.y} x2={ellipseDraw.cx} y2={ellipseDraw.cy} stroke="#FFFFFF" strokeOpacity={0.9} strokeWidth={2} strokeLinecap="round" />
+                      <Circle cx={ballXY.x} cy={ballXY.y} r={5} fill="#FFFFFF" />
+                    </G>
+                  ) : null}
+                  <G transform={`translate(${ellipseDraw.cx} ${ellipseDraw.cy}) scale(${breath}) translate(${-ellipseDraw.cx} ${-ellipseDraw.cy})`}>
+                    <Polygon points={ellipseDraw.glowSoft} fill={ink} fillOpacity={0.12} stroke="none" />
+                    <Polygon points={ellipseDraw.glow} fill={ink} fillOpacity={0.22} stroke="none" />
+                    <Polygon points={ellipseDraw.solid} fill={`url(#${uid}-ovalfill)`} stroke={ink} strokeWidth={1.75} />
+                    <Polygon points={ellipseDraw.solid} fill={ink} fillOpacity={0.16} stroke="none" />
+                  </G>
+                </G>
+              );
+            })()
+          : null}
         {keptLabels.map((label) => (
           <G key={`${label.label}-${label.x.toFixed(0)}`}>
             <Rect x={label.x} y={label.y} width={label.w} height={label.h} rx={10} fill="rgba(11,31,58,0.88)" />

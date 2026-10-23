@@ -106,8 +106,8 @@ export function holeFrame(input: { hudHeight: number; dockHeight: number; sheetC
 
 /** Map travel and the smaller sheet travel. The sheet lags, so the hole feels deeper than the card. */
 export function holeEnter(shift: 'forward' | 'back' | 'none'): { map: number; sheet: number } {
-  if (shift === 'forward') return { map: 64, sheet: 22 };
-  if (shift === 'back') return { map: -64, sheet: -22 };
+  if (shift === 'forward') return { map: 108, sheet: 20 };
+  if (shift === 'back') return { map: -108, sheet: -20 };
   return { map: 0, sheet: 0 };
 }
 

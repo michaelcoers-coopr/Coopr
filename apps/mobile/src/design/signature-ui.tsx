@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { font, signal, type } from '@coopr/tokens';
+import { select } from '../haptics';
+import { useReduceMotion } from './reduce-motion';
 
 export function ThruBar({ label, pips }: { label: string | null; pips: readonly ('under' | 'even' | 'over' | 'open')[] }) {
   return (
@@ -80,13 +82,24 @@ export function ClubStrip({
   onOpen?: () => void;
 }) {
   const [width, setWidth] = useState(0);
+  const reduce = useReduceMotion();
+  const chosen = useRef(index);
+  useEffect(() => {
+    chosen.current = index;
+  }, [index]);
   const selected = index != null && index >= 0 && index < clubs.length ? index : null;
   const windowStart = selected == null ? 0 : Math.max(0, Math.min(selected - 1, Math.max(0, clubs.length - 3)));
   const visible = clubs.slice(windowStart, windowStart + 3);
+  const commit = (next: number) => {
+    if (chosen.current === next) return;
+    chosen.current = next;
+    onIndex(next);
+    void select();
+  };
   const pick = (x: number) => {
     if (clubs.length === 0 || width <= 0) return;
     const next = Math.max(0, Math.min(clubs.length - 1, Math.round((x / width) * (clubs.length - 1))));
-    onIndex(next);
+    commit(next);
   };
   const pan = PanResponder.create({
     onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
@@ -114,9 +127,9 @@ export function ClubStrip({
             accessibilityState={{ selected: on }}
             onPress={() => {
               if (on) onOpen?.();
-              else onIndex(clubIndex);
+              else commit(clubIndex);
             }}
-            style={[styles.club, on && styles.clubOn]}
+            style={({ pressed }) => [styles.club, on && styles.clubOn, pressed && !reduce ? styles.pressed : null]}
           >
             <Text style={[styles.clubText, on && styles.clubTextOn]} numberOfLines={1}>
               {on && selectedDetail ? selectedDetail : name}
@@ -135,14 +148,15 @@ const styles = StyleSheet.create({
   seg: { flex: 1, height: 6, borderRadius: 3 },
   segOpen: { backgroundColor: 'rgba(255,255,255,0.22)' },
   pips: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  thruText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  thruText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
   roundPip: { width: 14, height: 14, borderRadius: 7 },
   roundOn: { backgroundColor: signal.go },
   roundOff: { backgroundColor: 'transparent', borderWidth: 2, borderColor: '#FFFFFF' },
   strip: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
   club: { flex: 1, minWidth: 56, minHeight: 56, paddingHorizontal: 2, alignItems: 'center', justifyContent: 'center' },
-  clubOn: { flex: 1.8, minWidth: 128 },
-  clubText: { color: 'rgba(255,255,255,0.62)', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
-  clubTextOn: { color: '#FFFFFF', fontSize: 20, lineHeight: 24 },
-  band: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  clubOn: { flex: 1.4, minWidth: 88 },
+  pressed: { transform: [{ scale: 0.96 }] },
+  clubText: { color: 'rgba(255,255,255,0.72)', fontFamily: font.family, fontSize: type.caption, fontWeight: font.semibold },
+  clubTextOn: { color: '#FFFFFF', fontSize: type.body, lineHeight: 22, fontWeight: font.bold },
+  band: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
 });

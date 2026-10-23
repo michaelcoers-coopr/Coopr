@@ -57,19 +57,23 @@ export const radius = {
   sheet: 28,
 } as const;
 
+/** 56 plays-like, 34 titles, 22 club, 17 body, 13 captions. */
 export const type = {
-  hero: 72,
+  hero: 56,
   title: 34,
-  club: 32,
+  club: 22,
   body: 17,
   caption: 13,
-  micro: 11,
 } as const;
 
 export const touch = 56;
 
 export const font = {
   family: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
+  regular: '400',
+  medium: '500',
+  semibold: '600',
+  bold: '700',
 } as const;
 
 export const motion = {
