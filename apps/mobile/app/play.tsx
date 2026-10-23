@@ -183,6 +183,7 @@ export default function PlayScreen() {
   const sheetH = useSharedValue(SHEET_CLOSED);
   const sheetDrag = useSharedValue(0);
   const sheetOpenRef = useRef(false);
+  const closedSheetRef = useRef(SHEET_CLOSED);
   const seenHole = useRef<number | null>(null);
   const rolledFrom = useRef<number | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -335,7 +336,7 @@ export default function PlayScreen() {
     sheetOpenRef.current = false;
     setSheetOpen(false);
     sheetDrag.value = 0;
-    sheetH.value = SHEET_CLOSED;
+    sheetH.value = closedSheetRef.current;
   }, [currentHole, sheetDrag, sheetH]);
 
   useLayoutEffect(() => {
@@ -510,8 +511,11 @@ export default function PlayScreen() {
   };
   const layup = !shortMode && !onGreen && hazard ? layupDecision({ carry: carryStock, carryToClearYards: hazard.yards }) : null;
   const hazardYards = player ? nearestHazardYards(player, [...polygons.hazards, ...polygons.bunkers]) : null;
-  const shownId = scrubClub?.id ?? calledId;
-  const shownLabel = scrubClub ? scrubClub.label.split('·')[0]?.trim() || scrubClub.label : calledLabel;
+  const fallbackClub = scrubClub == null && calledId == null ? stripClubs[0] ?? null : null;
+  const shownId = scrubClub?.id ?? calledId ?? fallbackClub?.id ?? null;
+  const shownLabel = scrubClub
+    ? scrubClub.label.split('·')[0]?.trim() || scrubClub.label
+    : calledLabel ?? (fallbackClub ? fallbackClub.label.split('·')[0]?.trim() || fallbackClub.label : null);
   voiceClub.current = { ...voiceClub.current, clubId: shownId, clubLabel: shownLabel ?? 'Shot' };
   const shownProfile = measuredProfile(profiles, shownId);
   const bearing = shotBearing(overlay.line);
@@ -556,6 +560,11 @@ export default function PlayScreen() {
       : !onGreen && !noShots
         ? PATTERN_INVITE
         : null;
+  const noTarget = !onGreen && callYards == null;
+  const cardStack = 130 + (band && !noShots ? 16 : 0) + (noShots || oneLiner ? 24 : 0) + (patternLine ? 20 : 0) + (risk ? 24 : 0);
+  const closedSheet = noTarget ? Math.min(SHEET_CLOSED, Math.max(148, cardStack)) : SHEET_CLOSED;
+  closedSheetRef.current = closedSheet;
+  if (!sheetOpenRef.current) sheetH.value = closedSheet;
   const windMph = sky?.current?.windMph;
   const windKnown = windMph != null && Number.isFinite(windMph);
   const windText = windKnown ? String(Math.round(windMph)) : '?';
@@ -666,7 +675,7 @@ export default function PlayScreen() {
         <HoleMap
           bleed
           height={mapH}
-          pad={holeFrame({ hudHeight: hudH, dockHeight: dockH, sheetClosed: SHEET_CLOSED })}
+          pad={holeFrame({ hudHeight: hudH, dockHeight: dockH, sheetClosed: closedSheet })}
           orient={bearing != null && overlay.line[0] ? { bearing, origin: overlay.line[0] } : null}
           labels={holeLabels(
             overlay.line,
@@ -769,13 +778,15 @@ export default function PlayScreen() {
                 {ground ? <End label="Back" value={formatDistance(ground.backYards, unit)} /> : <View style={styles.endCol} />}
               </View>
             )}
-            {breakdown ? (
-              <View style={styles.chips}>
-                <Text style={styles.chip}>{focusedChips?.wind ?? 'Wind ?'}</Text>
-                <Text style={styles.chip}>{focusedChips?.elevation ?? 'Elev ?'}</Text>
-                <Text style={styles.chip}>{focusedChips?.temperature ?? 'Temp ?'}</Text>
-              </View>
-            ) : null}
+            <View style={styles.chipSlot}>
+              {breakdown ? (
+                <>
+                  <Text style={styles.chip}>{focusedChips?.wind ?? 'Wind ?'}</Text>
+                  <Text style={styles.chip}>{focusedChips?.elevation ?? 'Elev ?'}</Text>
+                  <Text style={styles.chip}>{focusedChips?.temperature ?? 'Temp ?'}</Text>
+                </>
+              ) : null}
+            </View>
           </Glass>
           <View style={styles.windSlot}>
             <Pressable
@@ -804,7 +815,7 @@ export default function PlayScreen() {
               <View style={styles.handle} />
             </View>
             <View
-              style={[styles.clubRow, (lowConfidence || noShots) && styles.dim]}
+              style={[styles.clubRow, lowConfidence && !noShots && styles.dim]}
               accessibilityLabel={noShots ? `${shownLabel ?? 'Club'}, No shots yet` : shownLabel ? confidenceLabel(shownLabel, percent) : 'Club'}
             >
               <ConfidenceRing percent={percent} label={noShots ? 'No shots yet' : undefined} />
@@ -816,7 +827,7 @@ export default function PlayScreen() {
                 {!noShots && band ? <Text style={styles.clubMeta}>{band}</Text> : null}
               </View>
             </View>
-            {noShots ? <Text style={styles.line}>Hit 10 shots to unlock</Text> : oneLiner ? <Text style={styles.line}>{oneLiner}</Text> : null}
+            {noShots ? <Text style={styles.unlock}>Hit 10 shots to unlock</Text> : oneLiner ? <Text style={styles.line}>{oneLiner}</Text> : null}
             {risk ? <Text style={styles.line}>{risk.line}</Text> : null}
             <ClubStrip
               clubs={stripClubs.map((club) => ({ id: club.id, label: club.label }))}
@@ -954,7 +965,7 @@ const styles = StyleSheet.create({
   headerSi: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, fontWeight: font.semibold },
   pillRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   pill: { flex: 1 },
-  pillFill: { paddingHorizontal: 8, paddingTop: 8, paddingBottom: 10, gap: 2 },
+  pillFill: { paddingHorizontal: 8, paddingTop: 8, paddingBottom: 4, gap: 2 },
   windSlot: { position: 'relative' },
   windPill: { minHeight: 56, minWidth: 56 },
   windFill: { minHeight: 56, minWidth: 72, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
@@ -1011,7 +1022,7 @@ const styles = StyleSheet.create({
   waitHit: { minHeight: 84, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8 },
   waitText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: font.semibold, textAlign: 'center' },
   hint: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, textAlign: 'center' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, paddingTop: 6 },
+  chipSlot: { height: 36, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4, overflow: 'hidden' },
   chip: {
     color: '#FFFFFF',
     fontFamily: font.family,
@@ -1022,22 +1033,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
     borderRadius: 12,
     overflow: 'hidden',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   hazard: { alignSelf: 'center' },
   hazardFill: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center' },
   sheet: { position: 'absolute', left: 12, right: 12, overflow: 'hidden' },
   sheetGlass: { flex: 1 },
   sheetFill: { flex: 1 },
-  grab: { paddingTop: 4, paddingHorizontal: 16, paddingBottom: 2 },
-  handleHit: { minHeight: 20, alignItems: 'center', justifyContent: 'center' },
+  grab: { paddingTop: 2, paddingHorizontal: 16, paddingBottom: 0 },
+  handleHit: { minHeight: 16, alignItems: 'center', justifyContent: 'center' },
   handle: { width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.72)' },
-  clubRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  clubRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8 },
   clubCopy: { flex: 1, gap: 0 },
   clubName: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.club, lineHeight: 28, fontWeight: font.bold },
   clubMeta: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
   line: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: font.medium },
+  unlock: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 22, fontWeight: font.medium, marginTop: 0 },
   sample: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
   dim: { opacity: 0.55 },
   kicker: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },

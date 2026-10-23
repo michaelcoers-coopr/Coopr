@@ -93,6 +93,18 @@ function xyString(points: readonly XY[]): string {
   return points.map((point) => `${point.x},${point.y}`).join(' ');
 }
 
+/** Unit vector from the tee toward the pin. Screen y grows downward, so this often points up. */
+function playDirection(line: readonly XY[]): XY | null {
+  if (line.length < 2) return null;
+  const start = line[0]!;
+  const end = line[line.length - 1]!;
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const length = Math.hypot(dx, dy);
+  if (length < 1) return null;
+  return { x: dx / length, y: dy / length };
+}
+
 const mapLabelStyle = {
   fontFamily: font.family,
   fontVariant: ['tabular-nums'] as ['tabular-nums'],
@@ -250,11 +262,19 @@ export function HoleMap(props: HoleMapProps) {
     ...strokeBoxes(lineXY, 7),
     ...strokeBoxes(clippedFlight, 8),
     ...aimStroke,
+    ...(pin ? [{ x: pin.x - 10, y: pin.y - 40, w: 32, h: 46 }] : []),
   ];
+  const play = playDirection(lineXY);
   const letters = props.marks
     ? (['front', 'center', 'back'] as const).map((key) => {
         const xy = projection.toXY(props.marks![key]);
         const word = key === 'front' ? 'F' : key === 'center' ? 'C' : 'B';
+        const dir = play ?? { x: 0, y: -1 };
+        const perp = { x: -dir.y, y: dir.x };
+        const beyond = (distance: number, side = 0) => ({
+          x: xy.x + dir.x * distance + perp.x * side,
+          y: xy.y + dir.y * distance + perp.y * side,
+        });
         const spots =
           key === 'front'
             ? [
@@ -269,16 +289,10 @@ export function HoleMap(props: HoleMapProps) {
                   { x: xy.x + 20, y: xy.y + 36 },
                   { x: xy.x - 6, y: xy.y - 40 },
                 ]
-              : [
-                  { x: xy.x - 46, y: xy.y - 6 },
-                  { x: xy.x + 46, y: xy.y - 6 },
-                  { x: xy.x - 42, y: xy.y - 28 },
-                  { x: xy.x + 42, y: xy.y - 28 },
-                  { x: xy.x - 36, y: xy.y + 28 },
-                  { x: xy.x + 36, y: xy.y + 28 },
-                ];
+              : [beyond(44), beyond(62), beyond(48, 20), beyond(48, -20), beyond(0, 48), beyond(0, -48)];
         const letterBox = (spot: { x: number; y: number }): LabelBox => ({ x: spot.x - 12, y: spot.y - 28, w: 24, h: 36 });
-        const picked = spots.slice().sort((a, b) => letterClearance(letterBox(a), letterObstacles) - letterClearance(letterBox(b), letterObstacles))[0]!;
+        const clear = spots.find((spot) => letterClearance(letterBox(spot), letterObstacles) === 0);
+        const picked = clear ?? spots.slice().sort((a, b) => letterClearance(letterBox(a), letterObstacles) - letterClearance(letterBox(b), letterObstacles))[0]!;
         letterObstacles.push(letterBox(picked));
         return { key, word, x: picked.x, y: picked.y };
       })
