@@ -29,4 +29,6 @@ export interface HoleMapProps {
   orient?: { bearing: number; origin: LatLon } | null;
   /** Measured yardages on the aim line. Omitted when there is nothing to label. */
   labels?: readonly { at: LatLon; label: string }[];
+  /** Yard caption drawn with the oval. Omitted when the oval is hidden. */
+  caption?: string | null;
 }

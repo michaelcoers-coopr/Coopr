@@ -58,7 +58,7 @@ import { loadHighCedarsPilot } from '@coopr/course';
 import { HoleMap } from '../src/hole-map';
 import { celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { holeSwipe, rollSteps } from '../src/design/motion';
-import { clubFigure, clubWhy, holeEnter, holeFrame, holeShift, scoreGlance, sheetSnap } from '../src/design/play-polish';
+import { clubFigure, closedPlaySheet, clubWhy, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreGlance, sheetSnap } from '../src/design/play-polish';
 import { Glass, Vignette } from '../src/design/glass';
 import { ClubStrip, ConfidenceRing, ThruBar } from '../src/design/signature-ui';
 import { useReduceMotion } from '../src/design/reduce-motion';
@@ -169,7 +169,6 @@ export default function PlayScreen() {
   const [roll, setRoll] = useState<number | null>(null);
   const [mapH, setMapH] = useState(844);
   const [dockH, setDockH] = useState(96);
-  const [hudH, setHudH] = useState(196);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
   const [breakdown, setBreakdown] = useState(false);
@@ -518,8 +517,9 @@ export default function PlayScreen() {
     : calledLabel ?? (fallbackClub ? fallbackClub.label.split('·')[0]?.trim() || fallbackClub.label : null);
   voiceClub.current = { ...voiceClub.current, clubId: shownId, clubLabel: shownLabel ?? 'Shot' };
   const shownProfile = measuredProfile(profiles, shownId);
+  const noShots = shownId != null && (shownProfile == null || shownProfile.sampleSize < 1);
   const bearing = shotBearing(overlay.line);
-  const oval: DispersionOval | null = sampleOn ? dispersionOval([...SAMPLE_PATTERN]) : null;
+  const oval: DispersionOval | null = sampleOn && !noShots ? dispersionOval([...SAMPLE_PATTERN]) : null;
   const landingYards = focusedPlays ?? focusedRaw;
   const origin = player ?? overlay.line[0] ?? null;
   const landing = origin && bearing != null && landingYards != null && landingYards > 0 ? destinationPoint(origin, bearing, landingYards) : null;
@@ -542,7 +542,6 @@ export default function PlayScreen() {
       })
     : null;
   const lowConfidence = percent != null && percent < CONFIDENCE_LOW;
-  const noShots = shownId != null && (shownProfile == null || shownProfile.sampleSize < 1);
   const spoken = noShots
     ? null
     : caddieLine({
@@ -561,17 +560,19 @@ export default function PlayScreen() {
         ? thinCopy
         : spoken;
   const band = carryBand(shownProfile, unit);
-  const patternLine =
-    !onGreen && oval
-      ? `${sampleOn ? 'Sample pattern · ' : ''}±${oval.carryStdYards} × ±${oval.lateralStdYards} yd`
-      : !onGreen && !noShots && !lowConfidence
-        ? PATTERN_INVITE
-        : null;
+  const patternLine = patternCaption({
+    onGreen,
+    noShots,
+    lowConfidence,
+    sample: sampleOn,
+    oval,
+    invite: PATTERN_INVITE,
+  });
   const noTarget = !onGreen && callYards == null;
-  const lineBlock = noShots || oneLiner ? ((oneLiner?.length ?? 0) > 34 ? 48 : 28) : 0;
+  const lineBlock = oneLiner ? (oneLiner.length > 34 ? 48 : 28) : 0;
   const patternBlock = patternLine ? (patternLine.length > 34 ? 40 : 22) : 0;
   const cardStack = 156 + (band && !noShots ? 18 : 0) + lineBlock + patternBlock + (risk ? 28 : 0);
-  const closedSheet = noTarget ? Math.min(SHEET_CLOSED, Math.max(148, cardStack)) : SHEET_CLOSED;
+  const closedSheet = closedPlaySheet({ noTarget, noShots, cardStack, risk: risk != null, closed: SHEET_CLOSED });
   closedSheetRef.current = closedSheet;
   if (!sheetOpenRef.current) sheetH.value = closedSheet;
   const windMph = sky?.current?.windMph;
@@ -684,7 +685,7 @@ export default function PlayScreen() {
         <HoleMap
           bleed
           height={mapH}
-          pad={holeFrame({ hudHeight: Math.max(hudH, insets.top + 214), dockHeight: dockH, sheetClosed: closedSheet })}
+          pad={holeFrame({ hudHeight: mapHudInset(insets.top), dockHeight: dockH, sheetClosed: closedSheet })}
           orient={bearing != null && overlay.line[0] ? { bearing, origin: overlay.line[0] } : null}
           labels={holeLabels(
             overlay.line,
@@ -703,6 +704,7 @@ export default function PlayScreen() {
           dispersionLine={dispersionLine}
           measure={[]}
           marks={greenMarks}
+          caption={oval ? patternLine : null}
           onTap={() => undefined}
           rawLabel=""
           playsLabel=""
@@ -711,7 +713,6 @@ export default function PlayScreen() {
       </Animated.View>
       <View
         pointerEvents="box-none"
-        onLayout={(event) => setHudH(Math.max(64, Math.round(event.nativeEvent.layout.height)))}
         style={[styles.hud, { paddingTop: insets.top + 8 }]}
       >
         <View

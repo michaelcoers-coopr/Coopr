@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { clubFigure, clubWhy, holeEnter, holeShift, scoreCommit, scoreDrag, scoreGlance, scoreGlow, sheetSnap } from '../src/design/play-polish';
+import { clubFigure, closedPlaySheet, clubWhy, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreCommit, scoreDrag, scoreGlance, scoreGlow, sheetSnap } from '../src/design/play-polish';
+import { dispersionOval, PATTERN_INVITE, SAMPLE_PATTERN } from '@coopr/engine';
 
 describe('club card copy', () => {
   it('shows plays-like on the card and leaves a live GPS number off it', () => {
@@ -34,6 +35,35 @@ describe('score glance', () => {
     expect(scoreGlow('birdie')).toBe('#C8102E');
     expect(scoreGlow('par')).toBe('#FFFFFF');
     expect(scoreGlow(null)).toBeNull();
+  });
+});
+
+describe('map inset', () => {
+  it('keeps the same top inset when the yardage panel changes height', () => {
+    const inset = mapHudInset(0);
+    const closed = holeFrame({ hudHeight: inset, dockHeight: 80, sheetClosed: 200 });
+    const open = holeFrame({ hudHeight: mapHudInset(0), dockHeight: 80, sheetClosed: 200 });
+    expect(open.top).toBe(closed.top);
+    expect(open.top).toBe(254);
+    expect(mapHudInset(47)).toBe(261);
+    expect(mapHudInset(Number.NaN)).toBe(214);
+  });
+});
+
+describe('club card without shots', () => {
+  it('hides the sample caption and hugs the card', () => {
+    const oval = dispersionOval([...SAMPLE_PATTERN]);
+    expect(oval).not.toBeNull();
+    expect(
+      patternCaption({ onGreen: false, noShots: true, lowConfidence: false, sample: true, oval, invite: PATTERN_INVITE }),
+    ).toBeNull();
+    expect(
+      patternCaption({ onGreen: false, noShots: false, lowConfidence: false, sample: true, oval, invite: PATTERN_INVITE }),
+    ).toBe(`Sample pattern · ±${oval!.carryStdYards} × ±${oval!.lateralStdYards} yd`);
+    expect(patternCaption({ onGreen: false, noShots: false, lowConfidence: true, sample: false, oval: null, invite: PATTERN_INVITE })).toBeNull();
+    expect(closedPlaySheet({ noTarget: false, noShots: true, cardStack: 224, risk: false, closed: 200 })).toBe(160);
+    expect(closedPlaySheet({ noTarget: false, noShots: false, cardStack: 224, risk: false, closed: 200 })).toBe(200);
+    expect(closedPlaySheet({ noTarget: false, noShots: true, cardStack: 224, risk: false, closed: 200 })).toBeLessThan(200);
   });
 });
 

@@ -1,11 +1,12 @@
-import { useEffect, useId, useState, type ComponentType } from 'react';
+import { useEffect, useId, useMemo, useState, type ComponentType } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, ClipPath, Defs, G, Line, LinearGradient, Pattern, Polygon, Polyline, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import type { LatLon } from '@coopr/domain';
 import { colors, font } from '@coopr/tokens';
-import { projectAlongHole, projectPoints, visibleLabels, type LabelBox } from '@coopr/engine';
+import { projectAlongHole, projectPoints } from '@coopr/engine';
 import { Muted } from './ui';
 import type { HoleMapProps } from './hole-map-props';
+import { clipPolylineAtOval, ellipseEdge, fittedEllipse, insideEllipse, layoutHoleLabels } from './map-label-layout';
 
 const ROUGH = '#0E3320';
 const FAIRWAY_DARK = '#176B3A';
@@ -23,133 +24,19 @@ function pointsOf(ring: readonly LatLon[], projection: ReturnType<typeof project
     .join(' ');
 }
 
-const OVAL_FLOOR = 14;
-
-function boxesHit(a: LabelBox, b: LabelBox, pad = 4): boolean {
-  return a.x < b.x + b.w + pad && a.x + a.w + pad > b.x && a.y < b.y + b.h + pad && a.y + a.h + pad > b.y;
-}
-
 type XY = { x: number; y: number };
-
-function ellipseEdge(from: XY, cx: number, cy: number, halfW: number, halfH: number): XY {
-  const vx = from.x - cx;
-  const vy = from.y - cy;
-  const denom = Math.hypot(vx / Math.max(halfW, 0.5), vy / Math.max(halfH, 0.5));
-  if (!Number.isFinite(denom) || denom === 0) return { x: cx, y: cy };
-  const t = 1 / denom;
-  return { x: cx + vx * t, y: cy + vy * t };
-}
-
-function insideEllipse(point: XY, cx: number, cy: number, halfW: number, halfH: number): boolean {
-  const dx = (point.x - cx) / Math.max(halfW, 0.5);
-  const dy = (point.y - cy) / Math.max(halfH, 0.5);
-  return dx * dx + dy * dy <= 1;
-}
-
-/** Stop a polyline where it enters the oval so the arc does not paint across the pattern. */
-function clipPolylineAtOval(points: readonly XY[], cx: number, cy: number, halfW: number, halfH: number): XY[] {
-  const out: XY[] = [];
-  for (const point of points) {
-    if (insideEllipse(point, cx, cy, halfW, halfH)) {
-      const prev = out[out.length - 1];
-      if (prev) out.push(ellipseEdge(prev, cx, cy, halfW, halfH));
-      break;
-    }
-    out.push(point);
-  }
-  return out;
-}
-
-function strokeBoxes(points: readonly XY[], pad = 8): LabelBox[] {
-  const boxes: LabelBox[] = [];
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const start = points[index]!;
-    const end = points[index + 1]!;
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 12));
-    for (let step = 0; step <= steps; step += 1) {
-      const t = step / steps;
-      const x = start.x + dx * t;
-      const y = start.y + dy * t;
-      boxes.push({ x: x - pad, y: y - pad, w: pad * 2, h: pad * 2 });
-    }
-  }
-  return boxes;
-}
-
-function letterClearance(box: LabelBox, obstacles: readonly LabelBox[]): number {
-  let score = 0;
-  for (const other of obstacles) {
-    if (!boxesHit(box, other, 6)) continue;
-    const overlapW = Math.min(box.x + box.w, other.x + other.w) - Math.max(box.x, other.x);
-    const overlapH = Math.min(box.y + box.h, other.y + other.h) - Math.max(box.y, other.y);
-    score += 1000 + Math.max(0, overlapW) * Math.max(0, overlapH);
-  }
-  return score;
-}
 
 function xyString(points: readonly XY[]): string {
   return points.map((point) => `${point.x},${point.y}`).join(' ');
 }
 
-function letterBox(spot: XY): LabelBox {
-  return { x: spot.x - 12, y: spot.y - 28, w: 24, h: 36 };
+function pointSig(points: readonly XY[]): string {
+  return points.map((point) => `${point.x.toFixed(0)},${point.y.toFixed(0)}`).join(' ');
 }
 
 function padInsets(pad: number | { top?: number; right?: number; bottom?: number; left?: number }): { top: number; right: number; bottom: number; left: number } {
   if (typeof pad === 'number') return { top: pad, right: pad, bottom: pad, left: pad };
   return { top: pad.top ?? 0, right: pad.right ?? 0, bottom: pad.bottom ?? 0, left: pad.left ?? 0 };
-}
-
-/** Pull a box into the map area that is not covered by the yardage panel or the sheet. */
-function clampInto(box: LabelBox, rect: LabelBox): LabelBox {
-  const w = Math.min(box.w, Math.max(1, rect.w));
-  const h = Math.min(box.h, Math.max(1, rect.h));
-  return {
-    ...box,
-    w,
-    h,
-    x: Math.min(Math.max(box.x, rect.x), rect.x + rect.w - w),
-    y: Math.min(Math.max(box.y, rect.y), rect.y + rect.h - h),
-  };
-}
-
-function clampLetter(spot: XY, rect: LabelBox): XY {
-  const box = clampInto(letterBox(spot), rect);
-  return { x: box.x + 12, y: box.y + 28 };
-}
-
-function dist2(a: XY, b: XY): number {
-  return (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
-}
-
-/** Prefer `ideal` when it is on the open map and clear. Otherwise the nearest visible clear spot. */
-function chooseSpot(spots: readonly XY[], ideal: XY, obstacles: readonly LabelBox[], rect: LabelBox): XY {
-  const clamped = spots.map((spot) => clampLetter(spot, rect));
-  const clear = clamped.filter((spot) => letterClearance(letterBox(spot), obstacles) === 0);
-  const pool = clear.length > 0 ? clear : clamped;
-  return (
-    pool.slice().sort((a, b) => {
-      if (clear.length === 0) {
-        const overlap = letterClearance(letterBox(a), obstacles) - letterClearance(letterBox(b), obstacles);
-        if (overlap !== 0) return overlap;
-      }
-      return dist2(a, ideal) - dist2(b, ideal);
-    })[0] ?? clampLetter(ideal, rect)
-  );
-}
-
-/** Unit vector from the tee toward the pin. Screen y grows downward, so this often points up. */
-function playDirection(line: readonly XY[]): XY | null {
-  if (line.length < 2) return null;
-  const start = line[0]!;
-  const end = line[line.length - 1]!;
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const length = Math.hypot(dx, dy);
-  if (length < 1) return null;
-  return { x: dx / length, y: dy / length };
 }
 
 const mapLabelStyle = {
@@ -175,21 +62,13 @@ const MapText = SvgText as unknown as ComponentType<{
 
 /** True-scale oval. A pattern smaller than the floor is drawn larger, and the sheet states the real yards. */
 function drawEllipse(xy: readonly { x: number; y: number }[]) {
-  const minX = Math.min(...xy.map((point) => point.x));
-  const maxX = Math.max(...xy.map((point) => point.x));
-  const minY = Math.min(...xy.map((point) => point.y));
-  const maxY = Math.max(...xy.map((point) => point.y));
-  const short = Math.max(Math.min(maxX - minX, maxY - minY), 0.5);
-  const scale = short < OVAL_FLOOR ? OVAL_FLOOR / short : 1;
-  const cx = (minX + maxX) / 2;
-  const cy = (minY + maxY) / 2;
+  const fit = fittedEllipse(xy);
+  if (!fit) return null;
+  const { cx, cy, scale } = fit;
   const ring = (factor: number) => xy.map((point) => `${cx + (point.x - cx) * factor},${cy + (point.y - cy) * factor}`).join(' ');
   const halos = scale > 1 ? [1.7, 2.2] : [1.28, 1.55];
   return {
-    cx,
-    cy,
-    halfW: ((maxX - minX) * scale) / 2,
-    halfH: ((maxY - minY) * scale) / 2,
+    ...fit,
     solid: ring(scale),
     glow: ring(scale * halos[0]!),
     glowSoft: ring(scale * halos[1]!),
@@ -243,124 +122,77 @@ export function HoleMap(props: HoleMapProps) {
   const rawId = useId();
   const uid = rawId.replace(/:/g, '');
   const cloud = [props.line, ...props.fairways, ...props.green, ...props.bunkers, ...props.hazards, ...(props.ellipse ? [props.ellipse] : []), ...props.dispersionLine, ...props.measure].flat();
-  if (cloud.length === 0) return <Muted>This hole has no open geometry to draw.</Muted>;
   const height = props.height ?? 220;
   const pad = props.pad ?? (props.bleed ? { top: 48, right: 16, bottom: 56, left: 16 } : 12);
   const frame = padInsets(pad);
-  const visible: LabelBox = {
-    x: frame.left,
-    y: frame.top,
-    w: Math.max(24, width - frame.left - frame.right),
-    h: Math.max(36, height - frame.top - frame.bottom),
-  };
   const projection =
-    props.orient != null
-      ? projectAlongHole(cloud, width, height, pad, props.orient.bearing, props.orient.origin)
-      : projectPoints(cloud, width, height, pad);
+    cloud.length === 0
+      ? null
+      : props.orient != null
+        ? projectAlongHole(cloud, width, height, pad, props.orient.bearing, props.orient.origin)
+        : projectPoints(cloud, width, height, pad);
   const bleed = props.bleed === true;
   const ink = bleed ? '#F4FFF6' : colors.navy;
   const markInk = bleed ? '#F4F7FB' : colors.navy;
-  const tee = bleed && props.line[0] ? projection.toXY(props.line[0]) : null;
-  const pinPoint = bleed && props.line.length > 1 ? props.line[props.line.length - 1] : null;
-  const pin = pinPoint ? projection.toXY(pinPoint) : null;
-  const ellipseDraw = props.ellipse && props.ellipse.length > 2 ? drawEllipse(props.ellipse.map((point) => projection.toXY(point))) : null;
-  const greenPts = props.green.flatMap((ring) => ring.map((point) => projection.toXY(point)));
-  const greenBox: LabelBox | null = greenPts.length
-    ? {
-        x: Math.min(...greenPts.map((point) => point.x)) - 4,
-        y: Math.min(...greenPts.map((point) => point.y)) - 4,
-        w: Math.max(...greenPts.map((point) => point.x)) - Math.min(...greenPts.map((point) => point.x)) + 8,
-        h: Math.max(...greenPts.map((point) => point.y)) - Math.min(...greenPts.map((point) => point.y)) + 8,
-      }
-    : null;
-  const labelItems = (props.labels ?? []).map((label) => {
-    const xy = projection.toXY(label.at);
-    const boxW = Math.max(44, label.label.length * 12 + 16);
-    const distance = label.label === '150' || label.label === '300' || label.label === '450';
-    const item = { ...label, x: xy.x - boxW / 2, y: xy.y - 16, w: boxW, h: 28, priority: distance ? 0 : 2 };
-    if (!distance && ellipseDraw) {
-      item.x = Math.min(width - item.w - 8, ellipseDraw.cx + ellipseDraw.halfW + 10);
-      item.y = ellipseDraw.cy - item.h / 2;
-      if (item.x < 8) item.x = 8;
-    }
-    const placed = clampInto(item, visible);
-    return { ...item, x: placed.x, y: placed.y };
-  });
-  const ovalGuard = ellipseDraw
-    ? [
-        {
-          label: 'pattern',
-          priority: 3,
-          x: ellipseDraw.cx - ellipseDraw.halfW - 2,
-          y: ellipseDraw.cy - ellipseDraw.halfH - 2,
-          w: ellipseDraw.halfW * 2 + 4,
-          h: ellipseDraw.halfH * 2 + 4,
-        },
-      ]
-    : [];
-  const keptLabels = visibleLabels([...ovalGuard, ...labelItems]).filter((item) => item.label !== 'pattern');
-  const lineXY = props.line.map((point) => projection.toXY(point));
-  const flightXY = (props.flight ?? []).map((point) => projection.toXY(point));
+  const tee = bleed && projection && props.line[0] ? projection.toXY(props.line[0]) : null;
+  const pinPoint = bleed && projection && props.line.length > 1 ? props.line[props.line.length - 1] : null;
+  const pin = pinPoint && projection ? projection.toXY(pinPoint) : null;
+  const ellipsePts = projection && props.ellipse && props.ellipse.length > 2 ? props.ellipse.map((point) => projection.toXY(point)) : [];
+  const ellipseDraw = ellipsePts.length > 2 ? drawEllipse(ellipsePts) : null;
+  const lineXY = projection ? props.line.map((point) => projection.toXY(point)) : [];
+  const flightXY = projection ? (props.flight ?? []).map((point) => projection.toXY(point)) : [];
   const ball = props.flight?.[0] ?? props.line[0];
-  const ballXY = ball ? projection.toXY(ball) : null;
+  const ballXY = ball && projection ? projection.toXY(ball) : null;
   const aimEnd = ellipseDraw && ballXY && !insideEllipse(ballXY, ellipseDraw.cx, ellipseDraw.cy, ellipseDraw.halfW, ellipseDraw.halfH)
     ? ellipseEdge(ballXY, ellipseDraw.cx, ellipseDraw.cy, ellipseDraw.halfW, ellipseDraw.halfH)
     : null;
   const clippedFlight = ellipseDraw ? clipPolylineAtOval(flightXY, ellipseDraw.cx, ellipseDraw.cy, ellipseDraw.halfW, ellipseDraw.halfH) : flightXY;
-  const aimStroke = ballXY && aimEnd ? strokeBoxes([ballXY, aimEnd], 8) : [];
-  const letterObstacles: LabelBox[] = [
-    ...keptLabels,
-    ...(greenBox ? [greenBox] : []),
-    ...(ellipseDraw
-      ? [{ x: ellipseDraw.cx - ellipseDraw.halfW, y: ellipseDraw.cy - ellipseDraw.halfH, w: ellipseDraw.halfW * 2, h: ellipseDraw.halfH * 2 }]
-      : []),
-    ...strokeBoxes(lineXY, 7),
-    ...strokeBoxes(clippedFlight, 8),
-    ...aimStroke,
-    ...(pin ? [{ x: pin.x - 10, y: pin.y - 40, w: 32, h: 46 }] : []),
-  ];
-  const play = playDirection(lineXY);
-  const letters = props.marks
-    ? (['front', 'center', 'back'] as const).map((key) => {
-        const xy = projection.toXY(props.marks![key]);
-        const word = key === 'front' ? 'F' : key === 'center' ? 'C' : 'B';
-        const dir = play ?? { x: 0, y: -1 };
-        const perp = { x: -dir.y, y: dir.x };
-        const beyond = (distance: number, side = 0) => ({
-          x: xy.x + dir.x * distance + perp.x * side,
-          y: xy.y + dir.y * distance + perp.y * side,
-        });
-        const spots =
-          key === 'front'
-            ? [
-                { x: xy.x - 36, y: xy.y },
-                { x: xy.x - 40, y: xy.y - 22 },
-                { x: xy.x - 34, y: xy.y + 24 },
-              ]
-            : key === 'center'
-              ? [
-                  { x: xy.x + 36, y: xy.y - 30 },
-                  { x: xy.x + 44, y: xy.y + 6 },
-                  { x: xy.x + 20, y: xy.y + 36 },
-                  { x: xy.x - 6, y: xy.y - 40 },
-                ]
-              : [
-                  beyond(44),
-                  beyond(62),
-                  beyond(32, 30),
-                  beyond(32, -30),
-                  beyond(8, 44),
-                  beyond(8, -44),
-                  beyond(-18, 48),
-                  beyond(-18, -48),
-                  beyond(-36, 36),
-                  beyond(-36, -36),
-                ];
-        const picked = chooseSpot(spots, spots[0]!, letterObstacles, visible);
-        letterObstacles.push(letterBox(picked));
-        return { key, word, x: picked.x, y: picked.y };
-      })
-    : [];
+  const front = projection && props.marks ? projection.toXY(props.marks.front) : null;
+  const center = projection && props.marks ? projection.toXY(props.marks.center) : null;
+  const back = projection && props.marks ? projection.toXY(props.marks.back) : null;
+  const greenPoints = projection ? props.green.flatMap((ring) => ring.map((point) => projection.toXY(point))) : [];
+  const mapLabels = projection ? (props.labels ?? []).map((label) => ({ text: label.label, at: projection.toXY(label.at) })) : [];
+  const caption = props.caption ?? null;
+  const layoutSignature = projection
+    ? [
+        width,
+        height,
+        frame.top,
+        frame.right,
+        frame.bottom,
+        frame.left,
+        caption ?? '',
+        pointSig(lineXY),
+        pointSig(flightXY),
+        pointSig(ellipsePts),
+        pointSig(greenPoints),
+        pointSig([front, center, back, pin].filter((point): point is XY => point != null)),
+        mapLabels.map((label) => `${label.text}@${label.at.x.toFixed(0)},${label.at.y.toFixed(0)}`).join('|'),
+      ].join(';')
+    : '';
+  const placedLabels = useMemo(
+    () =>
+      projection
+        ? layoutHoleLabels({
+            width,
+            height,
+            pad: frame,
+            line: lineXY,
+            flight: flightXY,
+            front,
+            center,
+            back,
+            pin,
+            greenPoints,
+            ellipsePoints: ellipsePts,
+            labels: mapLabels,
+            caption,
+          })
+        : [],
+    // Breath and the flight stroke do not change this signature, so they do not recompute the labels.
+    [layoutSignature],
+  );
+  if (!projection) return <Muted>This hole has no open geometry to draw.</Muted>;
   return (
     <View
       style={[styles.frame, bleed && styles.bleed, bleed && { height }]}
@@ -496,19 +328,20 @@ export function HoleMap(props: HoleMapProps) {
               );
             })()
           : null}
-        {keptLabels.map((label) => (
-          <G key={`${label.label}-${label.x.toFixed(0)}`}>
-            <Rect x={label.x} y={label.y} width={label.w} height={label.h} rx={10} fill="rgba(11,31,58,0.88)" />
-            <MapText x={label.x + label.w / 2} y={label.y + 20} fill="#FFFFFF" fontSize={17} fontWeight="700" fontFamily={font.family} fontFeatureSettings='"tnum"' textAnchor="middle" style={mapLabelStyle}>
-              {label.label}
+        {placedLabels.map((label) =>
+          label.kind === 'letter' ? (
+            <MapText key={label.id} x={label.at.x} y={label.at.y + 5} fill="#FFFFFF" fontSize={17} fontWeight="700" fontFamily={font.family} fontFeatureSettings='"tnum"' textAnchor="middle" style={mapLabelStyle}>
+              {label.text}
             </MapText>
-          </G>
-        ))}
-        {letters.map((letter) => (
-          <MapText key={letter.key} x={letter.x} y={letter.y + 5} fill="#FFFFFF" fontSize={17} fontWeight="700" fontFamily={font.family} fontFeatureSettings='"tnum"' textAnchor="middle" style={mapLabelStyle}>
-            {letter.word}
-          </MapText>
-        ))}
+          ) : (
+            <G key={label.id}>
+              <Rect x={label.box.x} y={label.box.y} width={label.box.w} height={label.box.h} rx={label.kind === 'caption' ? 8 : 10} fill="rgba(11,31,58,0.88)" />
+              <MapText x={label.at.x} y={label.at.y} fill="#FFFFFF" fontSize={label.kind === 'caption' ? 13 : 17} fontWeight="700" fontFamily={font.family} fontFeatureSettings='"tnum"' textAnchor="middle" style={mapLabelStyle}>
+                {label.text}
+              </MapText>
+            </G>
+          ),
+        )}
         {props.dispersionLine.length > 1 ? (
           <Polyline points={pointsOf(props.dispersionLine, projection)} fill="none" stroke={bleed ? 'rgba(255,255,255,0.7)' : colors.navy} strokeWidth={4} />
         ) : null}

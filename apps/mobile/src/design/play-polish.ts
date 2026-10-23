@@ -87,6 +87,49 @@ const PIN_CLEAR = 40;
 const TEE_CLEAR = 20;
 const SHEET_GAP = 8;
 
+/**
+ * Room the map keeps for the yardage panel.
+ * The panel's measured height is not an input, so opening the breakdown does not move the hole.
+ */
+export const MAP_PANEL_CLEAR = 214;
+
+/** Closed club card for a club with no measured shots: handle, name, invitation, strip. */
+export const NO_SHOTS_SHEET = 160;
+
+export function mapHudInset(safeTop: number): number {
+  const safe = Number.isFinite(safeTop) ? Math.max(0, safeTop) : 0;
+  return safe + MAP_PANEL_CLEAR;
+}
+
+/**
+ * The sample oval's caption. A club with no shots has no oval and no caption.
+ * A thin sample stays on the caddie line, not this one.
+ */
+export function patternCaption(input: {
+  onGreen: boolean;
+  noShots: boolean;
+  lowConfidence: boolean;
+  sample: boolean;
+  oval: { carryStdYards: number; lateralStdYards: number } | null;
+  invite: string;
+}): string | null {
+  if (input.onGreen || input.noShots) return null;
+  if (input.oval) return `${input.sample ? 'Sample pattern · ' : ''}±${input.oval.carryStdYards} × ±${input.oval.lateralStdYards} yd`;
+  if (input.lowConfidence) return null;
+  return input.invite;
+}
+
+/** Sheet height while the club card is closed. A no-shot club hugs its contents. A called shot keeps the full card. */
+export function closedPlaySheet(input: { noTarget: boolean; noShots: boolean; cardStack: number; risk: boolean; closed: number }): number {
+  const closed = Number.isFinite(input.closed) ? Math.max(0, input.closed) : 0;
+  if (input.noShots) return Math.min(closed, NO_SHOTS_SHEET + (input.risk ? 28 : 0));
+  if (input.noTarget) {
+    const stack = Number.isFinite(input.cardStack) ? input.cardStack : 148;
+    return Math.min(closed, Math.max(148, stack));
+  }
+  return closed;
+}
+
 export function holeFrame(input: { hudHeight: number; dockHeight: number; sheetClosed: number }): {
   top: number;
   right: number;
