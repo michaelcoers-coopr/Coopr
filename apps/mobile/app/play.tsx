@@ -39,7 +39,7 @@ import {
   confidencePercent,
   dispersionOval,
   ellipseRing,
-  flightArc,
+  flightAlongLine,
   leanedLanding,
   patternColor,
   patternSafety,
@@ -562,7 +562,7 @@ export default function PlayScreen() {
   const risk = measuredCenter && bearing != null ? riskCall(measuredCenter, bearing, hazardRings) : null;
   const ovalCenter = measuredCenter && bearing != null && oval ? leanedLanding(measuredCenter, bearing, risk?.lean ?? null) : null;
   const ellipse = oval && ovalCenter && bearing != null ? ellipseRing(ovalCenter, bearing, oval.carryStdYards, oval.lateralStdYards, 36, oval.biasDeg) : null;
-  const flight = origin && landing ? flightArc(origin, landing) : null;
+  const flight = origin && landing ? flightAlongLine(overlay.line, origin, landing) : null;
   const percent = shownProfile
     ? confidencePercent({
         sampleSize: shownProfile.sampleSize,

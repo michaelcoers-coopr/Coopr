@@ -8,6 +8,7 @@ import {
   confidencePercent,
   dispersionOval,
   feelFor,
+  flightAlongLine,
   flightArc,
   nudgeLabels,
   visibleLabels,
@@ -229,6 +230,18 @@ describe('score, labels, and feel', () => {
     expect(arc[arc.length - 1]).toEqual(end);
     const crest = arc[Math.floor(arc.length / 2)]!;
     expect(distanceYards(crest, closestPointOnSegment(crest, tee, end))).toBeLessThanOrEqual(4.5);
+    const bend = destinationPoint(destinationPoint(tee, 10, 120), 50, 90);
+    const hole = [tee, destinationPoint(tee, 10, 120), bend];
+    const offline = destinationPoint(tee, 100, 40);
+    const along = flightAlongLine(hole, offline, bend);
+    expect(along[along.length - 1]).toEqual(bend);
+    expect(distanceYards(along[0]!, closestPointOnSegment(along[0]!, hole[0]!, hole[1]!))).toBeLessThan(1);
+    for (const point of along) {
+      const off = Math.min(
+        ...hole.slice(1).map((vertex, index) => distanceYards(point, closestPointOnSegment(point, hole[index]!, vertex))),
+      );
+      expect(off).toBeLessThanOrEqual(4.5);
+    }
     expect(feelFor('club')).toBe('pulse');
     expect(feelFor('mark')).toBe('celebrate');
     expect(feelFor('hole')).toBe('hole');

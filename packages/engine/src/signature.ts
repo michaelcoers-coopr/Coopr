@@ -1,5 +1,5 @@
 import type { CaddiePersonality, LatLon } from '@coopr/domain';
-import { bearingDegrees, destinationPoint, distanceYards, ellipseRing, pointInRing } from './geo';
+import { bearingDegrees, closestPointOnSegment, destinationPoint, distanceYards, ellipseRing, pointInRing } from './geo';
 import type { PlaysLikeResult } from './phase2';
 
 /**
@@ -407,6 +407,92 @@ export function flightArc(start: LatLon, end: LatLon): LatLon[] {
     points.push(destinationPoint(destinationPoint(start, bearing, along), bearing + 90, across));
   }
   points[0] = start;
+  points[points.length - 1] = end;
+  return points;
+}
+
+interface LineHit {
+  seg: number;
+  at: LatLon;
+  along: number;
+}
+
+function hitOnLine(point: LatLon, line: readonly LatLon[]): LineHit | null {
+  if (line.length < 2) return null;
+  let best = Number.POSITIVE_INFINITY;
+  let hit: LineHit | null = null;
+  let walked = 0;
+  for (let index = 1; index < line.length; index += 1) {
+    const start = line[index - 1]!;
+    const end = line[index]!;
+    const span = distanceYards(start, end);
+    const at = closestPointOnSegment(point, start, end);
+    const off = distanceYards(point, at);
+    const into = Math.min(span, distanceYards(start, at));
+    if (off < best) {
+      best = off;
+      hit = { seg: index - 1, at, along: walked + into };
+    }
+    walked += span;
+  }
+  return hit;
+}
+
+/**
+ * The same shallow curve, walked along the hole so it stays on the aim line.
+ * The start is the lie's place on that line. The last point is the target itself.
+ */
+export function flightAlongLine(line: readonly LatLon[], start: LatLon, end: LatLon): LatLon[] {
+  const from = hitOnLine(start, line);
+  const to = hitOnLine(end, line);
+  if (!from || !to) return flightArc(start, end);
+  const path: LatLon[] = [from.at];
+  if (from.along <= to.along) {
+    for (let vertex = from.seg + 1; vertex <= to.seg; vertex += 1) path.push(line[vertex]!);
+  } else {
+    for (let vertex = from.seg; vertex >= to.seg + 1; vertex -= 1) path.push(line[vertex]!);
+  }
+  path.push(to.at);
+  if (distanceYards(path[path.length - 1]!, end) > 1) path.push(end);
+  const compact: LatLon[] = [];
+  for (const point of path) {
+    const prev = compact[compact.length - 1];
+    if (!prev || distanceYards(prev, point) > 0.4) compact.push(point);
+  }
+  if (compact.length < 2) return flightArc(start, end);
+  const spans: number[] = [];
+  let total = 0;
+  for (let index = 1; index < compact.length; index += 1) {
+    const span = distanceYards(compact[index - 1]!, compact[index]!);
+    spans.push(span);
+    total += span;
+  }
+  if (total <= 1) return flightArc(start, end);
+  const bow = Math.min(4, total * 0.02);
+  const steps = 12;
+  const points: LatLon[] = [];
+  for (let step = 0; step <= steps; step += 1) {
+    const t = step / steps;
+    const dist = total * t;
+    let walked = 0;
+    let point = compact[compact.length - 1]!;
+    let bearing = bearingDegrees(compact[0]!, compact[1]!) ?? 0;
+    for (let index = 0; index < spans.length; index += 1) {
+      const span = spans[index]!;
+      if (walked + span >= dist - 1e-6 || index === spans.length - 1) {
+        const local = span <= 0 ? 0 : Math.min(1, Math.max(0, (dist - walked) / span));
+        const a = compact[index]!;
+        const b = compact[index + 1]!;
+        point = { lat: a.lat + (b.lat - a.lat) * local, lon: a.lon + (b.lon - a.lon) * local };
+        bearing = bearingDegrees(a, b) ?? bearing;
+        break;
+      }
+      walked += span;
+    }
+    const across = Math.sin(Math.PI * t) * bow;
+    points.push(across > 0.05 ? destinationPoint(point, bearing + 90, across) : point);
+  }
+  points[0] = compact[0]!;
   points[points.length - 1] = end;
   return points;
 }
