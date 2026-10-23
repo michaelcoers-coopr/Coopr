@@ -5,7 +5,7 @@ import { colors, font, motion, play, radius, signal, space, touch, type } from '
 import { caddieLine } from '@coopr/engine';
 import { DEFAULT_VOICE, caddieVoiceLine } from '../src/design/caddie-voice';
 import { bagGlance, courseCall, holeSubline, hypeHero, resumeLine, skyLine, TEE_IT_UP } from '../src/design/home-copy';
-import { HOLE_BLEED_PAD, holeFitPoints } from '../src/hole-fit';
+import { HOLE_BLEED_PAD, holeFitPoints, projectHoleFill } from '../src/hole-fit';
 import { CONSOLATION, scoreMoment, scoreStamp } from '../src/design/play-polish';
 import { RESULT_ICONS } from '../src/design/icons';
 import { holeSwipe, rollSteps } from '../src/design/motion';
@@ -151,13 +151,26 @@ describe('hole fit', () => {
     const origin = hole.line[0];
     expect(bearing).not.toBeNull();
     expect(origin).toBeTruthy();
-    const projection = projectAlongHole(points, 390, 844, HOLE_BLEED_PAD, bearing!, origin!);
+    const projection = projectHoleFill(points, 390, 844, HOLE_BLEED_PAD, bearing!, origin!);
     const xy = points.map((point) => projection.toXY(point));
-    const width = Math.max(...xy.map((point) => point.x)) - Math.min(...xy.map((point) => point.x));
-    const height = Math.max(...xy.map((point) => point.y)) - Math.min(...xy.map((point) => point.y));
-    expect(width).toBeGreaterThan(180);
-    expect(height).toBeGreaterThan(700);
-    expect(points.some((point) => point.lat === origin!.lat && point.lon === origin!.lon)).toBe(false);
+    const onScreen = xy.filter((point) => point.y >= 180 && point.y <= 520);
+    const width = Math.max(...onScreen.map((point) => point.x)) - Math.min(...onScreen.map((point) => point.x));
+    expect(onScreen.length).toBeGreaterThan(4);
+    expect(width).toBeGreaterThan(280);
+    expect(Math.min(...xy.map((point) => point.y))).toBeLessThan(80);
+    const holeTwo = holeOverlay(pilot.features, pilot.record.scorecard, 2);
+    const second = holeFitPoints({
+      line: holeTwo.line,
+      fairways: holeTwo.fairways.flatMap((feature) => feature.rings),
+      green: holeTwo.green ? holeTwo.green.rings : [],
+      bunkers: [],
+      hazards: [],
+    });
+    const secondBearing = shotBearing(holeTwo.line);
+    const secondOrigin = holeTwo.line[0];
+    const greenFit = projectHoleFill(second, 390, 844, HOLE_BLEED_PAD, secondBearing!, secondOrigin!);
+    const greenXY = (holeTwo.green?.rings.flat() ?? []).map((point) => greenFit.toXY(point));
+    expect(greenXY.every((point) => point.y >= 0 && point.y <= 844)).toBe(true);
   });
 });
 

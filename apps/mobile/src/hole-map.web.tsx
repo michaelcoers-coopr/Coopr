@@ -6,7 +6,7 @@ import { colors, font } from '@coopr/tokens';
 import { projectAlongHole, projectPoints } from '@coopr/engine';
 import { Muted } from './ui';
 import type { HoleMapProps } from './hole-map-props';
-import { HOLE_BLEED_PAD, holeFitPoints } from './hole-fit';
+import { HOLE_BLEED_PAD, holeFitPoints, projectHoleFill } from './hole-fit';
 import { clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark } from './map-label-layout';
 
 const ROUGH = '#0E3320';
@@ -146,9 +146,11 @@ export function HoleMap(props: HoleMapProps) {
   const projection =
     fitPoints.length === 0
       ? null
-      : props.orient != null
-        ? projectAlongHole(fitPoints, width, height, fitPad, props.orient.bearing, props.orient.origin)
-        : projectPoints(fitPoints, width, height, fitPad);
+      : props.bleed && props.orient != null
+        ? projectHoleFill(fitPoints, width, height, HOLE_BLEED_PAD, props.orient.bearing, props.orient.origin)
+        : props.orient != null
+          ? projectAlongHole(fitPoints, width, height, fitPad, props.orient.bearing, props.orient.origin)
+          : projectPoints(fitPoints, width, height, fitPad);
   const bleed = props.bleed === true;
   const ink = bleed ? '#F4FFF6' : colors.navy;
   const tee = bleed && projection && props.line[0] ? projection.toXY(props.line[0]) : null;
