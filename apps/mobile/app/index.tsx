@@ -91,9 +91,9 @@ export default function HomeScreen() {
         <View pointerEvents="none" style={styles.scrim} />
       </View>
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
           <View style={styles.crestPlate}>
-            <Crest size={84} />
+            <Crest size={72} />
           </View>
           <Text style={styles.word}>COOPR</Text>
           <View style={styles.rule} />
@@ -187,13 +187,13 @@ const styles = StyleSheet.create({
   wash: { position: 'absolute', top: -60, right: -60, bottom: -60, left: -60 },
   scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(11,31,58,0.32)' },
   safe: { flex: 1 },
-  content: { paddingHorizontal: space[3], paddingBottom: space[3], gap: space[2] },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: space[3], paddingBottom: 28, gap: 12 },
   crestPlate: {
     alignSelf: 'center',
     backgroundColor: colors.white,
     borderRadius: radius.sheet,
-    padding: 8,
-    marginTop: space[1],
+    padding: 6,
   },
   word: {
     color: colors.white,
@@ -209,8 +209,8 @@ const styles = StyleSheet.create({
   weather: { alignSelf: 'center' },
   weatherFill: { minHeight: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10 },
   weatherText: { color: colors.white, fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: '700' },
-  play: { minHeight: 196 },
-  playFill: { minHeight: 196, padding: space[3], gap: 6, justifyContent: 'center' },
+  play: { minHeight: 180 },
+  playFill: { minHeight: 180, padding: space[2], gap: 6, justifyContent: 'center' },
   kicker: {
     color: 'rgba(255,255,255,0.92)',
     fontFamily: font.family,
@@ -230,9 +230,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   playButtonText: { color: colors.white, fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
-  glance: { flexDirection: 'row', flexWrap: 'wrap', gap: space[1] + 4, marginTop: space[1] },
-  stat: { flexGrow: 1, flexBasis: '46%', minWidth: 150, minHeight: 120 },
-  statFill: { minHeight: 120, paddingHorizontal: space[2], paddingVertical: space[2], justifyContent: 'center', gap: 2 },
+  glance: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  stat: { flexGrow: 1, flexBasis: '46%', minWidth: 150, minHeight: 112 },
+  statFill: { minHeight: 112, paddingHorizontal: space[2], paddingVertical: 12, justifyContent: 'center', gap: 2 },
   statLabel: { color: colors.white, fontFamily: font.family, fontSize: type.body, fontWeight: '600' },
   statValue: { color: colors.white, fontFamily: font.family, fontSize: type.club, lineHeight: 36, fontWeight: '700', fontVariant: ['tabular-nums'] },
   statNote: { color: colors.white, fontFamily: font.family, fontSize: type.body, lineHeight: 22 },

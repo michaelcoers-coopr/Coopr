@@ -79,6 +79,31 @@ export function holeShift(from: number, to: number): 'forward' | 'back' | 'none'
   return to > from ? 'forward' : 'back';
 }
 
+/**
+ * The flag is drawn above the green point, and the tee mark hangs below the line.
+ * Those ornaments have to clear the yardage pill and the closed sheet.
+ */
+const PIN_CLEAR = 40;
+const TEE_CLEAR = 20;
+const SHEET_GAP = 8;
+
+export function holeFrame(input: { hudHeight: number; dockHeight: number; sheetClosed: number }): {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+} {
+  const hud = Number.isFinite(input.hudHeight) ? Math.max(0, input.hudHeight) : 0;
+  const dock = Number.isFinite(input.dockHeight) ? Math.max(0, input.dockHeight) : 0;
+  const sheet = Number.isFinite(input.sheetClosed) ? Math.max(0, input.sheetClosed) : 0;
+  return {
+    top: hud + PIN_CLEAR,
+    right: 18,
+    bottom: dock + SHEET_GAP + sheet + TEE_CLEAR,
+    left: 18,
+  };
+}
+
 /** Map travel and the smaller sheet travel. The sheet lags, so the hole feels deeper than the card. */
 export function holeEnter(shift: 'forward' | 'back' | 'none'): { map: number; sheet: number } {
   if (shift === 'forward') return { map: 64, sheet: 22 };

@@ -43,7 +43,7 @@ import { loadHighCedarsPilot } from '@coopr/course';
 import { HoleMap } from '../src/hole-map';
 import { celebrate, pulse, tick } from '../src/haptics';
 import { holeSwipe, rollSteps } from '../src/design/motion';
-import { clubFigure, clubWhy, holeEnter, holeShift, scoreGlance, sheetSnap } from '../src/design/play-polish';
+import { clubFigure, clubWhy, holeEnter, holeFrame, holeShift, scoreGlance, sheetSnap } from '../src/design/play-polish';
 import { Glass, Vignette } from '../src/design/glass';
 import { CountChip } from '../src/design/count-chip';
 import { holeLabels } from '../src/map-labels';
@@ -138,6 +138,7 @@ export default function PlayScreen() {
   const [roll, setRoll] = useState<number | null>(null);
   const [mapH, setMapH] = useState(844);
   const [dockH, setDockH] = useState(128);
+  const [hudH, setHudH] = useState(200);
   const [sheetOpen, setSheetOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const mapX = useSharedValue(0);
@@ -547,7 +548,7 @@ export default function PlayScreen() {
         <HoleMap
           bleed
           height={mapH}
-          pad={{ top: 56, right: 14, bottom: 48, left: 14 }}
+          pad={holeFrame({ hudHeight: hudH, dockHeight: dockH, sheetClosed: SHEET_CLOSED })}
           orient={bearing != null && overlay.line[0] ? { bearing, origin: overlay.line[0] } : null}
           labels={holeLabels(
             overlay.line,
@@ -571,7 +572,11 @@ export default function PlayScreen() {
         />
         <Vignette />
       </Animated.View>
-      <View pointerEvents="box-none" style={[styles.hud, { paddingTop: insets.top + 8 }]}>
+      <View
+        pointerEvents="box-none"
+        onLayout={(event) => setHudH(Math.max(64, Math.round(event.nativeEvent.layout.height)))}
+        style={[styles.hud, { paddingTop: insets.top + 8 }]}
+      >
         <View
           {...pan.panHandlers}
           accessibilityRole="adjustable"

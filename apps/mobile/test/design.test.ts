@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { projectAlongHole } from '@coopr/engine';
 import { colors, font, motion, play, radius, space, touch, type } from '@coopr/tokens';
 import { bagGlance, resumeLine, skyLine } from '../src/design/home-copy';
 import { RESULT_ICONS } from '../src/design/icons';
 import { holeSwipe, rollSteps } from '../src/design/motion';
+import { holeFrame } from '../src/design/play-polish';
 
 describe('design tokens', () => {
   it('keeps navy, white, and crest red, and reserves ice for a live number', () => {
@@ -53,5 +55,24 @@ describe('home glance', () => {
     expect(skyLine({ temperatureF: 64.2, windMph: 8.4, headwindMph: null })).toBe('64° · Wind 8 mph');
     expect(skyLine({ temperatureF: 64, windMph: 9, headwindMph: 6.2 })).toBe('64° · Wind 9 mph · 6 in your face');
     expect(skyLine({ temperatureF: 64, windMph: 9, headwindMph: -3.4 })).toBe('64° · Wind 9 mph · 3 helping');
+  });
+});
+
+describe('hole frame', () => {
+  it('keeps the pin flag under the yardage pill and the tee above the sheet', () => {
+    const height = 844;
+    const hud = 188;
+    const dock = 108;
+    const sheet = 128;
+    const frame = holeFrame({ hudHeight: hud, dockHeight: dock, sheetClosed: sheet });
+    const tee = { lat: 41.6, lon: -87.8 };
+    const pin = { lat: 41.604, lon: -87.8 };
+    const projection = projectAlongHole([tee, pin], 390, height, frame, 0, tee);
+    const teeXY = projection.toXY(tee);
+    const pinXY = projection.toXY(pin);
+    expect(pinXY.y - 30).toBeGreaterThanOrEqual(hud);
+    expect(teeXY.y + 6).toBeLessThanOrEqual(height - dock - 8 - sheet);
+    expect(pinXY.y).toBeLessThan(teeXY.y);
+    expect(holeFrame({ hudHeight: Number.NaN, dockHeight: Number.NaN, sheetClosed: Number.NaN }).top).toBeGreaterThan(0);
   });
 });
