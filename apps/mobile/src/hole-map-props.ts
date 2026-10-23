@@ -8,6 +8,11 @@ export interface HoleMapProps {
   bunkers: readonly (readonly LatLon[])[];
   hazards: readonly (readonly LatLon[])[];
   ellipse: readonly LatLon[] | null;
+  /** Semantic fill for the dispersion oval. Omitted when there is no oval. */
+  ellipseColor?: string | null;
+  /** Aim curve between two real points. A drawing, not a measured flight. */
+  flight?: readonly LatLon[] | null;
+  reduceMotion?: boolean;
   dispersionLine: readonly LatLon[];
   measure: readonly LatLon[];
   onTap: (point: LatLon) => void;

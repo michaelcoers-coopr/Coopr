@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { projectAlongHole } from '@coopr/engine';
-import { colors, font, motion, play, radius, space, touch, type } from '@coopr/tokens';
+import { colors, font, motion, play, radius, signal, space, touch, type } from '@coopr/tokens';
 import { bagGlance, resumeLine, skyLine } from '../src/design/home-copy';
 import { RESULT_ICONS } from '../src/design/icons';
 import { holeSwipe, rollSteps } from '../src/design/motion';
@@ -12,6 +12,9 @@ describe('design tokens', () => {
     expect(colors.white).toBe('#FFFFFF');
     expect(colors.red).toBe('#C8102E');
     expect(play.live).toBe('#5CE1FF');
+    expect(signal.go).toBe('#8AC926');
+    expect(signal.caution).toBe('#E6A317');
+    expect(signal.hazard).toBe('#C8102E');
     expect(play.bg).toBe('#070B10');
     expect(Object.values(space).every((value) => value % 8 === 0)).toBe(true);
     expect(touch).toBeGreaterThanOrEqual(56);

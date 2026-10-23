@@ -76,8 +76,9 @@ export function HoleMap(props: HoleMapProps) {
           : null}
         {props.line.length > 1 ? <Polyline coordinates={coords(props.line)} strokeColor={bleed ? 'rgba(255,255,255,0.9)' : colors.navy} strokeWidth={3} /> : null}
         {props.ellipse && props.ellipse.length > 2 ? (
-          <Polygon coordinates={coords(props.ellipse)} fillColor="rgba(11,31,58,0.28)" strokeColor={colors.white} strokeWidth={2} />
+          <Polygon coordinates={coords(props.ellipse)} fillColor={props.ellipseColor ?? '#8AC926'} strokeColor={props.ellipseColor ?? '#8AC926'} strokeWidth={2} />
         ) : null}
+        {props.flight && props.flight.length > 1 ? <Polyline coordinates={coords(props.flight)} strokeColor="#FFFFFF" strokeWidth={3} /> : null}
         {props.dispersionLine.length > 1 ? <Polyline coordinates={coords(props.dispersionLine)} strokeColor={colors.white} strokeWidth={4} /> : null}
         {props.measure.length > 1 ? <Polyline coordinates={coords(props.measure)} strokeColor={colors.red} strokeWidth={3} /> : null}
       </MapView>

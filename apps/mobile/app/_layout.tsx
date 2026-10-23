@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colors } from '@coopr/tokens';
+import { FloatingAsk } from '../src/design/floating-ask';
 import { LocalStoreProvider } from '../src/local-store';
 
 export default function RootLayout() {
@@ -20,6 +21,7 @@ export default function RootLayout() {
             title: 'COOPR',
           }}
         />
+        <FloatingAsk />
       </LocalStoreProvider>
     </SafeAreaProvider>
   );

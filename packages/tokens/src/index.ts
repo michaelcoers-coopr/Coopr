@@ -1,6 +1,7 @@
 /**
- * Navy, white, and crest red. One ice accent is reserved for a live number.
- * There is no green fill. The Navy Fill crest is the supplied raster. It is not redrawn.
+ * Brand chrome is navy, white, and crest red. Ice is only a live number.
+ * Go and caution are semantic signals for a pattern or a score. They are not chrome.
+ * The Navy Fill crest is the supplied raster. It is not redrawn.
  * Menus use the light palette. The hole screen uses the play palette.
  */
 export const TAGLINE = "The smartest caddie you'll ever carry";
@@ -17,6 +18,13 @@ export const colors = {
   navy: '#0B1F3A',
   white: '#FFFFFF',
   red: '#C8102E',
+} as const;
+
+/** Safe, caution, and hazard. Hazard uses crest red. These are not brand fills. */
+export const signal = {
+  go: '#8AC926',
+  caution: '#E6A317',
+  hazard: '#C8102E',
 } as const;
 
 /** Near-black play field. The ice accent is the live yardage only. */

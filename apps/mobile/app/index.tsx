@@ -6,11 +6,12 @@ import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } fr
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
-import { holeOverlay, ringCentroid, shotBearing } from '@coopr/engine';
+import { holeOverlay, ringCentroid, roundProgress, shotBearing } from '@coopr/engine';
 import { loadHighCedarsPilot } from '@coopr/course';
 import { colors, font, radius, space, TAGLINE, type } from '@coopr/tokens';
 import { bagGlance, resumeLine, skyLine } from '../src/design/home-copy';
 import { Glass } from '../src/design/glass';
+import { Pips } from '../src/design/signature-ui';
 import { HoleMap } from '../src/hole-map';
 import { holeLabels } from '../src/map-labels';
 import { useLocalStore } from '../src/local-store';
@@ -25,7 +26,9 @@ function ringsOf(features: readonly MapFeature[]): LatLon[][] {
 }
 
 export default function HomeScreen() {
-  const { currentHole, score, clubs, unit } = useLocalStore();
+  const { currentHole, score, clubs, unit, holes } = useLocalStore();
+  const roundsKept = holes.length >= 18 && holes.every((strokes) => strokes != null) ? 1 : 0;
+  const progress = roundProgress(roundsKept);
   const inPlay = clubs.filter((club) => club.slot === 'in_play').length;
   const resume = resumeLine({
     hole: currentHole,
@@ -116,8 +119,14 @@ export default function HomeScreen() {
           </Pressable>
           <View style={styles.glance}>
             <Stat icon={<BagMark />} label="In the bag" value={bagGlance(inPlay)} />
-            <Stat icon={<FlagMark />} label="Gross" value={score.holesEntered > 0 ? String(score.gross) : '—'} />
-            <Stat icon={<DashMark />} label="Handicap" value="—" note="Unknown" />
+            <Stat
+              icon={<FlagMark />}
+              label="Gross"
+              value={score.holesEntered > 0 ? String(score.gross) : undefined}
+              detail={score.holesEntered > 0 ? undefined : progress.gross}
+              pips={progress}
+            />
+            <Stat icon={<DashMark />} label="Handicap" detail={progress.handicap} pips={progress} />
           </View>
         </ScrollView>
         <Glass radius={28} style={styles.tab} contentStyle={styles.tabFill}>
@@ -134,13 +143,28 @@ export default function HomeScreen() {
   );
 }
 
-function Stat({ icon, label, value, note }: { icon: ReactNode; label: string; value: string; note?: string }) {
+function Stat({
+  icon,
+  label,
+  value,
+  detail,
+  pips,
+}: {
+  icon: ReactNode;
+  label: string;
+  value?: string;
+  detail?: string;
+  pips?: { filled: number; total: number };
+}) {
   return (
     <Glass radius={radius.card} style={styles.stat} contentStyle={styles.statFill}>
       {icon}
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-      {note ? <Text style={styles.statNote}>{note}</Text> : null}
+      <View style={styles.statCopy}>
+        <Text style={styles.statLabel}>{label}</Text>
+        {detail ? <Text style={styles.statNote}>{detail}</Text> : null}
+        {pips ? <Pips filled={pips.filled} total={pips.total} /> : null}
+      </View>
+      {value ? <Text style={styles.statValue}>{value}</Text> : null}
     </Glass>
   );
 }
@@ -230,10 +254,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   playButtonText: { color: colors.white, fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
-  glance: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  stat: { flexGrow: 1, flexBasis: '46%', minWidth: 150, minHeight: 112 },
-  statFill: { minHeight: 112, paddingHorizontal: space[2], paddingVertical: 12, justifyContent: 'center', gap: 2 },
-  statLabel: { color: colors.white, fontFamily: font.family, fontSize: type.body, fontWeight: '600' },
+  glance: { gap: 12 },
+  stat: { minHeight: 72 },
+  statFill: { minHeight: 72, paddingHorizontal: space[2], paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  statCopy: { flex: 1, gap: 4 },
+  statLabel: { color: colors.white, fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
   statValue: { color: colors.white, fontFamily: font.family, fontSize: type.club, lineHeight: 36, fontWeight: '700', fontVariant: ['tabular-nums'] },
   statNote: { color: colors.white, fontFamily: font.family, fontSize: type.body, lineHeight: 22 },
   icon: { width: 28, height: 28, marginBottom: 4 },

@@ -217,14 +217,17 @@ export function destinationPoint(from: LatLon, bearing: number, yards: number): 
   return { lat: (phi2 * 180) / Math.PI, lon: (((lambda2 * 180) / Math.PI + 540) % 360) - 180 };
 }
 
-/** A ring around `center`. `alongYards` follows the bearing. `acrossYards` is perpendicular. */
-export function ellipseRing(center: LatLon, bearing: number, alongYards: number, acrossYards: number, steps = 24): LatLon[] {
+/** A ring around `center`. `alongYards` follows the bearing. `acrossYards` is perpendicular. `biasDeg` leans the long axis, positive toward the right. */
+export function ellipseRing(center: LatLon, bearing: number, alongYards: number, acrossYards: number, steps = 24, biasDeg = 0): LatLon[] {
   const count = Math.max(12, steps);
+  const rot = radians(biasDeg);
   const points: LatLon[] = [];
   for (let i = 0; i < count; i += 1) {
     const t = (i / count) * Math.PI * 2;
-    const along = alongYards * Math.cos(t);
-    const across = acrossYards * Math.sin(t);
+    const along0 = alongYards * Math.cos(t);
+    const across0 = acrossYards * Math.sin(t);
+    const along = along0 * Math.cos(rot) - across0 * Math.sin(rot);
+    const across = along0 * Math.sin(rot) + across0 * Math.cos(rot);
     const moved = destinationPoint(center, bearing, along);
     points.push(destinationPoint(moved, bearing + 90, across));
   }

@@ -1,9 +1,9 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, ClipPath, Defs, G, Line, Pattern, Polygon, Polyline, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, ClipPath, Defs, G, Line, LinearGradient, Pattern, Polygon, Polyline, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import type { LatLon } from '@coopr/domain';
 import { colors } from '@coopr/tokens';
-import { projectAlongHole, projectPoints } from '@coopr/engine';
+import { nudgeLabels, projectAlongHole, projectPoints } from '@coopr/engine';
 import { Muted } from './ui';
 import type { HoleMapProps } from './hole-map-props';
 
@@ -26,6 +26,25 @@ function pointsOf(ring: readonly LatLon[], projection: ReturnType<typeof project
 /** Open geometry only. Apple satellite is the phone map. This drawing is the same shapes, stood tee-to-green. */
 export function HoleMap(props: HoleMapProps) {
   const [width, setWidth] = useState(390);
+  const [flightT, setFlightT] = useState(props.reduceMotion ? 1 : 0);
+  const flightKey = (props.flight ?? []).map((point) => `${point.lat.toFixed(5)},${point.lon.toFixed(5)}`).join('|');
+  useEffect(() => {
+    if (!props.flight || props.flight.length < 2) return;
+    if (props.reduceMotion) {
+      setFlightT(1);
+      return;
+    }
+    const started = performance.now();
+    let frame = 0;
+    const step = (now: number) => {
+      const next = Math.min(1, (now - started) / 700);
+      setFlightT(next);
+      if (next < 1) frame = requestAnimationFrame(step);
+    };
+    setFlightT(0);
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [flightKey, props.reduceMotion]);
   const rawId = useId();
   const uid = rawId.replace(/:/g, '');
   const cloud = [props.line, ...props.fairways, ...props.green, ...props.bunkers, ...props.hazards, ...(props.ellipse ? [props.ellipse] : []), ...props.dispersionLine, ...props.measure].flat();
@@ -91,6 +110,11 @@ export function HoleMap(props: HoleMapProps) {
               <Stop offset="0.55" stopColor={GREEN} stopOpacity="0.2" />
               <Stop offset="1" stopColor={GREEN} stopOpacity="0" />
             </RadialGradient>
+            <LinearGradient id={`${uid}-fairgrad`} x1="0" y1="1" x2="0" y2="0">
+              <Stop offset="0" stopColor="#0E4A28" />
+              <Stop offset="0.55" stopColor="#1F8A4C" />
+              <Stop offset="1" stopColor="#7DDEA0" />
+            </LinearGradient>
           </Defs>
         ) : null}
         {bleed ? <Rect x={0} y={0} width={width} height={height} fill={ROUGH} /> : null}
@@ -98,6 +122,7 @@ export function HoleMap(props: HoleMapProps) {
           <Polygon key={`fairway-${index}`} points={pointsOf(ring, projection)} fill={bleed ? FAIRWAY_DARK : 'rgba(255,255,255,0.9)'} stroke={bleed ? '#145C32' : ink} strokeWidth={bleed ? 1.5 : 2} />
         ))}
         {bleed && props.fairways.length > 0 ? <Rect x={0} y={0} width={width} height={height} fill={`url(#${uid}-mow)`} clipPath={`url(#${uid}-fair)`} /> : null}
+        {bleed && props.fairways.length > 0 ? <Rect x={0} y={0} width={width} height={height} fill={`url(#${uid}-fairgrad)`} fillOpacity={0.55} clipPath={`url(#${uid}-fair)`} /> : null}
         {props.bunkers.map((ring, index) => (
           <Polygon key={`bunker-${index}`} points={pointsOf(ring, projection)} fill={bleed ? SAND : colors.white} stroke={bleed ? '#F8E7C0' : ink} strokeWidth={1.5} />
         ))}
@@ -142,20 +167,33 @@ export function HoleMap(props: HoleMapProps) {
             <Polygon points={`${pin.x},${pin.y - 30} ${pin.x + 16},${pin.y - 23} ${pin.x},${pin.y - 16}`} fill={colors.red} />
           </G>
         ) : null}
-        {(props.labels ?? []).map((label) => {
-          const xy = projection.toXY(label.at);
-          const boxW = Math.max(44, label.label.length * 12 + 16);
-          return (
-            <G key={`${label.label}-${xy.x.toFixed(0)}`}>
-              <Rect x={xy.x - boxW / 2} y={xy.y - 16} width={boxW} height={28} rx={10} fill="rgba(11,31,58,0.88)" />
-              <SvgText x={xy.x} y={xy.y + 4} fill="#FFFFFF" fontSize={17} fontWeight="700" textAnchor="middle">
-                {label.label}
-              </SvgText>
-            </G>
-          );
-        })}
+        {nudgeLabels(
+          (props.labels ?? []).map((label) => {
+            const xy = projection.toXY(label.at);
+            const boxW = Math.max(44, label.label.length * 12 + 16);
+            return { ...label, x: xy.x - boxW / 2, y: xy.y - 16, w: boxW, h: 28 };
+          }),
+          8,
+          width - 8,
+        ).map((label) => (
+          <G key={`${label.label}-${label.x.toFixed(0)}`}>
+            <Rect x={label.x} y={label.y} width={label.w} height={label.h} rx={10} fill="rgba(11,31,58,0.88)" />
+            <SvgText x={label.x + label.w / 2} y={label.y + 20} fill="#FFFFFF" fontSize={17} fontWeight="700" textAnchor="middle">
+              {label.label}
+            </SvgText>
+          </G>
+        ))}
         {props.ellipse && props.ellipse.length > 2 ? (
-          <Polygon points={pointsOf(props.ellipse, projection)} fill="rgba(11,31,58,0.18)" stroke={colors.navy} strokeWidth={2} />
+          <Polygon points={pointsOf(props.ellipse, projection)} fill={props.ellipseColor ?? '#8AC926'} fillOpacity={0.38} stroke={props.ellipseColor ?? '#8AC926'} strokeWidth={2.5} />
+        ) : null}
+        {props.flight && props.flight.length > 1 ? (
+          <Polyline
+            points={pointsOf(props.flight.slice(0, Math.max(2, Math.ceil(props.flight.length * flightT))), projection)}
+            fill="none"
+            stroke="#FFFFFF"
+            strokeWidth={3}
+            strokeLinecap="round"
+          />
         ) : null}
         {props.dispersionLine.length > 1 ? (
           <Polyline points={pointsOf(props.dispersionLine, projection)} fill="none" stroke={bleed ? 'rgba(255,255,255,0.7)' : colors.navy} strokeWidth={4} />

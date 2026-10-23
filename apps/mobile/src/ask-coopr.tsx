@@ -1,10 +1,11 @@
-import { useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming } from 'react-native-reanimated';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 import * as Speech from 'expo-speech';
 import { font, play as field, type } from '@coopr/tokens';
 import { Glass } from './design/glass';
+import { useReduceMotion } from './design/reduce-motion';
 import { tick } from './haptics';
 import {
   answerAsk,
@@ -71,8 +72,19 @@ export function useAskCoopr(input: AskContext): { banner: ReactNode; button: Rea
   latest.current = input;
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const holding = useRef(false);
+  const reduce = useReduceMotion();
   const orb = useSharedValue(1);
-  const orbStyle = useAnimatedStyle(() => ({ transform: [{ scale: orb.value }] }));
+  const breathe = useSharedValue(1);
+  useEffect(() => {
+    if (reduce) {
+      cancelAnimation(breathe);
+      breathe.value = 1;
+      return;
+    }
+    breathe.value = withRepeat(withTiming(1.06, { duration: 1800 }), -1, true);
+    return () => cancelAnimation(breathe);
+  }, [reduce, breathe]);
+  const orbStyle = useAnimatedStyle(() => ({ transform: [{ scale: orb.value * breathe.value }] }));
   const [phase, setPhase] = useState<'idle' | 'listening' | 'answer'>('idle');
   const [heard, setHeard] = useState<Heard | null>(null);
   const [trouble, setTrouble] = useState<string | null>(null);
