@@ -341,6 +341,25 @@ export interface LabelBox {
   h: number;
 }
 
+function labelHits(a: LabelBox, b: LabelBox, pad: number): boolean {
+  return a.x < b.x + b.w + pad && a.x + a.w + pad > b.x && a.y < b.y + b.h + pad && a.y + a.h + pad > b.y;
+}
+
+/**
+ * Keeps the higher-priority label when two boxes meet.
+ * A 450 mark near the landing label is dropped. Words of a kept label are unchanged.
+ */
+export function visibleLabels<T extends LabelBox & { label: string; priority: number }>(items: readonly T[]): T[] {
+  const ranked = [...items].sort((a, b) => b.priority - a.priority);
+  const kept: T[] = [];
+  for (const item of ranked) {
+    const pad = item.label === '450' ? 16 : 4;
+    if (kept.some((other) => labelHits(item, other, pad))) continue;
+    kept.push({ ...item });
+  }
+  return kept;
+}
+
 /** Moves a later label off an earlier one. The yardage itself is unchanged. */
 export function nudgeLabels<T extends LabelBox>(items: readonly T[], gap = 8, width?: number): T[] {
   const placed = items.map((item) => ({ ...item }));

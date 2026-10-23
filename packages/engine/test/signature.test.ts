@@ -10,6 +10,7 @@ import {
   feelFor,
   flightArc,
   nudgeLabels,
+  visibleLabels,
   patternColor,
   patternSafety,
   playsLikeChips,
@@ -185,6 +186,12 @@ describe('score, labels, and feel', () => {
     expect(moved[0]!.label).toBe('450');
     expect(moved[1]!.label).toBe('154');
     expect(moved[1]!.x).toBeGreaterThan(120);
+    const kept = visibleLabels([
+      { x: 100, y: 40, w: 52, h: 28, label: '450', priority: 0 },
+      { x: 108, y: 44, w: 52, h: 28, label: '158', priority: 2 },
+      { x: 20, y: 200, w: 52, h: 28, label: '150', priority: 0 },
+    ]);
+    expect(kept.map((item) => item.label)).toEqual(['158', '150']);
     const arc = flightArc(tee, destinationPoint(tee, 0, 160));
     expect(arc.length).toBeGreaterThan(2);
     expect(feelFor('club')).toBe('pulse');

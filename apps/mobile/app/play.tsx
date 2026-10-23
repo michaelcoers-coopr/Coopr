@@ -5,7 +5,7 @@ import { PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View 
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
-import { font, play as field, signal, type } from '@coopr/tokens';
+import { font, play as field, type } from '@coopr/tokens';
 import {
   acceptShotYards,
   arrivedAtNextTee,
@@ -60,7 +60,7 @@ import { celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { holeSwipe, rollSteps } from '../src/design/motion';
 import { clubFigure, clubWhy, holeEnter, holeFrame, holeShift, scoreGlance, sheetSnap } from '../src/design/play-polish';
 import { Glass, Vignette } from '../src/design/glass';
-import { ClubStrip, ThruBar } from '../src/design/signature-ui';
+import { ClubStrip, ConfidenceRing, ThruBar } from '../src/design/signature-ui';
 import { useReduceMotion } from '../src/design/reduce-motion';
 import { CountChip } from '../src/design/count-chip';
 import { holeLabels } from '../src/map-labels';
@@ -70,7 +70,7 @@ import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
 
 const pilot = loadHighCedarsPilot();
-const SHEET_CLOSED = 168;
+const SHEET_CLOSED = 180;
 const SHEET_OPEN = 420;
 const SHEET_SPRING = { damping: 18, stiffness: 190, mass: 0.75 };
 
@@ -168,8 +168,8 @@ export default function PlayScreen() {
   const [saved, setSaved] = useState<string | null>(null);
   const [roll, setRoll] = useState<number | null>(null);
   const [mapH, setMapH] = useState(844);
-  const [dockH, setDockH] = useState(148);
-  const [hudH, setHudH] = useState(210);
+  const [dockH, setDockH] = useState(96);
+  const [hudH, setHudH] = useState(196);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
   const [breakdown, setBreakdown] = useState(false);
@@ -543,6 +543,15 @@ export default function PlayScreen() {
     lowConfidence,
   });
   const band = carryBand(shownProfile, unit);
+  const patternLine =
+    !onGreen && oval
+      ? `${sampleOn ? 'Sample pattern · ' : ''}±${oval.carryStdYards} × ±${oval.lateralStdYards} yd`
+      : !onGreen
+        ? PATTERN_INVITE
+        : null;
+  const windMph = sky?.current?.windMph;
+  const windKnown = windMph != null && Number.isFinite(windMph);
+  const windText = windKnown ? String(Math.round(windMph)) : '?';
   const thru = thruScore(pilot.quality.map((item) => ({ par: item.par, strokes: holes[item.holeNumber - 1] ?? null, kept: holes[item.holeNumber - 1] != null })));
   const dispersionLine: LatLon[] = [];
   const strokes = holes[hole.holeNumber - 1] ?? null;
@@ -664,7 +673,6 @@ export default function PlayScreen() {
           hazards={ringsOf(overlay.hazards)}
           ellipse={ellipse}
           ellipseColor={safety ? patternColor(safety) : null}
-          ellipseNote={oval ? `${sampleOn ? 'Sample ' : ''}±${oval.carryStdYards} by ±${oval.lateralStdYards} yd` : null}
           flight={flight}
           reduceMotion={reduceMotion}
           dispersionLine={dispersionLine}
@@ -703,56 +711,65 @@ export default function PlayScreen() {
             <Text style={styles.headerSi}>{`SI ${hole.strokeIndex ?? '—'}`}</Text>
           </Glass>
         </View>
-        <Glass radius={28} intensity={40} overlay="rgba(11,31,58,0.46)" style={styles.pill} contentStyle={styles.pillFill}>
-          <View style={styles.ends}>
-            <End label="Front" value={ground ? formatDistance(ground.frontYards, unit) : ''} />
+        <View style={styles.pillRow}>
+          <Glass radius={28} intensity={40} overlay="rgba(11,31,58,0.46)" style={styles.pill} contentStyle={styles.pillFill}>
+            <View style={styles.ends}>
+              <End label="Front" value={ground ? formatDistance(ground.frontYards, unit) : ''} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Shot yards"
+                delayLongPress={450}
+                onLongPress={() => {
+                  if (player) return;
+                  setOverrideDraft(manual == null ? '' : formatDistance(manual, unit));
+                  setOverrideOpen(true);
+                }}
+                style={styles.centerHit}
+              >
+                <Text style={styles.endLabel}>{scrubClub ? shownLabel ?? 'Club' : centerLive ? 'Center' : 'Yards'}</Text>
+                {focusedPlays != null && focusedRaw != null ? <Text style={styles.struck}>{formatDistance(focusedRaw, unit)}</Text> : null}
+                {overrideOpen && !player ? (
+                  <TextInput
+                    value={overrideDraft}
+                    onChangeText={setOverrideDraft}
+                    keyboardType="decimal-pad"
+                    autoFocus
+                    style={[styles.centerNum, styles.centerInput]}
+                    accessibilityLabel="Manual yards"
+                    onBlur={() => {
+                      const accepted = acceptShotYards(Number(overrideDraft));
+                      if (typeof accepted === 'number') setManualYards(hole.holeNumber, displayToYards(accepted, unit));
+                      setOverrideOpen(false);
+                    }}
+                  />
+                ) : (
+                  <Text style={[styles.centerNum, focusedPlays != null ? styles.glow : centerLive && styles.centerLive]}>{heroText}</Text>
+                )}
+              </Pressable>
+              <End label="Back" value={ground ? formatDistance(ground.backYards, unit) : ''} />
+            </View>
+            {!player && !overrideOpen ? <Text style={styles.hint}>Hold the number to type the yards.</Text> : null}
+          </Glass>
+          <View style={styles.windSlot}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Shot yards"
-              delayLongPress={450}
-              onLongPress={() => {
-                if (player) return;
-                setOverrideDraft(manual == null ? '' : formatDistance(manual, unit));
-                setOverrideOpen(true);
-              }}
-              style={styles.centerHit}
+              accessibilityLabel={windKnown ? `Wind ${windText} miles per hour` : 'Wind unknown'}
+              onPress={() => setBreakdown((open) => !open)}
             >
-              <Text style={styles.endLabel}>{scrubClub ? shownLabel ?? 'Club' : centerLive ? 'Center' : 'Yards'}</Text>
-              {focusedPlays != null && focusedRaw != null ? <Text style={styles.struck}>{formatDistance(focusedRaw, unit)}</Text> : null}
-              {overrideOpen && !player ? (
-                <TextInput
-                  value={overrideDraft}
-                  onChangeText={setOverrideDraft}
-                  keyboardType="decimal-pad"
-                  autoFocus
-                  style={[styles.centerNum, styles.centerInput]}
-                  accessibilityLabel="Manual yards"
-                  onBlur={() => {
-                    const accepted = acceptShotYards(Number(overrideDraft));
-                    if (typeof accepted === 'number') setManualYards(hole.holeNumber, displayToYards(accepted, unit));
-                    setOverrideOpen(false);
-                  }}
-                />
-              ) : (
-                <Text style={[styles.centerNum, focusedPlays != null ? styles.glow : centerLive && styles.centerLive]}>{heroText}</Text>
-              )}
-            </Pressable>
-            <End label="Back" value={ground ? formatDistance(ground.backYards, unit) : ''} />
-            <Pressable accessibilityRole="button" accessibilityLabel={breakdown ? 'Hide conditions' : 'Conditions'} onPress={() => setBreakdown((open) => !open)} style={styles.condHit}>
-              <Glass radius={18} intensity={48} overlay="rgba(11,31,58,0.55)" style={styles.condPill} contentStyle={styles.condFill}>
-                <Text style={styles.condText}>{breakdown ? 'Hide' : 'Conditions'}</Text>
+              <Glass radius={22} intensity={48} overlay="rgba(11,31,58,0.5)" style={styles.windPill} contentStyle={styles.windFill}>
+                <WindMark />
+                <Text style={styles.windNum}>{windText}</Text>
               </Glass>
             </Pressable>
+            {breakdown ? (
+              <View style={styles.chips}>
+                <Text style={styles.chip}>{focusedChips?.wind ?? 'Wind ?'}</Text>
+                <Text style={styles.chip}>{focusedChips?.elevation ?? 'Elev ?'}</Text>
+                <Text style={styles.chip}>{focusedChips?.temperature ?? 'Temp ?'}</Text>
+              </View>
+            ) : null}
           </View>
-          {!player && !overrideOpen ? <Text style={styles.hint}>Hold the number to type the yards.</Text> : null}
-          {breakdown ? (
-            <View style={styles.chips}>
-              <Text style={styles.chip}>{focusedChips?.wind ?? 'Wind ?'}</Text>
-              <Text style={styles.chip}>{focusedChips?.elevation ?? 'Elev ?'}</Text>
-              <Text style={styles.chip}>{focusedChips?.temperature ?? 'Temp ?'}</Text>
-            </View>
-          ) : null}
-        </Glass>
+        </View>
         {hazardYards != null ? (
           <Glass radius={24} style={styles.hazard} contentStyle={styles.hazardFill}>
             <Text style={styles.hint}>{`Hazard ${formatDistance(hazardYards, unit)}`}</Text>
@@ -765,31 +782,26 @@ export default function PlayScreen() {
             <View {...sheetPan.panHandlers} style={styles.handleHit}>
               <View style={styles.handle} />
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={shownLabel ? `${shownLabel} details` : 'Club details'}
-              onPress={() => applySheet.current(!sheetOpenRef.current)}
-              style={[styles.clubRow, lowConfidence && styles.dim]}
-            >
-              <View style={[styles.ring, percent != null && percent >= 70 && styles.ringGo, percent != null && percent < 70 && percent >= CONFIDENCE_LOW && styles.ringCaution, lowConfidence && styles.ringLow]}>
-                <Text style={styles.club} numberOfLines={2} accessibilityLabel={shownLabel ? confidenceLabel(shownLabel, percent) : 'Club'}>
-                  {shownLabel ? confidenceLabel(shownLabel, percent) : ''}
-                </Text>
+            <View style={[styles.clubRow, lowConfidence && styles.dim]}>
+              <ConfidenceRing percent={percent} />
+              <View style={styles.stripSlot}>
+                <ClubStrip
+                  clubs={stripClubs.map((club) => ({ id: club.id, label: club.label }))}
+                  index={stripClubs.findIndex((club) => club.id === shownId)}
+                  band={band}
+                  selectedDetail={shownLabel ? confidenceLabel(shownLabel, percent) : null}
+                  onIndex={setScrubIndex}
+                  onOpen={() => applySheet.current(!sheetOpenRef.current)}
+                />
               </View>
-              {figure ? (
-                <View style={styles.figure}>
-                  <Text style={styles.kicker}>{figure.label}</Text>
-                  <Text style={styles.figureNum}>{formatDistance(figure.yards, unit)}</Text>
-                </View>
-              ) : null}
-            </Pressable>
+            </View>
             {oneLiner ? <Text style={styles.body}>{oneLiner}</Text> : null}
             {risk ? <Text style={styles.body}>{risk.line}</Text> : null}
-            {!onGreen && sampleOn ? <Text style={styles.sampleFlag}>Sample pattern</Text> : null}
-            {!onGreen && !sampleOn && !oval ? <Text style={styles.body}>{PATTERN_INVITE}</Text> : null}
+            {patternLine ? <Text style={styles.body}>{patternLine}</Text> : null}
           </View>
           {sheetOpen ? (
           <ScrollView style={styles.details} contentContainerStyle={styles.detailsBody} keyboardShouldPersistTaps="handled">
+            {figure ? <Text style={styles.body}>{`${figure.label} ${formatDistance(figure.yards, unit)}`}</Text> : null}
             {whyLine ? <Text style={styles.body}>{whyLine}</Text> : null}
             {ask.banner ? <View>{ask.banner}</View> : null}
             {card ? <Text style={styles.body}>{card.lines.reason}</Text> : null}
@@ -838,15 +850,9 @@ export default function PlayScreen() {
       </Animated.View>
       <View
         style={[styles.dock, { paddingBottom: Math.max(insets.bottom, 12) }]}
-        onLayout={(event) => setDockH(Math.max(96, Math.round(event.nativeEvent.layout.height)))}
+        onLayout={(event) => setDockH(Math.max(80, Math.round(event.nativeEvent.layout.height)))}
       >
         {ask.undo}
-        <ClubStrip
-          clubs={stripClubs.map((club) => ({ id: club.id, label: club.label }))}
-          index={stripClubs.findIndex((club) => club.id === shownId)}
-          band={band}
-          onIndex={setScrubIndex}
-        />
         <View style={styles.dockRow}>
           <CountChip minHeight={64} value={face.strokes} confirmed={face.strokesConfirmed} par={par} floor={1} idleLabel="Score" onWrite={writeStrokes} />
           <Pressable accessibilityRole="button" accessibilityLabel="Mark shot" onPress={markHere} style={styles.markHit}>
@@ -867,6 +873,16 @@ export default function PlayScreen() {
           </Glass>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function WindMark() {
+  return (
+    <View style={styles.wind}>
+      <View style={styles.windLine} />
+      <View style={styles.windLineShort} />
+      <View style={styles.windLine} />
     </View>
   );
 }
@@ -907,8 +923,16 @@ const styles = StyleSheet.create({
   headerMid: { flex: 1, gap: 2 },
   headerTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 22, lineHeight: 28, fontWeight: '700' },
   headerSi: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '600' },
-  pill: { alignSelf: 'center', width: '100%', maxWidth: 360 },
+  pillRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  pill: { flex: 1 },
   pillFill: { paddingHorizontal: 8, paddingTop: 8, paddingBottom: 10, gap: 2 },
+  windSlot: { position: 'relative' },
+  windPill: { minHeight: 56, minWidth: 56 },
+  windFill: { minHeight: 56, minWidth: 56, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  wind: { width: 22, height: 16, justifyContent: 'space-between' },
+  windLine: { height: 2, borderRadius: 1, backgroundColor: '#FFFFFF' },
+  windLineShort: { height: 2, width: 14, borderRadius: 1, backgroundColor: '#FFFFFF' },
+  windNum: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 20, fontWeight: '700', fontVariant: ['tabular-nums'] },
   ends: { flexDirection: 'row', alignItems: 'flex-end' },
   endCol: { flex: 1, alignItems: 'center', minHeight: 64, justifyContent: 'flex-end' },
   centerHit: { flex: 1.45, alignItems: 'center', minHeight: 84, justifyContent: 'flex-end' },
@@ -956,11 +980,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 14,
   },
   hint: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, textAlign: 'center' },
-  condHit: { width: 92, minHeight: 56, justifyContent: 'flex-end' },
-  condPill: { minHeight: 56 },
-  condFill: { minHeight: 56, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
-  condText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 20, fontWeight: '700', textAlign: 'center' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, paddingHorizontal: 8 },
+  chips: { position: 'absolute', top: 120, right: 0, width: 136, gap: 8, zIndex: 8, alignItems: 'flex-end' },
   chip: {
     color: '#FFFFFF',
     fontFamily: font.family,
@@ -982,25 +1002,10 @@ const styles = StyleSheet.create({
   grab: { paddingTop: 4, paddingHorizontal: 16, paddingBottom: 2 },
   handleHit: { minHeight: 20, alignItems: 'center', justifyContent: 'center' },
   handle: { width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.72)' },
-  clubRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  ring: { flex: 1, minHeight: 56, borderRadius: 18, borderWidth: 3, borderColor: 'rgba(255,255,255,0.4)', paddingHorizontal: 10, paddingVertical: 4, justifyContent: 'center' },
-  ringGo: { borderColor: signal.go },
-  ringCaution: { borderColor: signal.caution },
-  ringLow: { borderColor: 'rgba(255,255,255,0.45)' },
+  clubRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stripSlot: { flex: 1 },
   dim: { opacity: 0.55 },
-  club: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.club, lineHeight: 36, fontWeight: '700', letterSpacing: -0.4 },
-  sampleFlag: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: '700' },
-  figure: { alignItems: 'flex-end' },
   kicker: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
-  figureNum: {
-    color: '#FFFFFF',
-    fontFamily: font.family,
-    fontSize: 28,
-    lineHeight: 32,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-    letterSpacing: -1,
-  },
   details: { flex: 1 },
   detailsBody: { paddingHorizontal: 16, paddingBottom: 16, gap: 12 },
   body: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24 },

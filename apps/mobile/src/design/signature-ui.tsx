@@ -1,26 +1,56 @@
 import { useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { font, signal, type } from '@coopr/tokens';
 
 export function ThruBar({ label, pips }: { label: string | null; pips: readonly ('under' | 'even' | 'over' | 'open')[] }) {
   return (
     <View style={styles.thru} accessibilityLabel={label ?? 'No score kept'}>
-      <View style={styles.pips}>
+      <View style={styles.bar}>
         {pips.map((pip, index) => (
           <View
             key={index}
             style={[
-              styles.pip,
+              styles.seg,
               pip === 'under' && { backgroundColor: signal.go },
               pip === 'even' && { backgroundColor: '#FFFFFF' },
               pip === 'over' && { backgroundColor: signal.hazard },
-              pip === 'open' && styles.pipOpen,
+              pip === 'open' && styles.segOpen,
             ]}
           />
         ))}
       </View>
       {label ? <Text style={styles.thruText}>{label}</Text> : null}
     </View>
+  );
+}
+
+/** Circular confidence. An unknown sample draws the track only. */
+export function ConfidenceRing({ percent }: { percent: number | null }) {
+  const size = 44;
+  const stroke = 4;
+  const radius = (size - stroke) / 2;
+  const center = size / 2;
+  const turn = 2 * Math.PI * radius;
+  const span = percent == null ? 0 : (Math.max(0, Math.min(100, percent)) / 100) * turn;
+  const color = percent == null ? 'transparent' : percent >= 70 ? signal.go : percent >= 50 ? signal.caution : signal.hazard;
+  return (
+    <Svg width={size} height={size} accessibilityLabel={percent == null ? 'Confidence unknown' : `${percent} percent`}>
+      <Circle cx={center} cy={center} r={radius} stroke="rgba(255,255,255,0.28)" strokeWidth={stroke} fill="none" />
+      {percent != null ? (
+        <Circle
+          cx={center}
+          cy={center}
+          r={radius}
+          stroke={color}
+          strokeWidth={stroke}
+          fill="none"
+          strokeDasharray={`${span} ${turn - span}`}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${center} ${center})`}
+        />
+      ) : null}
+    </Svg>
   );
 }
 
@@ -38,12 +68,16 @@ export function ClubStrip({
   clubs,
   index,
   band,
+  selectedDetail,
   onIndex,
+  onOpen,
 }: {
   clubs: readonly { id: string; label: string }[];
   index: number | null;
   band: string | null;
+  selectedDetail?: string | null;
   onIndex: (index: number) => void;
+  onOpen?: () => void;
 }) {
   const [width, setWidth] = useState(0);
   const selected = index != null && index >= 0 && index < clubs.length ? index : null;
@@ -78,11 +112,14 @@ export function ClubStrip({
             accessibilityRole="button"
             accessibilityLabel={on ? `Club ${name}, selected` : `Club ${name}`}
             accessibilityState={{ selected: on }}
-            onPress={() => onIndex(clubIndex)}
+            onPress={() => {
+              if (on) onOpen?.();
+              else onIndex(clubIndex);
+            }}
             style={[styles.club, on && styles.clubOn]}
           >
-            <Text style={styles.clubText} numberOfLines={1}>
-              {name}
+            <Text style={[styles.clubText, on && styles.clubTextOn]} numberOfLines={1}>
+              {on && selectedDetail ? selectedDetail : name}
             </Text>
             {on && band ? <Text style={styles.band}>{band}</Text> : null}
           </Pressable>
@@ -93,17 +130,19 @@ export function ClubStrip({
 }
 
 const styles = StyleSheet.create({
-  thru: { gap: 4 },
+  thru: { gap: 4, alignSelf: 'stretch' },
+  bar: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 6 },
+  seg: { flex: 1, height: 6, borderRadius: 3 },
+  segOpen: { backgroundColor: 'rgba(255,255,255,0.22)' },
   pips: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  pip: { width: 8, height: 8, borderRadius: 4 },
-  pipOpen: { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)' },
   thruText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700', fontVariant: ['tabular-nums'] },
   roundPip: { width: 14, height: 14, borderRadius: 7 },
   roundOn: { backgroundColor: signal.go },
   roundOff: { backgroundColor: 'transparent', borderWidth: 2, borderColor: '#FFFFFF' },
-  strip: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  club: { flex: 1, minWidth: 72, minHeight: 56, paddingHorizontal: 10, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(11,31,58,0.46)' },
-  clubOn: { backgroundColor: 'rgba(11,31,58,0.82)', borderWidth: 2, borderColor: '#FFFFFF' },
-  clubText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
+  strip: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
+  club: { flex: 1, minWidth: 56, minHeight: 56, paddingHorizontal: 2, alignItems: 'center', justifyContent: 'center' },
+  clubOn: { flex: 1.8, minWidth: 128 },
+  clubText: { color: 'rgba(255,255,255,0.62)', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
+  clubTextOn: { color: '#FFFFFF', fontSize: 20, lineHeight: 24 },
   band: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700', fontVariant: ['tabular-nums'] },
 });

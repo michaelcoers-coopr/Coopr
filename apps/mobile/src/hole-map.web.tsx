@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, ClipPath, Defs, G, Line, LinearGradient, Pattern, Polygon, Polyline, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import type { LatLon } from '@coopr/domain';
 import { colors } from '@coopr/tokens';
-import { nudgeLabels, projectAlongHole, projectPoints } from '@coopr/engine';
+import { projectAlongHole, projectPoints, visibleLabels, type LabelBox } from '@coopr/engine';
 import { Muted } from './ui';
 import type { HoleMapProps } from './hole-map-props';
 
@@ -21,6 +21,35 @@ function pointsOf(ring: readonly LatLon[], projection: ReturnType<typeof project
       return `${xy.x},${xy.y}`;
     })
     .join(' ');
+}
+
+const OVAL_FLOOR = 14;
+
+function boxesHit(a: LabelBox, b: LabelBox, pad = 4): boolean {
+  return a.x < b.x + b.w + pad && a.x + a.w + pad > b.x && a.y < b.y + b.h + pad && a.y + a.h + pad > b.y;
+}
+
+/** True-scale oval. A pattern smaller than the floor is drawn larger, and the sheet states the real yards. */
+function drawEllipse(xy: readonly { x: number; y: number }[]) {
+  const minX = Math.min(...xy.map((point) => point.x));
+  const maxX = Math.max(...xy.map((point) => point.x));
+  const minY = Math.min(...xy.map((point) => point.y));
+  const maxY = Math.max(...xy.map((point) => point.y));
+  const short = Math.max(Math.min(maxX - minX, maxY - minY), 0.5);
+  const scale = short < OVAL_FLOOR ? OVAL_FLOOR / short : 1;
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const ring = (factor: number) => xy.map((point) => `${cx + (point.x - cx) * factor},${cy + (point.y - cy) * factor}`).join(' ');
+  const halos = scale > 1 ? [1.65, 2.15] : [1.28, 1.55];
+  return {
+    cx,
+    cy,
+    halfW: ((maxX - minX) * scale) / 2,
+    halfH: ((maxY - minY) * scale) / 2,
+    solid: ring(scale),
+    glow: ring(scale * halos[0]!),
+    glowSoft: ring(scale * halos[1]!),
+  };
 }
 
 /** Open geometry only. Apple satellite is the phone map. This drawing is the same shapes, stood tee-to-green. */
@@ -61,6 +90,79 @@ export function HoleMap(props: HoleMapProps) {
   const tee = bleed && props.line[0] ? projection.toXY(props.line[0]) : null;
   const pinPoint = bleed && props.line.length > 1 ? props.line[props.line.length - 1] : null;
   const pin = pinPoint ? projection.toXY(pinPoint) : null;
+  const ellipseDraw = props.ellipse && props.ellipse.length > 2 ? drawEllipse(props.ellipse.map((point) => projection.toXY(point))) : null;
+  const greenPts = props.green.flatMap((ring) => ring.map((point) => projection.toXY(point)));
+  const greenBox: LabelBox | null = greenPts.length
+    ? {
+        x: Math.min(...greenPts.map((point) => point.x)) - 4,
+        y: Math.min(...greenPts.map((point) => point.y)) - 4,
+        w: Math.max(...greenPts.map((point) => point.x)) - Math.min(...greenPts.map((point) => point.x)) + 8,
+        h: Math.max(...greenPts.map((point) => point.y)) - Math.min(...greenPts.map((point) => point.y)) + 8,
+      }
+    : null;
+  const labelItems = (props.labels ?? []).map((label) => {
+    const xy = projection.toXY(label.at);
+    const boxW = Math.max(44, label.label.length * 12 + 16);
+    const distance = label.label === '150' || label.label === '300' || label.label === '450';
+    const item = { ...label, x: xy.x - boxW / 2, y: xy.y - 16, w: boxW, h: 28, priority: distance ? 0 : 2 };
+    if (!distance && ellipseDraw) {
+      item.x = Math.min(width - item.w - 8, ellipseDraw.cx + ellipseDraw.halfW + 10);
+      item.y = ellipseDraw.cy - item.h / 2;
+      if (item.x < 8) item.x = 8;
+    }
+    return item;
+  });
+  const ovalGuard = ellipseDraw
+    ? [
+        {
+          label: 'pattern',
+          priority: 3,
+          x: ellipseDraw.cx - ellipseDraw.halfW - 2,
+          y: ellipseDraw.cy - ellipseDraw.halfH - 2,
+          w: ellipseDraw.halfW * 2 + 4,
+          h: ellipseDraw.halfH * 2 + 4,
+        },
+      ]
+    : [];
+  const keptLabels = visibleLabels([...ovalGuard, ...labelItems]).filter((item) => item.label !== 'pattern');
+  const letterObstacles: LabelBox[] = [
+    ...keptLabels,
+    ...(greenBox ? [greenBox] : []),
+    ...(ellipseDraw
+      ? [{ x: ellipseDraw.cx - ellipseDraw.halfW, y: ellipseDraw.cy - ellipseDraw.halfH, w: ellipseDraw.halfW * 2, h: ellipseDraw.halfH * 2 }]
+      : []),
+  ];
+  const letters = props.marks
+    ? (['front', 'center', 'back'] as const).map((key) => {
+        const xy = projection.toXY(props.marks![key]);
+        const word = key === 'front' ? 'F' : key === 'center' ? 'C' : 'B';
+        const spots =
+          key === 'front'
+            ? [
+                { x: xy.x - 22, y: xy.y },
+                { x: xy.x - 26, y: xy.y - 18 },
+                { x: xy.x - 20, y: xy.y + 18 },
+              ]
+            : key === 'center'
+              ? [
+                  { x: xy.x + 22, y: xy.y },
+                  { x: xy.x + 24, y: xy.y - 18 },
+                  { x: xy.x + 20, y: xy.y + 18 },
+                ]
+              : [
+                  { x: xy.x, y: xy.y + 22 },
+                  { x: xy.x - 22, y: xy.y + 16 },
+                  { x: xy.x + 22, y: xy.y + 16 },
+                ];
+        const picked =
+          spots.find((spot) => {
+            const box = { x: spot.x - 9, y: spot.y - 16, w: 18, h: 18 };
+            return letterObstacles.every((other) => !boxesHit(box, other));
+          }) ?? spots[0]!;
+        letterObstacles.push({ x: picked.x - 9, y: picked.y - 16, w: 18, h: 18 });
+        return { key, word, x: picked.x, y: picked.y };
+      })
+    : [];
   return (
     <View
       style={[styles.frame, bleed && styles.bleed, bleed && { height }]}
@@ -138,16 +240,9 @@ export function HoleMap(props: HoleMapProps) {
           ? (['front', 'back', 'center'] as const).map((key) => {
               const xy = projection.toXY(props.marks![key]);
               const primary = key === 'center';
-              const label = key === 'front' ? 'F' : key === 'back' ? 'B' : 'C';
               const radius = primary ? 7 : 4.5;
-              const nudge = key === 'front' ? { x: -28, y: -16 } : key === 'back' ? { x: 30, y: 18 } : { x: 36, y: -6 };
               return (
-                <G key={key}>
-                  <Circle cx={xy.x} cy={xy.y} r={radius} fill={primary ? '#FFFFFF' : 'rgba(255,255,255,0.55)'} stroke={markInk} strokeWidth={primary ? 2 : 1} />
-                  <SvgText x={xy.x + nudge.x} y={xy.y + nudge.y} fill={markInk} fontSize={primary ? 14 : 11} fontWeight="700">
-                    {label}
-                  </SvgText>
-                </G>
+                <Circle key={key} cx={xy.x} cy={xy.y} r={radius} fill={primary ? '#FFFFFF' : 'rgba(255,255,255,0.55)'} stroke={markInk} strokeWidth={primary ? 2 : 1} />
               );
             })
           : null}
@@ -168,33 +263,14 @@ export function HoleMap(props: HoleMapProps) {
             <Polygon points={`${pin.x},${pin.y - 30} ${pin.x + 16},${pin.y - 23} ${pin.x},${pin.y - 16}`} fill={colors.red} />
           </G>
         ) : null}
-        {(() => {
-          const greenPts = props.green.flatMap((ring) => ring.map((point) => projection.toXY(point)));
-          const greenBox = greenPts.length
-            ? {
-                x: Math.min(...greenPts.map((point) => point.x)) - 6,
-                y: Math.min(...greenPts.map((point) => point.y)) - 6,
-                w: Math.max(...greenPts.map((point) => point.x)) - Math.min(...greenPts.map((point) => point.x)) + 12,
-                h: Math.max(...greenPts.map((point) => point.y)) - Math.min(...greenPts.map((point) => point.y)) + 12,
-              }
-            : null;
-          const placed = nudgeLabels(
-            (props.labels ?? []).map((label) => {
-              const xy = projection.toXY(label.at);
-              const boxW = Math.max(44, label.label.length * 12 + 16);
-              const box = { ...label, x: xy.x - boxW / 2, y: xy.y - 16, w: boxW, h: 28 };
-              if (greenBox) {
-                const overlapX = Math.min(box.x + box.w, greenBox.x + greenBox.w) - Math.max(box.x, greenBox.x);
-                const overlapY = Math.min(box.y + box.h, greenBox.y + greenBox.h) - Math.max(box.y, greenBox.y);
-                if (overlapX > 0 && overlapY > 0) box.x = greenBox.x + greenBox.w + 8;
-              }
-              return box;
-            }),
-            8,
-            width - 8,
-          );
-          return placed;
-        })().map((label) => (
+        {ellipseDraw ? (
+          <G>
+            <Polygon points={ellipseDraw.glowSoft} fill={props.ellipseColor ?? '#8AC926'} fillOpacity={0.08} stroke="none" />
+            <Polygon points={ellipseDraw.glow} fill={props.ellipseColor ?? '#8AC926'} fillOpacity={0.16} stroke="none" />
+            <Polygon points={ellipseDraw.solid} fill={props.ellipseColor ?? '#8AC926'} fillOpacity={0.38} stroke={props.ellipseColor ?? '#8AC926'} strokeWidth={2} />
+          </G>
+        ) : null}
+        {keptLabels.map((label) => (
           <G key={`${label.label}-${label.x.toFixed(0)}`}>
             <Rect x={label.x} y={label.y} width={label.w} height={label.h} rx={10} fill="rgba(11,31,58,0.88)" />
             <SvgText x={label.x + label.w / 2} y={label.y + 20} fill="#FFFFFF" fontSize={17} fontWeight="700" textAnchor="middle">
@@ -202,45 +278,11 @@ export function HoleMap(props: HoleMapProps) {
             </SvgText>
           </G>
         ))}
-        {props.ellipse && props.ellipse.length > 2 ? (
-          <Polygon points={pointsOf(props.ellipse, projection)} fill={props.ellipseColor ?? '#8AC926'} fillOpacity={0.38} stroke={props.ellipseColor ?? '#8AC926'} strokeWidth={2.5} />
-        ) : null}
-        {props.ellipse && props.ellipse.length > 2
-          ? (() => {
-              const xy = props.ellipse!.map((point) => projection.toXY(point));
-              const minX = Math.min(...xy.map((point) => point.x));
-              const maxX = Math.max(...xy.map((point) => point.x));
-              const minY = Math.min(...xy.map((point) => point.y));
-              const maxY = Math.max(...xy.map((point) => point.y));
-              const span = Math.max(maxX - minX, maxY - minY, 0.5);
-              if (span >= 48) return null;
-              const scale = 72 / span;
-              const cx = (minX + maxX) / 2;
-              const cy = (minY + maxY) / 2;
-              const loupeX = Math.min(width - 86, Math.max(86, cx + 78));
-              const loupeY = Math.min(height - 150, Math.max(120, cy + 36));
-              const magnified = xy.map((point) => `${loupeX + (point.x - cx) * scale},${loupeY + (point.y - cy) * scale}`).join(' ');
-              const ink = props.ellipseColor ?? '#8AC926';
-              const capW = 210;
-              const capX = Math.min(width - capW - 8, Math.max(8, loupeX - capW / 2));
-              const capMid = capX + capW / 2;
-              return (
-                <G>
-                  <Circle cx={loupeX} cy={loupeY} r={46} fill="rgba(11,31,58,0.72)" stroke="#FFFFFF" strokeWidth={2} />
-                  <Polygon points={magnified} fill={ink} fillOpacity={0.45} stroke={ink} strokeWidth={2} />
-                  <Rect x={capX} y={loupeY + 50} width={capW} height={52} rx={14} fill="rgba(11,31,58,0.9)" />
-                  <SvgText x={capMid} y={loupeY + 70} fill="#FFFFFF" fontSize={17} fontWeight="700" textAnchor="middle">
-                    Larger
-                  </SvgText>
-                  {props.ellipseNote ? (
-                    <SvgText x={capMid} y={loupeY + 90} fill="#FFFFFF" fontSize={17} fontWeight="700" textAnchor="middle">
-                      {props.ellipseNote}
-                    </SvgText>
-                  ) : null}
-                </G>
-              );
-            })()
-          : null}
+        {letters.map((letter) => (
+          <SvgText key={letter.key} x={letter.x} y={letter.y + 5} fill="#FFFFFF" fontSize={17} fontWeight="700" textAnchor="middle">
+            {letter.word}
+          </SvgText>
+        ))}
         {props.flight && props.flight.length > 1 ? (
           <Polyline
             points={pointsOf(props.flight.slice(0, Math.max(2, Math.ceil(props.flight.length * flightT))), projection)}
