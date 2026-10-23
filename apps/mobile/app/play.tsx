@@ -543,7 +543,7 @@ export default function PlayScreen() {
     : null;
   const lowConfidence = percent != null && percent < CONFIDENCE_LOW;
   const noShots = shownId != null && (shownProfile == null || shownProfile.sampleSize < 1);
-  const oneLiner = noShots
+  const spoken = noShots
     ? null
     : caddieLine({
         personality,
@@ -553,15 +553,24 @@ export default function PlayScreen() {
         targetYards: shotYards,
         lowConfidence,
       });
+  const thinCopy = 'The sample is thin. Treat the number softly.';
+  const oneLiner =
+    spoken && /sample is thin|Thin sample/i.test(spoken)
+      ? spoken
+      : lowConfidence && !noShots && shotYards == null
+        ? thinCopy
+        : spoken;
   const band = carryBand(shownProfile, unit);
   const patternLine =
     !onGreen && oval
       ? `${sampleOn ? 'Sample pattern · ' : ''}±${oval.carryStdYards} × ±${oval.lateralStdYards} yd`
-      : !onGreen && !noShots
+      : !onGreen && !noShots && !lowConfidence
         ? PATTERN_INVITE
         : null;
   const noTarget = !onGreen && callYards == null;
-  const cardStack = 130 + (band && !noShots ? 16 : 0) + (noShots || oneLiner ? 24 : 0) + (patternLine ? 20 : 0) + (risk ? 24 : 0);
+  const lineBlock = noShots || oneLiner ? ((oneLiner?.length ?? 0) > 34 ? 48 : 28) : 0;
+  const patternBlock = patternLine ? (patternLine.length > 34 ? 40 : 22) : 0;
+  const cardStack = 156 + (band && !noShots ? 18 : 0) + lineBlock + patternBlock + (risk ? 28 : 0);
   const closedSheet = noTarget ? Math.min(SHEET_CLOSED, Math.max(148, cardStack)) : SHEET_CLOSED;
   closedSheetRef.current = closedSheet;
   if (!sheetOpenRef.current) sheetH.value = closedSheet;
@@ -675,7 +684,7 @@ export default function PlayScreen() {
         <HoleMap
           bleed
           height={mapH}
-          pad={holeFrame({ hudHeight: hudH, dockHeight: dockH, sheetClosed: closedSheet })}
+          pad={holeFrame({ hudHeight: Math.max(hudH, insets.top + 214), dockHeight: dockH, sheetClosed: closedSheet })}
           orient={bearing != null && overlay.line[0] ? { bearing, origin: overlay.line[0] } : null}
           labels={holeLabels(
             overlay.line,
@@ -778,15 +787,13 @@ export default function PlayScreen() {
                 {ground ? <End label="Back" value={formatDistance(ground.backYards, unit)} /> : <View style={styles.endCol} />}
               </View>
             )}
-            <View style={styles.chipSlot}>
-              {breakdown ? (
-                <>
-                  <Text style={styles.chip}>{focusedChips?.wind ?? 'Wind ?'}</Text>
-                  <Text style={styles.chip}>{focusedChips?.elevation ?? 'Elev ?'}</Text>
-                  <Text style={styles.chip}>{focusedChips?.temperature ?? 'Temp ?'}</Text>
-                </>
-              ) : null}
-            </View>
+            {breakdown ? (
+              <View style={styles.chips}>
+                <Text style={styles.chip}>{focusedChips?.wind ?? 'Wind ?'}</Text>
+                <Text style={styles.chip}>{focusedChips?.elevation ?? 'Elev ?'}</Text>
+                <Text style={styles.chip}>{focusedChips?.temperature ?? 'Temp ?'}</Text>
+              </View>
+            ) : null}
           </Glass>
           <View style={styles.windSlot}>
             <Pressable
@@ -1019,11 +1026,12 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 14,
   },
-  waitHit: { minHeight: 84, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8 },
+  waitHit: { minHeight: 56, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 12 },
   waitText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: font.semibold, textAlign: 'center' },
   hint: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, textAlign: 'center' },
-  chipSlot: { height: 36, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4, overflow: 'hidden' },
+  chips: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4 },
   chip: {
+    flexShrink: 1,
     color: '#FFFFFF',
     fontFamily: font.family,
     fontSize: type.caption,

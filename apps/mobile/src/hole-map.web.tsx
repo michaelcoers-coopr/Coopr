@@ -93,6 +93,53 @@ function xyString(points: readonly XY[]): string {
   return points.map((point) => `${point.x},${point.y}`).join(' ');
 }
 
+function letterBox(spot: XY): LabelBox {
+  return { x: spot.x - 12, y: spot.y - 28, w: 24, h: 36 };
+}
+
+function padInsets(pad: number | { top?: number; right?: number; bottom?: number; left?: number }): { top: number; right: number; bottom: number; left: number } {
+  if (typeof pad === 'number') return { top: pad, right: pad, bottom: pad, left: pad };
+  return { top: pad.top ?? 0, right: pad.right ?? 0, bottom: pad.bottom ?? 0, left: pad.left ?? 0 };
+}
+
+/** Pull a box into the map area that is not covered by the yardage panel or the sheet. */
+function clampInto(box: LabelBox, rect: LabelBox): LabelBox {
+  const w = Math.min(box.w, Math.max(1, rect.w));
+  const h = Math.min(box.h, Math.max(1, rect.h));
+  return {
+    ...box,
+    w,
+    h,
+    x: Math.min(Math.max(box.x, rect.x), rect.x + rect.w - w),
+    y: Math.min(Math.max(box.y, rect.y), rect.y + rect.h - h),
+  };
+}
+
+function clampLetter(spot: XY, rect: LabelBox): XY {
+  const box = clampInto(letterBox(spot), rect);
+  return { x: box.x + 12, y: box.y + 28 };
+}
+
+function dist2(a: XY, b: XY): number {
+  return (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+}
+
+/** Prefer `ideal` when it is on the open map and clear. Otherwise the nearest visible clear spot. */
+function chooseSpot(spots: readonly XY[], ideal: XY, obstacles: readonly LabelBox[], rect: LabelBox): XY {
+  const clamped = spots.map((spot) => clampLetter(spot, rect));
+  const clear = clamped.filter((spot) => letterClearance(letterBox(spot), obstacles) === 0);
+  const pool = clear.length > 0 ? clear : clamped;
+  return (
+    pool.slice().sort((a, b) => {
+      if (clear.length === 0) {
+        const overlap = letterClearance(letterBox(a), obstacles) - letterClearance(letterBox(b), obstacles);
+        if (overlap !== 0) return overlap;
+      }
+      return dist2(a, ideal) - dist2(b, ideal);
+    })[0] ?? clampLetter(ideal, rect)
+  );
+}
+
 /** Unit vector from the tee toward the pin. Screen y grows downward, so this often points up. */
 function playDirection(line: readonly XY[]): XY | null {
   if (line.length < 2) return null;
@@ -199,6 +246,13 @@ export function HoleMap(props: HoleMapProps) {
   if (cloud.length === 0) return <Muted>This hole has no open geometry to draw.</Muted>;
   const height = props.height ?? 220;
   const pad = props.pad ?? (props.bleed ? { top: 48, right: 16, bottom: 56, left: 16 } : 12);
+  const frame = padInsets(pad);
+  const visible: LabelBox = {
+    x: frame.left,
+    y: frame.top,
+    w: Math.max(24, width - frame.left - frame.right),
+    h: Math.max(36, height - frame.top - frame.bottom),
+  };
   const projection =
     props.orient != null
       ? projectAlongHole(cloud, width, height, pad, props.orient.bearing, props.orient.origin)
@@ -229,7 +283,8 @@ export function HoleMap(props: HoleMapProps) {
       item.y = ellipseDraw.cy - item.h / 2;
       if (item.x < 8) item.x = 8;
     }
-    return item;
+    const placed = clampInto(item, visible);
+    return { ...item, x: placed.x, y: placed.y };
   });
   const ovalGuard = ellipseDraw
     ? [
@@ -289,10 +344,19 @@ export function HoleMap(props: HoleMapProps) {
                   { x: xy.x + 20, y: xy.y + 36 },
                   { x: xy.x - 6, y: xy.y - 40 },
                 ]
-              : [beyond(44), beyond(62), beyond(48, 20), beyond(48, -20), beyond(0, 48), beyond(0, -48)];
-        const letterBox = (spot: { x: number; y: number }): LabelBox => ({ x: spot.x - 12, y: spot.y - 28, w: 24, h: 36 });
-        const clear = spots.find((spot) => letterClearance(letterBox(spot), letterObstacles) === 0);
-        const picked = clear ?? spots.slice().sort((a, b) => letterClearance(letterBox(a), letterObstacles) - letterClearance(letterBox(b), letterObstacles))[0]!;
+              : [
+                  beyond(44),
+                  beyond(62),
+                  beyond(32, 30),
+                  beyond(32, -30),
+                  beyond(8, 44),
+                  beyond(8, -44),
+                  beyond(-18, 48),
+                  beyond(-18, -48),
+                  beyond(-36, 36),
+                  beyond(-36, -36),
+                ];
+        const picked = chooseSpot(spots, spots[0]!, letterObstacles, visible);
         letterObstacles.push(letterBox(picked));
         return { key, word, x: picked.x, y: picked.y };
       })
