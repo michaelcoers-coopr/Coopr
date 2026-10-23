@@ -58,7 +58,7 @@ import { loadHighCedarsPilot } from '@coopr/course';
 import { HoleMap } from '../src/hole-map';
 import { celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { holeSwipe, rollSteps } from '../src/design/motion';
-import { clubFigure, closedPlaySheet, clubWhy, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreGlance, sheetSnap } from '../src/design/play-polish';
+import { cardGravity, clubFigure, closedPlaySheet, clubWhy, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreGlance, sheetSnap, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { Glass, Vignette } from '../src/design/glass';
 import { ClubStrip, ConfidenceRing, ThruBar } from '../src/design/signature-ui';
 import { useReduceMotion } from '../src/design/reduce-motion';
@@ -700,6 +700,15 @@ export default function PlayScreen() {
           dispersionLine={dispersionLine}
           measure={[]}
           marks={greenMarks}
+          markReadout={
+            ground
+              ? {
+                  front: formatDistance(ground.frontYards, unit),
+                  center: formatDistance(ground.centerYards, unit),
+                  back: formatDistance(ground.backYards, unit),
+                }
+              : null
+          }
           onTap={() => undefined}
           rawLabel=""
           playsLabel=""
@@ -813,25 +822,27 @@ export default function PlayScreen() {
       </View>
       <Animated.View style={[styles.sheet, sheetStyle, { bottom: dockH + 8 }]}>
         <Glass radius={28} style={styles.sheetGlass} contentStyle={styles.sheetFill}>
-          <View style={styles.grab}>
-            <View {...sheetPan.panHandlers} style={styles.handleHit}>
-              <View style={styles.handle} />
-            </View>
-            <View
-              style={[styles.clubRow, lowConfidence && !noShots && styles.dim]}
-              accessibilityLabel={noShots ? `${shownLabel ?? 'Club'}, No shots yet` : shownLabel ? confidenceLabel(shownLabel, percent) : 'Club'}
-            >
-              <ConfidenceRing percent={percent} label={noShots ? 'No shots yet' : undefined} />
-              <View style={styles.clubCopy}>
-                <Text style={styles.clubName} numberOfLines={1}>
-                  {shownLabel ?? ''}
-                </Text>
-                {noShots ? <Text style={styles.clubMeta}>No shots yet</Text> : percent != null ? <Text style={styles.clubMeta}>{`${percent}%`}</Text> : null}
-                {!noShots && band ? <Text style={styles.clubMeta}>{band}</Text> : null}
+          <View style={[styles.grab, !sheetOpen && noShots && styles.grabSpread, !sheetOpen && noShots && { justifyContent: cardGravity(noShots) }]}>
+            <View>
+              <View {...sheetPan.panHandlers} style={styles.handleHit}>
+                <View style={styles.handle} />
               </View>
+              <View
+                style={[styles.clubRow, lowConfidence && !noShots && styles.dim]}
+                accessibilityLabel={noShots ? `${shownLabel ?? 'Club'}, No shots yet` : shownLabel ? confidenceLabel(shownLabel, percent) : 'Club'}
+              >
+                <ConfidenceRing percent={percent} label={noShots ? 'No shots yet' : undefined} />
+                <View style={styles.clubCopy}>
+                  <Text style={styles.clubName} numberOfLines={1}>
+                    {shownLabel ?? ''}
+                  </Text>
+                  {noShots ? <Text style={styles.clubMeta}>No shots yet</Text> : percent != null ? <Text style={styles.clubMeta}>{`${percent}%`}</Text> : null}
+                  {!noShots && band ? <Text style={styles.clubMeta}>{band}</Text> : null}
+                </View>
+              </View>
+              {noShots ? <Text style={styles.unlock}>Hit 10 shots to unlock</Text> : oneLiner ? <Text style={styles.line}>{oneLiner}</Text> : null}
+              {risk ? <Text style={styles.line}>{risk.line}</Text> : null}
             </View>
-            {noShots ? <Text style={styles.unlock}>Hit 10 shots to unlock</Text> : oneLiner ? <Text style={styles.line}>{oneLiner}</Text> : null}
-            {risk ? <Text style={styles.line}>{risk.line}</Text> : null}
             <ClubStrip
               clubs={stripClubs.map((club) => ({ id: club.id, label: club.label }))}
               index={stripClubs.findIndex((club) => club.id === shownId)}
@@ -839,7 +850,21 @@ export default function PlayScreen() {
               onIndex={setScrubIndex}
               onOpen={() => applySheet.current(!sheetOpenRef.current)}
             />
-            {patternLine ? <Text style={styles.sample}>{patternLine}</Text> : null}
+            {noShots ? (
+              <View style={styles.tipHit}>
+                <Text style={styles.tip} numberOfLines={1}>
+                  <Text accessibilityRole="button" accessibilityLabel="Log a shot after each swing" onPress={markHere} style={styles.tipLink}>
+                    {SHOT_LOG_TIP.split(', or ')[0]}
+                  </Text>
+                  <Text style={styles.tip}>, or </Text>
+                  <Text accessibilityRole="button" accessibilityLabel="Upload a TrackMan photo" onPress={() => router.push('/import')} style={styles.tipLink}>
+                    {SHOT_LOG_TIP.split(', or ')[1]}
+                  </Text>
+                </Text>
+              </View>
+            ) : patternLine ? (
+              <Text style={styles.sample}>{patternLine}</Text>
+            ) : null}
           </View>
           {sheetOpen ? (
           <ScrollView style={styles.details} contentContainerStyle={styles.detailsBody} keyboardShouldPersistTaps="handled">
@@ -1046,6 +1071,10 @@ const styles = StyleSheet.create({
   sheetGlass: { flex: 1 },
   sheetFill: { flex: 1 },
   grab: { paddingTop: 2, paddingHorizontal: 16, paddingBottom: 0 },
+  grabSpread: { flex: 1, paddingBottom: 8 },
+  tipHit: { minHeight: 56, justifyContent: 'center' },
+  tip: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold },
+  tipLink: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, textDecorationLine: 'underline' },
   handleHit: { minHeight: 16, alignItems: 'center', justifyContent: 'center' },
   handle: { width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.72)' },
   clubRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8 },

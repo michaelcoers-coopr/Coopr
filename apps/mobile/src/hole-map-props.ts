@@ -25,6 +25,8 @@ export interface HoleMapProps {
   pad?: number | MapPad;
   /** Front, center, and back of the green from the phone. Omitted when there is no position. */
   marks?: { front: LatLon; center: LatLon; back: LatLon } | null;
+  /** Real ground yardages for those three points. A tap shows one briefly. */
+  markReadout?: { front: string; center: string; back: string } | null;
   /** Tee-to-green bearing. The shapes map stands the hole up so the green is at the top. */
   orient?: { bearing: number; origin: LatLon } | null;
   /** Measured yardages on the aim line. Omitted when there is nothing to label. */

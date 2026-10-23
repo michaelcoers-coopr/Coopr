@@ -3,8 +3,14 @@ import type { LabelBox } from '@coopr/engine';
 /** Minimum space between any two map labels, in points. */
 export const LABEL_GAP = 6;
 
-/** Green front, center, and back. Diameter in points. The yardage panel carries the numbers. */
-export const GREEN_DOT = 6;
+/** Green front, center, and back. White diameter in points. The outline sits outside it. */
+export const GREEN_DOT = 7;
+
+/** Dark ring around each green dot, in points. */
+export const DOT_STROKE = 1.5;
+
+/** F, C, and B beside the dots. Semibold sans, in points. */
+export const MARK_LETTER = 11;
 
 /** A pill farther than this from its point is dropped. The panel still shows the number. */
 export const LEADER_MAX = 28;
@@ -19,13 +25,13 @@ export interface ScreenPoint {
 export interface PlacedMapLabel {
   id: string;
   text: string;
-  kind: 'pill';
+  kind: 'pill' | 'letter';
   box: LabelBox;
-  /** Text anchor, the center of the pill. */
+  /** Text anchor. A pill baseline, or the center of a letter. */
   at: ScreenPoint;
-  /** The measured point this pill belongs to. */
+  /** The measured point this label belongs to. */
   anchor: ScreenPoint;
-  /** Draw a short line from the point to the pill. */
+  /** Draw a short line from the point to the pill. Letters sit beside their dots. */
   leader: boolean;
 }
 
@@ -48,6 +54,8 @@ export interface HoleLabelLayoutInput {
   center: ScreenPoint | null;
   back: ScreenPoint | null;
   greenPoints: readonly ScreenPoint[];
+  /** Projected dispersion ring. The plays pill stays off its glow. */
+  ellipsePoints?: readonly ScreenPoint[];
   labels: readonly { text: string; at: ScreenPoint }[];
 }
 
@@ -110,6 +118,37 @@ export function fittedEllipse(points: readonly ScreenPoint[]): { cx: number; cy:
     halfH: ((maxY - minY) * scale) / 2,
     scale,
   };
+}
+
+/** Largest glow the oval breathes to. The plays pill clears this, so the breath does not move it. */
+const OVAL_BREATH = 1.045;
+
+/** Axis-aligned bounds of the soft glow, including the breath. */
+export function ovalGlowBox(points: readonly ScreenPoint[]): LabelBox | null {
+  const fit = fittedEllipse(points);
+  if (!fit) return null;
+  const halo = fit.scale > 1 ? 2.2 : 1.55;
+  const grow = halo * OVAL_BREATH;
+  const halfW = fit.halfW * grow;
+  const halfH = fit.halfH * grow;
+  return { x: fit.cx - halfW, y: fit.cy - halfH, w: halfW * 2, h: halfH * 2 };
+}
+
+const LETTER_W = 14;
+const LETTER_H = 14;
+const MARK_ALONG_MAX = 40;
+
+const MARK_COPY = { front: 'F', center: 'C', back: 'B' } as const;
+
+/** The dot under a tap, when the tap is close enough to mean that dot. */
+export function nearestMark(dots: readonly GreenDot[], x: number, y: number, radius = 28): GreenDot['id'] | null {
+  let best: { id: GreenDot['id']; distance: number } | null = null;
+  for (const dot of dots) {
+    const distance = Math.hypot(dot.at.x - x, dot.at.y - y);
+    if (distance > radius) continue;
+    if (!best || distance < best.distance) best = { id: dot.id, distance };
+  }
+  return best?.id ?? null;
 }
 
 function holeAxis(line: readonly ScreenPoint[]): Axis {
@@ -186,6 +225,7 @@ function placeAt(
   green: LabelBox | null,
   taken: readonly LabelBox[],
   visible: LabelBox,
+  extra: readonly LabelBox[] = [],
 ): { box: LabelBox; leader: boolean } | null {
   const center = clampCenter(
     {
@@ -200,6 +240,7 @@ function placeAt(
   if (!contains(visible, box)) return null;
   if (overGreen(box, green)) return null;
   if (taken.some((other) => !boxesSeparated(box, other, LABEL_GAP))) return null;
+  if (extra.some((other) => !boxesSeparated(box, other, LABEL_GAP))) return null;
   const lead = leaderLength(anchor, box);
   if (lead > LEADER_MAX) return null;
   return { box, leader: lead > 1 };
@@ -216,6 +257,7 @@ function attachPill(
   green: LabelBox | null,
   taken: readonly LabelBox[],
   visible: LabelBox,
+  extra: readonly LabelBox[] = [],
 ): { box: LabelBox; leader: boolean } | null {
   const halfW = Math.floor(size.w / 2);
   const halfH = Math.floor(size.h / 2);
@@ -225,18 +267,96 @@ function attachPill(
       const alongShifts = along === 0 ? [0] : [-along, along];
       for (const perpShift of perpShifts) {
         for (const alongShift of alongShifts) {
-          const placed = placeAt(anchor, size, axis, perpShift, alongShift, green, taken, visible);
+          const placed = placeAt(anchor, size, axis, perpShift, alongShift, green, taken, visible, extra);
           if (placed && !placed.leader) return placed;
         }
       }
     }
   }
   const maxShift = Math.ceil(LEADER_MAX + size.w / 2 + size.h / 2);
+  const alongNudge = [0, -4, -8, -12, -16, 4, 8];
   for (let step = 1; step <= maxShift; step += 1) {
     for (const shift of [step, -step]) {
-      const placed = placeAt(anchor, size, axis, shift, 0, green, taken, visible);
-      if (placed) return placed;
+      for (const alongShift of alongNudge) {
+        const placed = placeAt(anchor, size, axis, shift, alongShift, green, taken, visible, extra);
+        if (placed) return placed;
+      }
     }
+  }
+  return null;
+}
+
+function letterBox(dot: GreenDot, axis: Axis, side: number, perp: number, along: number): LabelBox {
+  return boxFromCenter(
+    {
+      x: dot.at.x + axis.perp.x * side * perp + axis.dir.x * along,
+      y: dot.at.y + axis.perp.y * side * perp + axis.dir.y * along,
+    },
+    { w: LETTER_W, h: LETTER_H },
+  );
+}
+
+function alongOf(point: ScreenPoint, axis: Axis): number {
+  return point.x * axis.dir.x + point.y * axis.dir.y;
+}
+
+/** One column beside the green. The pin-side letter stays on its dot. The others step down only to keep 6pt. */
+function columnLetters(
+  dots: readonly GreenDot[],
+  axis: Axis,
+  side: number,
+  green: LabelBox | null,
+  taken: readonly LabelBox[],
+  visible: LabelBox,
+): PlacedMapLabel[] | null {
+  const down = axis.dir.y >= 0 ? 1 : -1;
+  let minPerp = 8;
+  for (let perp = 4; perp <= 56; perp += 1) {
+    const clear = dots.every((dot) => green == null || boxesSeparated(letterBox(dot, axis, side, perp, 0), green, 4));
+    if (clear) {
+      minPerp = perp;
+      break;
+    }
+  }
+  const ordered = [...dots].sort((a, b) => alongOf(b.at, axis) - alongOf(a.at, axis));
+  for (let perp = minPerp; perp <= 56; perp += 1) {
+    const placed: PlacedMapLabel[] = [];
+    let failed = false;
+    for (const dot of ordered) {
+      let along = 0;
+      let box = letterBox(dot, axis, side, perp, along);
+      for (let step = 0; step < MARK_ALONG_MAX && !contains(visible, box); step += 1) {
+        if (box.x < visible.x - 0.5 || box.x + box.w > visible.x + visible.w + 0.5) break;
+        along += box.y < visible.y ? down : -down;
+        box = letterBox(dot, axis, side, perp, along);
+      }
+      for (const earlier of placed) {
+        for (let step = 0; step < MARK_ALONG_MAX && !boxesSeparated(box, earlier.box, LABEL_GAP); step += 1) {
+          along += down;
+          box = letterBox(dot, axis, side, perp, along);
+        }
+      }
+      const blocked =
+        !contains(visible, box) ||
+        Math.abs(along) > MARK_ALONG_MAX ||
+        (green != null && !boxesSeparated(box, green, 4)) ||
+        taken.some((other) => !boxesSeparated(box, other, LABEL_GAP)) ||
+        placed.some((other) => !boxesSeparated(box, other.box, LABEL_GAP));
+      if (blocked) {
+        failed = true;
+        break;
+      }
+      placed.push({
+        id: `letter-${dot.id}`,
+        text: MARK_COPY[dot.id],
+        kind: 'letter',
+        box,
+        at: { x: box.x + box.w / 2, y: box.y + box.h / 2 },
+        anchor: dot.at,
+        leader: false,
+      });
+    }
+    if (!failed && placed.length === dots.length) return placed;
   }
   return null;
 }
@@ -261,17 +381,39 @@ export function layoutHoleLabels(input: HoleLabelLayoutInput): HoleLabelLayout {
 
   const labels: PlacedMapLabel[] = [];
   const taken: LabelBox[] = [];
+  const glow = ovalGlowBox(input.ellipsePoints ?? []);
   const plays = input.labels.filter((label) => !isDistance(label.text) && label.text !== '—' && !label.text.startsWith('Sample'));
   const yards = input.labels.filter((label) => isDistance(label.text));
 
-  for (const label of [...yards, ...plays]) {
+  for (const label of yards) {
     const size = pillSize(label.text);
-    const distance = isDistance(label.text);
     const placed = attachPill(label.at, size, axis, green, taken, visible);
     if (!placed) continue;
     taken.push(placed.box);
     labels.push({
-      id: `${distance ? 'yard' : 'plays'}-${label.text}`,
+      id: `yard-${label.text}`,
+      text: label.text,
+      kind: 'pill',
+      box: placed.box,
+      at: { x: placed.box.x + placed.box.w / 2, y: placed.box.y + 20 },
+      anchor: label.at,
+      leader: placed.leader,
+    });
+  }
+
+  const letters = columnLetters(dots, axis, -1, green, taken, visible) ?? columnLetters(dots, axis, 1, green, taken, visible) ?? [];
+  for (const letter of letters) {
+    taken.push(letter.box);
+    labels.push(letter);
+  }
+
+  for (const label of plays) {
+    const size = pillSize(label.text);
+    const placed = attachPill(label.at, size, axis, green, taken, visible, glow ? [glow] : []);
+    if (!placed) continue;
+    taken.push(placed.box);
+    labels.push({
+      id: `plays-${label.text}`,
       text: label.text,
       kind: 'pill',
       box: placed.box,

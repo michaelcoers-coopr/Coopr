@@ -116,6 +116,14 @@ export function patternCaption(input: {
   return input.invite;
 }
 
+/** Invitation on a club card that has no measured shots. */
+export const SHOT_LOG_TIP = 'Log a shot after each swing, or upload a TrackMan photo';
+
+/** A short card spreads through the fixed sheet. A full card stays at the top so nothing is clipped. */
+export function cardGravity(noShots: boolean): 'space-between' | 'flex-start' {
+  return noShots ? 'space-between' : 'flex-start';
+}
+
 /** Collapsed club sheet. The height does not follow the club, so scrubbing does not rescale the map. */
 export function closedPlaySheet(closed: number): number {
   return Number.isFinite(closed) ? Math.max(0, closed) : 0;

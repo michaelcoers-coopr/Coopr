@@ -1,7 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
 import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { StyleSheet, Text, View } from 'react-native';
 import type { LatLon } from '@coopr/domain';
-import { colors } from '@coopr/tokens';
+import { colors, font } from '@coopr/tokens';
 import { shotBearing } from '@coopr/engine';
 import type { HoleMapProps } from './hole-map-props';
 import { Muted } from './ui';
@@ -12,7 +13,17 @@ function coords(ring: readonly LatLon[]) {
   return ring.map((point) => ({ latitude: point.lat, longitude: point.lon }));
 }
 
+const MARK_LETTER = { front: 'F', center: 'C', back: 'B' } as const;
+
 export function HoleMap(props: HoleMapProps) {
+  const [flash, setFlash] = useState<'front' | 'center' | 'back' | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    },
+    [],
+  );
   const points = [props.line, ...props.fairways, ...props.green, ...props.bunkers, ...props.hazards].flat();
   if (points.length === 0) return <Muted>This hole has no open geometry to draw.</Muted>;
   const lats = points.map((point) => point.lat);
@@ -63,9 +74,26 @@ export function HoleMap(props: HoleMapProps) {
         {props.marks
           ? (['front', 'center', 'back'] as const).map((key) => {
               const point = props.marks![key];
+              const readout = flash === key ? props.markReadout?.[key] : null;
               return (
-                <Marker key={key} coordinate={{ latitude: point.lat, longitude: point.lon }} tracksViewChanges={false} anchor={{ x: 0.5, y: 0.5 }}>
-                  <View style={styles.dot} />
+                <Marker
+                  key={key}
+                  coordinate={{ latitude: point.lat, longitude: point.lon }}
+                  tracksViewChanges
+                  anchor={{ x: 5 / 36, y: 0.5 }}
+                  onPress={() => {
+                    const text = props.markReadout?.[key];
+                    if (!text || text === '—') return;
+                    setFlash(key);
+                    if (flashTimer.current) clearTimeout(flashTimer.current);
+                    flashTimer.current = setTimeout(() => setFlash(null), 1400);
+                  }}
+                >
+                  <View style={styles.markWrap} accessibilityLabel={`${MARK_LETTER[key]} of the green`}>
+                    <View style={styles.dot} />
+                    <Text style={styles.letter}>{MARK_LETTER[key]}</Text>
+                    {readout && readout !== '—' ? <Text style={styles.readout}>{readout}</Text> : null}
+                  </View>
                 </Marker>
               );
             })
@@ -96,13 +124,43 @@ const styles = StyleSheet.create({
   frame: { borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2' },
   bleed: { borderRadius: 0, borderWidth: 0 },
   map: { flex: 1 },
+  markWrap: { width: 36, height: 16, justifyContent: 'center' },
   dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    position: 'absolute',
+    left: 0,
+    top: 3,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: 'rgba(11,31,58,0.55)',
+    borderWidth: 1.5,
+    borderColor: '#0B1F3A',
+  },
+  letter: {
+    position: 'absolute',
+    left: 14,
+    top: -1,
+    color: '#FFFFFF',
+    fontFamily: font.family,
+    fontSize: 11,
+    fontWeight: '600',
+    textShadowColor: '#0B1F3A',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 3,
+  },
+  readout: {
+    position: 'absolute',
+    left: 0,
+    top: 18,
+    color: '#FFFFFF',
+    backgroundColor: 'rgba(11,31,58,0.92)',
+    overflow: 'hidden',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    fontFamily: font.family,
+    fontSize: 13,
+    fontWeight: '700',
   },
   float: {
     position: 'absolute',
