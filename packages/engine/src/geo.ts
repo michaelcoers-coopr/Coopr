@@ -148,23 +148,50 @@ export interface GreenYards {
   backYards: number;
 }
 
+export interface GreenTargets {
+  front: LatLon;
+  center: LatLon;
+  back: LatLon;
+}
+
 /**
  * Front is the nearest boundary point, back is the farthest vertex, center is the centroid.
- * All three are ground distances from `from`. None of them is a carry.
+ * The same three points feed the yardages. None of them is a carry.
  */
-export function greenYardsFrom(from: LatLon, ring: readonly LatLon[]): GreenYards | null {
+export function greenTargets(from: LatLon, ring: readonly LatLon[]): GreenTargets | null {
   const closed = closeRing(ring);
   const center = ringCentroid(closed);
   if (!center || closed.length < 4) return null;
-  let front = Number.POSITIVE_INFINITY;
-  let back = 0;
+  let frontYards = Number.POSITIVE_INFINITY;
+  let front: LatLon | null = null;
+  let backYards = 0;
+  let back: LatLon | null = null;
   for (let i = 0; i < closed.length - 1; i++) {
     const nearest = closestPointOnSegment(from, closed[i]!, closed[i + 1]!);
-    front = Math.min(front, distanceYards(from, nearest));
-    back = Math.max(back, distanceYards(from, closed[i]!));
+    const near = distanceYards(from, nearest);
+    if (near < frontYards) {
+      frontYards = near;
+      front = nearest;
+    }
+    const far = distanceYards(from, closed[i]!);
+    if (far > backYards) {
+      backYards = far;
+      back = closed[i]!;
+    }
   }
-  if (!Number.isFinite(front)) return null;
-  return { frontYards: front, centerYards: distanceYards(from, center), backYards: back };
+  if (!front || !back || !Number.isFinite(frontYards)) return null;
+  return { front, center, back };
+}
+
+/** Ground distances from `from` to the front, center, and back of the green. */
+export function greenYardsFrom(from: LatLon, ring: readonly LatLon[]): GreenYards | null {
+  const targets = greenTargets(from, ring);
+  if (!targets) return null;
+  return {
+    frontYards: distanceYards(from, targets.front),
+    centerYards: distanceYards(from, targets.center),
+    backYards: distanceYards(from, targets.back),
+  };
 }
 
 /** Degrees clockwise from north, 0 to 360. */

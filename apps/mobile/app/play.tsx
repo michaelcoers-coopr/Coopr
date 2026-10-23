@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Animated, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
-import { font, play as field, radius, touch } from '@coopr/tokens';
+import { colors, font, play as field, radius, touch, type } from '@coopr/tokens';
 import {
   acceptShotYards,
   arrivedAtNextTee,
@@ -15,6 +16,7 @@ import {
   displayToYards,
   formatDistance,
   gpsPreset,
+  greenTargets,
   greenYardsFrom,
   holeOverlay,
   layupDecision,
@@ -41,6 +43,7 @@ import { loadHighCedarsPilot } from '@coopr/course';
 import { HoleMap } from '../src/hole-map';
 import { celebrate, pulse } from '../src/haptics';
 import { holeSwipe, rollSteps } from '../src/design/motion';
+import { SCORE_GROUP_MIN, clubFigure, clubWhy, holeShift, scoreGlance } from '../src/design/play-polish';
 import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
 import { useLocalStore, type LandingResult } from '../src/local-store';
@@ -128,8 +131,12 @@ export default function PlayScreen() {
   const [overrideDraft, setOverrideDraft] = useState('');
   const [saved, setSaved] = useState<string | null>(null);
   const [roll, setRoll] = useState<number | null>(null);
-  const [mapH, setMapH] = useState(560);
+  const [mapH, setMapH] = useState(320);
+  const insets = useSafeAreaInsets();
   const rise = useRef(new Animated.Value(32)).current;
+  const mapX = useRef(new Animated.Value(0)).current;
+  const mapFade = useRef(new Animated.Value(1)).current;
+  const seenHole = useRef<number | null>(null);
   const rolledFrom = useRef<number | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveRef = useRef<() => void>(() => {});
@@ -216,6 +223,20 @@ export default function PlayScreen() {
     rise.setValue(32);
     Animated.spring(rise, { toValue: 0, friction: 8, tension: 68, useNativeDriver: false }).start();
   }, [currentHole, rise]);
+
+  useLayoutEffect(() => {
+    const previous = seenHole.current;
+    seenHole.current = currentHole;
+    if (previous == null) return;
+    const shift = holeShift(previous, currentHole);
+    if (shift === 'none') return;
+    mapX.setValue(shift === 'forward' ? 42 : -42);
+    mapFade.setValue(0.35);
+    Animated.parallel([
+      Animated.spring(mapX, { toValue: 0, friction: 9, tension: 78, useNativeDriver: false }),
+      Animated.timing(mapFade, { toValue: 1, duration: 260, useNativeDriver: false }),
+    ]).start();
+  }, [currentHole, mapFade, mapX]);
 
   useEffect(() => {
     if (heroBase == null) {
@@ -341,9 +362,6 @@ export default function PlayScreen() {
   const carryStock = carryProfile(profiles, calledId);
   const totalStock = totalProfile(profiles, calledId);
   const stockYards = card?.metricUsed === 'carry' ? carryStock?.stockYards ?? null : totalStock?.stockYards ?? short?.carryYards ?? null;
-  const shownStock = stockYards == null ? null : Math.round(stockYards);
-  const shownTarget = callYards == null ? null : Math.round(callYards);
-  const gapYards = shownStock != null && shownTarget != null && calledId ? Math.abs(shownStock - shownTarget) : null;
   const hazard = taggedHazardLine(pilot.features, hole.holeNumber, player);
   voiceClub.current = {
     clubId: calledId,
@@ -435,16 +453,30 @@ export default function PlayScreen() {
 
   const heroText = roll != null ? String(Math.round(roll)) : heroBase == null ? '' : formatDistance(heroBase, unit);
   const showCard = calledLabel != null;
+  const figure = clubFigure(playsLikeYards, shotYards, player != null);
+  const whyLine = clubWhy({
+    layupReason: layup?.call === 'lay_up' ? layup.reason : null,
+    stockYards: calledId ? stockYards : null,
+    targetYards: callYards,
+    playsLike: playsLikeYards != null,
+    unit,
+  });
+  const glance = scoreGlance(face.strokes, par, face.strokesConfirmed);
+  const greenMarks = player && greenRing ? greenTargets(player, greenRing) : null;
+  const centerLive = player != null;
 
   return (
-    <View style={styles.screen} onLayout={(event) => setMapH(Math.max(420, Math.round(event.nativeEvent.layout.height)))} {...pan.panHandlers}>
+    <View style={styles.screen} {...pan.panHandlers}>
       <StatusBar style="light" />
       <Stack.Screen options={{ headerShown: false, title: `Hole ${hole.holeNumber}` }} />
       <ClubPulse clubLabel={calledLabel} yards={callYards} />
-      <View style={styles.mapLayer} pointerEvents="box-none">
+      <Animated.View
+        style={[styles.mapWrap, { opacity: mapFade, transform: [{ translateX: mapX }] }]}
+        onLayout={(event) => setMapH(Math.max(168, Math.round(event.nativeEvent.layout.height)))}
+      >
         <HoleMap
           bleed
-          height={mapH}
+          height={Math.max(168, mapH)}
           line={overlay.line}
           fairways={ringsOf(overlay.fairways)}
           green={overlay.green ? ringsOf([overlay.green]) : []}
@@ -453,11 +485,12 @@ export default function PlayScreen() {
           ellipse={null}
           dispersionLine={dispersionLine}
           measure={[]}
+          marks={greenMarks}
           onTap={() => undefined}
           rawLabel=""
           playsLabel=""
         />
-        <View pointerEvents="box-none" style={styles.mapHud}>
+        <View pointerEvents="box-none" style={[styles.mapHud, { paddingTop: insets.top + 8 }]}>
           <View style={styles.glassRow}>
             <Pressable accessibilityRole="button" accessibilityLabel="Home" onPress={() => router.push('/')} style={styles.glass}>
               <Text style={styles.glassText}>Home</Text>
@@ -472,151 +505,148 @@ export default function PlayScreen() {
               <Text style={styles.glassText}>{`SI ${hole.strokeIndex ?? '—'}`}</Text>
             </View>
           </View>
+          <View style={styles.ends}>
+            <End label="Front" value={ground ? formatDistance(ground.frontYards, unit) : ''} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Shot yards"
+              delayLongPress={450}
+              onLongPress={() => {
+                if (player) return;
+                setOverrideDraft(manual == null ? '' : formatDistance(manual, unit));
+                setOverrideOpen(true);
+              }}
+              style={styles.centerHit}
+            >
+              <Text style={styles.endLabel}>Center</Text>
+              {overrideOpen && !player ? (
+                <TextInput
+                  value={overrideDraft}
+                  onChangeText={setOverrideDraft}
+                  keyboardType="decimal-pad"
+                  autoFocus
+                  style={[styles.centerNum, styles.centerInput]}
+                  accessibilityLabel="Manual yards"
+                  onBlur={() => {
+                    const accepted = acceptShotYards(Number(overrideDraft));
+                    if (typeof accepted === 'number') setManualYards(hole.holeNumber, displayToYards(accepted, unit));
+                    setOverrideOpen(false);
+                  }}
+                />
+              ) : (
+                <Text style={[styles.centerNum, centerLive && styles.centerLive]}>{centerLive || manual != null ? heroText : ''}</Text>
+              )}
+            </Pressable>
+            <End label="Back" value={ground ? formatDistance(ground.backYards, unit) : ''} />
+          </View>
+          {!player && !overrideOpen ? <Text style={styles.quietLight}>Hold the number if this phone has no position.</Text> : null}
+          {hazardYards != null ? <Text style={styles.quietLight}>{`Hazard ${formatDistance(hazardYards, unit)}`}</Text> : null}
           <Text style={styles.tiny} numberOfLines={1}>
             Open shapes. Satellite is on the phone.
           </Text>
         </View>
-      </View>
-      <Animated.View style={[styles.sheet, { transform: [{ translateY: rise }] }]}>
+      </Animated.View>
+      <Animated.View style={[styles.sheet, { transform: [{ translateY: rise }], paddingBottom: Math.max(insets.bottom, 8) }]}>
         <View style={styles.handle} />
-        {ask.banner ? <View style={styles.askBanner}>{ask.banner}</View> : null}
         <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
-          <View style={styles.heroRow}>
-            <View style={styles.heroCol}>
-              <Text style={styles.kicker}>Shot</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Shot yards"
-                delayLongPress={450}
-                onLongPress={() => {
-                  if (player) return;
-                  setOverrideDraft(manual == null ? '' : formatDistance(manual, unit));
-                  setOverrideOpen(true);
-                }}
-              >
-                {overrideOpen && !player ? (
-                  <TextInput
-                    value={overrideDraft}
-                    onChangeText={setOverrideDraft}
-                    keyboardType="decimal-pad"
-                    autoFocus
-                    style={styles.hero}
-                    accessibilityLabel="Manual yards"
-                    onBlur={() => {
-                      const accepted = acceptShotYards(Number(overrideDraft));
-                      if (typeof accepted === 'number') setManualYards(hole.holeNumber, displayToYards(accepted, unit));
-                      setOverrideOpen(false);
-                    }}
-                  />
-                ) : (
-                  <Text style={styles.hero}>{heroText}</Text>
-                )}
-              </Pressable>
-              {!player && !overrideOpen ? <Text style={styles.quiet}>Hold the number if this phone has no position.</Text> : null}
-            </View>
-            {playsLikeYards != null ? (
-              <View style={styles.playsCol}>
-                <Text style={styles.kicker}>Plays like</Text>
-                <Text style={styles.plays}>{formatDistance(playsLikeYards, unit)}</Text>
-              </View>
-            ) : null}
-          </View>
-          {ground ? (
-            <View style={styles.ends}>
-              <Text style={styles.end}>{`Front ${formatDistance(ground.frontYards, unit)}`}</Text>
-              <Text style={styles.end}>{`Center ${formatDistance(ground.centerYards, unit)}`}</Text>
-              <Text style={styles.end}>{`Back ${formatDistance(ground.backYards, unit)}`}</Text>
-            </View>
-          ) : null}
-          {hazardYards != null ? <Text style={styles.quiet}>{`Hazard ${formatDistance(hazardYards, unit)}`}</Text> : null}
-          {showCard ? (
-            <View style={styles.clubCard}>
-              <Text style={styles.club}>{calledLabel}</Text>
-              {!onGreen ? (
-                <Text style={styles.stock}>
-                  {short
-                    ? `Carry ${short.carryYards ?? '—'}`
-                    : `Carry ${carryStock ? formatDistance(carryStock.stockYards, unit) : '—'}   Total ${totalStock ? formatDistance(totalStock.stockYards, unit) : '—'}`}
-                </Text>
-              ) : null}
-              {gapYards != null && stockYards != null && callYards != null ? (
-                <Text style={styles.gapLine}>
-                  {gapYards === 0
-                    ? `Even with the ${playsLikeYards != null ? 'plays-like' : 'shot'}.`
-                    : `${gapYards} ${gapYards === 1 ? 'yard' : 'yards'} ${shownStock != null && shownTarget != null && shownStock > shownTarget ? 'long' : 'short'} of the ${playsLikeYards != null ? 'plays-like' : 'shot'}.`}
-                </Text>
-              ) : null}
-              {card?.passedCloser ? <Text style={styles.quiet} numberOfLines={2}>{card.passedCloser}</Text> : null}
-              {card && card.posture !== 'decline' ? (
-                <Pressable accessibilityRole="button" accessibilityLabel="Why" onPress={() => setWhy(true)} style={styles.whyChip}>
-                  <Text style={styles.whyChipText}>Why</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : null}
-          {layup?.call === 'lay_up' ? <Text style={styles.quiet}>{layup.reason}</Text> : null}
+          {ask.banner ? <View style={styles.askBanner}>{ask.banner}</View> : null}
           {lastClosed ? (
             <Text style={styles.quiet}>
               {`Last ${formatDistance(lastClosed.yards ?? 0, unit)}${lastClosed.lie ? ` · ${lastClosed.lie}` : ''}`}
             </Text>
           ) : null}
-          <Pressable accessibilityRole="button" accessibilityLabel="Mark shot" onPress={markHere} style={styles.mark}>
-            <Text style={styles.markText}>Mark shot</Text>
-          </Pressable>
         </ScrollView>
-        <View style={styles.pin}>
-          <View style={styles.scoreRow}>
-            <Text style={styles.pinLabel}>Score</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Score minus" onPress={() => face.strokes != null && setStrokes(hole.holeNumber, stepCount(face.strokes, -1, 1))} style={styles.step}>
-              <Text style={styles.stepText}>−</Text>
-            </Pressable>
-            <Text style={[styles.score, !face.strokesConfirmed && styles.pending]}>{face.strokes ?? ''}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Score plus" onPress={() => face.strokes != null && setStrokes(hole.holeNumber, stepCount(face.strokes, 1, 1))} style={styles.step}>
-              <Text style={styles.stepText}>+</Text>
-            </Pressable>
-            {!face.strokesConfirmed || !face.puttsConfirmed ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Confirm score" onPress={commitScore} style={styles.confirm}>
-                <Text style={styles.confirmText}>Confirm</Text>
-              </Pressable>
-            ) : null}
+        <View style={styles.footer}>
+          {showCard ? (
+            <View style={styles.clubCard}>
+              <View style={styles.clubTop}>
+                <Text style={styles.club} numberOfLines={2} accessibilityLabel={calledLabel ?? 'Club'}>
+                  {calledLabel}
+                </Text>
+                {figure ? (
+                  <View style={styles.figure}>
+                    <Text style={styles.kicker}>{figure.label}</Text>
+                    <Text style={styles.figureNum}>{formatDistance(figure.yards, unit)}</Text>
+                  </View>
+                ) : null}
+              </View>
+              {whyLine ? (
+                card ? (
+                  <Pressable accessibilityRole="button" accessibilityLabel="Why" onPress={() => setWhy(true)} style={styles.whyHit}>
+                    <Text style={styles.whyLine} numberOfLines={1}>
+                      {whyLine}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Text style={styles.whyLine} numberOfLines={1}>
+                    {whyLine}
+                  </Text>
+                )
+              ) : null}
+            </View>
+          ) : null}
+          <View style={styles.scoreWrap}>
+            <View style={[styles.scoreGroup, { minWidth: SCORE_GROUP_MIN }]}>
+              <Text style={styles.kicker}>Score</Text>
+              <View style={styles.stepper}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Score minus" onPress={() => face.strokes != null && setStrokes(hole.holeNumber, stepCount(face.strokes, -1, 1))} style={styles.step}>
+                  <Text style={styles.stepText}>−</Text>
+                </Pressable>
+                <RewardScore text={face.strokes == null ? '' : String(face.strokes)} motion={glance.motion} pending={!face.strokesConfirmed} hot={glance.motion === 'birdie'} />
+                <Pressable accessibilityRole="button" accessibilityLabel="Score plus" onPress={() => face.strokes != null && setStrokes(hole.holeNumber, stepCount(face.strokes, 1, 1))} style={styles.step}>
+                  <Text style={styles.stepText}>+</Text>
+                </Pressable>
+              </View>
+              {glance.name ? <Text style={[styles.reward, glance.motion === 'birdie' && styles.rewardHot]}>{glance.name}</Text> : null}
+              {!glance.name && glance.versus ? <Text style={styles.versus}>{glance.versus}</Text> : null}
+            </View>
+            <View style={[styles.scoreGroup, { minWidth: SCORE_GROUP_MIN }]}>
+              <Text style={styles.kicker}>Putts</Text>
+              <View style={styles.stepper}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Putt minus" onPress={() => setPutts(hole.holeNumber, stepCount(face.putts, -1, 0))} style={styles.step}>
+                  <Text style={styles.stepText}>−</Text>
+                </Pressable>
+                <Text style={[styles.score, !face.puttsConfirmed && styles.pending]}>{face.putts}</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="Putt plus" onPress={() => setPutts(hole.holeNumber, stepCount(face.putts, 1, 0))} style={styles.step}>
+                  <Text style={styles.stepText}>+</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.puttNote}>Not added to the score.</Text>
+            </View>
           </View>
-          <View style={styles.scoreRow}>
-            <Text style={styles.pinLabel}>Putts</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Putt minus" onPress={() => setPutts(hole.holeNumber, stepCount(face.putts, -1, 0))} style={styles.step}>
-              <Text style={styles.stepText}>−</Text>
+          {!face.strokesConfirmed || !face.puttsConfirmed ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="Confirm score" onPress={commitScore} style={styles.confirm}>
+              <Text style={styles.confirmText}>Confirm</Text>
             </Pressable>
-            <Text style={[styles.score, !face.puttsConfirmed && styles.pending]}>{face.putts}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Putt plus" onPress={() => setPutts(hole.holeNumber, stepCount(face.putts, 1, 0))} style={styles.step}>
-              <Text style={styles.stepText}>+</Text>
+          ) : null}
+          {face.blowUp && !answered && strokes != null && par != null ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Note the hole"
+              onPress={() => {
+                setDebrief({
+                  hole: hole.holeNumber,
+                  choice: 'swing',
+                  note: debriefNote('swing', { hole: hole.holeNumber, strokes, par, over: strokes - par }),
+                });
+                setSaved('Noted');
+              }}
+              style={styles.confirm}
+            >
+              <Text style={styles.confirmText}>Note the hole</Text>
             </Pressable>
-            {face.blowUp && !answered && strokes != null && par != null ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Note the hole"
-                onPress={() => {
-                  setDebrief({
-                    hole: hole.holeNumber,
-                    choice: 'swing',
-                    note: debriefNote('swing', { hole: hole.holeNumber, strokes, par, over: strokes - par }),
-                  });
-                  setSaved('Noted');
-                }}
-                style={styles.confirm}
-              >
-                <Text style={styles.confirmText}>Note the hole</Text>
-              </Pressable>
-            ) : (
-              <Text style={styles.tinyPad}>Not added to the score.</Text>
-            )}
-          </View>
+          ) : null}
           {face.suggestion != null && face.suggestion !== face.strokes ? (
-            <Pressable accessibilityRole="button" accessibilityLabel="Use mark count" onPress={() => setStrokes(hole.holeNumber, face.suggestion!)}>
-              <Text style={styles.quiet}>{`${face.suggestion} from marks`}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Use mark count" onPress={() => setStrokes(hole.holeNumber, face.suggestion!)} style={styles.suggest}>
+              <Text style={styles.suggestText}>{`${face.suggestion} from marks`}</Text>
             </Pressable>
           ) : null}
           {hole.holeNumber === 18 && face.strokesConfirmed ? (
-            <Text style={styles.pinLabel}>{score.holesEntered === 0 ? 'Round is in.' : `Round is in. Gross ${score.gross}.`}</Text>
+            <Text style={styles.quiet}>{score.holesEntered === 0 ? 'Round is in.' : `Round is in. Gross ${score.gross}.`}</Text>
           ) : null}
+          <Pressable accessibilityRole="button" accessibilityLabel="Mark shot" onPress={markHere} style={styles.mark}>
+            <Text style={styles.markText}>Mark shot</Text>
+          </Pressable>
         </View>
         {ask.undo}
         {ask.button}
@@ -645,6 +675,32 @@ export default function PlayScreen() {
   );
 }
 
+function End({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.endCol} accessibilityLabel={value ? `${label} ${value}` : label}>
+      <Text style={styles.endLabel}>{label}</Text>
+      <Text style={styles.endNum}>{value}</Text>
+    </View>
+  );
+}
+
+function RewardScore({ text, motion, pending, hot }: { text: string; motion: 'birdie' | 'par' | null; pending: boolean; hot: boolean }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (motion == null) {
+      scale.setValue(1);
+      return;
+    }
+    scale.setValue(0.84);
+    Animated.spring(scale, { toValue: 1, friction: 4, tension: 140, useNativeDriver: false }).start();
+  }, [motion, text, scale]);
+  return (
+    <Animated.Text style={[styles.score, pending && styles.pending, hot && styles.scoreHot, { transform: [{ scale }] }]}>
+      {text}
+    </Animated.Text>
+  );
+}
+
 function ClubPulse({ clubLabel, yards }: { clubLabel: string | null; yards: number | null }) {
   useEffect(() => {
     if (!clubLabel || yards == null) return;
@@ -654,30 +710,48 @@ function ClubPulse({ clubLabel, yards }: { clubLabel: string | null; yards: numb
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: field.bg },
-  mapLayer: { ...StyleSheet.absoluteFill },
-  mapHud: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 54, paddingHorizontal: 16, gap: 8 },
-  glassRow: { flexDirection: 'row', gap: 8 },
+  screen: { flex: 1, backgroundColor: field.bg, overflow: 'hidden' },
+  mapWrap: { flexGrow: 1, flexShrink: 1, flexBasis: 160, minHeight: 128, backgroundColor: field.bg, overflow: 'hidden' },
+  mapHud: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 16, gap: 8 },
+  glassRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   glass: {
     backgroundColor: field.glass,
     borderColor: field.line,
     borderWidth: 1,
     borderRadius: radius.chip,
-    minHeight: 36,
+    minHeight: 48,
     paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  glassText: { color: field.ink, fontFamily: font.family, fontSize: 15, fontWeight: '700' },
-  tiny: { color: 'rgba(244,247,251,0.72)', fontSize: 11, marginTop: 4 },
+  glassText: { color: field.ink, fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
+  tiny: { color: 'rgba(244,247,251,0.72)', fontFamily: font.family, fontSize: type.micro, marginTop: 2 },
+  ends: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 4 },
+  endCol: { flex: 1, alignItems: 'center', gap: 2 },
+  centerHit: { flex: 1.35, alignItems: 'center', minHeight: touch, justifyContent: 'flex-end' },
+  endLabel: { color: field.muted, fontFamily: font.family, fontSize: type.caption, fontWeight: '700', letterSpacing: 1.1, textTransform: 'uppercase' },
+  endNum: { color: 'rgba(244,247,251,0.78)', fontFamily: font.family, fontSize: type.body, fontWeight: '700', fontVariant: ['tabular-nums'], minHeight: 24 },
+  centerNum: {
+    color: field.ink,
+    fontFamily: font.family,
+    fontSize: type.title,
+    lineHeight: 40,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    textAlign: 'center',
+    minWidth: 72,
+    padding: 0,
+  },
+  centerInput: { minWidth: 96 },
+  centerLive: { color: field.live },
+  quietLight: { color: 'rgba(244,247,251,0.78)', fontFamily: font.family, fontSize: type.caption, lineHeight: 18 },
   sheet: {
-    marginTop: 'auto',
-    maxHeight: '86%',
-    overflow: 'hidden',
+    flexGrow: 0,
+    flexShrink: 0,
     backgroundColor: field.sheet,
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
-    paddingBottom: 8,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.4,
     shadowRadius: 24,
@@ -685,27 +759,12 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)', marginTop: 8 },
-  sheetScroll: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
-  askBanner: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
-  sheetBody: { paddingHorizontal: 16, paddingBottom: 8, gap: 8 },
-  heroRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
-  heroCol: { flex: 1.3 },
-  playsCol: { flex: 0.9, alignItems: 'flex-end' },
-  kicker: { color: field.muted, fontFamily: font.family, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' },
-  hero: {
-    color: field.live,
-    fontFamily: font.family,
-    fontSize: 72,
-    fontWeight: '700',
-    lineHeight: 76,
-    fontVariant: ['tabular-nums'],
-    padding: 0,
-    minHeight: touch,
-  },
-  plays: { color: field.ink, fontFamily: font.family, fontSize: 36, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  quiet: { color: field.muted, fontFamily: font.family, fontSize: 14, lineHeight: 20 },
-  ends: { flexDirection: 'row', justifyContent: 'space-between' },
-  end: { color: field.ink, fontFamily: font.family, fontSize: 15, fontWeight: '700' },
+  sheetScroll: { flexGrow: 0, flexShrink: 1, minHeight: 0, maxHeight: 96 },
+  askBanner: { paddingBottom: 4 },
+  sheetBody: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4, gap: 8 },
+  footer: { flexShrink: 0, paddingHorizontal: 12, paddingTop: 8, gap: 8 },
+  kicker: { color: field.muted, fontFamily: font.family, fontSize: type.caption, fontWeight: '700', letterSpacing: 1.1, textTransform: 'uppercase' },
+  quiet: { color: field.muted, fontFamily: font.family, fontSize: type.body, lineHeight: 22 },
   clubCard: {
     backgroundColor: field.card,
     borderRadius: radius.card,
@@ -715,42 +774,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: field.line,
   },
-  whyChip: {
-    alignSelf: 'flex-start',
-    minHeight: 36,
-    marginTop: 4,
-    paddingHorizontal: 16,
-    borderRadius: radius.chip,
-    borderWidth: 1,
-    borderColor: field.line,
-    alignItems: 'center',
-    justifyContent: 'center',
+  clubTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  club: { flex: 1, color: field.ink, fontFamily: font.family, fontSize: type.club, lineHeight: 36, fontWeight: '700', letterSpacing: -0.4 },
+  figure: { alignItems: 'flex-end', gap: 0 },
+  figureNum: {
+    color: field.ink,
+    fontFamily: font.family,
+    fontSize: 48,
+    lineHeight: 52,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -1,
   },
-  whyChipText: { color: field.ink, fontFamily: font.family, fontSize: 15, fontWeight: '700' },
-  club: { color: field.ink, fontFamily: font.family, fontSize: 32, fontWeight: '700', letterSpacing: -0.4 },
-  stock: { color: field.ink, fontFamily: font.family, fontSize: 17, fontWeight: '600' },
-  gapLine: { color: field.ink, fontFamily: font.family, fontSize: 15, lineHeight: 21 },
-  mark: {
-    minHeight: touch,
-    borderRadius: 16,
-    backgroundColor: field.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  markText: { color: field.bg, fontFamily: font.family, fontSize: 18, fontWeight: '700' },
-  pin: {
-    borderTopWidth: 1,
-    borderTopColor: field.line,
-    paddingHorizontal: 8,
-    paddingTop: 8,
-    paddingBottom: 10,
-    gap: 6,
-    backgroundColor: field.sheet,
-  },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  pinLabel: { color: field.ink, fontFamily: font.family, fontSize: 13, fontWeight: '700', width: 48 },
+  whyHit: { minHeight: 32, justifyContent: 'center' },
+  whyLine: { color: field.ink, fontFamily: font.family, fontSize: type.body, lineHeight: 22 },
+  scoreWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  scoreGroup: { flexGrow: 1, gap: 4 },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   score: { color: field.ink, fontFamily: font.family, fontSize: 28, fontWeight: '700', minWidth: 36, textAlign: 'center', fontVariant: ['tabular-nums'] },
+  scoreHot: { color: colors.red },
   pending: { color: field.muted },
+  reward: { color: field.ink, fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
+  rewardHot: { color: colors.red },
+  versus: { color: field.muted, fontFamily: font.family, fontSize: type.body, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  puttNote: { color: field.muted, fontFamily: font.family, fontSize: type.micro, lineHeight: 14 },
   step: {
     minWidth: touch,
     minHeight: touch,
@@ -763,14 +810,23 @@ const styles = StyleSheet.create({
   stepText: { color: field.ink, fontFamily: font.family, fontSize: 22, fontWeight: '700' },
   confirm: {
     minHeight: touch,
+    borderRadius: 16,
+    backgroundColor: field.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 16,
+  },
+  confirmText: { color: field.bg, fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
+  suggest: { minHeight: 44, justifyContent: 'center' },
+  suggestText: { color: field.ink, fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
+  mark: {
+    minHeight: touch,
     borderRadius: 16,
     backgroundColor: field.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  confirmText: { color: field.bg, fontFamily: font.family, fontSize: 16, fontWeight: '700' },
-  tinyPad: { color: field.muted, fontSize: 11, flex: 1 },
+  markText: { color: field.bg, fontFamily: font.family, fontSize: 18, fontWeight: '700' },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   whySheet: {
     backgroundColor: field.card,
@@ -780,7 +836,7 @@ const styles = StyleSheet.create({
     gap: 12,
     minHeight: 220,
   },
-  whyBody: { color: field.ink, fontFamily: font.family, fontSize: 17, lineHeight: 24 },
+  whyBody: { color: field.ink, fontFamily: font.family, fontSize: type.body, lineHeight: 24 },
   savedWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   saved: {
     backgroundColor: field.card,
@@ -791,6 +847,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: field.line,
   },
-  savedKicker: { color: field.live, fontFamily: font.family, fontSize: 13, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase' },
+  savedKicker: { color: field.live, fontFamily: font.family, fontSize: type.caption, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase' },
   savedTitle: { color: field.ink, fontFamily: font.family, fontSize: 40, fontWeight: '700', marginTop: 4 },
 });
