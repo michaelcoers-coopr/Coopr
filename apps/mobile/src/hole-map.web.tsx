@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ComponentType } from 
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, ClipPath, Defs, G, Line, LinearGradient, Pattern, Polygon, Polyline, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import type { LatLon } from '@coopr/domain';
-import { colors, font } from '@coopr/tokens';
+import { colors, font, signal } from '@coopr/tokens';
 import { projectAlongHole, projectPoints } from '@coopr/engine';
 import { Muted } from './ui';
 import type { HoleMapProps } from './hole-map-props';
@@ -344,6 +344,17 @@ export function HoleMap(props: HoleMapProps) {
             strokeLinecap="round"
           />
         ) : null}
+        {flightXY.length > 1
+          ? (() => {
+              const end = flightXY[flightXY.length - 1]!;
+              return (
+                <G>
+                  <Circle cx={end.x} cy={end.y} r={12} fill={signal.go} fillOpacity={0.4} />
+                  <Circle cx={end.x} cy={end.y} r={4.5} fill="#FFFFFF" stroke={signal.go} strokeWidth={2} />
+                </G>
+              );
+            })()
+          : null}
         {ellipseDraw
           ? (() => {
               const ink = props.ellipseColor ?? '#8AC926';

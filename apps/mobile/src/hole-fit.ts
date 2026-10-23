@@ -223,6 +223,12 @@ export function projectPlayFrame(input: {
   const end = frame(endPoint);
   let near = Math.min(start.along, end.along);
   let far = Math.max(start.along, end.along);
+  if (input.kind !== 'tee') {
+    for (const point of input.around) {
+      if (!Number.isFinite(point.lat) || !Number.isFinite(point.lon)) continue;
+      far = Math.max(far, frame(point).along);
+    }
+  }
   const minSpan = 40 * 0.9144;
   if (far - near < minSpan) near = far - minSpan;
   const spanAlong = far - near || 1;
