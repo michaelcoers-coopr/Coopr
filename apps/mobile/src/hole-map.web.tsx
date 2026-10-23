@@ -372,16 +372,29 @@ export function HoleMap(props: HoleMapProps) {
         ) : null}
         {ballXY && aimEnd ? (
           <G>
-            <Line x1={ballXY.x} y1={ballXY.y} x2={aimEnd.x} y2={aimEnd.y} stroke="#FFFFFF" strokeOpacity={0.9} strokeWidth={2} strokeLinecap="round" />
+            <Line x1={ballXY.x} y1={ballXY.y} x2={aimEnd.x} y2={aimEnd.y} stroke="#FFFFFF" strokeOpacity={0.55} strokeWidth={1.5} strokeLinecap="round" />
             <Circle cx={ballXY.x} cy={ballXY.y} r={5} fill="#FFFFFF" />
           </G>
+        ) : null}
+        {!aimEnd && flightXY.length > 1 ? (
+          <Line
+            x1={flightXY[0]!.x}
+            y1={flightXY[0]!.y}
+            x2={flightXY[flightXY.length - 1]!.x}
+            y2={flightXY[flightXY.length - 1]!.y}
+            stroke="#FFFFFF"
+            strokeOpacity={0.4}
+            strokeWidth={1.5}
+            strokeLinecap="round"
+          />
         ) : null}
         {clippedFlight.length > 1 ? (
           <Polyline
             points={xyString(clippedFlight.slice(0, Math.max(2, Math.ceil(clippedFlight.length * flightT))))}
             fill="none"
             stroke="#FFFFFF"
-            strokeWidth={3}
+            strokeOpacity={0.9}
+            strokeWidth={2}
             strokeLinecap="round"
           />
         ) : null}

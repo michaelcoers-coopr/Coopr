@@ -388,13 +388,16 @@ export function nudgeLabels<T extends LabelBox>(items: readonly T[], gap = 8, wi
   return placed;
 }
 
-/** A curve between two real points. The bow is a drawing of the aim, not a measured flight and not a yardage. */
+/**
+ * A shallow curve between two real points.
+ * The ends are those points. The bow is a drawing, not a measured flight and not a yardage.
+ */
 export function flightArc(start: LatLon, end: LatLon): LatLon[] {
   const dist = distanceYards(start, end);
   if (!Number.isFinite(dist) || dist <= 1) return [];
   const bearing = bearingDegrees(start, end);
   if (bearing == null) return [];
-  const bow = Math.min(18, dist * 0.08);
+  const bow = Math.min(4, dist * 0.02);
   const steps = 12;
   const points: LatLon[] = [];
   for (let i = 0; i <= steps; i += 1) {
@@ -403,6 +406,8 @@ export function flightArc(start: LatLon, end: LatLon): LatLon[] {
     const across = Math.sin(Math.PI * t) * bow;
     points.push(destinationPoint(destinationPoint(start, bearing, along), bearing + 90, across));
   }
+  points[0] = start;
+  points[points.length - 1] = end;
   return points;
 }
 

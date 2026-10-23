@@ -68,7 +68,7 @@ import { Glass, Vignette } from '../src/design/glass';
 import { ClubStrip, ConfidenceRing, ThruBar } from '../src/design/signature-ui';
 import { useReduceMotion } from '../src/design/reduce-motion';
 import { CountChip } from '../src/design/count-chip';
-import { lineLengthYards, pointAtYards, TEE_SHOT_MARKS, teeWindowYards } from '../src/hole-fit';
+import { lineLengthYards, PAST_STOCK_YARDS, pointAtYards, TEE_SHOT_MARKS, teeWindowYards } from '../src/hole-fit';
 import { holeLabels, marksAt } from '../src/map-labels';
 import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
@@ -541,13 +541,21 @@ export default function PlayScreen() {
   const onTee = teePoint == null || player == null || distanceYards(player, teePoint) <= NEXT_TEE_YARDS;
   const teeCarry = carryProfile(profiles, shownId)?.stockYards ?? null;
   const reachYards = teeWindowYards(teeCarry, lineLengthYards(overlay.line));
-  const cameraKind = fullHole ? 'hole' : onTee && reachYards != null ? 'tee' : player ? 'green' : 'hole';
+  const cameraKind = onTee && fullHole && reachYards != null ? 'tee' : onTee || fullHole || !player ? 'hole' : 'green';
   const oval: DispersionOval | null = sampleOn && !noShots ? dispersionOval([...SAMPLE_PATTERN]) : null;
   const landingYards = focusedPlays ?? focusedRaw;
   const origin = player ?? overlay.line[0] ?? null;
-  const stockLanding = cameraKind === 'tee' && teeCarry != null ? pointAtYards(overlay.line, teeCarry) : null;
-  const greenLanding = origin && bearing != null && landingYards != null && landingYards > 0 ? destinationPoint(origin, bearing, landingYards) : null;
-  const landing = stockLanding ?? greenLanding;
+  const pinPoint = overlay.line[overlay.line.length - 1] ?? null;
+  const greenCenter = greenRing ? ringCentroid(greenRing) : pinPoint;
+  const greenOut =
+    onTee &&
+    origin != null &&
+    greenCenter != null &&
+    teeCarry != null &&
+    distanceYards(origin, greenCenter) > teeCarry + PAST_STOCK_YARDS;
+  const stockLanding = greenOut && teeCarry != null ? pointAtYards(overlay.line, teeCarry) : null;
+  const landing = stockLanding ?? greenCenter;
+  const landingLabelYards = stockLanding != null && teeCarry != null ? teeCarry : landingYards;
   const hazardRings = [...polygons.hazards, ...polygons.bunkers];
   const measuredCenter = oval && landing && bearing != null ? destinationPoint(landing, bearing + 90, oval.meanLateralYards) : landing;
   const safety = oval && measuredCenter && bearing != null ? patternSafety(measuredCenter, bearing, oval, hazardRings) : null;
@@ -747,7 +755,7 @@ export default function PlayScreen() {
               : holeLabels(
                   overlay.line,
                   unit,
-                  landing && landingYards != null ? { at: landing, label: formatDistance(landingYards, unit) } : null,
+                  landing && landingLabelYards != null ? { at: landing, label: formatDistance(landingLabelYards, unit) } : null,
                 )
           }
           line={overlay.line}
@@ -784,7 +792,7 @@ export default function PlayScreen() {
       </Animated.View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={fullHole ? (onTee ? 'Tee shot' : 'To the green') : 'Full hole'}
+        accessibilityLabel={onTee ? (fullHole ? 'Full hole' : 'Tee shot') : fullHole ? 'To the green' : 'Full hole'}
         onPress={() => {
           setFullHole((open) => !open);
           void tick();
@@ -792,7 +800,7 @@ export default function PlayScreen() {
         style={[styles.fullHole, { top: mapHudInset(insets.top) + 6 }]}
       >
         <Glass radius={16} contentStyle={styles.fullHoleFill}>
-          <Text style={styles.fullHoleText}>{fullHole ? (onTee ? 'Tee shot' : 'To the green') : 'Full hole'}</Text>
+          <Text style={styles.fullHoleText}>{onTee ? (fullHole ? 'Full hole' : 'Tee shot') : fullHole ? 'To the green' : 'Full hole'}</Text>
         </Glass>
       </Pressable>
       <View

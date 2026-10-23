@@ -221,9 +221,9 @@ export interface PlayView {
 
 /**
  * Frames the hole in the open band between the yardage HUD and the sheet.
- * The tee shot pins the tee to the bottom and zooms until the fairway's own width
- * is at least 35% of the screen. That crop wins over the 200 and 250 marks.
- * Full hole and ball-to-green fit their span in the band, so they stay zoomed out.
+ * The tee shot pins the tee to the bottom and looks out to the stock window.
+ * A wider zoom is used only when the fairway polygon still starts inside that view.
+ * Full hole and ball-to-green fit their span in the band.
  */
 export function projectPlayFrame(input: {
   line: readonly LatLon[];
@@ -278,13 +278,20 @@ export function projectPlayFrame(input: {
   let scale = innerH / spanAlong;
   if (input.kind === 'tee' && end.along >= start.along) {
     const playing = playingWidthMeters(input.fairway ?? [], input.bearing, input.origin);
+    let fairwayNear = Number.POSITIVE_INFINITY;
+    for (const point of input.fairway ?? []) {
+      if (!Number.isFinite(point.lat) || !Number.isFinite(point.lon)) continue;
+      fairwayNear = Math.min(fairwayNear, frame(point).along);
+    }
     if (playing != null && playing >= 8) {
       const widthScale = (input.width * TEE_WIDTH_FRACTION) / playing;
-      if (widthScale > scale) {
+      const visible = innerH / widthScale;
+      const croppedFar = start.along + visible;
+      const fairwayStays = !Number.isFinite(fairwayNear) || croppedFar >= fairwayNear;
+      if (widthScale > scale && fairwayStays && croppedFar >= end.along) {
         scale = widthScale;
-        const visible = innerH / scale;
         near = start.along;
-        far = start.along + visible;
+        far = croppedFar;
       }
     }
   }

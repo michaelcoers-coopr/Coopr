@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { destinationPoint } from '../src/geo';
+import { closestPointOnSegment, destinationPoint, distanceYards } from '../src/geo';
 import {
   PATTERN_INVITE,
   SAMPLE_PATTERN,
@@ -222,8 +222,13 @@ describe('score, labels, and feel', () => {
       { x: 20, y: 200, w: 52, h: 28, label: '150', priority: 0 },
     ]);
     expect(kept.map((item) => item.label)).toEqual(['158', '150']);
-    const arc = flightArc(tee, destinationPoint(tee, 0, 160));
+    const end = destinationPoint(tee, 45, 160);
+    const arc = flightArc(tee, end);
     expect(arc.length).toBeGreaterThan(2);
+    expect(arc[0]).toEqual(tee);
+    expect(arc[arc.length - 1]).toEqual(end);
+    const crest = arc[Math.floor(arc.length / 2)]!;
+    expect(distanceYards(crest, closestPointOnSegment(crest, tee, end))).toBeLessThanOrEqual(4.5);
     expect(feelFor('club')).toBe('pulse');
     expect(feelFor('mark')).toBe('celebrate');
     expect(feelFor('hole')).toBe('hole');
