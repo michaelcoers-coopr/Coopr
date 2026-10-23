@@ -1,4 +1,4 @@
-import MapView, { Polygon, Polyline } from 'react-native-maps';
+import MapView, { Marker, Polygon, Polyline } from 'react-native-maps';
 import { StyleSheet, Text, View } from 'react-native';
 import type { LatLon } from '@coopr/domain';
 import { colors, play } from '@coopr/tokens';
@@ -43,8 +43,22 @@ export function HoleMap(props: HoleMapProps) {
           <Polygon key={`hazard-${index}`} coordinates={coords(ring)} fillColor="rgba(200,16,46,0.45)" strokeColor={colors.red} strokeWidth={2} />
         ))}
         {props.green.map((ring, index) => (
-          <Polygon key={`green-${index}`} coordinates={coords(ring)} fillColor="rgba(255,255,255,0.5)" strokeColor={colors.navy} strokeWidth={2} />
+          <Polygon key={`green-${index}`} coordinates={coords(ring)} fillColor="rgba(255,255,255,0.72)" strokeColor={colors.navy} strokeWidth={2} />
         ))}
+        {props.marks
+          ? (['front', 'back', 'center'] as const).map((key) => {
+              const point = props.marks![key];
+              const primary = key === 'center';
+              const label = key === 'front' ? 'F' : key === 'back' ? 'B' : 'C';
+              return (
+                <Marker key={key} coordinate={{ latitude: point.lat, longitude: point.lon }} tracksViewChanges={false}>
+                  <View style={[styles.mark, primary && styles.markPrimary]}>
+                    <Text style={[styles.markText, primary && styles.markTextPrimary]}>{label}</Text>
+                  </View>
+                </Marker>
+              );
+            })
+          : null}
         {props.line.length > 1 ? <Polyline coordinates={coords(props.line)} strokeColor={bleed ? play.live : colors.navy} strokeWidth={3} /> : null}
         {props.ellipse && props.ellipse.length > 2 ? (
           <Polygon coordinates={coords(props.ellipse)} fillColor="rgba(11,31,58,0.28)" strokeColor={colors.white} strokeWidth={2} />
@@ -70,6 +84,17 @@ const styles = StyleSheet.create({
   frame: { borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2' },
   bleed: { borderRadius: 0, borderWidth: 0 },
   map: { flex: 1 },
+  mark: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.7)',
+  },
+  markPrimary: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.white, borderWidth: 2, borderColor: play.live },
+  markText: { color: colors.navy, fontSize: 10, fontWeight: '700' },
+  markTextPrimary: { fontSize: 13 },
   float: {
     position: 'absolute',
     zIndex: 2,

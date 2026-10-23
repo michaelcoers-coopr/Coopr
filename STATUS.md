@@ -17,7 +17,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 - Expo Go preview is on SDK 58 (React Native 0.88, React 19.3) and linked to EAS project `@mikecoers/coopr` (`998f1644-05ec-4980-a0b9-58e5703951d7`). The preview runtime is `exposdk:58.0.0`. `npm run preview:publish` republishes that preview channel when `EXPO_TOKEN` is set and does not create a new project. The update published before this upgrade is still SDK 54 and will not load in App Store Expo Go until Mike publishes again. `eas.json` profile `preview` is a store-distribution iOS build (`app.coopr.mobile.preview`, founder tools on) for TestFlight. Steps are in `docs/PREVIEW.md`. Apple was not signed in from this environment.
 - Pure stats, caddie, and scoring. CSV and JSON export. Soft-delete of an account.
 - Screens: Home, Play (High Cedars hole view), Bag with CSV import, Caddie, Scorecard, Practice, course quality, and private founder flows A–D.
-- A round is one mark per shot and a score confirm. Ground distance is the phone to the open green. Wind, temperature, and pressure come from Open-Meteo when plays-like is on. The finish is read from the next mark when the polygon says so. Par and two putts stay grey until confirmed.
+- A round is one mark per shot and a score confirm. Ground distance is the phone to the open green. Wind, temperature, and pressure come from Open-Meteo when plays-like is on. The finish is read from the next mark when the polygon says so. Par and two putts stay grey until confirmed. The hole sheet keeps the club, the plays-like, and one why line above the score controls, and those controls stay inside the safe area.
 - Brand from the 22 Oct founder decision: navy `#0B1F3A`, white, and red `#C8102E` for a lay-up or a hazard. No green fill. Tagline "The smartest caddie you'll ever carry." The home screen uses the official Navy Fill crest raster. It is not redrawn. Phases are in `docs/ROADMAP.md`. Phase 1 is the round. Phase 1.5 reads a photo on a server. Phase 2 is the caddie layer: plays-like, a plan, a debrief, miss side, wedge carries, tone presets, and a satellite hole view. Ask COOPR is hold-to-talk in Expo Go. `POST /v1/voice` is an Expo Router route for EAS Hosting. The ElevenLabs key is a server environment variable. Music has not started.
 - Null provider defaults. No secrets in the repo.
 
@@ -76,7 +76,7 @@ Honest snapshot of this branch. Test counts below are filled after the suite tha
 
 ## Tests
 
-`npm test` — 15 files, 148 tests, all passing. The schema tests start Node with `--experimental-sqlite`, so a process that disabled that builtin still has a database. Ask COOPR covers 41 English phrases, the lie estimate, sample versus live transcription, and the hosting guards.
+`npm test` — 16 files, 153 tests, all passing. The schema tests start Node with `--experimental-sqlite`, so a process that disabled that builtin still has a database. Ask COOPR covers 41 English phrases, the lie estimate, sample versus live transcription, and the hosting guards.
 
 `npm run typecheck` — `tsc -b` for domain, tokens, engine, seed, and db, then the Expo app.
 

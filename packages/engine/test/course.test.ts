@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CourseDataProvider, LatLon, MapFeature, ScorecardHole } from '@coopr/domain';
-import { distanceYards, greenYardsFrom, recommend, resolveCourse, resolveHolePlay, scoreRound, assessHoleQuality, type DistanceProfile } from '@coopr/engine';
+import { distanceYards, greenTargets, greenYardsFrom, recommend, resolveCourse, resolveHolePlay, scoreRound, assessHoleQuality, type DistanceProfile } from '@coopr/engine';
 
 const SOUTH: LatLon = { lat: 0, lon: 0 };
 const GREEN: LatLon[] = [
@@ -69,6 +69,11 @@ describe('green distance', () => {
     expect(play.isShot).toBe(false);
     expect(play.isCarry).toBe(false);
     expect(play.frontYards).toBeCloseTo(yards.frontYards, 5);
+    const targets = greenTargets(SOUTH, GREEN);
+    expect(targets).not.toBeNull();
+    expect(distanceYards(SOUTH, targets!.front)).toBeCloseTo(yards.frontYards, 5);
+    expect(distanceYards(SOUTH, targets!.center)).toBeCloseTo(yards.centerYards, 5);
+    expect(distanceYards(SOUTH, targets!.back)).toBeCloseTo(yards.backYards, 5);
   });
 
   it('falls back to a manual distance when the green is not verified, and the caddie still runs', async () => {

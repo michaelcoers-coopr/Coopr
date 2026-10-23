@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Polygon, Polyline } from 'react-native-svg';
+import Svg, { Circle, G, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
 import type { LatLon } from '@coopr/domain';
 import { colors, play } from '@coopr/tokens';
 import { projectPoints } from '@coopr/engine';
@@ -23,7 +23,8 @@ export function HoleMap(props: HoleMapProps) {
   const projection = projectPoints(cloud, WIDTH, height, 12);
   const bleed = props.bleed === true;
   const ink = bleed ? 'rgba(255,255,255,0.78)' : colors.navy;
-  const fairwayFill = bleed ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.9)';
+  const fairwayFill = bleed ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.9)';
+  const markInk = bleed ? '#F4F7FB' : colors.navy;
   return (
     <View style={[styles.frame, bleed && styles.bleed, bleed && { height }]}>
       <Svg
@@ -47,8 +48,31 @@ export function HoleMap(props: HoleMapProps) {
           <Polygon key={`hazard-${index}`} points={pointsOf(ring, projection)} fill={colors.red} fillOpacity={0.72} stroke={colors.red} strokeWidth={3} />
         ))}
         {props.green.map((ring, index) => (
-          <Polygon key={`green-${index}`} points={pointsOf(ring, projection)} fill={bleed ? 'rgba(255,255,255,0.55)' : colors.white} stroke={ink} strokeWidth={2.5} />
+          <Polygon key={`green-${index}`} points={pointsOf(ring, projection)} fill={bleed ? 'rgba(255,255,255,0.78)' : colors.white} stroke={ink} strokeWidth={2.5} />
         ))}
+        {props.marks
+          ? (['front', 'back', 'center'] as const).map((key) => {
+              const xy = projection.toXY(props.marks![key]);
+              const primary = key === 'center';
+              const label = key === 'front' ? 'F' : key === 'back' ? 'B' : 'C';
+              const radius = primary ? 7 : 4.5;
+              return (
+                <G key={key}>
+                  <Circle
+                    cx={xy.x}
+                    cy={xy.y}
+                    r={radius}
+                    fill={primary ? '#FFFFFF' : 'rgba(255,255,255,0.55)'}
+                    stroke={primary ? play.live : markInk}
+                    strokeWidth={primary ? 2.5 : 1}
+                  />
+                  <SvgText x={xy.x + radius + 3} y={xy.y + 4} fill={markInk} fontSize={primary ? 14 : 11} fontWeight="700">
+                    {label}
+                  </SvgText>
+                </G>
+              );
+            })
+          : null}
         {props.line.length > 1 ? <Polyline points={pointsOf(props.line, projection)} fill="none" stroke={bleed ? play.live : colors.navy} strokeWidth={3} /> : null}
         {props.ellipse && props.ellipse.length > 2 ? (
           <Polygon points={pointsOf(props.ellipse, projection)} fill="rgba(11,31,58,0.18)" stroke={colors.navy} strokeWidth={2} />

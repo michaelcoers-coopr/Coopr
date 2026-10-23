@@ -15,4 +15,6 @@ export interface HoleMapProps {
   height?: number;
   /** Edge-to-edge hole. The yardage lives in the sheet, not on the map. */
   bleed?: boolean;
+  /** Front, center, and back of the green from the phone. Omitted when there is no position. */
+  marks?: { front: LatLon; center: LatLon; back: LatLon } | null;
 }
