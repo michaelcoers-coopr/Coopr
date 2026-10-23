@@ -1,12 +1,11 @@
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, G, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, G, Polygon, Polyline, Rect, Text as SvgText } from 'react-native-svg';
 import type { LatLon } from '@coopr/domain';
 import { colors, play } from '@coopr/tokens';
 import { projectPoints } from '@coopr/engine';
 import { Muted } from './ui';
 import type { HoleMapProps } from './hole-map-props';
-
-const WIDTH = 350;
 
 function pointsOf(ring: readonly LatLon[], projection: ReturnType<typeof projectPoints>): string {
   return ring.map((point) => {
@@ -15,22 +14,27 @@ function pointsOf(ring: readonly LatLon[], projection: ReturnType<typeof project
   }).join(' ');
 }
 
-/** Open geometry only. Apple satellite is the phone map. This drawing is the same shapes. */
+/** Open geometry only. Apple satellite is the phone map. This drawing is the same shapes, in course colors. */
 export function HoleMap(props: HoleMapProps) {
+  const [width, setWidth] = useState(390);
   const cloud = [props.line, ...props.fairways, ...props.green, ...props.bunkers, ...props.hazards, ...(props.ellipse ? [props.ellipse] : []), ...props.dispersionLine, ...props.measure].flat();
   if (cloud.length === 0) return <Muted>This hole has no open geometry to draw.</Muted>;
   const height = props.height ?? 220;
-  const projection = projectPoints(cloud, WIDTH, height, 12);
+  const projection = projectPoints(cloud, width, height, props.pad ?? (props.bleed ? { top: 28, right: 20, bottom: 28, left: 20 } : 12));
   const bleed = props.bleed === true;
-  const ink = bleed ? 'rgba(255,255,255,0.78)' : colors.navy;
-  const fairwayFill = bleed ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.9)';
+  const ink = bleed ? '#F4FFF6' : colors.navy;
+  const fairwayFill = bleed ? '#1F8A4C' : 'rgba(255,255,255,0.9)';
   const markInk = bleed ? '#F4F7FB' : colors.navy;
   return (
-    <View style={[styles.frame, bleed && styles.bleed, bleed && { height }]}>
+    <View
+      style={[styles.frame, bleed && styles.bleed, bleed && { height }]}
+      onLayout={(event) => setWidth(Math.max(1, Math.round(event.nativeEvent.layout.width)))}
+    >
       <Svg
         width="100%"
         height={height}
-        viewBox={`0 0 ${WIDTH} ${height}`}
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="xMidYMid meet"
         onPress={(event) => {
           const x = event.nativeEvent.locationX;
           const y = event.nativeEvent.locationY;
@@ -38,17 +42,18 @@ export function HoleMap(props: HoleMapProps) {
           props.onTap(projection.toLatLon(x, y));
         }}
       >
+        {bleed ? <Rect x={0} y={0} width={width} height={height} fill="#0C2418" /> : null}
         {props.fairways.map((ring, index) => (
-          <Polygon key={`fairway-${index}`} points={pointsOf(ring, projection)} fill={fairwayFill} stroke={ink} strokeWidth={2} />
+          <Polygon key={`fairway-${index}`} points={pointsOf(ring, projection)} fill={fairwayFill} stroke={ink} strokeWidth={bleed ? 2.5 : 2} />
         ))}
         {props.bunkers.map((ring, index) => (
-          <Polygon key={`bunker-${index}`} points={pointsOf(ring, projection)} fill={bleed ? 'rgba(255,255,255,0.42)' : colors.white} stroke={ink} strokeWidth={1.5} />
+          <Polygon key={`bunker-${index}`} points={pointsOf(ring, projection)} fill={bleed ? '#E4C98A' : colors.white} stroke={bleed ? '#F8E7C0' : ink} strokeWidth={1.5} />
         ))}
         {props.hazards.map((ring, index) => (
-          <Polygon key={`hazard-${index}`} points={pointsOf(ring, projection)} fill={colors.red} fillOpacity={0.72} stroke={colors.red} strokeWidth={3} />
+          <Polygon key={`hazard-${index}`} points={pointsOf(ring, projection)} fill={colors.red} fillOpacity={bleed ? 0.94 : 0.72} stroke={bleed ? '#FFD5DC' : colors.red} strokeWidth={bleed ? 2 : 3} />
         ))}
         {props.green.map((ring, index) => (
-          <Polygon key={`green-${index}`} points={pointsOf(ring, projection)} fill={bleed ? 'rgba(255,255,255,0.78)' : colors.white} stroke={ink} strokeWidth={2.5} />
+          <Polygon key={`green-${index}`} points={pointsOf(ring, projection)} fill={bleed ? '#B6F2A2' : colors.white} stroke={bleed ? '#FFFFFF' : ink} strokeWidth={2.5} />
         ))}
         {props.marks
           ? (['front', 'back', 'center'] as const).map((key) => {
@@ -73,7 +78,7 @@ export function HoleMap(props: HoleMapProps) {
               );
             })
           : null}
-        {props.line.length > 1 ? <Polyline points={pointsOf(props.line, projection)} fill="none" stroke={bleed ? play.live : colors.navy} strokeWidth={3} /> : null}
+        {props.line.length > 1 ? <Polyline points={pointsOf(props.line, projection)} fill="none" stroke={bleed ? 'rgba(255,255,255,0.88)' : colors.navy} strokeWidth={3} /> : null}
         {props.ellipse && props.ellipse.length > 2 ? (
           <Polygon points={pointsOf(props.ellipse, projection)} fill="rgba(11,31,58,0.18)" stroke={colors.navy} strokeWidth={2} />
         ) : null}
@@ -98,7 +103,7 @@ export function HoleMap(props: HoleMapProps) {
 
 const styles = StyleSheet.create({
   frame: { borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2', backgroundColor: colors.bg },
-  bleed: { borderRadius: 0, borderWidth: 0, backgroundColor: play.bg },
+  bleed: { width: '100%', borderRadius: 0, borderWidth: 0, backgroundColor: play.bg },
   float: {
     position: 'absolute',
     left: 12,

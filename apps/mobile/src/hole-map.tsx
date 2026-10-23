@@ -16,13 +16,17 @@ export function HoleMap(props: HoleMapProps) {
   if (points.length === 0) return <Muted>This hole has no open geometry to draw.</Muted>;
   const lats = points.map((point) => point.lat);
   const lons = points.map((point) => point.lon);
-  const region = {
-    latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
-    longitude: (Math.min(...lons) + Math.max(...lons)) / 2,
-    latitudeDelta: Math.max(0.002, (Math.max(...lats) - Math.min(...lats)) * 1.7),
-    longitudeDelta: Math.max(0.002, (Math.max(...lons) - Math.min(...lons)) * 1.7),
-  };
   const bleed = props.bleed === true;
+  const latSpan = Math.max(...lats) - Math.min(...lats);
+  const lonSpan = Math.max(...lons) - Math.min(...lons);
+  const latitudeDelta = Math.max(0.002, latSpan * (bleed ? 2.2 : 1.7));
+  const longitudeDelta = Math.max(0.002, lonSpan * (bleed ? 1.85 : 1.7));
+  const region = {
+    latitude: (Math.min(...lats) + Math.max(...lats)) / 2 - (bleed ? latitudeDelta * 0.1 : 0),
+    longitude: (Math.min(...lons) + Math.max(...lons)) / 2,
+    latitudeDelta,
+    longitudeDelta,
+  };
   return (
     <View style={[styles.frame, bleed && styles.bleed, { height: props.height ?? 320 }]}>
       <MapView
@@ -34,16 +38,16 @@ export function HoleMap(props: HoleMapProps) {
         onPress={(event) => props.onTap({ lat: event.nativeEvent.coordinate.latitude, lon: event.nativeEvent.coordinate.longitude })}
       >
         {props.fairways.map((ring, index) => (
-          <Polygon key={`fairway-${index}`} coordinates={coords(ring)} fillColor="rgba(255,255,255,0.28)" strokeColor={colors.navy} strokeWidth={2} />
+          <Polygon key={`fairway-${index}`} coordinates={coords(ring)} fillColor={bleed ? 'rgba(31,138,76,0.2)' : 'rgba(255,255,255,0.28)'} strokeColor="rgba(255,255,255,0.7)" strokeWidth={2} />
         ))}
         {props.bunkers.map((ring, index) => (
-          <Polygon key={`bunker-${index}`} coordinates={coords(ring)} fillColor="rgba(255,255,255,0.55)" strokeColor={colors.navy} strokeWidth={1} />
+          <Polygon key={`bunker-${index}`} coordinates={coords(ring)} fillColor={bleed ? 'rgba(228,201,138,0.38)' : 'rgba(255,255,255,0.55)'} strokeColor="rgba(255,255,255,0.8)" strokeWidth={1} />
         ))}
         {props.hazards.map((ring, index) => (
           <Polygon key={`hazard-${index}`} coordinates={coords(ring)} fillColor="rgba(200,16,46,0.45)" strokeColor={colors.red} strokeWidth={2} />
         ))}
         {props.green.map((ring, index) => (
-          <Polygon key={`green-${index}`} coordinates={coords(ring)} fillColor="rgba(255,255,255,0.72)" strokeColor={colors.navy} strokeWidth={2} />
+          <Polygon key={`green-${index}`} coordinates={coords(ring)} fillColor={bleed ? 'rgba(182,242,162,0.28)' : 'rgba(255,255,255,0.72)'} strokeColor="rgba(255,255,255,0.9)" strokeWidth={2} />
         ))}
         {props.marks
           ? (['front', 'back', 'center'] as const).map((key) => {
@@ -59,7 +63,7 @@ export function HoleMap(props: HoleMapProps) {
               );
             })
           : null}
-        {props.line.length > 1 ? <Polyline coordinates={coords(props.line)} strokeColor={bleed ? play.live : colors.navy} strokeWidth={3} /> : null}
+        {props.line.length > 1 ? <Polyline coordinates={coords(props.line)} strokeColor={bleed ? 'rgba(255,255,255,0.9)' : colors.navy} strokeWidth={3} /> : null}
         {props.ellipse && props.ellipse.length > 2 ? (
           <Polygon coordinates={coords(props.ellipse)} fillColor="rgba(11,31,58,0.28)" strokeColor={colors.white} strokeWidth={2} />
         ) : null}

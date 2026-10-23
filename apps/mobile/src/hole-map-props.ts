@@ -1,4 +1,5 @@
 import type { LatLon } from '@coopr/domain';
+import type { MapPad } from '@coopr/engine';
 
 export interface HoleMapProps {
   line: readonly LatLon[];
@@ -13,8 +14,10 @@ export interface HoleMapProps {
   rawLabel: string;
   playsLabel: string;
   height?: number;
-  /** Edge-to-edge hole. The yardage lives in the sheet, not on the map. */
+  /** Edge-to-edge hole. Yardage sits in a glass pill over the map. */
   bleed?: boolean;
+  /** Keeps the hole drawing clear of the glass pill and the bottom sheet. */
+  pad?: number | MapPad;
   /** Front, center, and back of the green from the phone. Omitted when there is no position. */
   marks?: { front: LatLon; center: LatLon; back: LatLon } | null;
 }

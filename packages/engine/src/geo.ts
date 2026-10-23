@@ -238,8 +238,19 @@ export interface MapProjection {
   toLatLon: (x: number, y: number) => LatLon;
 }
 
+export interface MapPad {
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
+}
+
 /** Fits points into a rectangle. Y grows downward so a map on screen matches north-up. */
-export function projectPoints(points: readonly LatLon[], width: number, height: number, pad = 16): MapProjection {
+export function projectPoints(points: readonly LatLon[], width: number, height: number, pad: number | MapPad = 16): MapProjection {
+  const box =
+    typeof pad === 'number'
+      ? { top: pad, right: pad, bottom: pad, left: pad }
+      : { top: pad.top ?? 16, right: pad.right ?? 16, bottom: pad.bottom ?? 16, left: pad.left ?? 16 };
   const usable = points.filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
   const lats = usable.map((point) => point.lat);
   const lons = usable.map((point) => point.lon);
@@ -249,11 +260,11 @@ export function projectPoints(points: readonly LatLon[], width: number, height: 
   const maxLon = lons.length ? Math.max(...lons) : 1;
   const spanLat = maxLat - minLat || 0.0001;
   const spanLon = maxLon - minLon || 0.0001;
-  const innerW = Math.max(1, width - pad * 2);
-  const innerH = Math.max(1, height - pad * 2);
+  const innerW = Math.max(1, width - box.left - box.right);
+  const innerH = Math.max(1, height - box.top - box.bottom);
   const scale = Math.min(innerW / spanLon, innerH / spanLat);
-  const offsetX = pad + (innerW - spanLon * scale) / 2;
-  const offsetY = pad + (innerH - spanLat * scale) / 2;
+  const offsetX = box.left + (innerW - spanLon * scale) / 2;
+  const offsetY = box.top + (innerH - spanLat * scale) / 2;
   return {
     toXY: (point) => ({
       x: offsetX + (point.lon - minLon) * scale,

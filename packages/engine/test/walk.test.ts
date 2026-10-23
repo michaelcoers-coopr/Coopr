@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { destinationPoint, distanceYards, greenYardsFrom } from '../src/geo';
+import { destinationPoint, distanceYards, greenYardsFrom, projectPoints } from '../src/geo';
 import {
   arrivedAtNextTee,
   classifyFinish,
@@ -117,5 +117,18 @@ describe('a round walked on simulated GPS', () => {
     expect(stepCount(4, 1, 1)).toBe(5);
     expect(stepCount(2, -1, 0)).toBe(1);
     expect(stepCount(0, -1, 0)).toBe(0);
+  });
+});
+
+describe('map projection', () => {
+  it('insets one edge without moving the opposite inset', () => {
+    const points = [
+      { lat: 0, lon: 0 },
+      { lat: 1, lon: 1 },
+    ];
+    const even = projectPoints(points, 200, 200, 20);
+    const dropped = projectPoints(points, 200, 200, { top: 60, bottom: 20, left: 20, right: 20 });
+    expect(even.toXY({ lat: 1, lon: 0 }).y).toBeGreaterThanOrEqual(20);
+    expect(dropped.toXY({ lat: 1, lon: 0 }).y).toBeGreaterThan(even.toXY({ lat: 1, lon: 0 }).y);
   });
 });

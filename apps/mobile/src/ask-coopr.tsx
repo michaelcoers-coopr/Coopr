@@ -1,8 +1,11 @@
 import { useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 import * as Speech from 'expo-speech';
-import { font, play as field } from '@coopr/tokens';
+import { font, play as field, type } from '@coopr/tokens';
+import { Glass } from './design/glass';
+import { tick } from './haptics';
 import {
   answerAsk,
   cycleAskChip,
@@ -16,7 +19,7 @@ import type { ShortShotCell } from '@coopr/engine';
 import type { LandingResult } from './local-store';
 import { audioUriToBase64, requestTranscript } from './voice-client';
 
-const ASK_MIN = 88;
+const ASK_MIN = 96;
 
 export interface AskContext {
   hole: number;
@@ -68,6 +71,8 @@ export function useAskCoopr(input: AskContext): { banner: ReactNode; button: Rea
   latest.current = input;
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const holding = useRef(false);
+  const orb = useSharedValue(1);
+  const orbStyle = useAnimatedStyle(() => ({ transform: [{ scale: orb.value }] }));
   const [phase, setPhase] = useState<'idle' | 'listening' | 'answer'>('idle');
   const [heard, setHeard] = useState<Heard | null>(null);
   const [trouble, setTrouble] = useState<string | null>(null);
@@ -139,6 +144,8 @@ export function useAskCoopr(input: AskContext): { banner: ReactNode; button: Rea
 
   const pressIn = () => {
     holding.current = true;
+    orb.value = withSpring(0.92, { damping: 14, stiffness: 240 });
+    void tick();
     setPhase('listening');
     setTrouble(null);
     if (deskTranscript()) return;
@@ -161,6 +168,7 @@ export function useAskCoopr(input: AskContext): { banner: ReactNode; button: Rea
   };
 
   const pressOut = () => {
+    orb.value = withSpring(1, { damping: 14, stiffness: 220 });
     if (!holding.current) return;
     holding.current = false;
     const sim = deskTranscript();
@@ -259,15 +267,20 @@ export function useAskCoopr(input: AskContext): { banner: ReactNode; button: Rea
     );
 
   const button = (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Ask COOPR"
-      onPressIn={pressIn}
-      onPressOut={pressOut}
-      style={[styles.ask, phase === 'listening' && styles.askLive]}
-    >
-      <Text style={styles.askText}>{phase === 'listening' ? 'Listening' : 'Ask COOPR'}</Text>
-    </Pressable>
+    <Animated.View style={orbStyle}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Ask COOPR" onPressIn={pressIn} onPressOut={pressOut} style={styles.askHit}>
+        <Glass
+          radius={48}
+          intensity={84}
+          overlay={phase === 'listening' ? 'rgba(200,16,46,0.92)' : undefined}
+          style={styles.ask}
+          contentStyle={styles.askFill}
+        >
+          <Mic />
+          <Text style={styles.askText}>Ask</Text>
+        </Glass>
+      </Pressable>
+    </Animated.View>
   );
 
   const undoBar = undo ? (
@@ -290,9 +303,19 @@ export function useAskCoopr(input: AskContext): { banner: ReactNode; button: Rea
   return { banner, button, undo: undoBar };
 }
 
+function Mic() {
+  return (
+    <View style={styles.mic}>
+      <View style={styles.micHead} />
+      <View style={styles.micArc} />
+      <View style={styles.micStem} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   listening: {
-    color: field.live,
+    color: '#FFFFFF',
     fontFamily: font.family,
     fontSize: 42,
     fontWeight: '700',
@@ -300,10 +323,10 @@ const styles = StyleSheet.create({
   },
   answerBlock: { gap: 10 },
   answer: { color: field.ink, fontFamily: font.family, fontSize: 28, lineHeight: 34, fontWeight: '700' },
-  sample: { color: field.muted, fontFamily: font.family, fontSize: 14, lineHeight: 20 },
+  sample: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
-    minHeight: 48,
+    minHeight: 56,
     paddingHorizontal: 12,
     borderRadius: 16,
     borderWidth: 1,
@@ -313,33 +336,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  chipHit: { minWidth: 36, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
-  chipText: { color: field.ink, fontFamily: font.family, fontSize: 16, fontWeight: '700' },
-  ask: {
-    minHeight: ASK_MIN,
-    marginHorizontal: 8,
-    marginBottom: 8,
-    borderRadius: 22,
-    backgroundColor: field.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
+  chipHit: { minWidth: 44, minHeight: 56, alignItems: 'center', justifyContent: 'center' },
+  chipText: { color: field.ink, fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
+  askHit: { width: ASK_MIN, height: ASK_MIN },
+  ask: { width: ASK_MIN, height: ASK_MIN },
+  askFill: { width: ASK_MIN, height: ASK_MIN, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  askText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 20, fontWeight: '700' },
+  mic: { width: 28, height: 32, alignItems: 'center' },
+  micHead: { width: 14, height: 20, borderRadius: 7, borderWidth: 2, borderColor: '#FFFFFF' },
+  micArc: {
+    width: 22,
+    height: 12,
+    marginTop: -8,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    borderWidth: 2,
+    borderTopWidth: 0,
+    borderColor: '#FFFFFF',
   },
-  askLive: { backgroundColor: '#C8102E' },
-  askText: { color: field.bg, fontFamily: font.family, fontSize: 22, fontWeight: '700' },
+  micStem: { width: 2, height: 8, backgroundColor: '#FFFFFF', marginTop: -1 },
   undo: {
-    marginHorizontal: 8,
-    marginBottom: 6,
-    minHeight: 48,
+    minHeight: 56,
     borderRadius: 16,
-    backgroundColor: field.card,
+    backgroundColor: 'rgba(11,31,58,0.88)',
     borderWidth: 1,
-    borderColor: field.line,
+    borderColor: 'rgba(255,255,255,0.55)',
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 14,
     gap: 8,
   },
-  undoText: { color: field.ink, fontFamily: font.family, fontSize: 15, fontWeight: '600', flex: 1 },
-  undoHit: { minHeight: 48, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
-  undoAction: { color: field.live, fontFamily: font.family, fontSize: 16, fontWeight: '700' },
+  undoText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '600', flex: 1 },
+  undoHit: { minHeight: 56, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  undoAction: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
 });

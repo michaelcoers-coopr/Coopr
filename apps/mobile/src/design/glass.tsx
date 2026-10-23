@@ -1,0 +1,66 @@
+import type { ReactNode } from 'react';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { BlurView } from 'expo-blur';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+
+/** Navy at 78% stays under white 17pt type even when the map behind it is bright. */
+export const GLASS_OVERLAY = 'rgba(11,31,58,0.78)';
+
+export function Glass({
+  children,
+  radius = 26,
+  style,
+  contentStyle,
+  intensity = 72,
+  overlay = GLASS_OVERLAY,
+}: {
+  children?: ReactNode;
+  radius?: number;
+  style?: StyleProp<ViewStyle>;
+  contentStyle?: StyleProp<ViewStyle>;
+  intensity?: number;
+  overlay?: string;
+}) {
+  return (
+    <View style={[styles.shadow, { borderRadius: radius }, style]}>
+      <View pointerEvents="box-none" style={[styles.clip, { borderRadius: radius }, contentStyle]}>
+        <BlurView pointerEvents="none" intensity={intensity} tint="dark" style={StyleSheet.absoluteFill} />
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: overlay }]} />
+        {children}
+      </View>
+    </View>
+  );
+}
+
+/** Softens the top and bottom of a full-bleed hole so the glass can sit on it. */
+export function Vignette() {
+  return (
+    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <Defs>
+        <LinearGradient id="cooprVignette" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#070B10" stopOpacity="0.62" />
+          <Stop offset="0.22" stopColor="#070B10" stopOpacity="0" />
+          <Stop offset="0.58" stopColor="#070B10" stopOpacity="0" />
+          <Stop offset="1" stopColor="#070B10" stopOpacity="0.78" />
+        </LinearGradient>
+      </Defs>
+      <Rect width="100" height="100" fill="url(#cooprVignette)" />
+    </Svg>
+  );
+}
+
+const styles = StyleSheet.create({
+  shadow: {
+    shadowColor: '#000',
+    shadowOpacity: 0.38,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  clip: {
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.55)',
+    flexGrow: 1,
+  },
+});

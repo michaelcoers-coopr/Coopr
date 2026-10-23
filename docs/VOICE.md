@@ -4,7 +4,7 @@ Hold-to-talk on the hole screen. It runs in Expo Go SDK 58. The ElevenLabs key n
 
 ## On the phone
 
-The play screen keeps one button, Ask COOPR, at the bottom of the sheet. It is at least 88 points tall. Hold it to talk. Let go to send.
+The play screen keeps Ask COOPR as a glass orb in the bottom corner. It is 96 points across. Hold it to talk. Let go to send.
 
 `expo-audio` records. That module loads in Expo Go. `expo-speech` speaks the caddie line back. The same line is on screen in large type, with chips for the yards, the lie, and each hazard. Tap a lie or a hazard chip to cycle it. The distance chip has minus and plus, five yards a tap. A command (score, putts, next hole, miss) runs, and an Undo row sits above the button.
 
