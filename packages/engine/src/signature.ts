@@ -214,11 +214,13 @@ export function confidenceLabel(club: string, percent: number | null): string {
   return `${club} · ${percent}%`;
 }
 
+const MINUS = '\u2212';
+
 /** A missing component is `?`. Nothing is written as a guessed sign. */
 export function componentChip(name: 'Wind' | 'Elev' | 'Temp', yards: number | null): string {
   if (yards == null || !Number.isFinite(yards)) return `${name} ?`;
   const rounded = roundTenth(yards);
-  const body = rounded > 0 ? `+${rounded}` : `${rounded}`;
+  const body = rounded > 0 ? `+${rounded}` : rounded < 0 ? `${MINUS}${Math.abs(rounded)}` : '0';
   return `${name} ${body}`;
 }
 
@@ -291,6 +293,13 @@ export function caddieLine(input: {
     return help ? `The wind helps. ${nick} is the play.` : `${nick} is the play.`;
   }
   if (help && gap === 'plenty') return thin ? `Wind's helping, ${nick}'s plenty. The sample is thin.` : `Wind's helping, ${nick}'s plenty. Don't be a hero.`;
+  if (gap === 'short' && input.stockYards != null && input.targetYards != null) {
+    const yards = Math.round(input.targetYards - input.stockYards);
+    if (yards > 0) {
+      const reach = `${nick} is ${yards} yards short of ${Math.round(input.targetYards)}`;
+      return hurt ? `Wind's in your face, and ${reach}.` : `${reach}.`;
+    }
+  }
   if (hurt && gap === 'short') return `Wind's in your face, and ${nick} may not get there.`;
   if (thin && !help && !hurt && gap == null) return 'The sample is thin. Treat the number softly.';
   if (help) return `Wind's helping. Don't be a hero.`;

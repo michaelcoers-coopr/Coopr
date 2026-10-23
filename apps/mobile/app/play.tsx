@@ -538,19 +538,22 @@ export default function PlayScreen() {
       })
     : null;
   const lowConfidence = percent != null && percent < CONFIDENCE_LOW;
-  const oneLiner = caddieLine({
-    personality,
-    clubLabel: shownLabel,
-    windYards: focusedPlay && !('error' in focusedPlay) ? focusedPlay.wind?.yards ?? null : null,
-    stockYards: shownProfile?.stockYards ?? stockYards,
-    targetYards: shotYards,
-    lowConfidence,
-  });
+  const noShots = shownId != null && (shownProfile == null || shownProfile.sampleSize < 1);
+  const oneLiner = noShots
+    ? null
+    : caddieLine({
+        personality,
+        clubLabel: shownLabel,
+        windYards: focusedPlay && !('error' in focusedPlay) ? focusedPlay.wind?.yards ?? null : null,
+        stockYards: shownProfile?.stockYards ?? (scrubClub ? null : stockYards),
+        targetYards: shotYards,
+        lowConfidence,
+      });
   const band = carryBand(shownProfile, unit);
   const patternLine =
     !onGreen && oval
       ? `${sampleOn ? 'Sample pattern · ' : ''}±${oval.carryStdYards} × ±${oval.lateralStdYards} yd`
-      : !onGreen
+      : !onGreen && !noShots
         ? PATTERN_INVITE
         : null;
   const windMph = sky?.current?.windMph;
@@ -717,41 +720,62 @@ export default function PlayScreen() {
         </View>
         <View style={styles.pillRow}>
           <Glass radius={28} style={styles.pill} contentStyle={styles.pillFill}>
-            <View style={styles.ends}>
-              <End label="Front" value={ground ? formatDistance(ground.frontYards, unit) : ''} />
+            {!player && manual == null && !overrideOpen ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Shot yards"
-                delayLongPress={450}
-                onLongPress={() => {
-                  if (player) return;
-                  setOverrideDraft(manual == null ? '' : formatDistance(manual, unit));
+                accessibilityLabel="Waiting for GPS, or tap to set your position"
+                onPress={() => {
+                  setOverrideDraft('');
                   setOverrideOpen(true);
                 }}
-                style={({ pressed }) => [styles.centerHit, pressed && !reduceMotion && styles.pressed]}
+                style={({ pressed }) => [styles.waitHit, pressed && !reduceMotion && styles.pressed]}
               >
-                <Text style={styles.endLabel}>{focusedPlays != null ? 'Plays like' : centerLive ? 'Center' : 'Yards'}</Text>
-                {focusedPlays != null && focusedRaw != null ? <Text style={styles.struck}>{formatDistance(focusedRaw, unit)}</Text> : null}
-                {overrideOpen && !player ? (
-                  <TextInput
-                    value={overrideDraft}
-                    onChangeText={setOverrideDraft}
-                    keyboardType="decimal-pad"
-                    autoFocus
-                    style={[styles.centerNum, styles.centerInput]}
-                    accessibilityLabel="Manual yards"
-                    onBlur={() => {
-                      const accepted = acceptShotYards(Number(overrideDraft));
-                      if (typeof accepted === 'number') setManualYards(hole.holeNumber, displayToYards(accepted, unit));
-                      setOverrideOpen(false);
-                    }}
-                  />
-                ) : (
-                  <Text style={[styles.centerNum, focusedPlays != null ? styles.glow : centerLive && styles.centerLive]}>{heroText}</Text>
-                )}
+                <Text style={styles.waitText}>Waiting for GPS · or tap to set your position</Text>
               </Pressable>
-              <End label="Back" value={ground ? formatDistance(ground.backYards, unit) : ''} />
-            </View>
+            ) : (
+              <View style={styles.ends}>
+                {ground ? <End label="Front" value={formatDistance(ground.frontYards, unit)} /> : <View style={styles.endCol} />}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Shot yards"
+                  delayLongPress={450}
+                  onLongPress={() => {
+                    if (player) return;
+                    setOverrideDraft(manual == null ? '' : formatDistance(manual, unit));
+                    setOverrideOpen(true);
+                  }}
+                  style={({ pressed }) => [styles.centerHit, pressed && !reduceMotion && styles.pressed]}
+                >
+                  <Text style={styles.endLabel}>{focusedPlays != null ? 'Plays like' : centerLive ? 'Center' : 'Yards'}</Text>
+                  {focusedPlays != null && focusedRaw != null ? <Text style={styles.struck}>{formatDistance(focusedRaw, unit)}</Text> : null}
+                  {overrideOpen && !player ? (
+                    <TextInput
+                      value={overrideDraft}
+                      onChangeText={setOverrideDraft}
+                      keyboardType="decimal-pad"
+                      autoFocus
+                      style={[styles.centerNum, styles.centerInput]}
+                      accessibilityLabel="Manual yards"
+                      onBlur={() => {
+                        const accepted = acceptShotYards(Number(overrideDraft));
+                        if (typeof accepted === 'number') setManualYards(hole.holeNumber, displayToYards(accepted, unit));
+                        setOverrideOpen(false);
+                      }}
+                    />
+                  ) : (
+                    <Text style={[styles.centerNum, focusedPlays != null ? styles.glow : centerLive && styles.centerLive]}>{heroText}</Text>
+                  )}
+                </Pressable>
+                {ground ? <End label="Back" value={formatDistance(ground.backYards, unit)} /> : <View style={styles.endCol} />}
+              </View>
+            )}
+            {breakdown ? (
+              <View style={styles.chips}>
+                <Text style={styles.chip}>{focusedChips?.wind ?? 'Wind ?'}</Text>
+                <Text style={styles.chip}>{focusedChips?.elevation ?? 'Elev ?'}</Text>
+                <Text style={styles.chip}>{focusedChips?.temperature ?? 'Temp ?'}</Text>
+              </View>
+            ) : null}
           </Glass>
           <View style={styles.windSlot}>
             <Pressable
@@ -765,13 +789,6 @@ export default function PlayScreen() {
                 <Text style={styles.windNum}>{windText}</Text>
               </Glass>
             </Pressable>
-            {breakdown ? (
-              <View style={styles.chips}>
-                <Text style={styles.chip}>{focusedChips?.wind ?? 'Wind ?'}</Text>
-                <Text style={styles.chip}>{focusedChips?.elevation ?? 'Elev ?'}</Text>
-                <Text style={styles.chip}>{focusedChips?.temperature ?? 'Temp ?'}</Text>
-              </View>
-            ) : null}
           </View>
         </View>
         {hazardYards != null ? (
@@ -786,17 +803,20 @@ export default function PlayScreen() {
             <View {...sheetPan.panHandlers} style={styles.handleHit}>
               <View style={styles.handle} />
             </View>
-            <View style={[styles.clubRow, lowConfidence && styles.dim]} accessibilityLabel={shownLabel ? confidenceLabel(shownLabel, percent) : 'Club'}>
-              <ConfidenceRing percent={percent} />
+            <View
+              style={[styles.clubRow, (lowConfidence || noShots) && styles.dim]}
+              accessibilityLabel={noShots ? `${shownLabel ?? 'Club'}, No shots yet` : shownLabel ? confidenceLabel(shownLabel, percent) : 'Club'}
+            >
+              <ConfidenceRing percent={percent} label={noShots ? 'No shots yet' : undefined} />
               <View style={styles.clubCopy}>
                 <Text style={styles.clubName} numberOfLines={1}>
                   {shownLabel ?? ''}
                 </Text>
-                {percent != null ? <Text style={styles.clubMeta}>{`${percent}%`}</Text> : null}
-                {band ? <Text style={styles.clubMeta}>{band}</Text> : null}
+                {noShots ? <Text style={styles.clubMeta}>No shots yet</Text> : percent != null ? <Text style={styles.clubMeta}>{`${percent}%`}</Text> : null}
+                {!noShots && band ? <Text style={styles.clubMeta}>{band}</Text> : null}
               </View>
             </View>
-            {oneLiner ? <Text style={styles.line}>{oneLiner}</Text> : null}
+            {noShots ? <Text style={styles.line}>Hit 10 shots to unlock</Text> : oneLiner ? <Text style={styles.line}>{oneLiner}</Text> : null}
             {risk ? <Text style={styles.line}>{risk.line}</Text> : null}
             <ClubStrip
               clubs={stripClubs.map((club) => ({ id: club.id, label: club.label }))}
@@ -988,8 +1008,10 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 14,
   },
+  waitHit: { minHeight: 84, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8 },
+  waitText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: font.semibold, textAlign: 'center' },
   hint: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, textAlign: 'center' },
-  chips: { position: 'absolute', top: 292, right: 0, width: 136, gap: 8, zIndex: 8, alignItems: 'flex-end' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, paddingTop: 6 },
   chip: {
     color: '#FFFFFF',
     fontFamily: font.family,
@@ -997,11 +1019,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: font.semibold,
     fontVariant: ['tabular-nums'],
-    backgroundColor: 'rgba(11,31,58,0.88)',
-    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: 12,
     overflow: 'hidden',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   hazard: { alignSelf: 'center' },
   hazardFill: { minHeight: 44, paddingHorizontal: 16, justifyContent: 'center' },

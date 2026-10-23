@@ -98,7 +98,7 @@ describe('confidence and plays-like chips', () => {
   it('shows a question mark when a plays-like term is missing', () => {
     expect(componentChip('Temp', null)).toBe('Temp ?');
     expect(componentChip('Wind', 3.24)).toBe('Wind +3.2');
-    expect(componentChip('Elev', -2)).toBe('Elev -2');
+    expect(componentChip('Elev', -2)).toBe('Elev \u22122');
     const partial = playsLike({ rawYards: 160, headwindMph: -4, elevationFeet: null, temperatureF: null });
     expect('error' in partial).toBe(false);
     if ('error' in partial) return;
@@ -133,6 +133,36 @@ describe('caddie line and risk', () => {
     expect(quiet).toBe('7-iron covers the number.');
     expect(quiet).not.toMatch(/wind/i);
     expect(caddieLine({ personality: 'funny_knowledgeable', clubLabel: null, windYards: -4, stockYards: 160, targetYards: 150, lowConfidence: false })).toBeNull();
+    expect(
+      caddieLine({
+        personality: 'funny_knowledgeable',
+        clubLabel: '3H',
+        windYards: -3,
+        stockYards: 110,
+        targetYards: 160,
+        lowConfidence: false,
+      }),
+    ).toBe("3H is 50 yards short of 160.");
+    expect(
+      caddieLine({
+        personality: 'funny_knowledgeable',
+        clubLabel: '3H',
+        windYards: 4,
+        stockYards: 110,
+        targetYards: 160,
+        lowConfidence: false,
+      }),
+    ).toBe("Wind's in your face, and 3H is 50 yards short of 160.");
+    expect(
+      caddieLine({
+        personality: 'funny_knowledgeable',
+        clubLabel: '3H',
+        windYards: -4,
+        stockYards: null,
+        targetYards: 160,
+        lowConfidence: false,
+      }),
+    ).not.toMatch(/160|short of|yards short/);
     expect(
       caddieLine({
         personality: 'encouraging_coach',

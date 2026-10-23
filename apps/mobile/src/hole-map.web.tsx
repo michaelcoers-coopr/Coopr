@@ -1,8 +1,8 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState, type ComponentType } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, ClipPath, Defs, G, Line, LinearGradient, Pattern, Polygon, Polyline, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import type { LatLon } from '@coopr/domain';
-import { colors } from '@coopr/tokens';
+import { colors, font } from '@coopr/tokens';
 import { projectAlongHole, projectPoints, visibleLabels, type LabelBox } from '@coopr/engine';
 import { Muted } from './ui';
 import type { HoleMapProps } from './hole-map-props';
@@ -28,6 +28,91 @@ const OVAL_FLOOR = 14;
 function boxesHit(a: LabelBox, b: LabelBox, pad = 4): boolean {
   return a.x < b.x + b.w + pad && a.x + a.w + pad > b.x && a.y < b.y + b.h + pad && a.y + a.h + pad > b.y;
 }
+
+type XY = { x: number; y: number };
+
+function ellipseEdge(from: XY, cx: number, cy: number, halfW: number, halfH: number): XY {
+  const vx = from.x - cx;
+  const vy = from.y - cy;
+  const denom = Math.hypot(vx / Math.max(halfW, 0.5), vy / Math.max(halfH, 0.5));
+  if (!Number.isFinite(denom) || denom === 0) return { x: cx, y: cy };
+  const t = 1 / denom;
+  return { x: cx + vx * t, y: cy + vy * t };
+}
+
+function insideEllipse(point: XY, cx: number, cy: number, halfW: number, halfH: number): boolean {
+  const dx = (point.x - cx) / Math.max(halfW, 0.5);
+  const dy = (point.y - cy) / Math.max(halfH, 0.5);
+  return dx * dx + dy * dy <= 1;
+}
+
+/** Stop a polyline where it enters the oval so the arc does not paint across the pattern. */
+function clipPolylineAtOval(points: readonly XY[], cx: number, cy: number, halfW: number, halfH: number): XY[] {
+  const out: XY[] = [];
+  for (const point of points) {
+    if (insideEllipse(point, cx, cy, halfW, halfH)) {
+      const prev = out[out.length - 1];
+      if (prev) out.push(ellipseEdge(prev, cx, cy, halfW, halfH));
+      break;
+    }
+    out.push(point);
+  }
+  return out;
+}
+
+function strokeBoxes(points: readonly XY[], pad = 8): LabelBox[] {
+  const boxes: LabelBox[] = [];
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = points[index]!;
+    const end = points[index + 1]!;
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 12));
+    for (let step = 0; step <= steps; step += 1) {
+      const t = step / steps;
+      const x = start.x + dx * t;
+      const y = start.y + dy * t;
+      boxes.push({ x: x - pad, y: y - pad, w: pad * 2, h: pad * 2 });
+    }
+  }
+  return boxes;
+}
+
+function letterClearance(box: LabelBox, obstacles: readonly LabelBox[]): number {
+  let score = 0;
+  for (const other of obstacles) {
+    if (!boxesHit(box, other, 6)) continue;
+    const overlapW = Math.min(box.x + box.w, other.x + other.w) - Math.max(box.x, other.x);
+    const overlapH = Math.min(box.y + box.h, other.y + other.h) - Math.max(box.y, other.y);
+    score += 1000 + Math.max(0, overlapW) * Math.max(0, overlapH);
+  }
+  return score;
+}
+
+function xyString(points: readonly XY[]): string {
+  return points.map((point) => `${point.x},${point.y}`).join(' ');
+}
+
+const mapLabelStyle = {
+  fontFamily: font.family,
+  fontVariant: ['tabular-nums'] as ['tabular-nums'],
+  fontVariantNumeric: 'tabular-nums',
+  fontFeatureSettings: '"tnum"',
+};
+
+/** SVG text props omit style. The web map needs it so the sans stack and tabular figures survive. */
+const MapText = SvgText as unknown as ComponentType<{
+  x: number;
+  y: number;
+  fill: string;
+  fontSize: number;
+  fontWeight: string;
+  fontFamily: string;
+  fontFeatureSettings: string;
+  textAnchor: 'middle';
+  style: typeof mapLabelStyle;
+  children: string;
+}>;
 
 /** True-scale oval. A pattern smaller than the floor is drawn larger, and the sheet states the real yards. */
 function drawEllipse(xy: readonly { x: number; y: number }[]) {
@@ -147,12 +232,24 @@ export function HoleMap(props: HoleMapProps) {
       ]
     : [];
   const keptLabels = visibleLabels([...ovalGuard, ...labelItems]).filter((item) => item.label !== 'pattern');
+  const lineXY = props.line.map((point) => projection.toXY(point));
+  const flightXY = (props.flight ?? []).map((point) => projection.toXY(point));
+  const ball = props.flight?.[0] ?? props.line[0];
+  const ballXY = ball ? projection.toXY(ball) : null;
+  const aimEnd = ellipseDraw && ballXY && !insideEllipse(ballXY, ellipseDraw.cx, ellipseDraw.cy, ellipseDraw.halfW, ellipseDraw.halfH)
+    ? ellipseEdge(ballXY, ellipseDraw.cx, ellipseDraw.cy, ellipseDraw.halfW, ellipseDraw.halfH)
+    : null;
+  const clippedFlight = ellipseDraw ? clipPolylineAtOval(flightXY, ellipseDraw.cx, ellipseDraw.cy, ellipseDraw.halfW, ellipseDraw.halfH) : flightXY;
+  const aimStroke = ballXY && aimEnd ? strokeBoxes([ballXY, aimEnd], 8) : [];
   const letterObstacles: LabelBox[] = [
     ...keptLabels,
     ...(greenBox ? [greenBox] : []),
     ...(ellipseDraw
       ? [{ x: ellipseDraw.cx - ellipseDraw.halfW, y: ellipseDraw.cy - ellipseDraw.halfH, w: ellipseDraw.halfW * 2, h: ellipseDraw.halfH * 2 }]
       : []),
+    ...strokeBoxes(lineXY, 7),
+    ...strokeBoxes(clippedFlight, 8),
+    ...aimStroke,
   ];
   const letters = props.marks
     ? (['front', 'center', 'back'] as const).map((key) => {
@@ -173,12 +270,15 @@ export function HoleMap(props: HoleMapProps) {
                   { x: xy.x - 6, y: xy.y - 40 },
                 ]
               : [
-                  { x: xy.x, y: xy.y + 40 },
-                  { x: xy.x - 34, y: xy.y + 36 },
-                  { x: xy.x + 34, y: xy.y + 36 },
+                  { x: xy.x - 46, y: xy.y - 6 },
+                  { x: xy.x + 46, y: xy.y - 6 },
+                  { x: xy.x - 42, y: xy.y - 28 },
+                  { x: xy.x + 42, y: xy.y - 28 },
+                  { x: xy.x - 36, y: xy.y + 28 },
+                  { x: xy.x + 36, y: xy.y + 28 },
                 ];
         const letterBox = (spot: { x: number; y: number }): LabelBox => ({ x: spot.x - 12, y: spot.y - 28, w: 24, h: 36 });
-        const picked = spots.find((spot) => letterObstacles.every((other) => !boxesHit(letterBox(spot), other, 6))) ?? spots[0]!;
+        const picked = spots.slice().sort((a, b) => letterClearance(letterBox(a), letterObstacles) - letterClearance(letterBox(b), letterObstacles))[0]!;
         letterObstacles.push(letterBox(picked));
         return { key, word, x: picked.x, y: picked.y };
       })
@@ -290,25 +390,30 @@ export function HoleMap(props: HoleMapProps) {
             <Polygon points={`${pin.x},${pin.y - 30} ${pin.x + 16},${pin.y - 23} ${pin.x},${pin.y - 16}`} fill={colors.red} />
           </G>
         ) : null}
+        {ballXY && aimEnd ? (
+          <G>
+            <Line x1={ballXY.x} y1={ballXY.y} x2={aimEnd.x} y2={aimEnd.y} stroke="#FFFFFF" strokeOpacity={0.9} strokeWidth={2} strokeLinecap="round" />
+            <Circle cx={ballXY.x} cy={ballXY.y} r={5} fill="#FFFFFF" />
+          </G>
+        ) : null}
+        {clippedFlight.length > 1 ? (
+          <Polyline
+            points={xyString(clippedFlight.slice(0, Math.max(2, Math.ceil(clippedFlight.length * flightT))))}
+            fill="none"
+            stroke="#FFFFFF"
+            strokeWidth={3}
+            strokeLinecap="round"
+          />
+        ) : null}
         {ellipseDraw
           ? (() => {
-              const ball = props.flight?.[0] ?? props.line[0];
-              const ballXY = ball ? projection.toXY(ball) : null;
               const ink = props.ellipseColor ?? '#8AC926';
               return (
-                <G>
-                  {ballXY ? (
-                    <G>
-                      <Line x1={ballXY.x} y1={ballXY.y} x2={ellipseDraw.cx} y2={ellipseDraw.cy} stroke="#FFFFFF" strokeOpacity={0.9} strokeWidth={2} strokeLinecap="round" />
-                      <Circle cx={ballXY.x} cy={ballXY.y} r={5} fill="#FFFFFF" />
-                    </G>
-                  ) : null}
-                  <G transform={`translate(${ellipseDraw.cx} ${ellipseDraw.cy}) scale(${breath}) translate(${-ellipseDraw.cx} ${-ellipseDraw.cy})`}>
-                    <Polygon points={ellipseDraw.glowSoft} fill={ink} fillOpacity={0.12} stroke="none" />
-                    <Polygon points={ellipseDraw.glow} fill={ink} fillOpacity={0.22} stroke="none" />
-                    <Polygon points={ellipseDraw.solid} fill={`url(#${uid}-ovalfill)`} stroke={ink} strokeWidth={1.75} />
-                    <Polygon points={ellipseDraw.solid} fill={ink} fillOpacity={0.16} stroke="none" />
-                  </G>
+                <G transform={`translate(${ellipseDraw.cx} ${ellipseDraw.cy}) scale(${breath}) translate(${-ellipseDraw.cx} ${-ellipseDraw.cy})`}>
+                  <Polygon points={ellipseDraw.glowSoft} fill={ink} fillOpacity={0.12} stroke="none" />
+                  <Polygon points={ellipseDraw.glow} fill={ink} fillOpacity={0.22} stroke="none" />
+                  <Polygon points={ellipseDraw.solid} fill={`url(#${uid}-ovalfill)`} stroke={ink} strokeWidth={1.75} />
+                  <Polygon points={ellipseDraw.solid} fill={ink} fillOpacity={0.16} stroke="none" />
                 </G>
               );
             })()
@@ -316,25 +421,16 @@ export function HoleMap(props: HoleMapProps) {
         {keptLabels.map((label) => (
           <G key={`${label.label}-${label.x.toFixed(0)}`}>
             <Rect x={label.x} y={label.y} width={label.w} height={label.h} rx={10} fill="rgba(11,31,58,0.88)" />
-            <SvgText x={label.x + label.w / 2} y={label.y + 20} fill="#FFFFFF" fontSize={17} fontWeight="700" textAnchor="middle">
+            <MapText x={label.x + label.w / 2} y={label.y + 20} fill="#FFFFFF" fontSize={17} fontWeight="700" fontFamily={font.family} fontFeatureSettings='"tnum"' textAnchor="middle" style={mapLabelStyle}>
               {label.label}
-            </SvgText>
+            </MapText>
           </G>
         ))}
         {letters.map((letter) => (
-          <SvgText key={letter.key} x={letter.x} y={letter.y + 5} fill="#FFFFFF" fontSize={17} fontWeight="700" textAnchor="middle">
+          <MapText key={letter.key} x={letter.x} y={letter.y + 5} fill="#FFFFFF" fontSize={17} fontWeight="700" fontFamily={font.family} fontFeatureSettings='"tnum"' textAnchor="middle" style={mapLabelStyle}>
             {letter.word}
-          </SvgText>
+          </MapText>
         ))}
-        {props.flight && props.flight.length > 1 ? (
-          <Polyline
-            points={pointsOf(props.flight.slice(0, Math.max(2, Math.ceil(props.flight.length * flightT))), projection)}
-            fill="none"
-            stroke="#FFFFFF"
-            strokeWidth={3}
-            strokeLinecap="round"
-          />
-        ) : null}
         {props.dispersionLine.length > 1 ? (
           <Polyline points={pointsOf(props.dispersionLine, projection)} fill="none" stroke={bleed ? 'rgba(255,255,255,0.7)' : colors.navy} strokeWidth={4} />
         ) : null}

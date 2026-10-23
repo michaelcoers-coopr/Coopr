@@ -28,7 +28,7 @@ export function ThruBar({ label, pips }: { label: string | null; pips: readonly 
 }
 
 /** Circular confidence. An unknown sample draws the track only. */
-export function ConfidenceRing({ percent }: { percent: number | null }) {
+export function ConfidenceRing({ percent, label }: { percent: number | null; label?: string }) {
   const size = 44;
   const stroke = 4;
   const radius = (size - stroke) / 2;
@@ -37,7 +37,7 @@ export function ConfidenceRing({ percent }: { percent: number | null }) {
   const span = percent == null ? 0 : (Math.max(0, Math.min(100, percent)) / 100) * turn;
   const color = percent == null ? 'transparent' : percent >= 70 ? signal.go : percent >= 50 ? signal.caution : signal.hazard;
   return (
-    <Svg width={size} height={size} accessibilityLabel={percent == null ? 'Confidence unknown' : `${percent} percent`}>
+    <Svg width={size} height={size} accessibilityLabel={percent == null ? (label ?? 'Confidence unknown') : `${percent} percent`}>
       <Circle cx={center} cy={center} r={radius} stroke="rgba(255,255,255,0.28)" strokeWidth={stroke} fill="none" />
       {percent != null ? (
         <Circle
