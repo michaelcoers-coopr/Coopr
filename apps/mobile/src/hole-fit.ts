@@ -1,5 +1,5 @@
 import type { LatLon } from '@coopr/domain';
-import { projectAlongHole, type MapProjection } from '@coopr/engine';
+import { distanceYards, projectAlongHole, type MapProjection } from '@coopr/engine';
 
 const EARTH_RADIUS_M = 6_371_000;
 
@@ -121,6 +121,157 @@ export function projectHoleFill(
     toLatLon: (x, y) => {
       const across = across0 + (x - pad.left) / scale;
       const along = end - (y - pad.top) / scale;
+      const { east, north } = toEn(along, across);
+      return toLatLonMeters(east, north);
+    },
+  };
+}
+
+/** How far past a measured stock carry the tee camera looks. */
+export const PAST_STOCK_YARDS = 40;
+
+/** Yard marks drawn on the tee shot. */
+export const TEE_SHOT_MARKS = [150, 200, 250] as const;
+
+/** A point this many yards from the start of the hole line. Past the end, the last point. */
+export function pointAtYards(line: readonly LatLon[], yards: number): LatLon | null {
+  if (line.length === 0 || !Number.isFinite(yards) || yards < 0) return null;
+  const first = line[0];
+  if (!first || line.length === 1 || yards === 0) return first ?? null;
+  let walked = 0;
+  for (let index = 1; index < line.length; index += 1) {
+    const start = line[index - 1]!;
+    const end = line[index]!;
+    const span = distanceYards(start, end);
+    if (span <= 0) continue;
+    if (walked + span >= yards - 1e-6) {
+      const t = Math.min(1, Math.max(0, (yards - walked) / span));
+      return {
+        lat: start.lat + (end.lat - start.lat) * t,
+        lon: start.lon + (end.lon - start.lon) * t,
+      };
+    }
+    walked += span;
+  }
+  return line[line.length - 1] ?? null;
+}
+
+export function lineLengthYards(line: readonly LatLon[]): number {
+  let walked = 0;
+  for (let index = 1; index < line.length; index += 1) walked += distanceYards(line[index - 1]!, line[index]!);
+  return walked;
+}
+
+/**
+ * How far down the hole the tee camera looks.
+ * The far end is the stock carry plus 40 yards. A 150, 200, or 250 mark
+ * just past that still gets into the frame. A short hole stops at the green.
+ */
+export function teeWindowYards(stockCarry: number | null, holeYards: number): number | null {
+  if (stockCarry == null || !Number.isFinite(stockCarry) || stockCarry <= 0) return null;
+  if (!Number.isFinite(holeYards) || holeYards <= 0) return null;
+  const reach = stockCarry + PAST_STOCK_YARDS;
+  const marks = TEE_SHOT_MARKS.filter((yards) => yards <= reach + PAST_STOCK_YARDS && yards < holeYards);
+  const far = Math.max(reach, ...marks);
+  return Math.min(holeYards, far + 16);
+}
+
+export interface PlayView {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+/**
+ * Frames the hole in the open band between the yardage panel and the sheet.
+ * Tee and full-hole put the tee on the bottom edge of that band.
+ * Ball-to-green puts the ball on that edge and the green on the top edge.
+ */
+export function projectPlayFrame(input: {
+  line: readonly LatLon[];
+  around: readonly LatLon[];
+  width: number;
+  height: number;
+  view: PlayView;
+  bearing: number;
+  origin: LatLon;
+  kind: 'tee' | 'green' | 'hole';
+  reachYards: number | null;
+  from: LatLon | null;
+}): MapProjection {
+  const contain = () => projectAlongHole(input.around.length > 0 ? input.around : input.line, input.width, input.height, input.view, input.bearing, input.origin);
+  const tee = input.line[0];
+  const pin = input.line[input.line.length - 1];
+  if (!tee || !pin) return contain();
+  const endPoint =
+    input.kind === 'tee' && input.reachYards != null
+      ? pointAtYards(input.line, input.reachYards) ?? pin
+      : input.kind === 'green' && input.from
+        ? pin
+        : pin;
+  const startPoint = input.kind === 'green' && input.from ? input.from : tee;
+  const theta = radians(input.bearing);
+  const frame = (point: LatLon) => {
+    const { east, north } = localMeters(input.origin, point);
+    return {
+      along: east * Math.sin(theta) + north * Math.cos(theta),
+      across: east * Math.cos(theta) - north * Math.sin(theta),
+    };
+  };
+  const start = frame(startPoint);
+  const end = frame(endPoint);
+  let near = Math.min(start.along, end.along);
+  let far = Math.max(start.along, end.along);
+  const minSpan = 40 * 0.9144;
+  if (far - near < minSpan) near = far - minSpan;
+  const spanAlong = far - near || 1;
+  const fitTop = input.view.top + 20;
+  const fitBottom = input.view.bottom + 10;
+  const innerW = Math.max(1, input.width - input.view.left - input.view.right);
+  const innerH = Math.max(1, input.height - fitTop - fitBottom);
+  if (innerH < 48 || innerW < 48) return contain();
+  const scale = innerH / spanAlong;
+  let minAcross = Number.POSITIVE_INFINITY;
+  let maxAcross = Number.NEGATIVE_INFINITY;
+  for (const point of [...input.line, ...input.around, startPoint, endPoint]) {
+    if (!Number.isFinite(point.lat) || !Number.isFinite(point.lon)) continue;
+    const framed = frame(point);
+    if (framed.along < near - 30 || framed.along > far + 30) continue;
+    minAcross = Math.min(minAcross, framed.across);
+    maxAcross = Math.max(maxAcross, framed.across);
+  }
+  if (!Number.isFinite(minAcross) || !Number.isFinite(maxAcross)) {
+    minAcross = -18;
+    maxAcross = 18;
+  }
+  if (maxAcross - minAcross < 18) {
+    const mid = (minAcross + maxAcross) / 2;
+    minAcross = mid - 18;
+    maxAcross = mid + 18;
+  }
+  const usedW = (maxAcross - minAcross) * scale;
+  const offsetX = input.view.left + (innerW - usedW) / 2;
+  const toEn = (along: number, across: number) => ({
+    east: along * Math.sin(theta) + across * Math.cos(theta),
+    north: along * Math.cos(theta) - across * Math.sin(theta),
+  });
+  const toLatLonMeters = (east: number, north: number): LatLon => {
+    const lat = input.origin.lat + (north / EARTH_RADIUS_M) * (180 / Math.PI);
+    const cosLat = Math.cos(radians(input.origin.lat)) || 1;
+    return { lat, lon: input.origin.lon + (east / (EARTH_RADIUS_M * cosLat)) * (180 / Math.PI) };
+  };
+  return {
+    toXY: (point) => {
+      const framed = frame(point);
+      return {
+        x: offsetX + (framed.across - minAcross) * scale,
+        y: fitTop + (far - framed.along) * scale,
+      };
+    },
+    toLatLon: (x, y) => {
+      const across = minAcross + (x - offsetX) / scale;
+      const along = far - (y - fitTop) / scale;
       const { east, north } = toEn(along, across);
       return toLatLonMeters(east, north);
     },

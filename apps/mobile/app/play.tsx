@@ -68,7 +68,8 @@ import { Glass, Vignette } from '../src/design/glass';
 import { ClubStrip, ConfidenceRing, ThruBar } from '../src/design/signature-ui';
 import { useReduceMotion } from '../src/design/reduce-motion';
 import { CountChip } from '../src/design/count-chip';
-import { holeLabels } from '../src/map-labels';
+import { lineLengthYards, pointAtYards, TEE_SHOT_MARKS, teeWindowYards } from '../src/hole-fit';
+import { holeLabels, marksAt } from '../src/map-labels';
 import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
 import { useLocalStore, type LandingResult } from '../src/local-store';
@@ -179,6 +180,7 @@ export default function PlayScreen() {
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
   const [breakdown, setBreakdown] = useState(false);
   const [sampleOn, setSampleOn] = useState(false);
+  const [fullHole, setFullHole] = useState(false);
   const reduceMotion = useReduceMotion();
   const display = useDisplayFace();
   const [stamp, setStamp] = useState<ReturnType<typeof scoreStamp>>(null);
@@ -345,6 +347,7 @@ export default function PlayScreen() {
     setSky(null);
     sheetOpenRef.current = false;
     setSheetOpen(false);
+    setFullHole(false);
     sheetDrag.value = 0;
     sheetH.value = closedSheetRef.current;
   }, [currentHole, sheetDrag, sheetH]);
@@ -535,10 +538,17 @@ export default function PlayScreen() {
   const shownProfile = measuredProfile(profiles, shownId);
   const noShots = shownId != null && (shownProfile == null || shownProfile.sampleSize < 1);
   const bearing = shotBearing(overlay.line);
+  const teePoint = overlay.line[0] ?? null;
+  const onTee = teePoint == null || player == null || distanceYards(player, teePoint) <= NEXT_TEE_YARDS;
+  const teeCarry = carryProfile(profiles, shownId)?.stockYards ?? null;
+  const reachYards = teeWindowYards(teeCarry, lineLengthYards(overlay.line));
+  const cameraKind = fullHole ? 'hole' : onTee && reachYards != null ? 'tee' : player ? 'green' : 'hole';
   const oval: DispersionOval | null = sampleOn && !noShots ? dispersionOval([...SAMPLE_PATTERN]) : null;
   const landingYards = focusedPlays ?? focusedRaw;
   const origin = player ?? overlay.line[0] ?? null;
-  const landing = origin && bearing != null && landingYards != null && landingYards > 0 ? destinationPoint(origin, bearing, landingYards) : null;
+  const stockLanding = cameraKind === 'tee' && teeCarry != null ? pointAtYards(overlay.line, teeCarry) : null;
+  const greenLanding = origin && bearing != null && landingYards != null && landingYards > 0 ? destinationPoint(origin, bearing, landingYards) : null;
+  const landing = stockLanding ?? greenLanding;
   const hazardRings = [...polygons.hazards, ...polygons.bunkers];
   const measuredCenter = oval && landing && bearing != null ? destinationPoint(landing, bearing + 90, oval.meanLateralYards) : landing;
   const safety = oval && measuredCenter && bearing != null ? patternSafety(measuredCenter, bearing, oval, hazardRings) : null;
@@ -727,11 +737,20 @@ export default function PlayScreen() {
           height={mapH}
           pad={holeFrame({ hudHeight: mapHudInset(insets.top), dockHeight: dockH, sheetClosed: closedSheet })}
           orient={bearing != null && overlay.line[0] ? { bearing, origin: overlay.line[0] } : null}
-          labels={holeLabels(
-            overlay.line,
-            unit,
-            landing && landingYards != null ? { at: landing, label: formatDistance(landingYards, unit) } : null,
-          )}
+          camera={{ kind: cameraKind, reachYards, from: player }}
+          labels={
+            cameraKind === 'tee' && reachYards != null
+              ? marksAt(
+                  overlay.line,
+                  TEE_SHOT_MARKS.filter((yards) => yards < reachYards),
+                  unit,
+                )
+              : holeLabels(
+                  overlay.line,
+                  unit,
+                  landing && landingYards != null ? { at: landing, label: formatDistance(landingYards, unit) } : null,
+                )
+          }
           line={overlay.line}
           fairways={ringsOf(overlay.fairways)}
           green={overlay.green ? ringsOf([overlay.green]) : []}
@@ -764,6 +783,19 @@ export default function PlayScreen() {
         />
         <Vignette />
       </Animated.View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={fullHole ? (onTee ? 'Tee shot' : 'To the green') : 'Full hole'}
+        onPress={() => {
+          setFullHole((open) => !open);
+          void tick();
+        }}
+        style={[styles.fullHole, { top: mapHudInset(insets.top) + 6 }]}
+      >
+        <Glass radius={16} contentStyle={styles.fullHoleFill}>
+          <Text style={styles.fullHoleText}>{fullHole ? (onTee ? 'Tee shot' : 'To the green') : 'Full hole'}</Text>
+        </Glass>
+      </Pressable>
       <View
         pointerEvents="box-none"
         style={[styles.hud, { paddingTop: insets.top + 8 }]}
@@ -1155,6 +1187,9 @@ const styles = StyleSheet.create({
   dock: { position: 'absolute', left: 12, right: 108, bottom: 0, gap: 8 },
   dockRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
   askFloat: { position: 'absolute', right: 12, zIndex: 6 },
+  fullHole: { position: 'absolute', right: 12, zIndex: 5 },
+  fullHoleFill: { minHeight: 36, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
+  fullHoleText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, fontWeight: font.semibold },
   markHit: { flex: 1, minHeight: 64 },
   mark: { flex: 1, minHeight: 64 },
   markFill: { minHeight: 64, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },

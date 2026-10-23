@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { holeOverlay, projectAlongHole, shotBearing } from '@coopr/engine';
+import { distanceYards, holeOverlay, projectAlongHole, shotBearing } from '@coopr/engine';
 import { loadHighCedarsPilot } from '@coopr/course';
 import { colors, font, motion, play, radius, signal, space, touch, type } from '@coopr/tokens';
 import { caddieLine } from '@coopr/engine';
 import { DEFAULT_VOICE, caddieVoiceLine } from '../src/design/caddie-voice';
 import { bagGlance, courseCall, holeSubline, hypeHero, resumeLine, skyLine, TEE_IT_UP } from '../src/design/home-copy';
-import { HOLE_BLEED_PAD, holeFitPoints, projectHoleFill } from '../src/hole-fit';
-import { CONSOLATION, scoreMoment, scoreStamp } from '../src/design/play-polish';
+import { HOLE_BLEED_PAD, holeFitPoints, lineLengthYards, pointAtYards, projectHoleFill, projectPlayFrame, TEE_SHOT_MARKS, teeWindowYards } from '../src/hole-fit';
+import { CLOSED_CARD, CONSOLATION, holeFrame, mapHudInset, scoreMoment, scoreStamp } from '../src/design/play-polish';
+import { marksAt } from '../src/map-labels';
 import { RESULT_ICONS } from '../src/design/icons';
 import { holeSwipe, rollSteps } from '../src/design/motion';
-import { holeFrame } from '../src/design/play-polish';
 import { glassTheme } from '../src/design/theme';
 
 describe('design tokens', () => {
@@ -171,6 +171,98 @@ describe('hole fit', () => {
     const greenFit = projectHoleFill(second, 390, 844, HOLE_BLEED_PAD, secondBearing!, secondOrigin!);
     const greenXY = (holeTwo.green?.rings.flat() ?? []).map((point) => greenFit.toXY(point));
     expect(greenXY.every((point) => point.y >= 0 && point.y <= 844)).toBe(true);
+  });
+});
+
+describe('play camera', () => {
+  it('frames the tee shot in the open band and the full hole from tee to green', () => {
+    const pilot = loadHighCedarsPilot();
+    const hole = holeOverlay(pilot.features, pilot.record.scorecard, 1);
+    const fairways = hole.fairways.flatMap((feature) => feature.rings).flat();
+    const green = hole.green ? hole.green.rings.flat() : [];
+    const around = [...fairways, ...green, ...hole.line];
+    const bearing = shotBearing(hole.line);
+    const origin = hole.line[0];
+    const pin = hole.line[hole.line.length - 1];
+    expect(bearing).not.toBeNull();
+    expect(origin).toBeTruthy();
+    expect(pin).toBeTruthy();
+    const holeYards = lineLengthYards(hole.line);
+    const stock = 186.3;
+    const reach = teeWindowYards(stock, holeYards);
+    expect(reach).not.toBeNull();
+    expect(reach!).toBeGreaterThanOrEqual(250);
+    expect(reach!).toBeLessThan(stock + 40 + 80);
+    const view = holeFrame({ hudHeight: mapHudInset(0), dockHeight: 100, sheetClosed: CLOSED_CARD });
+    const height = 844;
+    const openTop = view.top;
+    const openBottom = height - view.bottom;
+    const teeShot = projectPlayFrame({
+      line: hole.line,
+      around,
+      width: 390,
+      height,
+      view,
+      bearing: bearing!,
+      origin: origin!,
+      kind: 'tee',
+      reachYards: reach,
+      from: null,
+    });
+    const teeXY = teeShot.toXY(origin!);
+    const pinXY = teeShot.toXY(pin!);
+    expect(teeXY.y).toBeGreaterThan(openBottom - 24);
+    expect(teeXY.y).toBeLessThanOrEqual(openBottom + 2);
+    expect(pinXY.y).toBeLessThan(openTop);
+    for (const yards of TEE_SHOT_MARKS) {
+      const at = pointAtYards(hole.line, yards);
+      expect(at).toBeTruthy();
+      const mark = teeShot.toXY(at!);
+      expect(mark.y).toBeGreaterThan(openTop);
+      expect(mark.y).toBeLessThan(teeXY.y);
+    }
+    const landing = pointAtYards(hole.line, stock);
+    const landingXY = teeShot.toXY(landing!);
+    expect(landingXY.y).toBeGreaterThan(openTop);
+    expect(landingXY.y).toBeLessThan(teeXY.y);
+    expect(marksAt(hole.line, TEE_SHOT_MARKS, 'yd').map((mark) => mark.label)).toEqual(['150', '200', '250']);
+    const whole = projectPlayFrame({
+      line: hole.line,
+      around,
+      width: 390,
+      height,
+      view,
+      bearing: bearing!,
+      origin: origin!,
+      kind: 'hole',
+      reachYards: null,
+      from: null,
+    });
+    const wholeTee = whole.toXY(origin!);
+    const wholePin = whole.toXY(pin!);
+    expect(wholeTee.y).toBeLessThanOrEqual(openBottom + 2);
+    expect(wholeTee.y).toBeGreaterThan(openTop);
+    expect(wholePin.y).toBeGreaterThanOrEqual(openTop - 2);
+    expect(wholePin.y).toBeLessThan(wholeTee.y);
+    const from = pointAtYards(hole.line, 300);
+    const approach = projectPlayFrame({
+      line: hole.line,
+      around,
+      width: 390,
+      height,
+      view,
+      bearing: bearing!,
+      origin: origin!,
+      kind: 'green',
+      reachYards: null,
+      from,
+    });
+    const ball = approach.toXY(from!);
+    const approachPin = approach.toXY(pin!);
+    expect(ball.y).toBeGreaterThan(approachPin.y);
+    expect(ball.y).toBeGreaterThan(openBottom - 30);
+    expect(approach.toXY(origin!).y).toBeGreaterThan(openBottom);
+    expect(distanceYards(origin!, pointAtYards(hole.line, 0)!)).toBeLessThan(1);
   });
 });
 

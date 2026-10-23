@@ -33,4 +33,13 @@ export interface HoleMapProps {
   orient?: { bearing: number; origin: LatLon } | null;
   /** Measured yardages on the aim line. Omitted when there is nothing to label. */
   labels?: readonly { at: LatLon; label: string }[];
+  /**
+   * What the open band between the yardage panel and the sheet should hold.
+   * Tee frames the tee shot. Green frames the ball to the pin. Hole frames tee to green.
+   */
+  camera?: {
+    kind: 'tee' | 'green' | 'hole';
+    reachYards: number | null;
+    from: LatLon | null;
+  } | null;
 }
