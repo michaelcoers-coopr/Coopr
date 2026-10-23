@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   buttonText: { color: colors.onAccent, fontWeight: '800', fontSize: 18, letterSpacing: 0.2, textAlign: 'center' },
   buttonGhostText: { color: colors.navy },
   choice: {
-    minHeight: 48,
+    minHeight: 56,
     borderRadius: 999,
     borderWidth: 2,
     borderColor: colors.navy,

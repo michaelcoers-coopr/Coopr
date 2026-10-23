@@ -2,10 +2,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
-import { font, play as field, type } from '@coopr/tokens';
+import { colors, font, motion, play as field, type } from '@coopr/tokens';
 import {
   acceptShotYards,
   arrivedAtNextTee,
@@ -33,7 +33,6 @@ import {
   SAMPLE_PATTERN,
   PATTERN_INVITE,
   CONFIDENCE_LOW,
-  caddieLine,
   confidenceLabel,
   confidencePercent,
   dispersionOval,
@@ -56,9 +55,13 @@ import {
 } from '@coopr/engine';
 import { loadHighCedarsPilot } from '@coopr/course';
 import { HoleMap } from '../src/hole-map';
-import { celebrate, holeFeel, pulse, tick } from '../src/haptics';
+import { boom, celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { holeSwipe, rollSteps } from '../src/design/motion';
-import { cardGravity, clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreGlance, sheetSnap, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { cardGravity, clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreGlance, scoreMoment, scoreStamp, sheetSnap, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { caddieVoiceLine } from '../src/design/caddie-voice';
+import { useDisplayFace } from '../src/design/display-font';
+import { MomentOverlay } from '../src/design/moments';
+import { fieldNavy } from '../src/design/theme';
 import { Glass, Vignette } from '../src/design/glass';
 import { ClubStrip, ConfidenceRing, ThruBar } from '../src/design/signature-ui';
 import { useReduceMotion } from '../src/design/reduce-motion';
@@ -140,6 +143,7 @@ export default function PlayScreen() {
     clubs,
     profiles,
     personality,
+    voice,
     unit,
     currentHole,
     setCurrentHole,
@@ -174,6 +178,10 @@ export default function PlayScreen() {
   const [breakdown, setBreakdown] = useState(false);
   const [sampleOn, setSampleOn] = useState(false);
   const reduceMotion = useReduceMotion();
+  const display = useDisplayFace();
+  const [stamp, setStamp] = useState<ReturnType<typeof scoreStamp>>(null);
+  const [consolation, setConsolation] = useState(false);
+  const bump = useSharedValue(0);
   const insets = useSafeAreaInsets();
   const mapX = useSharedValue(0);
   const mapScale = useSharedValue(1);
@@ -185,6 +193,7 @@ export default function PlayScreen() {
   const closedSheetRef = useRef(SHEET_CLOSED);
   const seenHole = useRef<number | null>(null);
   const rolledFrom = useRef<number | null>(null);
+  const rollHole = useRef<number | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveRef = useRef<() => void>(() => {});
   const backRef = useRef<() => void>(() => {});
@@ -366,6 +375,9 @@ export default function PlayScreen() {
     opacity: mapFade.value,
     transform: [{ translateX: mapX.value }, { scale: mapScale.value }],
   }));
+  const bumpStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: bump.value }],
+  }));
   const sheetStyle = useAnimatedStyle(() => ({
     height: Math.min(SHEET_OPEN + 28, Math.max(96, sheetH.value - sheetDrag.value)),
     transform: [{ translateX: sheetX.value }],
@@ -373,17 +385,19 @@ export default function PlayScreen() {
 
   useEffect(() => {
     if (heroBase == null) {
-      rolledFrom.current = null;
       setRoll(null);
       return;
     }
-    const from = rolledFrom.current;
+    const arriving = rollHole.current !== currentHole || rolledFrom.current == null;
+    const from = arriving ? 0 : rolledFrom.current;
+    rollHole.current = currentHole;
     rolledFrom.current = heroBase;
     if (reduceMotion || from == null || from === heroBase) {
       setRoll(null);
       return;
     }
-    const steps = rollSteps(from, heroBase, 10);
+    const rolled = rollSteps(from, heroBase, motion.rollFrames);
+    const steps = arriving && from === 0 ? [0, ...rolled] : rolled;
     let index = 0;
     setRoll(steps[0] ?? null);
     const timer = setInterval(() => {
@@ -394,9 +408,9 @@ export default function PlayScreen() {
         return;
       }
       setRoll(steps[index] ?? null);
-    }, 28);
+    }, 42);
     return () => clearInterval(timer);
-  }, [heroBase, reduceMotion]);
+  }, [currentHole, heroBase, reduceMotion]);
 
   useEffect(() => {
     const geometry = holeOverlay(pilot.features, pilot.record.scorecard, currentHole);
@@ -544,13 +558,16 @@ export default function PlayScreen() {
   const lowConfidence = percent != null && percent < CONFIDENCE_LOW;
   const spoken = noShots
     ? null
-    : caddieLine({
+    : caddieVoiceLine({
+        voice,
         personality,
         clubLabel: shownLabel,
         windYards: focusedPlay && !('error' in focusedPlay) ? focusedPlay.wind?.yards ?? null : null,
         stockYards: shownProfile?.stockYards ?? (scrubClub ? null : stockYards),
         targetYards: shotYards,
+        playsLikeYards: focusedPlays,
         lowConfidence,
+        unit,
       });
   const thinCopy = 'The sample is thin. Treat the number softly.';
   const oneLiner =
@@ -663,6 +680,27 @@ export default function PlayScreen() {
   const centerLive = player != null;
   const writeStrokes = (next: number) => {
     setStrokes(hole.holeNumber, next);
+    const moment = scoreMoment(next, par);
+    if (moment === 'celebrate') {
+      setConsolation(false);
+      setStamp(scoreStamp(next, par));
+      if (!reduceMotion) {
+        bump.value = withSequence(
+          withTiming(8, { duration: 40 }),
+          withTiming(-7, { duration: 40 }),
+          withTiming(5, { duration: 36 }),
+          withTiming(-3, { duration: 36 }),
+          withTiming(0, { duration: 36 }),
+        );
+      }
+      void boom();
+      return;
+    }
+    if (moment === 'consolation') {
+      setStamp(null);
+      setConsolation(true);
+      return;
+    }
     if (scoreGlance(next, par, true).motion) void celebrate();
   };
   const writePutts = (next: number) => {
@@ -674,6 +712,7 @@ export default function PlayScreen() {
       style={styles.screen}
       onLayout={(event) => setMapH(Math.max(1, Math.round(event.nativeEvent.layout.height)))}
     >
+      <Animated.View pointerEvents="box-none" style={[styles.shake, bumpStyle]}>
       <StatusBar style="light" />
       <Stack.Screen options={{ headerShown: false, title: `Hole ${hole.holeNumber}` }} />
       <ClubPulse clubLabel={shownLabel} yards={landingYards} />
@@ -740,7 +779,7 @@ export default function PlayScreen() {
               <View style={styles.chevron} />
             </Pressable>
             <View style={styles.headerMid}>
-              <Text style={styles.headerTitle}>{`Hole ${hole.holeNumber} · Par ${par ?? '—'}`}</Text>
+              <Text style={[styles.headerTitle, { fontFamily: display }]}>{`Hole ${hole.holeNumber} · Par ${par ?? '—'}`}</Text>
               <ThruBar label={thru.label} pips={thru.pips} />
             </View>
             <Text style={styles.headerSi}>{`SI ${hole.strokeIndex ?? '—'}`}</Text>
@@ -791,7 +830,7 @@ export default function PlayScreen() {
                       }}
                     />
                   ) : (
-                    <Text style={[styles.centerNum, focusedPlays != null ? styles.glow : centerLive && styles.centerLive]}>{heroText}</Text>
+                    <Text style={[styles.centerNum, { fontFamily: display }, focusedPlays != null ? styles.glow : centerLive && styles.centerLive]}>{heroText}</Text>
                   )}
                 </Pressable>
                 {ground ? <End label="Back" value={formatDistance(ground.backYards, unit)} /> : <View style={styles.endCol} />}
@@ -812,9 +851,9 @@ export default function PlayScreen() {
               onPress={() => setBreakdown((open) => !open)}
               style={({ pressed }) => [pressed && !reduceMotion && styles.pressed]}
             >
-              <Glass radius={22} style={styles.windPill} contentStyle={styles.windFill}>
-                <WindMark />
-                <Text style={styles.windNum}>{windText}</Text>
+              <Glass radius={22} style={styles.windPill} contentStyle={styles.windFill} overlay={windKnown ? 'rgba(138,201,38,0.94)' : undefined}>
+                <WindMark ink={windKnown ? colors.navy : '#FFFFFF'} />
+                <Text style={[styles.windNum, { fontFamily: display }, windKnown && styles.windKnown]}>{windText}</Text>
               </Glass>
             </Pressable>
           </View>
@@ -838,7 +877,7 @@ export default function PlayScreen() {
               >
                 <ConfidenceRing percent={percent} label={noShots ? 'No shots yet' : undefined} />
                 <View style={styles.clubCopy}>
-                  <Text style={styles.clubName} numberOfLines={1}>
+                  <Text style={[styles.clubName, { fontFamily: display }]} numberOfLines={1}>
                     {shownLabel ?? ''}
                   </Text>
                   {noShots ? <Text style={styles.clubMeta}>No shots yet</Text> : percent != null ? <Text style={styles.clubMeta}>{`${percent}%`}</Text> : null}
@@ -937,11 +976,21 @@ export default function PlayScreen() {
       <View pointerEvents="box-none" style={[styles.askFloat, { bottom: Math.max(insets.bottom, 12) }]}>
         {ask.button}
       </View>
+      </Animated.View>
+      <MomentOverlay
+        stamp={stamp}
+        consolation={consolation}
+        reduce={reduceMotion}
+        onDone={() => {
+          setStamp(null);
+          setConsolation(false);
+        }}
+      />
       {saved ? (
         <View pointerEvents="none" style={styles.savedWrap}>
           <Glass radius={28} style={styles.saved} contentStyle={styles.savedFill}>
             <Text style={styles.kicker}>Marked</Text>
-            <Text style={styles.savedTitle}>{saved}</Text>
+            <Text style={[styles.savedTitle, { fontFamily: display }]}>{saved}</Text>
           </Glass>
         </View>
       ) : null}
@@ -949,21 +998,22 @@ export default function PlayScreen() {
   );
 }
 
-function WindMark() {
+function WindMark({ ink = '#FFFFFF' }: { ink?: string }) {
   return (
     <View style={styles.wind}>
-      <View style={styles.windLine} />
-      <View style={styles.windLineShort} />
-      <View style={styles.windLine} />
+      <View style={[styles.windLine, { backgroundColor: ink }]} />
+      <View style={[styles.windLineShort, { backgroundColor: ink }]} />
+      <View style={[styles.windLine, { backgroundColor: ink }]} />
     </View>
   );
 }
 
 function End({ label, value }: { label: string; value: string }) {
+  const display = useDisplayFace();
   return (
     <View style={styles.endCol} accessibilityLabel={value ? `${label} ${value}` : label}>
       <Text style={styles.endLabel}>{label}</Text>
-      <Text style={styles.endNum}>{value}</Text>
+      <Text style={[styles.endNum, { fontFamily: display }]}>{value}</Text>
     </View>
   );
 }
@@ -977,8 +1027,9 @@ function ClubPulse({ clubLabel, yards }: { clubLabel: string | null; yards: numb
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#0C2418', overflow: 'hidden' },
-  mapWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#0C2418' },
+  screen: { flex: 1, backgroundColor: fieldNavy, overflow: 'hidden' },
+  shake: { flex: 1 },
+  mapWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: fieldNavy },
   hud: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 16, gap: 8 },
   pressed: { transform: [{ scale: 0.96 }] },
   header: { minHeight: 64 },
@@ -994,7 +1045,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   headerMid: { flex: 1, gap: 2 },
-  headerTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.club, lineHeight: 28, fontWeight: font.bold },
+  headerTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 28, lineHeight: 32, fontWeight: font.bold, letterSpacing: 0.4 },
   headerSi: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, fontWeight: font.semibold },
   pillRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   pill: { flex: 1 },
@@ -1005,7 +1056,8 @@ const styles = StyleSheet.create({
   wind: { width: 22, height: 16, justifyContent: 'space-between' },
   windLine: { height: 2, borderRadius: 1, backgroundColor: '#FFFFFF' },
   windLineShort: { height: 2, width: 14, borderRadius: 1, backgroundColor: '#FFFFFF' },
-  windNum: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 20, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  windNum: { color: '#FFFFFF', fontFamily: font.family, fontSize: 28, lineHeight: 30, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  windKnown: { color: colors.navy },
   ends: { flexDirection: 'row', alignItems: 'flex-end' },
   endCol: { flex: 1, alignItems: 'center', minHeight: 64, justifyContent: 'flex-end' },
   centerHit: { flex: 1.45, alignItems: 'center', minHeight: 84, justifyContent: 'flex-end' },
@@ -1013,8 +1065,8 @@ const styles = StyleSheet.create({
   endNum: {
     color: '#FFFFFF',
     fontFamily: font.family,
-    fontSize: type.club,
-    lineHeight: 28,
+    fontSize: 28,
+    lineHeight: 32,
     fontWeight: font.bold,
     fontVariant: ['tabular-nums'],
     minHeight: 28,
@@ -1025,8 +1077,8 @@ const styles = StyleSheet.create({
   centerNum: {
     color: '#FFFFFF',
     fontFamily: font.family,
-    fontSize: type.hero,
-    lineHeight: 60,
+    fontSize: 76,
+    lineHeight: 80,
     fontWeight: font.bold,
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
@@ -1084,7 +1136,7 @@ const styles = StyleSheet.create({
   handle: { width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.72)' },
   clubRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8 },
   clubCopy: { flex: 1, gap: 0 },
-  clubName: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.club, lineHeight: 28, fontWeight: font.bold },
+  clubName: { color: '#FFFFFF', fontFamily: font.family, fontSize: 26, lineHeight: 30, fontWeight: font.bold, letterSpacing: 0.3 },
   clubMeta: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
   line: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: font.medium },
   unlock: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 22, fontWeight: font.medium, marginTop: 0 },

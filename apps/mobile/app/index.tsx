@@ -8,9 +8,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
 import { holeOverlay, ringCentroid, roundProgress, shotBearing } from '@coopr/engine';
 import { loadHighCedarsPilot } from '@coopr/course';
-import { colors, font, radius, space, type } from '@coopr/tokens';
+import { colors, font, radius, signal, space, type } from '@coopr/tokens';
 import { useReduceMotion } from '../src/design/reduce-motion';
-import { bagGlance, resumeLine, skyLine } from '../src/design/home-copy';
+import { useDisplayFace } from '../src/design/display-font';
+import { bagGlance, hypeHero, resumeLine, skyLine, TEE_IT_UP } from '../src/design/home-copy';
+import { fieldNavy } from '../src/design/theme';
 import { Glass } from '../src/design/glass';
 import { Pips } from '../src/design/signature-ui';
 import { HoleMap } from '../src/hole-map';
@@ -27,7 +29,9 @@ function ringsOf(features: readonly MapFeature[]): LatLon[][] {
 }
 
 export default function HomeScreen() {
-  const { currentHole, score, clubs, unit, holes } = useLocalStore();
+  const { currentHole, score, clubs, unit, holes, displayName } = useLocalStore();
+  const display = useDisplayFace();
+  const hero = hypeHero({ name: displayName, course: pilot.record.name });
   const roundsKept = holes.length >= 18 && holes.every((strokes) => strokes != null) ? 1 : 0;
   const progress = roundProgress(roundsKept);
   const inPlay = clubs.filter((club) => club.slot === 'in_play').length;
@@ -106,23 +110,23 @@ export default function HomeScreen() {
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Play High Cedars"
+            accessibilityLabel={`${TEE_IT_UP}. ${hero}`}
             onPress={() => router.push('/play')}
             style={({ pressed }) => [pressed && !reduceMotion && styles.pressed]}
           >
             <Glass radius={radius.sheet} style={styles.play} contentStyle={styles.playFill}>
-              <Text style={styles.kicker}>High Cedars</Text>
-              <Text style={styles.playTitle}>{resume.title}</Text>
+              <Text style={styles.kicker}>{resume.title}</Text>
+              <Text style={[styles.playTitle, { fontFamily: display }]}>{hero}</Text>
               <Text style={styles.playDetail}>{resume.detail}</Text>
               <Text style={styles.playMeta}>{`${bagGlance(inPlay)} in the bag`}</Text>
               {weather ? (
-                <View style={styles.weatherRow}>
+                <View style={styles.weatherStamp}>
                   <WindMark />
                   <Text style={styles.weatherText}>{weather}</Text>
                 </View>
               ) : null}
               <View style={styles.playButton}>
-                <Text style={styles.playButtonText}>Play</Text>
+                <Text style={[styles.playButtonText, { fontFamily: display }]}>{TEE_IT_UP}</Text>
               </View>
             </Glass>
           </Pressable>
@@ -164,6 +168,7 @@ function Stat({
   detail?: string;
   pips?: { filled: number; total: number };
 }) {
+  const display = useDisplayFace();
   return (
     <Glass radius={radius.card} style={styles.stat} contentStyle={styles.statFill}>
       {icon}
@@ -172,7 +177,7 @@ function Stat({
         {detail ? <Text style={styles.statNote}>{detail}</Text> : null}
         {pips ? <Pips filled={pips.filled} total={pips.total} /> : null}
       </View>
-      {value ? <Text style={styles.statValue}>{value}</Text> : null}
+      {value ? <Text style={[styles.statValue, { fontFamily: display }]}>{value}</Text> : null}
     </Glass>
   );
 }
@@ -206,9 +211,9 @@ function WindMark() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#0E3320' },
+  screen: { flex: 1, backgroundColor: fieldNavy },
   wash: { position: 'absolute', top: -60, right: -60, bottom: -60, left: -60 },
-  scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(11,31,58,0.32)' },
+  scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(4,10,24,0.55)' },
   safe: { flex: 1 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: space[3], paddingTop: space[2], paddingBottom: space[4], gap: space[2] },
@@ -219,8 +224,21 @@ const styles = StyleSheet.create({
     borderRadius: radius.sheet,
     padding: space[1],
   },
-  weatherRow: { flexDirection: 'row', alignItems: 'center', gap: space[1], minHeight: 24 },
-  weatherText: { color: colors.white, fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
+  weatherStamp: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+    minHeight: 36,
+    marginTop: space[1],
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: signal.go,
+    borderWidth: 2,
+    borderColor: colors.navy,
+    transform: [{ rotate: '-1.5deg' }],
+  },
+  weatherText: { color: colors.navy, fontFamily: font.family, fontSize: type.body, lineHeight: 22, fontWeight: font.bold, fontVariant: ['tabular-nums'], flexShrink: 1 },
   play: { minHeight: 220 },
   playFill: { minHeight: 220, padding: space[3], gap: space[1], justifyContent: 'center' },
   kicker: {
@@ -231,18 +249,22 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
-  playTitle: { color: colors.white, fontFamily: font.family, fontSize: type.title, lineHeight: 40, fontWeight: font.bold, letterSpacing: -0.6 },
+  playTitle: { color: colors.white, fontFamily: font.family, fontSize: 42, lineHeight: 46, fontWeight: font.bold, letterSpacing: 0.4 },
   playDetail: { color: colors.white, fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: font.medium },
   playMeta: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
   playButton: {
-    marginTop: space[1],
+    alignSelf: 'flex-start',
+    marginTop: space[2],
     minHeight: 56,
-    borderRadius: 16,
+    paddingHorizontal: 18,
     backgroundColor: colors.red,
+    borderWidth: 3,
+    borderColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
+    transform: [{ rotate: '-2deg' }],
   },
-  playButtonText: { color: colors.white, fontFamily: font.family, fontSize: type.body, fontWeight: font.bold },
+  playButtonText: { color: colors.white, fontFamily: font.family, fontSize: 32, lineHeight: 36, letterSpacing: 1 },
   glance: { gap: space[2] },
   stat: { minHeight: 72 },
   statFill: { minHeight: 72, paddingHorizontal: space[2], paddingVertical: space[2], flexDirection: 'row', alignItems: 'center', gap: space[2] },
@@ -268,8 +290,8 @@ const styles = StyleSheet.create({
   dashRing: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.white },
   dash: { position: 'absolute', left: 6, top: 10, width: 10, height: 2, backgroundColor: colors.white },
   wind: { width: 22, height: 18, justifyContent: 'space-between' },
-  windLine: { height: 2, borderRadius: 1, backgroundColor: colors.white },
-  windLineShort: { height: 2, width: 14, borderRadius: 1, backgroundColor: colors.white },
+  windLine: { height: 2, borderRadius: 1, backgroundColor: colors.navy },
+  windLineShort: { height: 2, width: 14, borderRadius: 1, backgroundColor: colors.navy },
   tab: { marginHorizontal: space[3], marginBottom: space[1] },
   tabFill: { minHeight: 64, flexDirection: 'row', alignItems: 'stretch' },
   tabItem: { flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 4 },

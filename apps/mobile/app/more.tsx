@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { Button, Card, Muted, Screen, Title } from '../src/ui';
+import { Button, Card, Choice, Muted, Screen, Title } from '../src/ui';
 import { bootDatabase } from '../src/boot-db';
 import { useLocalStore } from '../src/local-store';
 
 export default function MoreScreen() {
-  const { founderTools, displayName, caddieName, personalityLabel, startNewRound, unit, setUnit, conditions, setConditions } = useLocalStore();
+  const { founderTools, displayName, caddieName, personalityLabel, voice, setVoice, startNewRound, unit, setUnit, conditions, setConditions } = useLocalStore();
   const [armed, setArmed] = useState(false);
   const [dbStatus, setDbStatus] = useState('Opening the on-device course cache…');
 
@@ -34,6 +34,11 @@ export default function MoreScreen() {
       <Button label="Wedge matrix" tone="ghost" onPress={() => router.push('/wedges')} />
       <Button label="Add from photos" tone="ghost" onPress={() => router.push('/import')} />
       <Button label="Caddie" tone="ghost" onPress={() => router.push('/caddie')} />
+      <Card>
+        <Muted>Caddie voice. Chirpy is the default. Chill keeps the quieter line. Both use the numbers you actually have.</Muted>
+        <Choice label="Chirpy" selected={voice === 'chirpy'} onPress={() => setVoice('chirpy')} />
+        <Choice label="Chill" selected={voice === 'chill'} onPress={() => setVoice('chill')} />
+      </Card>
       <Button label="Course quality" tone="ghost" onPress={() => router.push('/course')} />
       <Button
         label={conditions.usePlaysLike ? 'Plays-like is on' : 'Plays-like is off'}

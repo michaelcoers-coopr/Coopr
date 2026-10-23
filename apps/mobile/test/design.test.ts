@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { projectAlongHole } from '@coopr/engine';
 import { colors, font, motion, play, radius, signal, space, touch, type } from '@coopr/tokens';
-import { bagGlance, resumeLine, skyLine } from '../src/design/home-copy';
+import { caddieLine } from '@coopr/engine';
+import { DEFAULT_VOICE, caddieVoiceLine } from '../src/design/caddie-voice';
+import { bagGlance, courseCall, hypeHero, resumeLine, skyLine, TEE_IT_UP } from '../src/design/home-copy';
+import { CONSOLATION, scoreMoment, scoreStamp } from '../src/design/play-polish';
 import { RESULT_ICONS } from '../src/design/icons';
 import { holeSwipe, rollSteps } from '../src/design/motion';
 import { holeFrame } from '../src/design/play-polish';
@@ -31,6 +34,8 @@ describe('design tokens', () => {
     expect(glassTheme.overlay).toMatch(/^rgba/);
     expect(glassTheme.border).toMatch(/^rgba/);
     expect(glassTheme.shadowOpacity).toBeGreaterThan(0);
+    expect(glassTheme.grain).toBeGreaterThan(0);
+    expect(glassTheme.overlay).toBe('rgba(4,10,24,0.9)');
     expect(motion.rollFrames).toBeGreaterThan(2);
   });
 });
@@ -68,6 +73,62 @@ describe('home glance', () => {
     expect(skyLine({ temperatureF: 64.2, windMph: 8.4, headwindMph: null })).toBe('64° · Wind 8 mph');
     expect(skyLine({ temperatureF: 64, windMph: 9, headwindMph: 6.2 })).toBe('64° · Wind 9 mph · 6 in your face');
     expect(skyLine({ temperatureF: 64, windMph: 9, headwindMph: -3.4 })).toBe('64° · Wind 9 mph · 3 helping');
+    expect(courseCall('Cedars At High Cedars Golf Club')).toBe('High Cedars');
+    expect(hypeHero({ name: 'Mike Coers', course: 'Cedars At High Cedars Golf Club' })).toBe("Let's go, Mike. High Cedars is waiting.");
+    expect(hypeHero({ name: '', course: 'Cedars At High Cedars Golf Club' })).toBe('High Cedars is waiting.');
+    expect(hypeHero({ name: '', course: '' })).toBe("Let's go.");
+    expect(TEE_IT_UP).toBe('TEE IT UP');
+  });
+});
+
+describe('caddie voice', () => {
+  it('keeps chirpy loud and grounded, and chill on the measured line', () => {
+    expect(DEFAULT_VOICE).toBe('chirpy');
+    const measured = {
+      personality: 'funny_knowledgeable' as const,
+      clubLabel: '7-iron',
+      windYards: null,
+      stockYards: 160,
+      targetYards: 152,
+      playsLikeYards: 152,
+      lowConfidence: false,
+      unit: 'yd' as const,
+    };
+    expect(caddieVoiceLine({ ...measured, voice: 'chirpy' })).toBe('Grip it and rip it. 7-iron, 152.');
+    expect(caddieVoiceLine({ ...measured, voice: 'chirpy', stockYards: 140, targetYards: 160, playsLikeYards: 160 })).toBe(
+      'Short is dead. 7-iron is 20 yards short of 160.',
+    );
+    expect(caddieVoiceLine({ ...measured, voice: 'chirpy', stockYards: 180, targetYards: 152, playsLikeYards: 152 })).toBe(
+      "That's a lot of club. 7-iron covers 152 by 28 yards.",
+    );
+    const chill = caddieVoiceLine({ ...measured, voice: 'chill', windYards: -4, stockYards: 160, targetYards: 150 });
+    expect(chill).toBe(
+      caddieLine({
+        personality: 'funny_knowledgeable',
+        clubLabel: '7-iron',
+        windYards: -4,
+        stockYards: 160,
+        targetYards: 150,
+        lowConfidence: false,
+      }),
+    );
+    const ungrounded = caddieVoiceLine({ ...measured, voice: 'chirpy', playsLikeYards: null, targetYards: null, stockYards: null });
+    expect(ungrounded ?? '').not.toMatch(/\d/);
+    expect(caddieVoiceLine({ ...measured, voice: 'chirpy', clubLabel: null })).toBeNull();
+  });
+});
+
+describe('score moments', () => {
+  it('celebrates birdie or better and consoles a double', () => {
+    expect(scoreMoment(3, 4)).toBe('celebrate');
+    expect(scoreStamp(3, 4)).toBe('BIRDIE');
+    expect(scoreStamp(2, 4)).toBe('EAGLE');
+    expect(scoreStamp(1, 4)).toBe('ALBATROSS');
+    expect(scoreMoment(4, 4)).toBeNull();
+    expect(scoreMoment(5, 4)).toBeNull();
+    expect(scoreMoment(6, 4)).toBe('consolation');
+    expect(scoreStamp(6, 4)).toBeNull();
+    expect(CONSOLATION).toBe('Shake it off. Next tee.');
   });
 });
 

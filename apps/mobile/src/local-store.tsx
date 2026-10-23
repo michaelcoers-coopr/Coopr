@@ -17,6 +17,7 @@ import {
   type WedgeLength,
 } from '@coopr/engine';
 import { loadFounderDataset, profilesFromFounder } from '@coopr/seed';
+import { DEFAULT_VOICE, parseVoice, VOICE_LABELS, type CaddieVoice } from './design/caddie-voice';
 import { FOUNDER_TOOLS_ENABLED } from './founder-flag';
 import { hasWebStorage, readRound, readRoundSync, writeRound } from './round-save-io';
 import { EMPTY_PUTTS, FRESH_CONDITIONS, type RoundConditions, type RoundSave, type SavedLie, type SavedMark } from './round-save';
@@ -141,6 +142,9 @@ interface LocalStore {
   caddieName: string;
   personality: CaddiePersonality;
   personalityLabel: string;
+  voice: CaddieVoice;
+  voiceLabel: string;
+  setVoice: (voice: CaddieVoice) => void;
   bagStatus: 'provisional' | 'confirmed' | null;
   bagNote: string | null;
   clubs: PlayingClub[];
@@ -382,6 +386,7 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
   const [tagged, setTagged] = useState<TaggedShot[]>([]);
   const [caddieName, setCaddieName] = useState(SHELL?.caddieName ?? 'COOPR');
   const [personality, setPersonality] = useState<CaddiePersonality>(SHELL?.personality ?? 'funny_knowledgeable');
+  const [voice, setVoiceState] = useState<CaddieVoice>(DEFAULT_VOICE);
   const [plans, setPlans] = useState<Record<number, { clubLabel: string; target: string }>>({});
   const [debriefs, setDebriefs] = useState<Array<{ hole: number; choice: 'plan' | 'swing'; note: string }>>([]);
   const [wedges, setWedges] = useState<Record<string, Partial<Record<WedgeLength, number | null>>>>({});
@@ -411,6 +416,17 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
       caddieName,
       personality,
       personalityLabel: PERSONALITY_LABELS[personality],
+      voice,
+      voiceLabel: VOICE_LABELS[voice],
+      setVoice: (next) => {
+        const parsed = parseVoice(next);
+        setVoiceState(parsed);
+        try {
+          if (typeof localStorage !== 'undefined') localStorage.setItem('coopr.voice', parsed);
+        } catch {
+          // A private browser can refuse the write. The choice still holds for this visit.
+        }
+      },
       bagStatus: SHELL?.bagStatus ?? null,
       bagNote: SHELL?.bagNote ?? null,
       clubs,
@@ -638,7 +654,7 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
         setConditionsState({ ...FRESH_CONDITIONS });
       },
     };
-  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, plans, debriefs, wedges, putts, conditions, marks]);
+  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, voice, plans, debriefs, wedges, putts, conditions, marks]);
 
   useEffect(() => {
     let cancel = false;
@@ -664,6 +680,11 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
     };
     if (hasWebStorage()) {
       apply(readRoundSync());
+      try {
+        setVoiceState(parseVoice(localStorage.getItem('coopr.voice')));
+      } catch {
+        setVoiceState(DEFAULT_VOICE);
+      }
       finish();
       return () => {
         cancel = true;

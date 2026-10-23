@@ -1,25 +1,43 @@
 import { useEffect, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { font, signal, type } from '@coopr/tokens';
 import { select } from '../haptics';
 import { useReduceMotion } from './reduce-motion';
 
+function ScorePip({ kind, reduce }: { kind: 'under' | 'even' | 'over' | 'open'; reduce: boolean }) {
+  const scale = useSharedValue(kind === 'open' || reduce ? 1 : 0);
+  useEffect(() => {
+    if (kind === 'open' || reduce) {
+      scale.value = 1;
+      return;
+    }
+    scale.value = 0;
+    scale.value = withTiming(1, { duration: 420 });
+  }, [kind, reduce, scale]);
+  const fill = useAnimatedStyle(() => ({ transform: [{ scaleX: scale.value }] }));
+  return (
+    <Animated.View
+      style={[
+        styles.seg,
+        kind === 'under' && { backgroundColor: signal.go },
+        kind === 'even' && { backgroundColor: '#FFFFFF' },
+        kind === 'over' && { backgroundColor: signal.hazard },
+        kind === 'open' && styles.segOpen,
+        fill,
+      ]}
+    />
+  );
+}
+
 export function ThruBar({ label, pips }: { label: string | null; pips: readonly ('under' | 'even' | 'over' | 'open')[] }) {
+  const reduce = useReduceMotion();
   return (
     <View style={styles.thru} accessibilityLabel={label ?? 'No score kept'}>
       <View style={styles.bar}>
         {pips.map((pip, index) => (
-          <View
-            key={index}
-            style={[
-              styles.seg,
-              pip === 'under' && { backgroundColor: signal.go },
-              pip === 'even' && { backgroundColor: '#FFFFFF' },
-              pip === 'over' && { backgroundColor: signal.hazard },
-              pip === 'open' && styles.segOpen,
-            ]}
-          />
+          <ScorePip key={index} kind={pip} reduce={reduce} />
         ))}
       </View>
       {label ? <Text style={styles.thruText}>{label}</Text> : null}
@@ -144,8 +162,8 @@ export function ClubStrip({
 
 const styles = StyleSheet.create({
   thru: { gap: 4, alignSelf: 'stretch' },
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 6 },
-  seg: { flex: 1, height: 6, borderRadius: 3 },
+  bar: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 8 },
+  seg: { flex: 1, height: 8, borderRadius: 2 },
   segOpen: { backgroundColor: 'rgba(255,255,255,0.22)' },
   pips: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   thruText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },

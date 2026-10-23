@@ -66,6 +66,28 @@ export function scoreGlance(strokes: number | null, par: number | null, confirme
   return { motion: null, name: null, versus };
 }
 
+export type ScoreStamp = 'BIRDIE' | 'EAGLE' | 'ALBATROSS';
+
+/** Birdie or better celebrates. Double or worse gets the consolation. Bogey stays quiet. */
+export function scoreMoment(strokes: number | null, par: number | null): 'celebrate' | 'consolation' | null {
+  if (strokes == null || par == null || !Number.isFinite(strokes) || !Number.isFinite(par)) return null;
+  const diff = Math.round(strokes) - Math.round(par);
+  if (diff <= -1) return 'celebrate';
+  if (diff >= 2) return 'consolation';
+  return null;
+}
+
+/** The stamp uses the real score against par. A bogey has no stamp. */
+export function scoreStamp(strokes: number | null, par: number | null): ScoreStamp | null {
+  if (scoreMoment(strokes, par) !== 'celebrate' || strokes == null || par == null) return null;
+  const diff = Math.round(strokes) - Math.round(par);
+  if (diff <= -3) return 'ALBATROSS';
+  if (diff === -2) return 'EAGLE';
+  return 'BIRDIE';
+}
+
+export const CONSOLATION = 'Shake it off. Next tee.';
+
 /** Crest red for birdie or better. White for par. Nothing for a bogey or an unconfirmed number. */
 export function scoreGlow(motion: 'birdie' | 'par' | null): '#C8102E' | '#FFFFFF' | null {
   if (motion === 'birdie') return '#C8102E';

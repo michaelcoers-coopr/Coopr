@@ -4,6 +4,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } fr
 import { font, type } from '@coopr/tokens';
 import { scoreCommit, scoreDrag, scoreGlance, scoreGlow } from './play-polish';
 import { Glass } from './glass';
+import { useDisplayFace } from './display-font';
 import { tick } from '../haptics';
 
 /**
@@ -27,6 +28,7 @@ export function CountChip({
   onWrite: (next: number) => void;
   minHeight?: number;
 }) {
+  const display = useDisplayFace();
   const glance = scoreGlance(value, par, confirmed);
   const glow = scoreGlow(glance.motion);
   const hot = glance.motion === 'birdie';
@@ -100,7 +102,7 @@ export function CountChip({
         contentStyle={[styles.fill, { minHeight }]}
       >
         <Animated.View style={[styles.fill, { minHeight }, pop]}>
-          <Text style={styles.value}>{value == null ? '' : String(value)}</Text>
+          <Text style={[styles.value, { fontFamily: display }]}>{value == null ? '' : String(value)}</Text>
           <Text style={styles.caption}>{caption}</Text>
         </Animated.View>
       </Glass>
@@ -123,8 +125,8 @@ const styles = StyleSheet.create({
   value: {
     color: '#FFFFFF',
     fontFamily: font.family,
-    fontSize: type.title,
-    lineHeight: 40,
+    fontSize: 44,
+    lineHeight: 48,
     fontWeight: font.bold,
     fontVariant: ['tabular-nums'],
   },
