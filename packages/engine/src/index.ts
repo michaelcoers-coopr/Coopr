@@ -16,3 +16,4 @@ export * from './scoring';
 export * from './bag-advice';
 export * from './export-data';
 export * from './signature';
+export * from './conversation';

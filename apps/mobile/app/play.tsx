@@ -32,6 +32,7 @@ import {
   taggedHazardLine,
   playsLike,
   NEXT_TEE_YARDS,
+  proactiveCallout,
   SAMPLE_PATTERN,
   PATTERN_INVITE,
   CONFIDENCE_LOW,
@@ -74,6 +75,9 @@ import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
 import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
+import { caddieSpeaker, speakSentences } from '../src/speech/tts';
+import { useTalkCaddie } from '../src/talk-overlay';
+import { useTalkPrefs } from '../src/talk-prefs';
 
 const pilot = loadHighCedarsPilot();
 const SHEET_CLOSED = CLOSED_CARD;
@@ -209,6 +213,7 @@ export default function PlayScreen() {
     if (scrub != null && /^\d+$/.test(scrub)) setScrubIndex(Number(scrub));
   }, []);
   const advanced = useRef(0);
+  const openTalk = useRef<() => void>(() => {});
   const voiceClub = useRef<{
     clubId: string | null;
     clubLabel: string;
@@ -330,6 +335,7 @@ export default function PlayScreen() {
       return id;
     },
     onRemoveTag: removeTag,
+    onAsk: () => openTalk.current(),
   });
 
   const bannerOn = ask.banner != null;
@@ -455,6 +461,86 @@ export default function PlayScreen() {
     advanced.current = currentHole;
     leaveRef.current();
   }, [player, currentHole]);
+
+  const talkPrefs = useTalkPrefs();
+  const teePointEarly = overlay?.line[0] ?? null;
+  const atTeeNow = player != null && teePointEarly != null && distanceYards(player, teePointEarly) <= NEXT_TEE_YARDS;
+  const lastMark = [...marks].reverse().find((mark) => mark.hole === currentHole) ?? null;
+  const yardsFromLast = player && lastMark ? distanceYards(player, { lat: lastMark.lat, lon: lastMark.lon }) : null;
+  const talk = useTalkCaddie({
+    hole: currentHole,
+    par: hole?.par ?? null,
+    atTee: atTeeNow,
+    gpsYards: player ? ground?.centerYards ?? null : null,
+    frontYards: ground?.frontYards ?? null,
+    backYards: ground?.backYards ?? null,
+    headwindMph: conditions.usePlaysLike ? sky?.headwindMph ?? null : null,
+    elevationFeet: conditions.usePlaysLike ? sky?.elevationFeet ?? null : null,
+    temperatureF: conditions.usePlaysLike ? sky?.current?.temperatureF ?? null : null,
+    windMph: conditions.usePlaysLike ? sky?.current?.windMph ?? null : null,
+    profiles,
+    candidateClubIds: voiceClubs.length > 0 ? voiceClubs.map((club) => club.id) : undefined,
+    selectedClubId: voiceClub.current.clubId,
+    selectedClubLabel: voiceClub.current.clubLabel,
+    scoreStrokes: holes[currentHole - 1] ?? null,
+    scorePutts: putts[currentHole - 1] ?? null,
+    thruLabel: score.holesEntered > 0 ? `Gross ${score.gross}` : null,
+    persona: voice,
+    onScore: setStrokes,
+    onPutts: setPutts,
+    onSetClub: (clubId) => {
+      const index = stripClubs.findIndex((club) => club.id === clubId);
+      if (index >= 0) setScrubIndex(index);
+    },
+    onMiss: (side, clubId, clubLabel) => {
+      tagShot({
+        hole: holeNo.current,
+        clubId: clubId ?? 'voice',
+        clubLabel,
+        result: side,
+        shownYards: player ? ground?.centerYards ?? null : null,
+        carry: null,
+        total: null,
+        swingMode: 'unknown',
+      });
+    },
+    onNext: () => leaveRef.current(),
+  });
+  openTalk.current = talk.open;
+  const spokenCallout = useRef<string | null>(null);
+  const calloutGate = useRef({ stopped: false });
+  const calloutLive = useRef(false);
+  const calloutSpeaker = useRef(caddieSpeaker('device'));
+  useEffect(() => {
+    if (!talkPrefs.callouts || talk.phase !== 'idle') {
+      if (calloutLive.current) {
+        calloutGate.current.stopped = true;
+        calloutSpeaker.current.stop();
+        calloutLive.current = false;
+      }
+      return;
+    }
+    const call = proactiveCallout({
+      enabled: true,
+      persona: voice,
+      hole: currentHole,
+      par: hole?.par ?? null,
+      atTee: atTeeNow,
+      clubLabel: voiceClub.current.clubLabel,
+      stockYards: voiceClub.current.carry?.stockYards ?? null,
+      greenYards: player ? ground?.centerYards ?? null : null,
+      yardsFromLastShot: yardsFromLast,
+      lastShotId: lastMark?.id ?? null,
+      spokenKey: spokenCallout.current,
+    });
+    if (!call) return;
+    spokenCallout.current = call.key;
+    calloutGate.current = { stopped: false };
+    calloutLive.current = true;
+    void speakSentences(calloutSpeaker.current, [call.line], calloutGate.current).finally(() => {
+      calloutLive.current = false;
+    });
+  }, [atTeeNow, currentHole, hole?.par, lastMark?.id, player, talk.phase, talkPrefs.callouts, voice, yardsFromLast, ground?.centerYards]);
 
   if (!hole || !overlay) {
     return (
@@ -1040,6 +1126,7 @@ export default function PlayScreen() {
           </Glass>
         </View>
       ) : null}
+      {talk.overlay}
     </View>
   );
 }

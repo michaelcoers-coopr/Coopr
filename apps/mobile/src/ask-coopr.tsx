@@ -47,6 +47,8 @@ export interface AskContext {
   onBack: () => void;
   onMiss: (side: LandingResult, clubId: string | null, clubLabel: string) => string;
   onRemoveTag: (id: string) => void;
+  /** When set, the mic opens the live conversation instead of the one-shot recorder. */
+  onAsk?: () => void;
 }
 
 interface Heard {
@@ -155,6 +157,11 @@ export function useAskCoopr(input: AskContext): { banner: ReactNode; button: Rea
   };
 
   const pressIn = () => {
+    if (latest.current.onAsk) {
+      void tick();
+      latest.current.onAsk();
+      return;
+    }
     holding.current = true;
     orb.value = withSpring(0.92, { damping: 14, stiffness: 240 });
     void tick();
