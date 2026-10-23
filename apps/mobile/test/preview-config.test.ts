@@ -12,6 +12,7 @@ const scriptPath = path.join(root, 'scripts', 'preview-publish.mjs');
 const configure = require('../app.config.js') as (ctx: { config: Record<string, unknown> }) => {
   name?: string;
   runtimeVersion?: { policy?: string };
+  web?: { output?: string };
   ios?: { bundleIdentifier?: string; infoPlist?: { ITSAppUsesNonExemptEncryption?: boolean } };
   android?: { package?: string };
   updates?: { url?: string; enabled?: boolean };
@@ -95,6 +96,20 @@ describe('Expo Go preview and TestFlight profile', () => {
     });
     expect(eas.build.production.env.EXPO_PUBLIC_FOUNDER_TOOLS).toBe('0');
     expect(eas.build.production.channel).toBe('production');
+  });
+
+  it('keeps EAS web output on the server unless a static screenshot export is requested', () => {
+    const previous = process.env.COOPR_WEB_STATIC;
+    delete process.env.COOPR_WEB_STATIC;
+    const hosted = configure({ config: appJson.expo });
+    expect(hosted.web?.output).toBe('server');
+    const staticApp = appJson.expo as { web?: { output?: string } };
+    expect(staticApp.web?.output).toBe('server');
+    process.env.COOPR_WEB_STATIC = '1';
+    const exported = configure({ config: appJson.expo });
+    expect(exported.web?.output).toBe('static');
+    if (previous === undefined) delete process.env.COOPR_WEB_STATIC;
+    else process.env.COOPR_WEB_STATIC = previous;
   });
 
   it('refuses to publish without EXPO_TOKEN and does not embed one', () => {
