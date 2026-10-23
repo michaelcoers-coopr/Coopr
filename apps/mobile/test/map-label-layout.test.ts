@@ -23,6 +23,20 @@ function pairName(items: readonly PlacedMapLabel[], index: number, other: number
   return `${items[index]!.text} and ${items[other]!.text}`;
 }
 
+function pillSide(
+  anchor: { x: number; y: number },
+  box: LabelBox,
+  line: readonly { x: number; y: number }[],
+): 1 | -1 {
+  const start = line[0]!;
+  const end = line[line.length - 1]!;
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const length = Math.hypot(dx, dy) || 1;
+  const offset = (box.x + box.w / 2 - anchor.x) * (-dy / length) + (box.y + box.h / 2 - anchor.y) * (dx / length);
+  return offset >= 0 ? 1 : -1;
+}
+
 function greenBox(points: readonly { x: number; y: number }[]): LabelBox {
   const minX = Math.min(...points.map((point) => point.x));
   const maxX = Math.max(...points.map((point) => point.x));
@@ -81,6 +95,7 @@ describe('hole 1 map labels', () => {
     };
     const placed = layoutHoleLabels(input);
     const again = layoutHoleLabels(input);
+    const withoutOval = layoutHoleLabels({ ...input, ellipsePoints: [] });
 
     expect(GREEN_DOT).toBe(4);
     expect(DOT_STROKE).toBe(1);
@@ -95,8 +110,11 @@ describe('hole 1 map labels', () => {
     expect(again.labels).toEqual(placed.labels);
     const greenRect = greenBox(greenPoints);
     const plays = placed.labels.find((item) => item.text === '156');
+    const playsBare = withoutOval.labels.find((item) => item.text === '156');
     expect(plays).toBeTruthy();
+    expect(playsBare).toBeTruthy();
     expect(plays!.leader).toBe(true);
+    expect(pillSide(plays!.anchor, plays!.box, input.line)).toBe(pillSide(playsBare!.anchor, playsBare!.box, input.line));
     expect(leaderLength(plays!.anchor, plays!.box)).toBeLessThanOrEqual(LEADER_MAX);
     expect(boxesSeparated(plays!.box, greenRect, 0)).toBe(true);
     const glow = ovalGlowBox(ellipse.map((point) => projection.toXY(point)));

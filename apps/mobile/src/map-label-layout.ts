@@ -237,10 +237,47 @@ function placeAt(
   return { box, leader: lead > 1 };
 }
 
+/** Which side of the line of play a box sits on. Zero when it is still on the point. */
+function perpOffset(anchor: ScreenPoint, box: LabelBox, axis: Axis): number {
+  const centerX = box.x + box.w / 2 - anchor.x;
+  const centerY = box.y + box.h / 2 - anchor.y;
+  return centerX * axis.perp.x + centerY * axis.perp.y;
+}
+
+/** The side with more open map beside the point. A tie stays to the right of the shot. */
+function roomierSide(anchor: ScreenPoint, axis: Axis, visible: LabelBox): 1 | -1 {
+  const room = (sign: 1 | -1) => {
+    let distance = 0;
+    for (let step = 1; step <= 400; step += 1) {
+      const x = anchor.x + axis.perp.x * sign * step;
+      const y = anchor.y + axis.perp.y * sign * step;
+      if (x < visible.x || y < visible.y || x > visible.x + visible.w || y > visible.y + visible.h) break;
+      distance = step;
+    }
+    return distance;
+  };
+  return room(1) >= room(-1) ? 1 : -1;
+}
+
 /**
- * Cover the point when the pill can. Otherwise take the shortest step to the side.
- * A step longer than a short leader is refused. The panel still shows the number.
+ * Side of the line of play for a plays pill.
+ * The oval is not an input, so showing it cannot flip the pill to the other side.
  */
+function playsSide(
+  anchor: ScreenPoint,
+  size: { w: number; h: number },
+  axis: Axis,
+  green: LabelBox | null,
+  taken: readonly LabelBox[],
+  visible: LabelBox,
+): 1 | -1 {
+  const bare = attachPill(anchor, size, axis, green, taken, visible);
+  if (!bare) return roomierSide(anchor, axis, visible);
+  const offset = perpOffset(anchor, bare.box, axis);
+  if (Math.abs(offset) <= 1) return roomierSide(anchor, axis, visible);
+  return offset > 0 ? 1 : -1;
+}
+
 function attachPill(
   anchor: ScreenPoint,
   size: { w: number; h: number },
@@ -249,6 +286,7 @@ function attachPill(
   taken: readonly LabelBox[],
   visible: LabelBox,
   extra: readonly LabelBox[] = [],
+  side: 1 | -1 | null = null,
 ): { box: LabelBox; leader: boolean } | null {
   const halfW = Math.floor(size.w / 2);
   const halfH = Math.floor(size.h / 2);
@@ -265,11 +303,12 @@ function attachPill(
     }
   }
   const maxShift = Math.ceil(LEADER_MAX + size.w / 2 + size.h / 2);
-  const alongNudge = [0, -4, -8, -12, -16, 4, 8];
+  const alongNudge = [0, -4, -8, -12, -16, -20, -24, 4, 8, 12];
+  const signs: Array<1 | -1> = side == null ? [1, -1] : [side];
   for (let step = 1; step <= maxShift; step += 1) {
-    for (const shift of [step, -step]) {
+    for (const sign of signs) {
       for (const alongShift of alongNudge) {
-        const placed = placeAt(anchor, size, axis, shift, alongShift, green, taken, visible, extra);
+        const placed = placeAt(anchor, size, axis, step * sign, alongShift, green, taken, visible, extra);
         if (placed) return placed;
       }
     }
@@ -319,7 +358,8 @@ export function layoutHoleLabels(input: HoleLabelLayoutInput): HoleLabelLayout {
 
   for (const label of plays) {
     const size = pillSize(label.text);
-    const placed = attachPill(label.at, size, axis, green, taken, visible, glow ? [glow] : []);
+    const side = playsSide(label.at, size, axis, green, taken, visible);
+    const placed = attachPill(label.at, size, axis, green, taken, visible, glow ? [glow] : [], side);
     if (!placed) continue;
     taken.push(placed.box);
     labels.push({
