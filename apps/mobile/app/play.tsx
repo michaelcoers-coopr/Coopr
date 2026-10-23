@@ -58,7 +58,7 @@ import { loadHighCedarsPilot } from '@coopr/course';
 import { HoleMap } from '../src/hole-map';
 import { celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { holeSwipe, rollSteps } from '../src/design/motion';
-import { cardGravity, clubFigure, closedPlaySheet, clubWhy, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreGlance, sheetSnap, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { cardGravity, clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreGlance, sheetSnap, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { Glass, Vignette } from '../src/design/glass';
 import { ClubStrip, ConfidenceRing, ThruBar } from '../src/design/signature-ui';
 import { useReduceMotion } from '../src/design/reduce-motion';
@@ -709,6 +709,11 @@ export default function PlayScreen() {
                 }
               : null
           }
+          markAccess={{
+            front: greenMarkLabel('Front', ground ? formatDistance(ground.frontYards, unit) : null, unit),
+            center: greenMarkLabel('Center', ground ? formatDistance(ground.centerYards, unit) : null, unit),
+            back: greenMarkLabel('Back', ground ? formatDistance(ground.backYards, unit) : null, unit),
+          }}
           onTap={() => undefined}
           rawLabel=""
           playsLabel=""
@@ -852,7 +857,7 @@ export default function PlayScreen() {
             />
             {noShots ? (
               <View style={styles.tipHit}>
-                <Text style={styles.tip} numberOfLines={1}>
+                <Text style={styles.tip}>
                   <Text accessibilityRole="button" accessibilityLabel="Log a shot after each swing" onPress={markHere} style={styles.tipLink}>
                     {SHOT_LOG_TIP.split(', or ')[0]}
                   </Text>
@@ -1071,8 +1076,8 @@ const styles = StyleSheet.create({
   sheetGlass: { flex: 1 },
   sheetFill: { flex: 1 },
   grab: { paddingTop: 2, paddingHorizontal: 16, paddingBottom: 0 },
-  grabSpread: { flex: 1, paddingBottom: 8 },
-  tipHit: { minHeight: 56, justifyContent: 'center' },
+  grabSpread: { flex: 1, gap: 4 },
+  tipHit: { marginTop: 2 },
   tip: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold },
   tipLink: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, textDecorationLine: 'underline' },
   handleHit: { minHeight: 16, alignItems: 'center', justifyContent: 'center' },

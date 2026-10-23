@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardGravity, clubFigure, closedPlaySheet, clubWhy, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreCommit, scoreDrag, scoreGlance, scoreGlow, sheetSnap, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { cardGravity, clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreCommit, scoreDrag, scoreGlance, scoreGlow, sheetSnap, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { dispersionOval, PATTERN_INVITE, SAMPLE_PATTERN } from '@coopr/engine';
 
 describe('club card copy', () => {
@@ -62,7 +62,11 @@ describe('club card without shots', () => {
     ).toBe(`Sample pattern · ±${oval!.carryStdYards} × ±${oval!.lateralStdYards} yd`);
     expect(patternCaption({ onGreen: false, noShots: false, lowConfidence: true, sample: false, oval: null, invite: PATTERN_INVITE })).toBeNull();
     expect(SHOT_LOG_TIP).toBe('Log a shot after each swing, or upload a TrackMan photo');
-    expect(cardGravity(true)).toBe('space-between');
+    expect(greenMarkLabel('Front', '144', 'yd')).toBe('Front, 144 yards');
+    expect(greenMarkLabel('Center', '150.5', 'm')).toBe('Center, 150.5 meters');
+    expect(greenMarkLabel('Back', null, 'yd')).toBe('Back');
+    expect(greenMarkLabel('Back', '—', 'yd')).toBe('Back');
+    expect(cardGravity(true)).toBe('center');
     expect(cardGravity(false)).toBe('flex-start');
     const sheet = closedPlaySheet(200);
     expect(sheet).toBe(200);

@@ -27,6 +27,8 @@ export interface HoleMapProps {
   marks?: { front: LatLon; center: LatLon; back: LatLon } | null;
   /** Real ground yardages for those three points. A tap shows one briefly. */
   markReadout?: { front: string; center: string; back: string } | null;
+  /** Accessible names for the dots, such as "Front, 144 yards". Not drawn as text. */
+  markAccess?: { front: string; center: string; back: string } | null;
   /** Tee-to-green bearing. The shapes map stands the hole up so the green is at the top. */
   orient?: { bearing: number; origin: LatLon } | null;
   /** Measured yardages on the aim line. Omitted when there is nothing to label. */

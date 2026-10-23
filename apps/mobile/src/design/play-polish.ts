@@ -119,9 +119,15 @@ export function patternCaption(input: {
 /** Invitation on a club card that has no measured shots. */
 export const SHOT_LOG_TIP = 'Log a shot after each swing, or upload a TrackMan photo';
 
-/** A short card spreads through the fixed sheet. A full card stays at the top so nothing is clipped. */
-export function cardGravity(noShots: boolean): 'space-between' | 'flex-start' {
-  return noShots ? 'space-between' : 'flex-start';
+/** Spoken name for a green dot. The yardage is the measured ground distance, or omitted. */
+export function greenMarkLabel(place: 'Front' | 'Center' | 'Back', readout: string | null, unit: DistanceUnit): string {
+  if (!readout || readout === '—') return place;
+  return `${place}, ${readout} ${unitLabel(unit)}`;
+}
+
+/** A short card sits as one block in the fixed sheet. A full card stays at the top so nothing is clipped. */
+export function cardGravity(noShots: boolean): 'center' | 'flex-start' {
+  return noShots ? 'center' : 'flex-start';
 }
 
 /** Collapsed club sheet. The height does not follow the club, so scrubbing does not rescale the map. */

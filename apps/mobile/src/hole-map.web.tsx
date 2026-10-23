@@ -6,7 +6,7 @@ import { colors, font } from '@coopr/tokens';
 import { projectAlongHole, projectPoints } from '@coopr/engine';
 import { Muted } from './ui';
 import type { HoleMapProps } from './hole-map-props';
-import { clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, MARK_LETTER, nearestMark } from './map-label-layout';
+import { clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark } from './map-label-layout';
 
 const ROUGH = '#0E3320';
 const FAIRWAY_DARK = '#176B3A';
@@ -193,6 +193,13 @@ export function HoleMap(props: HoleMapProps) {
     // Breath and the flight stroke do not change this signature, so they do not move the labels.
     [layoutSignature],
   );
+  const showMark = (id: 'front' | 'center' | 'back') => {
+    const readout = props.markReadout?.[id];
+    if (!readout || readout === '—') return;
+    setFlash({ id, text: readout });
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setFlash(null), 1400);
+  };
   if (!projection) return <Muted>This hole has no open geometry to draw.</Muted>;
   return (
     <View
@@ -209,11 +216,8 @@ export function HoleMap(props: HoleMapProps) {
           const y = event.nativeEvent.locationY;
           if (!Number.isFinite(x) || !Number.isFinite(y)) return;
           const hit = nearestMark(placed.dots, x, y);
-          const readout = hit && props.markReadout ? props.markReadout[hit] : null;
-          if (hit && readout && readout !== '—') {
-            setFlash({ id: hit, text: readout });
-            if (flashTimer.current) clearTimeout(flashTimer.current);
-            flashTimer.current = setTimeout(() => setFlash(null), 1400);
+          if (hit && props.markReadout?.[hit] && props.markReadout[hit] !== '—') {
+            showMark(hit);
             return;
           }
           props.onTap(projection.toLatLon(x, y));
@@ -328,35 +332,20 @@ export function HoleMap(props: HoleMapProps) {
             })()
           : null}
         {placed.dots.map((dot) => (
-          <G key={dot.id}>
+          <G key={dot.id} accessible={false}>
             <Circle cx={dot.at.x} cy={dot.at.y} r={GREEN_DOT / 2 + DOT_STROKE} fill="#0B1F3A" />
             <Circle cx={dot.at.x} cy={dot.at.y} r={GREEN_DOT / 2} fill="#FFFFFF" />
           </G>
         ))}
-        {placed.labels
-          .filter((label) => label.kind === 'letter')
-          .map((label) => {
-            const y = label.at.y + MARK_LETTER * 0.35;
-            return (
-              <G key={label.id}>
-                <SvgText x={label.at.x} y={y} fill="#0B1F3A" stroke="#0B1F3A" strokeWidth={3} strokeLinejoin="round" fontSize={MARK_LETTER} fontWeight="600" fontFamily={font.family} textAnchor="middle">
-                  {label.text}
-                </SvgText>
-                <SvgText x={label.at.x} y={y} fill="#FFFFFF" fontSize={MARK_LETTER} fontWeight="600" fontFamily={font.family} textAnchor="middle">
-                  {label.text}
-                </SvgText>
-              </G>
-            );
-          })}
         {flash
           ? (() => {
               const dot = placed.dots.find((item) => item.id === flash.id);
               if (!dot) return null;
               const w = Math.max(44, flash.text.length * 12 + 16);
               const x = dot.at.x - w / 2;
-              const y = dot.at.y + 14;
+              const y = dot.at.y + 12;
               return (
-                <G>
+                <G accessible={false}>
                   <Rect x={x} y={y} width={w} height={28} rx={10} fill="rgba(11,31,58,0.92)" />
                   <MapText x={dot.at.x} y={y + 20} fill="#FFFFFF" fontSize={17} fontWeight="700" fontFamily={font.family} fontFeatureSettings='"tnum"' textAnchor="middle" style={mapLabelStyle}>
                     {flash.text}
@@ -382,6 +371,20 @@ export function HoleMap(props: HoleMapProps) {
         ) : null}
         {props.measure.length > 1 ? <Polyline points={pointsOf(props.measure, projection)} fill="none" stroke={colors.red} strokeWidth={3} /> : null}
       </Svg>
+      <View pointerEvents="box-none" style={styles.dotHits}>
+        {placed.dots.map((dot) => (
+          <View
+            key={dot.id}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={props.markAccess?.[dot.id] ?? (dot.id === 'front' ? 'Front' : dot.id === 'center' ? 'Center' : 'Back')}
+            accessibilityActions={[{ name: 'activate' }]}
+            onAccessibilityAction={() => showMark(dot.id)}
+            pointerEvents="none"
+            style={[styles.dotHit, { left: dot.at.x - 14, top: dot.at.y - 14 }]}
+          />
+        ))}
+      </View>
       {bleed ? null : (
         <View pointerEvents="none" style={[styles.float, { top: height - 74 }]}>
           <View>
@@ -401,6 +404,8 @@ export function HoleMap(props: HoleMapProps) {
 const styles = StyleSheet.create({
   frame: { borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2', backgroundColor: colors.bg },
   bleed: { width: '100%', borderRadius: 0, borderWidth: 0, backgroundColor: ROUGH },
+  dotHits: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
+  dotHit: { position: 'absolute', width: 28, height: 28 },
   float: {
     position: 'absolute',
     left: 12,

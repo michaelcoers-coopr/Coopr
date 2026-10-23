@@ -4,13 +4,10 @@ import type { LabelBox } from '@coopr/engine';
 export const LABEL_GAP = 6;
 
 /** Green front, center, and back. White diameter in points. The outline sits outside it. */
-export const GREEN_DOT = 7;
+export const GREEN_DOT = 4;
 
 /** Dark ring around each green dot, in points. */
-export const DOT_STROKE = 1.5;
-
-/** F, C, and B beside the dots. Semibold sans, in points. */
-export const MARK_LETTER = 11;
+export const DOT_STROKE = 1;
 
 /** A pill farther than this from its point is dropped. The panel still shows the number. */
 export const LEADER_MAX = 28;
@@ -25,13 +22,13 @@ export interface ScreenPoint {
 export interface PlacedMapLabel {
   id: string;
   text: string;
-  kind: 'pill' | 'letter';
+  kind: 'pill';
   box: LabelBox;
   /** Text anchor. A pill baseline, or the center of a letter. */
   at: ScreenPoint;
   /** The measured point this label belongs to. */
   anchor: ScreenPoint;
-  /** Draw a short line from the point to the pill. Letters sit beside their dots. */
+  /** Draw a short line from the point to the pill. */
   leader: boolean;
 }
 
@@ -133,12 +130,6 @@ export function ovalGlowBox(points: readonly ScreenPoint[]): LabelBox | null {
   const halfH = fit.halfH * grow;
   return { x: fit.cx - halfW, y: fit.cy - halfH, w: halfW * 2, h: halfH * 2 };
 }
-
-const LETTER_W = 14;
-const LETTER_H = 14;
-const MARK_ALONG_MAX = 40;
-
-const MARK_COPY = { front: 'F', center: 'C', back: 'B' } as const;
 
 /** The dot under a tap, when the tap is close enough to mean that dot. */
 export function nearestMark(dots: readonly GreenDot[], x: number, y: number, radius = 28): GreenDot['id'] | null {
@@ -286,81 +277,6 @@ function attachPill(
   return null;
 }
 
-function letterBox(dot: GreenDot, axis: Axis, side: number, perp: number, along: number): LabelBox {
-  return boxFromCenter(
-    {
-      x: dot.at.x + axis.perp.x * side * perp + axis.dir.x * along,
-      y: dot.at.y + axis.perp.y * side * perp + axis.dir.y * along,
-    },
-    { w: LETTER_W, h: LETTER_H },
-  );
-}
-
-function alongOf(point: ScreenPoint, axis: Axis): number {
-  return point.x * axis.dir.x + point.y * axis.dir.y;
-}
-
-/** One column beside the green. The pin-side letter stays on its dot. The others step down only to keep 6pt. */
-function columnLetters(
-  dots: readonly GreenDot[],
-  axis: Axis,
-  side: number,
-  green: LabelBox | null,
-  taken: readonly LabelBox[],
-  visible: LabelBox,
-): PlacedMapLabel[] | null {
-  const down = axis.dir.y >= 0 ? 1 : -1;
-  let minPerp = 8;
-  for (let perp = 4; perp <= 56; perp += 1) {
-    const clear = dots.every((dot) => green == null || boxesSeparated(letterBox(dot, axis, side, perp, 0), green, 4));
-    if (clear) {
-      minPerp = perp;
-      break;
-    }
-  }
-  const ordered = [...dots].sort((a, b) => alongOf(b.at, axis) - alongOf(a.at, axis));
-  for (let perp = minPerp; perp <= 56; perp += 1) {
-    const placed: PlacedMapLabel[] = [];
-    let failed = false;
-    for (const dot of ordered) {
-      let along = 0;
-      let box = letterBox(dot, axis, side, perp, along);
-      for (let step = 0; step < MARK_ALONG_MAX && !contains(visible, box); step += 1) {
-        if (box.x < visible.x - 0.5 || box.x + box.w > visible.x + visible.w + 0.5) break;
-        along += box.y < visible.y ? down : -down;
-        box = letterBox(dot, axis, side, perp, along);
-      }
-      for (const earlier of placed) {
-        for (let step = 0; step < MARK_ALONG_MAX && !boxesSeparated(box, earlier.box, LABEL_GAP); step += 1) {
-          along += down;
-          box = letterBox(dot, axis, side, perp, along);
-        }
-      }
-      const blocked =
-        !contains(visible, box) ||
-        Math.abs(along) > MARK_ALONG_MAX ||
-        (green != null && !boxesSeparated(box, green, 4)) ||
-        taken.some((other) => !boxesSeparated(box, other, LABEL_GAP)) ||
-        placed.some((other) => !boxesSeparated(box, other.box, LABEL_GAP));
-      if (blocked) {
-        failed = true;
-        break;
-      }
-      placed.push({
-        id: `letter-${dot.id}`,
-        text: MARK_COPY[dot.id],
-        kind: 'letter',
-        box,
-        at: { x: box.x + box.w / 2, y: box.y + box.h / 2 },
-        anchor: dot.at,
-        leader: false,
-      });
-    }
-    if (!failed && placed.length === dots.length) return placed;
-  }
-  return null;
-}
-
 /**
  * Dots sit on the green points. A pill stays only when it is on its point or a short step beside it.
  * Anything that would have to float is left off the map. The yardage panel still has the number.
@@ -399,12 +315,6 @@ export function layoutHoleLabels(input: HoleLabelLayoutInput): HoleLabelLayout {
       anchor: label.at,
       leader: placed.leader,
     });
-  }
-
-  const letters = columnLetters(dots, axis, -1, green, taken, visible) ?? columnLetters(dots, axis, 1, green, taken, visible) ?? [];
-  for (const letter of letters) {
-    taken.push(letter.box);
-    labels.push(letter);
   }
 
   for (const label of plays) {

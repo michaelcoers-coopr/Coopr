@@ -13,7 +13,7 @@ function coords(ring: readonly LatLon[]) {
   return ring.map((point) => ({ latitude: point.lat, longitude: point.lon }));
 }
 
-const MARK_LETTER = { front: 'F', center: 'C', back: 'B' } as const;
+const MARK_NAME = { front: 'Front', center: 'Center', back: 'Back' } as const;
 
 export function HoleMap(props: HoleMapProps) {
   const [flash, setFlash] = useState<'front' | 'center' | 'back' | null>(null);
@@ -80,7 +80,7 @@ export function HoleMap(props: HoleMapProps) {
                   key={key}
                   coordinate={{ latitude: point.lat, longitude: point.lon }}
                   tracksViewChanges
-                  anchor={{ x: 5 / 36, y: 0.5 }}
+                  anchor={{ x: 0.5, y: 0.5 }}
                   onPress={() => {
                     const text = props.markReadout?.[key];
                     if (!text || text === '—') return;
@@ -89,10 +89,18 @@ export function HoleMap(props: HoleMapProps) {
                     flashTimer.current = setTimeout(() => setFlash(null), 1400);
                   }}
                 >
-                  <View style={styles.markWrap} accessibilityLabel={`${MARK_LETTER[key]} of the green`}>
+                  <View
+                    style={styles.markWrap}
+                    accessible
+                    accessibilityRole="button"
+                    accessibilityLabel={props.markAccess?.[key] ?? MARK_NAME[key]}
+                  >
                     <View style={styles.dot} />
-                    <Text style={styles.letter}>{MARK_LETTER[key]}</Text>
-                    {readout && readout !== '—' ? <Text style={styles.readout}>{readout}</Text> : null}
+                    {readout && readout !== '—' ? (
+                      <Text accessibilityElementsHidden importantForAccessibility="no" style={styles.readout}>
+                        {readout}
+                      </Text>
+                    ) : null}
                   </View>
                 </Marker>
               );
@@ -124,34 +132,18 @@ const styles = StyleSheet.create({
   frame: { borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2' },
   bleed: { borderRadius: 0, borderWidth: 0 },
   map: { flex: 1 },
-  markWrap: { width: 36, height: 16, justifyContent: 'center' },
+  markWrap: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   dot: {
-    position: 'absolute',
-    left: 0,
-    top: 3,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: '#0B1F3A',
-  },
-  letter: {
-    position: 'absolute',
-    left: 14,
-    top: -1,
-    color: '#FFFFFF',
-    fontFamily: font.family,
-    fontSize: 11,
-    fontWeight: '600',
-    textShadowColor: '#0B1F3A',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 3,
   },
   readout: {
     position: 'absolute',
-    left: 0,
-    top: 18,
+    top: 28,
     color: '#FFFFFF',
     backgroundColor: 'rgba(11,31,58,0.92)',
     overflow: 'hidden',
