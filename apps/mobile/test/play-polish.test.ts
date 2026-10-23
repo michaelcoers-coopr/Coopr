@@ -51,7 +51,7 @@ describe('map inset', () => {
 });
 
 describe('club card without shots', () => {
-  it('hides the sample caption and hugs the card', () => {
+  it('hides the sample caption and keeps the sheet height fixed', () => {
     const oval = dispersionOval([...SAMPLE_PATTERN]);
     expect(oval).not.toBeNull();
     expect(
@@ -61,9 +61,12 @@ describe('club card without shots', () => {
       patternCaption({ onGreen: false, noShots: false, lowConfidence: false, sample: true, oval, invite: PATTERN_INVITE }),
     ).toBe(`Sample pattern · ±${oval!.carryStdYards} × ±${oval!.lateralStdYards} yd`);
     expect(patternCaption({ onGreen: false, noShots: false, lowConfidence: true, sample: false, oval: null, invite: PATTERN_INVITE })).toBeNull();
-    expect(closedPlaySheet({ noTarget: false, noShots: true, cardStack: 224, risk: false, closed: 200 })).toBe(160);
-    expect(closedPlaySheet({ noTarget: false, noShots: false, cardStack: 224, risk: false, closed: 200 })).toBe(200);
-    expect(closedPlaySheet({ noTarget: false, noShots: true, cardStack: 224, risk: false, closed: 200 })).toBeLessThan(200);
+    const sheet = closedPlaySheet(200);
+    expect(sheet).toBe(200);
+    expect(closedPlaySheet(200)).toBe(sheet);
+    const withShots = holeFrame({ hudHeight: mapHudInset(0), dockHeight: 80, sheetClosed: sheet });
+    const noShots = holeFrame({ hudHeight: mapHudInset(0), dockHeight: 80, sheetClosed: closedPlaySheet(200) });
+    expect(noShots).toEqual(withShots);
   });
 });
 

@@ -61,15 +61,11 @@ export function HoleMap(props: HoleMapProps) {
           <Polygon key={`green-${index}`} coordinates={coords(ring)} fillColor={bleed ? 'rgba(182,242,162,0.28)' : 'rgba(255,255,255,0.72)'} strokeColor="rgba(255,255,255,0.9)" strokeWidth={2} />
         ))}
         {props.marks
-          ? (['front', 'back', 'center'] as const).map((key) => {
+          ? (['front', 'center', 'back'] as const).map((key) => {
               const point = props.marks![key];
-              const primary = key === 'center';
-              const label = key === 'front' ? 'F' : key === 'back' ? 'B' : 'C';
               return (
-                <Marker key={key} coordinate={{ latitude: point.lat, longitude: point.lon }} tracksViewChanges={false}>
-                  <View style={[styles.mark, primary && styles.markPrimary]}>
-                    <Text style={[styles.markText, primary && styles.markTextPrimary]}>{label}</Text>
-                  </View>
+                <Marker key={key} coordinate={{ latitude: point.lat, longitude: point.lon }} tracksViewChanges={false} anchor={{ x: 0.5, y: 0.5 }}>
+                  <View style={styles.dot} />
                 </Marker>
               );
             })
@@ -100,17 +96,14 @@ const styles = StyleSheet.create({
   frame: { borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2' },
   bleed: { borderRadius: 0, borderWidth: 0 },
   map: { flex: 1 },
-  mark: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.7)',
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(11,31,58,0.55)',
   },
-  markPrimary: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.white, borderWidth: 2, borderColor: colors.navy },
-  markText: { color: colors.navy, fontSize: 10, fontWeight: '700' },
-  markTextPrimary: { fontSize: 13 },
   float: {
     position: 'absolute',
     zIndex: 2,

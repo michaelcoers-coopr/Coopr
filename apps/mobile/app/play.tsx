@@ -568,11 +568,7 @@ export default function PlayScreen() {
     oval,
     invite: PATTERN_INVITE,
   });
-  const noTarget = !onGreen && callYards == null;
-  const lineBlock = oneLiner ? (oneLiner.length > 34 ? 48 : 28) : 0;
-  const patternBlock = patternLine ? (patternLine.length > 34 ? 40 : 22) : 0;
-  const cardStack = 156 + (band && !noShots ? 18 : 0) + lineBlock + patternBlock + (risk ? 28 : 0);
-  const closedSheet = closedPlaySheet({ noTarget, noShots, cardStack, risk: risk != null, closed: SHEET_CLOSED });
+  const closedSheet = closedPlaySheet(SHEET_CLOSED);
   closedSheetRef.current = closedSheet;
   if (!sheetOpenRef.current) sheetH.value = closedSheet;
   const windMph = sky?.current?.windMph;
@@ -704,7 +700,6 @@ export default function PlayScreen() {
           dispersionLine={dispersionLine}
           measure={[]}
           marks={greenMarks}
-          caption={oval ? patternLine : null}
           onTap={() => undefined}
           rawLabel=""
           playsLabel=""

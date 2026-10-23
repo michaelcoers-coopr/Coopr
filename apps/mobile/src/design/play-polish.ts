@@ -93,9 +93,6 @@ const SHEET_GAP = 8;
  */
 export const MAP_PANEL_CLEAR = 214;
 
-/** Closed club card for a club with no measured shots: handle, name, invitation, strip. */
-export const NO_SHOTS_SHEET = 160;
-
 export function mapHudInset(safeTop: number): number {
   const safe = Number.isFinite(safeTop) ? Math.max(0, safeTop) : 0;
   return safe + MAP_PANEL_CLEAR;
@@ -119,15 +116,9 @@ export function patternCaption(input: {
   return input.invite;
 }
 
-/** Sheet height while the club card is closed. A no-shot club hugs its contents. A called shot keeps the full card. */
-export function closedPlaySheet(input: { noTarget: boolean; noShots: boolean; cardStack: number; risk: boolean; closed: number }): number {
-  const closed = Number.isFinite(input.closed) ? Math.max(0, input.closed) : 0;
-  if (input.noShots) return Math.min(closed, NO_SHOTS_SHEET + (input.risk ? 28 : 0));
-  if (input.noTarget) {
-    const stack = Number.isFinite(input.cardStack) ? input.cardStack : 148;
-    return Math.min(closed, Math.max(148, stack));
-  }
-  return closed;
+/** Collapsed club sheet. The height does not follow the club, so scrubbing does not rescale the map. */
+export function closedPlaySheet(closed: number): number {
+  return Number.isFinite(closed) ? Math.max(0, closed) : 0;
 }
 
 export function holeFrame(input: { hudHeight: number; dockHeight: number; sheetClosed: number }): {

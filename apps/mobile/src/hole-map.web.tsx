@@ -6,7 +6,7 @@ import { colors, font } from '@coopr/tokens';
 import { projectAlongHole, projectPoints } from '@coopr/engine';
 import { Muted } from './ui';
 import type { HoleMapProps } from './hole-map-props';
-import { clipPolylineAtOval, ellipseEdge, fittedEllipse, insideEllipse, layoutHoleLabels } from './map-label-layout';
+import { clipPolylineAtOval, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd } from './map-label-layout';
 
 const ROUGH = '#0E3320';
 const FAIRWAY_DARK = '#176B3A';
@@ -133,7 +133,6 @@ export function HoleMap(props: HoleMapProps) {
         : projectPoints(cloud, width, height, pad);
   const bleed = props.bleed === true;
   const ink = bleed ? '#F4FFF6' : colors.navy;
-  const markInk = bleed ? '#F4F7FB' : colors.navy;
   const tee = bleed && projection && props.line[0] ? projection.toXY(props.line[0]) : null;
   const pinPoint = bleed && projection && props.line.length > 1 ? props.line[props.line.length - 1] : null;
   const pin = pinPoint && projection ? projection.toXY(pinPoint) : null;
@@ -152,7 +151,6 @@ export function HoleMap(props: HoleMapProps) {
   const back = projection && props.marks ? projection.toXY(props.marks.back) : null;
   const greenPoints = projection ? props.green.flatMap((ring) => ring.map((point) => projection.toXY(point))) : [];
   const mapLabels = projection ? (props.labels ?? []).map((label) => ({ text: label.label, at: projection.toXY(label.at) })) : [];
-  const caption = props.caption ?? null;
   const layoutSignature = projection
     ? [
         width,
@@ -161,16 +159,13 @@ export function HoleMap(props: HoleMapProps) {
         frame.right,
         frame.bottom,
         frame.left,
-        caption ?? '',
         pointSig(lineXY),
-        pointSig(flightXY),
-        pointSig(ellipsePts),
         pointSig(greenPoints),
-        pointSig([front, center, back, pin].filter((point): point is XY => point != null)),
+        pointSig([front, center, back].filter((point): point is XY => point != null)),
         mapLabels.map((label) => `${label.text}@${label.at.x.toFixed(0)},${label.at.y.toFixed(0)}`).join('|'),
       ].join(';')
     : '';
-  const placedLabels = useMemo(
+  const placed = useMemo(
     () =>
       projection
         ? layoutHoleLabels({
@@ -178,18 +173,14 @@ export function HoleMap(props: HoleMapProps) {
             height,
             pad: frame,
             line: lineXY,
-            flight: flightXY,
             front,
             center,
             back,
-            pin,
             greenPoints,
-            ellipsePoints: ellipsePts,
             labels: mapLabels,
-            caption,
           })
-        : [],
-    // Breath and the flight stroke do not change this signature, so they do not recompute the labels.
+        : { labels: [], dots: [] },
+    // Breath and the flight stroke do not change this signature, so they do not move the labels.
     [layoutSignature],
   );
   if (!projection) return <Muted>This hole has no open geometry to draw.</Muted>;
@@ -273,16 +264,6 @@ export function HoleMap(props: HoleMapProps) {
           <Polygon key={`green-${index}`} points={pointsOf(ring, projection)} fill={bleed ? GREEN : colors.white} stroke={bleed ? '#FFFFFF' : ink} strokeWidth={2} />
         ))}
         {bleed && props.green.length > 0 ? <Rect x={0} y={0} width={width} height={height} fill={`url(#${uid}-shine)`} clipPath={`url(#${uid}-green)`} /> : null}
-        {props.marks
-          ? (['front', 'back', 'center'] as const).map((key) => {
-              const xy = projection.toXY(props.marks![key]);
-              const primary = key === 'center';
-              const radius = primary ? 7 : 4.5;
-              return (
-                <Circle key={key} cx={xy.x} cy={xy.y} r={radius} fill={primary ? '#FFFFFF' : 'rgba(255,255,255,0.55)'} stroke={markInk} strokeWidth={primary ? 2 : 1} />
-              );
-            })
-          : null}
         {props.line.length > 1 ? (
           <Polyline
             points={pointsOf(props.line, projection)}
@@ -328,20 +309,21 @@ export function HoleMap(props: HoleMapProps) {
               );
             })()
           : null}
-        {placedLabels.map((label) =>
-          label.kind === 'letter' ? (
-            <MapText key={label.id} x={label.at.x} y={label.at.y + 5} fill="#FFFFFF" fontSize={17} fontWeight="700" fontFamily={font.family} fontFeatureSettings='"tnum"' textAnchor="middle" style={mapLabelStyle}>
-              {label.text}
-            </MapText>
-          ) : (
+        {placed.dots.map((dot) => (
+          <Circle key={dot.id} cx={dot.at.x} cy={dot.at.y} r={GREEN_DOT / 2} fill="#FFFFFF" stroke="#0B1F3A" strokeOpacity={0.55} strokeWidth={1} />
+        ))}
+        {placed.labels.map((label) => {
+          const end = leaderEnd(label.anchor, label.box);
+          return (
             <G key={label.id}>
-              <Rect x={label.box.x} y={label.box.y} width={label.box.w} height={label.box.h} rx={label.kind === 'caption' ? 8 : 10} fill="rgba(11,31,58,0.88)" />
-              <MapText x={label.at.x} y={label.at.y} fill="#FFFFFF" fontSize={label.kind === 'caption' ? 13 : 17} fontWeight="700" fontFamily={font.family} fontFeatureSettings='"tnum"' textAnchor="middle" style={mapLabelStyle}>
+              {label.leader ? <Line x1={label.anchor.x} y1={label.anchor.y} x2={end.x} y2={end.y} stroke="#FFFFFF" strokeOpacity={0.9} strokeWidth={1.5} /> : null}
+              <Rect x={label.box.x} y={label.box.y} width={label.box.w} height={label.box.h} rx={10} fill="rgba(11,31,58,0.88)" />
+              <MapText x={label.at.x} y={label.at.y} fill="#FFFFFF" fontSize={17} fontWeight="700" fontFamily={font.family} fontFeatureSettings='"tnum"' textAnchor="middle" style={mapLabelStyle}>
                 {label.text}
               </MapText>
             </G>
-          ),
-        )}
+          );
+        })}
         {props.dispersionLine.length > 1 ? (
           <Polyline points={pointsOf(props.dispersionLine, projection)} fill="none" stroke={bleed ? 'rgba(255,255,255,0.7)' : colors.navy} strokeWidth={4} />
         ) : null}

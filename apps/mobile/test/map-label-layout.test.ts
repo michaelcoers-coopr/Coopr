@@ -7,14 +7,14 @@ import {
   flightArc,
   greenTargets,
   holeOverlay,
-  PATTERN_INVITE,
   projectAlongHole,
   SAMPLE_PATTERN,
   shotBearing,
+  type LabelBox,
 } from '@coopr/engine';
-import { holeFrame, mapHudInset, patternCaption } from '../src/design/play-polish';
+import { holeFrame, mapHudInset } from '../src/design/play-polish';
 import { holeLabels } from '../src/map-labels';
-import { boxesSeparated, LABEL_GAP, layoutHoleLabels, type PlacedMapLabel } from '../src/map-label-layout';
+import { boxesSeparated, GREEN_DOT, LABEL_GAP, layoutHoleLabels, leaderLength, LEADER_MAX, type PlacedMapLabel } from '../src/map-label-layout';
 
 const WIDTH = 390;
 const HEIGHT = 844;
@@ -23,8 +23,16 @@ function pairName(items: readonly PlacedMapLabel[], index: number, other: number
   return `${items[index]!.text} and ${items[other]!.text}`;
 }
 
+function greenBox(points: readonly { x: number; y: number }[]): LabelBox {
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxY = Math.max(...points.map((point) => point.y));
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
 describe('hole 1 map labels', () => {
-  it('keeps every label at least 6pt apart on a 390 by 844 viewport', () => {
+  it('keeps dots on the green and pills attached, 6pt apart, on a 390 by 844 viewport', () => {
     const pilot = loadHighCedarsPilot();
     const overlay = holeOverlay(pilot.features, pilot.record.scorecard, 1);
     const line = [...overlay.line];
@@ -42,15 +50,6 @@ describe('hole 1 map labels', () => {
     const landing = destinationPoint(player, bearing!, 156);
     const oval = dispersionOval([...SAMPLE_PATTERN]);
     expect(oval).not.toBeNull();
-    const caption = patternCaption({
-      onGreen: false,
-      noShots: false,
-      lowConfidence: false,
-      sample: true,
-      oval,
-      invite: PATTERN_INVITE,
-    });
-    expect(caption).toBe(`Sample pattern · ±${oval!.carryStdYards} × ±${oval!.lateralStdYards} yd`);
     const ellipse = ellipseRing(landing, bearing!, oval!.carryStdYards, oval!.lateralStdYards, 36, oval!.biasDeg);
     const flight = flightArc(player, landing);
     const pad = holeFrame({ hudHeight: mapHudInset(0), dockHeight: 80, sheetClosed: 200 });
@@ -61,43 +60,55 @@ describe('hole 1 map labels', () => {
     const cloud = [line, ...fairways, ...green, ...bunkers, ...hazards, ellipse, flight].flat();
     const projection = projectAlongHole(cloud, WIDTH, HEIGHT, pad, bearing!, tee!);
     const labels = holeLabels(line, 'yd', { at: landing, label: '156' });
-    const placed = layoutHoleLabels({
+    const front = projection.toXY(marks!.front);
+    const middle = projection.toXY(marks!.center);
+    const back = projection.toXY(marks!.back);
+    const greenPoints = green.flatMap((ring) => ring.map((point) => projection.toXY(point)));
+    const input = {
       width: WIDTH,
       height: HEIGHT,
       pad,
       line: line.map((point) => projection.toXY(point)),
-      flight: flight.map((point) => projection.toXY(point)),
-      front: projection.toXY(marks!.front),
-      center: projection.toXY(marks!.center),
-      back: projection.toXY(marks!.back),
-      pin: projection.toXY(line[line.length - 1]!),
-      greenPoints: green.flatMap((ring) => ring.map((point) => projection.toXY(point))),
-      ellipsePoints: ellipse.map((point) => projection.toXY(point)),
-      labels: labels.map((label) => ({ text: label.label, at: projection.toXY(label.at) })),
-      caption,
-    });
+      front,
+      center: middle,
+      back,
+      greenPoints,
+      labels: [
+        ...labels.map((label) => ({ text: label.label, at: projection.toXY(label.at) })),
+        { text: 'Sample pattern · ±2.8 × ±2.4 yd', at: middle },
+      ],
+    };
+    const placed = layoutHoleLabels(input);
+    const again = layoutHoleLabels(input);
 
-    for (const label of labels) expect(placed.some((item) => item.text === label.label)).toBe(true);
-    expect(placed.map((item) => item.text)).toEqual(expect.arrayContaining(['F', 'C', 'B', '156', caption!]));
-    for (let index = 0; index < placed.length; index += 1) {
-      for (let other = index + 1; other < placed.length; other += 1) {
-        expect(boxesSeparated(placed[index]!.box, placed[other]!.box, LABEL_GAP), pairName(placed, index, other)).toBe(true);
-      }
+    expect(GREEN_DOT).toBe(6);
+    expect(placed.dots.map((dot) => dot.id)).toEqual(['front', 'center', 'back']);
+    expect(placed.dots[0]!.at).toEqual(front);
+    expect(placed.dots[1]!.at).toEqual(middle);
+    expect(placed.dots[2]!.at).toEqual(back);
+    expect(placed.labels.map((item) => item.text)).not.toEqual(expect.arrayContaining(['F', 'C', 'B']));
+    expect(placed.labels.some((item) => item.text.startsWith('Sample'))).toBe(false);
+    expect(again.labels).toEqual(placed.labels);
+    const greenRect = greenBox(greenPoints);
+    const plays = placed.labels.find((item) => item.text === '156');
+    expect(plays).toBeTruthy();
+    expect(plays!.leader).toBe(true);
+    expect(leaderLength(plays!.anchor, plays!.box)).toBeLessThanOrEqual(LEADER_MAX);
+    expect(boxesSeparated(plays!.box, greenRect, 0)).toBe(true);
+    for (const yards of ['150', '300', '450']) {
+      const pill = placed.labels.find((item) => item.text === yards);
+      expect(pill, yards).toBeTruthy();
+      expect(leaderLength(pill!.anchor, pill!.box), yards).toBe(0);
     }
 
-    const front = projection.toXY(marks!.front);
-    const back = projection.toXY(marks!.back);
-    const dx = back.x - front.x;
-    const dy = back.y - front.y;
-    const length = Math.hypot(dx, dy) || 1;
-    const dir = { x: dx / length, y: dy / length };
-    const perp = { x: -dir.y, y: dir.x };
-    const f = placed.find((item) => item.text === 'F')!;
-    const b = placed.find((item) => item.text === 'B')!;
-    const fAlong = (f.at.x - front.x) * dir.x + (f.at.y - front.y) * dir.y;
-    const fAcross = (f.at.x - front.x) * perp.x + (f.at.y - front.y) * perp.y;
-    const bAcross = (b.at.x - back.x) * perp.x + (b.at.y - back.y) * perp.y;
-    expect(fAlong).toBeLessThan(0);
-    expect(Math.sign(fAcross)).not.toBe(Math.sign(bAcross));
+    for (const label of placed.labels) {
+      expect(leaderLength(label.anchor, label.box), label.text).toBeLessThanOrEqual(LEADER_MAX);
+      if (label.id.startsWith('plays')) expect(boxesSeparated(label.box, greenRect, 0), label.text).toBe(true);
+    }
+    for (let index = 0; index < placed.labels.length; index += 1) {
+      for (let other = index + 1; other < placed.labels.length; other += 1) {
+        expect(boxesSeparated(placed.labels[index]!.box, placed.labels[other]!.box, LABEL_GAP), pairName(placed.labels, index, other)).toBe(true);
+      }
+    }
   });
 });
