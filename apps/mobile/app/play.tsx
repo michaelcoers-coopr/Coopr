@@ -454,7 +454,10 @@ export default function PlayScreen() {
       return id;
     },
     onRemoveTag: removeTag,
-    onAsk: () => openTalk.current(),
+    onAsk: () => {
+      applySheet.current(true);
+      openTalk.current();
+    },
   });
 
   const bannerOn = ask.banner != null;

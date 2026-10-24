@@ -3,7 +3,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const play = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../app/play.tsx'), 'utf8');
+const here = dirname(fileURLToPath(import.meta.url));
+const play = readFileSync(join(here, '../app/play.tsx'), 'utf8');
+const map = readFileSync(join(here, '../src/hole-map-canvas.tsx'), 'utf8');
 
 describe('left rail hole screen', () => {
   it('floats the yardage and the thumb rail, and keeps weather in Stats', () => {
@@ -24,5 +26,7 @@ describe('left rail hole screen', () => {
     expect(play).not.toContain('>Tee shot<');
     expect(play).not.toContain('Mark shot</Text>');
     expect(play).not.toContain('shotChips');
+    expect(play).toContain('applySheet.current(true)');
+    expect(map).toContain('props.creditLeft != null');
   });
 });

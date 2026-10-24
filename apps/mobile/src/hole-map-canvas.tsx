@@ -604,7 +604,7 @@ export function HoleMap(props: HoleMapProps) {
           />
         ))}
       </View>
-      {photo && props.showCredit !== false ? (
+      {(photo || props.creditLeft != null) && props.showCredit !== false ? (
         <View
           pointerEvents="none"
           style={[
