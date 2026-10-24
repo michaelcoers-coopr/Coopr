@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { AERIAL_CREDIT, AERIAL_CREDIT_SHORT } from '../src/aerial/project';
+import { AERIAL_CREDIT, AERIAL_CREDIT_SHORT, AERIAL_CREDIT_TIGHT, aerialMapCredit } from '../src/aerial/project';
 import { MAP_LAYER, aerialLayerTree } from '../src/aerial/map-layers';
 
 function zIndexOf(html: string, layer: string): number {
@@ -38,9 +38,9 @@ describe('aerial layer order', () => {
     expect(source).toContain("position: 'relative'");
     expect(source).toContain('styles.photoLayer');
     expect(source).toContain('styles.vectorOverlay');
-    expect(source).toContain('AERIAL_CREDIT_SHORT');
+    expect(source).toContain('aerialMapCredit');
     expect(source).not.toContain(AERIAL_CREDIT);
-    expect(source).toContain("left: 16");
+    expect(source).toContain('MAP_CREDIT_LEFT = 116');
     expect(source).not.toContain('right: 10, maxWidth');
     const flag = source.indexOf("fill={colors.red}");
     const oval = source.lastIndexOf('ovalfill');
@@ -52,12 +52,16 @@ describe('map credit', () => {
   it('keeps the full sentence for More and the course screen, and a single map line', () => {
     expect(AERIAL_CREDIT).toBe('Imagery: USDA NAIP, stylized. Outlines © OpenStreetMap contributors');
     expect(AERIAL_CREDIT_SHORT).toBe('© OpenStreetMap contributors');
+    expect(AERIAL_CREDIT_TIGHT).toBe('© OpenStreetMap');
     expect(AERIAL_CREDIT_SHORT).not.toContain('\n');
+    expect(AERIAL_CREDIT_TIGHT).not.toContain('\n');
     expect(AERIAL_CREDIT_SHORT.length).toBeLessThan(AERIAL_CREDIT.length);
     expect(AERIAL_CREDIT).toContain('NAIP');
     expect(AERIAL_CREDIT).toContain('stylized');
     expect(AERIAL_CREDIT).toContain(AERIAL_CREDIT_SHORT);
-    const rendered = renderToStaticMarkup(createElement('span', null, AERIAL_CREDIT_SHORT));
+    expect(aerialMapCredit(390 - 116 - 112)).toBe(AERIAL_CREDIT_SHORT);
+    expect(aerialMapCredit(120)).toBe(AERIAL_CREDIT_TIGHT);
+    const rendered = renderToStaticMarkup(createElement('span', null, aerialMapCredit(200)));
     expect(rendered).toBe(`<span>${AERIAL_CREDIT_SHORT}</span>`);
   });
 });

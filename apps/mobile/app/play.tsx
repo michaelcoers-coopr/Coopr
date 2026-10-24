@@ -1399,7 +1399,7 @@ function PuttStepper({ value, onWrite }: { value: number | null; onWrite: (next:
     void tick();
   };
   return (
-    <Glass radius={18} style={styles.puttShell} contentStyle={styles.puttFill}>
+    <View style={styles.puttShell}>
       <Pressable accessibilityRole="button" accessibilityLabel="Fewer putts" onPress={() => step('down')} style={styles.puttHit}>
         <Text style={styles.puttSign}>−</Text>
       </Pressable>
@@ -1409,7 +1409,7 @@ function PuttStepper({ value, onWrite }: { value: number | null; onWrite: (next:
       <Pressable accessibilityRole="button" accessibilityLabel="More putts" onPress={() => step('up')} style={styles.puttHit}>
         <Text style={styles.puttSign}>+</Text>
       </Pressable>
-    </Glass>
+    </View>
   );
 }
 
@@ -1597,8 +1597,18 @@ const styles = StyleSheet.create({
   details: { flex: 1, minHeight: 0, zIndex: 1 },
   heard: { paddingHorizontal: 16, paddingBottom: 4, gap: 4, zIndex: 1 },
   detailsBody: { paddingHorizontal: 16, paddingBottom: 36, gap: 12 },
-  puttShell: { alignSelf: 'flex-start', height: 36 },
-  puttFill: { flexGrow: 0, flexDirection: 'row', alignItems: 'center', height: 36, paddingHorizontal: 2 },
+  puttShell: {
+    alignSelf: 'flex-start',
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+    backgroundColor: 'rgba(4,10,24,0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.62)',
+  },
   puttHit: { width: 36, height: 34, alignItems: 'center', justifyContent: 'center' },
   puttSign: { color: '#FFFFFF', fontSize: 20, lineHeight: 22, fontWeight: '700' },
   puttNum: { color: '#FFFFFF', fontSize: 16, lineHeight: 20, minWidth: 20, textAlign: 'center', fontVariant: ['tabular-nums'], fontWeight: '700' },

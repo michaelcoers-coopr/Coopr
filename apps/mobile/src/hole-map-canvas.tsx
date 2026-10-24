@@ -10,7 +10,7 @@ import { useDisplayFace } from './design/display-font';
 import { HOLE_BLEED_PAD, holeFitPoints, playingWidthMeters, projectHoleFill, projectPlayFrame } from './hole-fit';
 import { tileSourceDrawsVectors } from './tile-source';
 import { MAP_LAYER } from './aerial/map-layers';
-import { AERIAL_CREDIT_SHORT, aerialScreenProjection, aerialView } from './aerial/project';
+import { aerialMapCredit, aerialScreenProjection, aerialView } from './aerial/project';
 import { AERIAL_OVAL_FLOOR, boundsBox, clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark, sampleCaptionAt, sampleCaptionBox } from './map-label-layout';
 
 const SURROUND = '#143524';
@@ -601,7 +601,7 @@ export function HoleMap(props: HoleMapProps) {
       {photo && props.showCredit !== false ? (
         <View pointerEvents="none" style={[styles.creditWrap, { bottom: props.creditBottom ?? frame.bottom + 28 }]}>
           <Text numberOfLines={1} style={styles.credit}>
-            {AERIAL_CREDIT_SHORT}
+            {aerialMapCredit(Math.max(0, width - MAP_CREDIT_LEFT - MAP_CREDIT_RIGHT))}
           </Text>
         </View>
       ) : null}
@@ -621,6 +621,11 @@ export function HoleMap(props: HoleMapProps) {
   );
 }
 
+/** Clears the Score tile, which reaches about x=109 on a 390px screen. */
+const MAP_CREDIT_LEFT = 116;
+/** Clears Ask, which is a 96px orb inset 8px from the right. */
+const MAP_CREDIT_RIGHT = 112;
+
 const styles = StyleSheet.create({
   frame: { position: 'relative', borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2', backgroundColor: colors.bg, zIndex: 0 },
   bleed: { width: '100%', borderRadius: 0, borderWidth: 0, backgroundColor: SURROUND },
@@ -628,7 +633,7 @@ const styles = StyleSheet.create({
   photoLayer: { zIndex: MAP_LAYER.photo },
   photoImage: { position: 'absolute' },
   vectorOverlay: { position: 'relative', zIndex: MAP_LAYER.overlay },
-  creditWrap: { position: 'absolute', left: 16, right: 120, zIndex: MAP_LAYER.credit, alignItems: 'flex-start' },
+  creditWrap: { position: 'absolute', left: MAP_CREDIT_LEFT, right: MAP_CREDIT_RIGHT, zIndex: MAP_LAYER.credit, alignItems: 'flex-start' },
   credit: {
     color: 'rgba(255,255,255,0.94)',
     fontSize: 10,

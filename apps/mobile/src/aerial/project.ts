@@ -13,11 +13,26 @@ export const AERIAL_TOLERANCE_PX = 0.25;
 export const AERIAL_CREDIT = 'Imagery: USDA NAIP, stylized. Outlines © OpenStreetMap contributors';
 
 /**
- * One line on the map. ODbL wants the contributors named, and this is the
- * line that fits above Score and Mark. NAIP and "stylized" stay on More
- * and the course screen, in AERIAL_CREDIT.
+ * ODbL line on the map. The contributors form is used when the gap between
+ * Score and Ask can hold it. Otherwise the map uses the shorter line.
+ * NAIP and "stylized" stay on More and the course screen, in AERIAL_CREDIT.
  */
 export const AERIAL_CREDIT_SHORT = '© OpenStreetMap contributors';
+
+/** Shorter ODbL line. Same meaning, for a narrow gap beside the Score tile. */
+export const AERIAL_CREDIT_TIGHT = '© OpenStreetMap';
+
+/**
+ * Width of the contributors line at the map's 10px face, plus a little spare.
+ * On the 390px web export the glyphs ran from x=16 to x=154, so 138px.
+ */
+const MAP_CREDIT_FULL_PX = 148;
+
+/** The on-map credit that fits in `availablePx` on one line. */
+export function aerialMapCredit(availablePx: number): string {
+  if (Number.isFinite(availablePx) && availablePx >= MAP_CREDIT_FULL_PX) return AERIAL_CREDIT_SHORT;
+  return AERIAL_CREDIT_TIGHT;
+}
 
 export interface AerialTestPoint {
   name: string;
