@@ -51,10 +51,12 @@ describe('aerial layer order', () => {
 describe('map credit', () => {
   it('keeps the full sentence for More and the course screen, and a single map line', () => {
     expect(AERIAL_CREDIT).toBe('Imagery: USDA NAIP, stylized. Outlines © OpenStreetMap contributors');
+    expect(AERIAL_CREDIT_SHORT).toBe('© OpenStreetMap contributors');
     expect(AERIAL_CREDIT_SHORT).not.toContain('\n');
     expect(AERIAL_CREDIT_SHORT.length).toBeLessThan(AERIAL_CREDIT.length);
-    expect(AERIAL_CREDIT_SHORT).toContain('NAIP');
-    expect(AERIAL_CREDIT_SHORT).toContain('OSM');
+    expect(AERIAL_CREDIT).toContain('NAIP');
+    expect(AERIAL_CREDIT).toContain('stylized');
+    expect(AERIAL_CREDIT).toContain(AERIAL_CREDIT_SHORT);
     const rendered = renderToStaticMarkup(createElement('span', null, AERIAL_CREDIT_SHORT));
     expect(rendered).toBe(`<span>${AERIAL_CREDIT_SHORT}</span>`);
   });

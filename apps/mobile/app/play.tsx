@@ -62,7 +62,7 @@ import { HoleMap } from '../src/hole-map';
 import { boom, celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { acceptHoleGesture, shouldAutoAdvance } from '../src/design/hole-nav';
 import { holeSwipe, rollSteps } from '../src/design/motion';
-import { clubDetail, clubFigure, closedPlaySheet, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { clubDetail, clubFigure, closedPlaySheet, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreCommit, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { SheetBall } from '../src/design/sheet-ball';
 import { SHEET_BALL_TEXT } from '../src/design/sheet-ball-geometry';
 import { caddieVoiceLine } from '../src/design/caddie-voice';
@@ -1299,9 +1299,7 @@ export default function PlayScreen() {
             {longTotal ? <Text style={styles.body}>{longTotal}</Text> : null}
             {missLine ? <Text style={styles.body}>{missLine}</Text> : null}
             <Text style={styles.body}>Putts stay off the score.</Text>
-            <View style={styles.puttChip}>
-              <CountChip value={puttCount} confirmed={face.puttsConfirmed} par={null} floor={0} idleLabel="Putts" onWrite={writePutts} />
-            </View>
+            <PuttStepper value={puttCount} onWrite={writePutts} />
             {face.suggestion != null && face.suggestion !== face.strokes ? (
               <Pressable
                 accessibilityRole="button"
@@ -1389,6 +1387,29 @@ function WindMark({ ink = '#FFFFFF' }: { ink?: string }) {
       <View style={[styles.windLineShort, { backgroundColor: ink }]} />
       <View style={[styles.windLine, { backgroundColor: ink }]} />
     </View>
+  );
+}
+
+/** Compact putt stepper. The score tile stays large; this one is a single 36px pill. */
+function PuttStepper({ value, onWrite }: { value: number | null; onWrite: (next: number) => void }) {
+  const display = useDisplayFace();
+  const shown = value == null ? 0 : value;
+  const step = (move: 'up' | 'down') => {
+    onWrite(scoreCommit(shown, move, 0));
+    void tick();
+  };
+  return (
+    <Glass radius={18} style={styles.puttShell} contentStyle={styles.puttFill}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Fewer putts" onPress={() => step('down')} style={styles.puttHit}>
+        <Text style={styles.puttSign}>−</Text>
+      </Pressable>
+      <Text accessibilityLabel={`Putts ${shown}`} style={[styles.puttNum, { fontFamily: display }]}>
+        {String(shown)}
+      </Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="More putts" onPress={() => step('up')} style={styles.puttHit}>
+        <Text style={styles.puttSign}>+</Text>
+      </Pressable>
+    </Glass>
   );
 }
 
@@ -1576,7 +1597,11 @@ const styles = StyleSheet.create({
   details: { flex: 1, minHeight: 0, zIndex: 1 },
   heard: { paddingHorizontal: 16, paddingBottom: 4, gap: 4, zIndex: 1 },
   detailsBody: { paddingHorizontal: 16, paddingBottom: 36, gap: 12 },
-  puttChip: { alignItems: 'flex-start' },
+  puttShell: { alignSelf: 'flex-start', height: 36 },
+  puttFill: { flexGrow: 0, flexDirection: 'row', alignItems: 'center', height: 36, paddingHorizontal: 2 },
+  puttHit: { width: 36, height: 34, alignItems: 'center', justifyContent: 'center' },
+  puttSign: { color: '#FFFFFF', fontSize: 20, lineHeight: 22, fontWeight: '700' },
+  puttNum: { color: '#FFFFFF', fontSize: 16, lineHeight: 20, minWidth: 20, textAlign: 'center', fontVariant: ['tabular-nums'], fontWeight: '700' },
   body: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24 },
   textHit: { minHeight: 56, justifyContent: 'center' },
   dock: { position: 'absolute', left: 12, right: 112, zIndex: 6, gap: 4 },

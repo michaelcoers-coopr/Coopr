@@ -12,8 +12,12 @@ export const AERIAL_TOLERANCE_PX = 0.25;
 /** Shown on More and the course screen. The picture is stylized NAIP, not current conditions. */
 export const AERIAL_CREDIT = 'Imagery: USDA NAIP, stylized. Outlines © OpenStreetMap contributors';
 
-/** One line on the map. The full credit stays on More and the course screen. */
-export const AERIAL_CREDIT_SHORT = 'USDA NAIP, stylized · © OSM';
+/**
+ * One line on the map. ODbL wants the contributors named, and this is the
+ * line that fits above Score and Mark. NAIP and "stylized" stay on More
+ * and the course screen, in AERIAL_CREDIT.
+ */
+export const AERIAL_CREDIT_SHORT = '© OpenStreetMap contributors';
 
 export interface AerialTestPoint {
   name: string;
