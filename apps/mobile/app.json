@@ -7,16 +7,24 @@
     "version": "2.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "backgroundColor": "#0A1020",
+    "icon": "./assets/brand/icon.png",
     "web": {
       "bundler": "metro",
       "output": "server"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.coopr.mobile"
+      "bundleIdentifier": "app.coopr.mobile",
+      "icon": "./assets/brand/icon.png"
     },
     "android": {
-      "package": "app.coopr.mobile"
+      "package": "app.coopr.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/brand/adaptive-icon.png",
+        "backgroundColor": "#0A1020",
+        "monochromeImage": "./assets/brand/adaptive-monochrome.png"
+      }
     },
     "experiments": {
       "typedRoutes": false
@@ -48,6 +56,37 @@
         {
           "photosPermission": "COOPR reads a photo you choose so a server can extract golf numbers. The photo is not kept on the server. You review every number before it is saved.",
           "cameraPermission": "COOPR uses the camera for a photo of a screen, scorecard, or club. The photo is not kept on the server. You review every number before it is saved."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/brand/notification-icon.png",
+          "color": "#0A1020",
+          "enableRemoteNotifications": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0A1020",
+          "image": "./assets/brand/splash.png",
+          "resizeMode": "contain",
+          "enableFullScreenImage_legacy": true,
+          "dark": {
+            "backgroundColor": "#0A1020",
+            "image": "./assets/brand/splash.png"
+          },
+          "android": {
+            "backgroundColor": "#0A1020",
+            "image": "./assets/brand/splash-mark.png",
+            "resizeMode": "contain",
+            "imageWidth": 152,
+            "dark": {
+              "backgroundColor": "#0A1020",
+              "image": "./assets/brand/splash-mark.png"
+            }
+          }
         }
       ]
     ],

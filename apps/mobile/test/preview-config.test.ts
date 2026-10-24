@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -96,6 +96,64 @@ describe('Expo Go preview and TestFlight profile', () => {
     });
     expect(eas.build.production.env.EXPO_PUBLIC_FOUNDER_TOOLS).toBe('0');
     expect(eas.build.production.channel).toBe('production');
+  });
+
+  it('points the icon and splash at the approved crest and keeps the bundle ids', () => {
+    const expo = appJson.expo as {
+      backgroundColor?: string;
+      icon?: string;
+      ios?: { icon?: string; bundleIdentifier?: string };
+      android?: {
+        package?: string;
+        adaptiveIcon?: { foregroundImage?: string; backgroundColor?: string; monochromeImage?: string };
+      };
+      plugins?: unknown[];
+    };
+    expect(expo.ios?.bundleIdentifier).toBe('app.coopr.mobile');
+    expect(expo.android?.package).toBe('app.coopr.mobile');
+    expect(expo.backgroundColor).toBe('#0A1020');
+    expect(expo.icon).toBe('./assets/brand/icon.png');
+    expect(expo.ios?.icon).toBe('./assets/brand/icon.png');
+    expect(expo.android?.adaptiveIcon).toEqual({
+      foregroundImage: './assets/brand/adaptive-icon.png',
+      backgroundColor: '#0A1020',
+      monochromeImage: './assets/brand/adaptive-monochrome.png',
+    });
+    const notifications = expo.plugins?.find(
+      (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-notifications',
+    ) as [string, { icon?: string; color?: string; enableRemoteNotifications?: boolean }] | undefined;
+    expect(notifications?.[1]).toEqual({
+      icon: './assets/brand/notification-icon.png',
+      color: '#0A1020',
+      enableRemoteNotifications: false,
+    });
+    const splash = expo.plugins?.find(
+      (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-splash-screen',
+    ) as [string, { backgroundColor?: string; image?: string; resizeMode?: string; android?: { image?: string; imageWidth?: number; resizeMode?: string; backgroundColor?: string } }] | undefined;
+    expect(splash?.[1]).toMatchObject({
+      backgroundColor: '#0A1020',
+      image: './assets/brand/splash.png',
+      resizeMode: 'contain',
+      android: {
+        backgroundColor: '#0A1020',
+        image: './assets/brand/splash-mark.png',
+        resizeMode: 'contain',
+        imageWidth: 152,
+      },
+    });
+    expect(mobilePackage.dependencies['expo-splash-screen']).toMatch(/^~58\./);
+    expect(mobilePackage.dependencies['expo-notifications']).toMatch(/^~58\./);
+    expect(JSON.stringify(expo)).not.toMatch(/"notification"\s*:/);
+    for (const file of [
+      'assets/brand/icon.png',
+      'assets/brand/adaptive-icon.png',
+      'assets/brand/adaptive-monochrome.png',
+      'assets/brand/notification-icon.png',
+      'assets/brand/splash.png',
+      'assets/brand/splash-mark.png',
+    ]) {
+      expect(existsSync(path.join(root, file))).toBe(true);
+    }
   });
 
   it('keeps EAS web output on the server unless a static screenshot export is requested', () => {

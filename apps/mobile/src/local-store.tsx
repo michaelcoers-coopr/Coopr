@@ -366,7 +366,7 @@ function applySavedRound(
   apply.setConditionsState(save.conditions);
 }
 
-export function LocalStoreProvider({ children }: { children: ReactNode }) {
+export function LocalStoreProvider({ children, fallback = null }: { children: ReactNode; fallback?: ReactNode }) {
   // Server rendering has no localStorage. Reading it in useState made the
   // server paint nothing and the browser paint the round, which is the
   // hydration mismatch. Both sides start empty; the effect fills the round.
@@ -734,7 +734,7 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
     });
   }, [hydrated, holes, currentHole, manualYards, tagged, debriefs, wedges, unit, plans, shots, putts, conditions, marks]);
 
-  if (!hydrated) return null;
+  if (!hydrated) return fallback;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
