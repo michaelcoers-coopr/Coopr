@@ -87,6 +87,7 @@ function contextFrom(body: Record<string, unknown>): TalkContext {
     thruLabel: typeof record.thruLabel === 'string' ? record.thruLabel : null,
     persona: record.persona === 'chill' ? 'chill' : 'chirpy',
     turns: Array.isArray(record.turns) ? (record.turns as TalkContext['turns']) : [],
+    cardLine: typeof record.cardLine === 'string' ? record.cardLine : null,
   });
 }
 

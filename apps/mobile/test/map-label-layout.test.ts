@@ -132,6 +132,8 @@ describe('hole 1 map labels', () => {
       if (label.id.startsWith('plays')) expect(boxesSeparated(label.box, greenRect, 0), label.text).toBe(true);
     }
     const besideTheFlag = sampleCaptionAt({ cx: 180, cy: 210, halfW: 36, halfH: 18 }, { x: 184, y: 188 });
+    expect(besideTheFlag).not.toBeNull();
+    if (!besideTheFlag) return;
     expect(besideTheFlag.anchor).not.toBe('middle');
     expect(Math.abs(besideTheFlag.x - 180)).toBeGreaterThan(36);
     const clear = sampleCaptionAt({ cx: 40, cy: 500, halfW: 20, halfH: 12 }, { x: 300, y: 80 });
@@ -140,6 +142,8 @@ describe('hole 1 map labels', () => {
       { x: 160, y: 188, w: 90, h: 30 },
       { x: 90, y: 220, w: 80, h: 40 },
     ]);
+    expect(crowded).not.toBeNull();
+    if (!crowded) return;
     const crowdedBox = sampleCaptionBox(crowded);
     for (const block of [
       { x: 160, y: 188, w: 90, h: 30 },
@@ -151,11 +155,22 @@ describe('hole 1 map labels', () => {
     const pill = { x: 236, y: 220, w: 40, h: 24 };
     const pin = { x: 210, y: 250 };
     const cleared = sampleCaptionAt({ cx: 200, cy: 240, halfW: 28, halfH: 16 }, pin, [pill], greenOutline, { x: 0, y: 0, w: 390, h: 500 });
+    expect(cleared).not.toBeNull();
+    if (!cleared) return;
     const clearedBox = sampleCaptionBox(cleared);
     const flag = { x: pin.x - 8, y: pin.y - 40, w: 32, h: 44 };
     expect(boxesSeparated(clearedBox, pill, 8)).toBe(true);
     expect(boxesSeparated(clearedBox, greenOutline, 8)).toBe(true);
     expect(boxesSeparated(clearedBox, flag, 8)).toBe(true);
+    const hud = { x: 0, y: 0, w: 390, h: 140 };
+    const underTheHud = sampleCaptionAt({ cx: 200, cy: 90, halfW: 28, halfH: 16 }, null, [hud], null, { x: 0, y: 140, w: 390, h: 400 });
+    if (underTheHud) {
+      const box = sampleCaptionBox(underTheHud);
+      expect(box.y).toBeGreaterThanOrEqual(140);
+      expect(boxesSeparated(box, hud, 0)).toBe(true);
+    } else {
+      expect(underTheHud).toBeNull();
+    }
     const fairwayMarks = [
       { at: { lat: 0, lon: 0 }, label: '150' },
       { at: { lat: 0, lon: 1 }, label: '300' },

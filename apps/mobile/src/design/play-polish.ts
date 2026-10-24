@@ -1,5 +1,4 @@
-import type { DistanceUnit } from '@coopr/engine';
-import { unitLabel } from '@coopr/engine';
+import { formatDistance, unitLabel, type DistanceUnit } from '@coopr/engine';
 
 export interface ClubFigure {
   label: 'Plays like' | 'Shot';
@@ -44,6 +43,26 @@ function countWord(unit: DistanceUnit, count: number): string {
   const plural = unitLabel(unit);
   if (count === 1 && plural.endsWith('s')) return plural.slice(0, -1);
   return plural;
+}
+
+/** Gap and median for the club on the card. Another club's stock never appears here. */
+export function clubDetail(input: {
+  clubLabel: string | null;
+  metric: 'carry' | 'total' | null;
+  stockYards: number | null;
+  targetYards: number | null;
+  unit: DistanceUnit;
+}): { gap: string | null; median: string | null } {
+  const gap = clubWhy({
+    layupReason: null,
+    stockYards: input.stockYards,
+    targetYards: input.targetYards,
+    playsLike: input.targetYards != null,
+    unit: input.unit,
+  });
+  if (!input.clubLabel || input.stockYards == null || !Number.isFinite(input.stockYards)) return { gap, median: null };
+  const metric = input.metric === 'carry' ? 'carry' : 'total';
+  return { gap, median: `${input.clubLabel} ${metric} median is ${formatDistance(input.stockYards, input.unit)}.` };
 }
 
 /**

@@ -478,18 +478,19 @@ export function HoleMap(props: HoleMapProps) {
         })}
         {props.ellipseCaption && ellipseDraw
           ? (() => {
-              const caption = sampleCaptionAt(
-                ellipseDraw,
-                pin,
-                placed.labels.map((label) => label.box),
-                boundsBox(greenPoints, 8),
-                {
-                  x: frame.left,
-                  y: frame.top,
-                  w: Math.max(0, width - frame.left - frame.right),
-                  h: Math.max(0, height - frame.top - frame.bottom),
-                },
-              );
+              const view = {
+                x: frame.left,
+                y: frame.top,
+                w: Math.max(0, width - frame.left - frame.right),
+                h: Math.max(0, height - frame.top - frame.bottom),
+              };
+              const blocked = [
+                ...placed.labels.map((label) => label.box),
+                ...(frame.top > 0 ? [{ x: 0, y: 0, w: width, h: frame.top }] : []),
+                ...(frame.bottom > 0 ? [{ x: 0, y: height - frame.bottom, w: width, h: frame.bottom }] : []),
+              ];
+              const caption = sampleCaptionAt(ellipseDraw, pin, blocked, boundsBox(greenPoints, 8), view);
+              if (!caption) return null;
               return (
                 <MapText
                   x={caption.x}

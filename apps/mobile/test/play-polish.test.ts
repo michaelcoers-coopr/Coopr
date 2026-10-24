@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardGravity, CLOSED_CARD, clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreCommit, scoreDrag, scoreGlance, scoreGlow, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { cardGravity, CLOSED_CARD, clubDetail, clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreCommit, scoreDrag, scoreGlance, scoreGlow, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { dispersionOval, PATTERN_INVITE, SAMPLE_PATTERN } from '@coopr/engine';
 
 describe('one shot readout', () => {
@@ -20,6 +20,16 @@ describe('one shot readout', () => {
 });
 
 describe('club card copy', () => {
+  it('quotes the card club in the details, not a closer club that was left out', () => {
+    const detail = clubDetail({ clubLabel: '7-iron', metric: 'total', stockYards: 154, targetYards: 163, unit: 'yd' });
+    expect(detail.gap).toBe('9 yards short.');
+    expect(detail.median).toBe('7-iron total median is 154.');
+    expect(`${detail.gap} ${detail.median}`).not.toMatch(/5-iron/);
+    const card = 'Short is dead. 7-iron is 9 yards short of 163.';
+    expect(card).toMatch(/7-iron/);
+    expect(detail.median).toMatch(/7-iron/);
+  });
+
   it('shows plays-like on the card and leaves a live GPS number off it', () => {
     expect(clubFigure(154, 160, true)).toEqual({ label: 'Plays like', yards: 154 });
     expect(clubFigure(null, 160, true)).toBeNull();

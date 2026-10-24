@@ -45,6 +45,7 @@ import {
   patternColor,
   patternSafety,
   playsLikeChips,
+  quotedProfile,
   riskCall,
   thruScore,
   WEDGE_LENGTHS,
@@ -60,7 +61,7 @@ import { loadHighCedarsPilot } from '@coopr/course';
 import { HoleMap } from '../src/hole-map';
 import { boom, celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { holeSwipe, rollSteps } from '../src/design/motion';
-import { clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { clubDetail, clubFigure, closedPlaySheet, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { caddieVoiceLine } from '../src/design/caddie-voice';
 import { useDisplayFace } from '../src/design/display-font';
 import { MomentOverlay } from '../src/design/moments';
@@ -133,13 +134,6 @@ function plainMiss(marks: readonly MissMark[]): string | null {
   return null;
 }
 
-function measuredProfile(profiles: readonly DistanceProfile[], clubId: string | null): DistanceProfile | null {
-  if (!clubId) return null;
-  const mine = profiles.filter((profile) => profile.clubId === clubId && !profile.reported);
-  const totals = mine.filter((profile) => profile.metric === 'total');
-  const pool = totals.length > 0 ? totals : mine;
-  return [...pool].sort((a, b) => Number(b.dispersionKnown) - Number(a.dispersionKnown) || b.sampleSize - a.sampleSize)[0] ?? null;
-}
 
 function carryBand(profile: DistanceProfile | null, unit: DistanceUnit): string | null {
   if (!profile?.dispersionKnown) return null;
@@ -223,6 +217,7 @@ export default function PlayScreen() {
   }, []);
   const advanced = useRef(0);
   const openTalk = useRef<() => void>(() => {});
+  const visibleCall = useRef<{ line: string | null; clubId: string | null; clubLabel: string | null }>({ line: null, clubId: null, clubLabel: null });
   const voiceClub = useRef<{
     clubId: string | null;
     clubLabel: string;
@@ -526,6 +521,7 @@ export default function PlayScreen() {
     },
     onNext: () => leaveRef.current(),
     surface: 'sheet',
+    cardSnapshot: () => visibleCall.current,
   });
   openTalk.current = talk.open;
   const spokenCallout = useRef<string | null>(null);
@@ -669,8 +665,6 @@ export default function PlayScreen() {
         ? card.clubLabel?.split('·')[0]?.trim() || card.clubLabel
         : null;
   const carryStock = carryProfile(profiles, calledId);
-  const totalStock = totalProfile(profiles, calledId);
-  const stockYards = card?.metricUsed === 'carry' ? carryStock?.stockYards ?? null : totalStock?.stockYards ?? short?.carryYards ?? null;
   const hazard = taggedHazardLine(pilot.features, hole.holeNumber, player);
   voiceClub.current = {
     clubId: calledId,
@@ -686,7 +680,7 @@ export default function PlayScreen() {
     ? scrubClub.label.split('·')[0]?.trim() || scrubClub.label
     : calledLabel ?? (fallbackClub ? fallbackClub.label.split('·')[0]?.trim() || fallbackClub.label : null);
   voiceClub.current = { ...voiceClub.current, clubId: shownId, clubLabel: shownLabel ?? 'Shot' };
-  const shownProfile = measuredProfile(profiles, shownId);
+  const shownProfile = quotedProfile(profiles, shownId);
   const noShots = shownId != null && (shownProfile == null || shownProfile.sampleSize < 1);
   const bearing = shotBearing(overlay.line);
   const teePoint = overlay.line[0] ?? null;
@@ -725,17 +719,18 @@ export default function PlayScreen() {
   });
   const showSample = samplePatternVisible({ sampleOn, hasFix: player != null, measured: !noShots });
   const oval: DispersionOval | null = showSample ? dispersionOval([...SAMPLE_PATTERN]) : null;
-  const origin = player ?? overlay.line[0] ?? null;
+  const origin = player;
   const pinPoint = overlay.line[overlay.line.length - 1] ?? null;
   const greenCenter = greenRing ? ringCentroid(greenRing) : pinPoint;
   const greenOut =
+    player != null &&
     onTee &&
     origin != null &&
     greenCenter != null &&
     teeCarry != null &&
     distanceYards(origin, greenCenter) > teeCarry + PAST_STOCK_YARDS;
   const stockLanding = greenOut && teeCarry != null ? pointAtYards(overlay.line, teeCarry) : null;
-  const landing = stockLanding ?? greenCenter;
+  const landing = player != null ? stockLanding ?? greenCenter : null;
   const landingLabelYards = player == null ? null : stockLanding != null && teeCarry != null ? teeCarry : shotShown;
   const hazardRings = [...polygons.hazards, ...polygons.bunkers];
   const measuredCenter = oval && landing && bearing != null ? destinationPoint(landing, bearing + 90, oval.meanLateralYards) : landing;
@@ -763,7 +758,7 @@ export default function PlayScreen() {
         personality,
         clubLabel: shownLabel,
         windYards: shotWind,
-        stockYards: shownProfile?.stockYards ?? (scrubClub ? null : stockYards),
+        stockYards: shownProfile?.stockYards ?? null,
         targetYards: shotShown,
         playsLikeYards: shotShown,
         lowConfidence,
@@ -778,6 +773,7 @@ export default function PlayScreen() {
       : lowConfidence && !noShots && shotYards == null
         ? thinCopy
         : spoken;
+  visibleCall.current = { line: oneLiner, clubId: shownId, clubLabel: shownLabel };
   const patternLine = patternCaption({
     onGreen,
     noShots,
@@ -819,7 +815,8 @@ export default function PlayScreen() {
           return [{ side: shot.result, sideYards: null as number | null }];
         }),
   );
-  const longTotal = !onGreen && !short && totalStock ? longestWords(totalStock, unit) : null;
+  const shownTotal = totalProfile(profiles, shownId);
+  const longTotal = !onGreen && !short && shownTotal ? longestWords(shownTotal, unit) : null;
   const answered = debriefs.some((item) => item.hole === hole.holeNumber);
   const advance = () => {
     if (hole.holeNumber >= 18) return;
@@ -871,13 +868,14 @@ export default function PlayScreen() {
 
   const heroText = roll != null ? String(Math.round(roll)) : heroBase == null ? '' : formatDistance(heroBase, unit);
   const figure = clubFigure(playsLikeYards, shotRaw, player != null);
-  const whyLine = clubWhy({
-    layupReason: layup?.call === 'lay_up' ? layup.reason : null,
-    stockYards: calledId ? stockYards : null,
-    targetYards: callYards,
-    playsLike: playsLikeYards != null,
+  const detail = clubDetail({
+    clubLabel: shownLabel,
+    metric: shownProfile?.metric === 'carry' ? 'carry' : shownProfile ? 'total' : null,
+    stockYards: shownProfile?.stockYards ?? null,
+    targetYards: shotShown,
     unit,
   });
+  const whyLine = layup?.call === 'lay_up' ? layup.reason : detail.gap;
   const greenMarks = player && greenRing ? greenTargets(player, greenRing) : null;
   const centerLive = player != null;
   const writeStrokes = (next: number) => {
@@ -1231,9 +1229,9 @@ export default function PlayScreen() {
             {figure ? <Text style={styles.body}>{`${figure.label} ${formatDistance(figure.yards, unit)}`}</Text> : null}
             {whyLine ? <Text style={styles.body}>{whyLine}</Text> : null}
             {ask.banner ? <View>{ask.banner}</View> : null}
-            {card ? <Text style={styles.body}>{card.lines.reason}</Text> : null}
-            {carryStock ? <Text style={styles.body}>{carryWords(carryStock, unit)}</Text> : null}
-            {calledId && !carryStock ? <Text style={styles.body}>Carry was not measured.</Text> : null}
+            {detail.median ? <Text style={styles.body}>{detail.median}</Text> : null}
+            {tipCarry ? <Text style={styles.body}>{carryWords(tipCarry, unit)}</Text> : null}
+            {shownId && !tipCarry ? <Text style={styles.body}>Carry was not measured.</Text> : null}
             {longTotal ? <Text style={styles.body}>{longTotal}</Text> : null}
             {missLine ? <Text style={styles.body}>{missLine}</Text> : null}
             <Text style={styles.body}>Putts stay off the score.</Text>

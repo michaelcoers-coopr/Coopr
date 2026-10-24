@@ -155,6 +155,58 @@ describe('talk tools', () => {
     expect((await sampleTalkReply(blank, 'How far is it?')).line).toBe('No distance yet.');
   });
 
+  it('repeats the card club and stays short when the card is short', async () => {
+    const five = profile({ clubId: '5i', clubLabel: '5-iron', metric: 'total', stockYards: 162, iqr: 8, confidence: 'moderate' });
+    const sevenTotal = profile({ clubId: '7i', clubLabel: '7-iron', metric: 'total', stockYards: 154 });
+    const card = 'Short is dead. 7-iron is 9 yards short of 163.';
+    const approach = buildTalkContext({
+      hole: 3,
+      par: 4,
+      atTee: false,
+      gpsYards: 163,
+      headwindMph: 0,
+      elevationFeet: 0,
+      temperatureF: 75,
+      profiles: [five, sevenTotal],
+      selectedClubId: '7i',
+      selectedClubLabel: '7-iron',
+      cardLine: card,
+      persona: 'chirpy',
+    });
+    const reply = await sampleTalkReply(approach, 'What should I hit?');
+    expect(reply.line).toBe(card);
+    expect(reply.line).toMatch(/7-iron/);
+    expect(reply.line).not.toMatch(/5-iron/);
+    expect(reply.line).not.toMatch(/Grip it and rip it/);
+    const withoutCard = await sampleTalkReply({ ...approach, cardLine: null }, 'What should I hit?');
+    expect(withoutCard.line).toMatch(/7-iron/);
+    expect(withoutCard.line).toMatch(/Short is dead/);
+    expect(withoutCard.line).not.toMatch(/5-iron/);
+    const chillCard = "You're 163 out. 7-iron gets you to about 154, so you'll need another shot.";
+    const chill = await sampleTalkReply({ ...approach, persona: 'chill', cardLine: chillCard }, 'What should I hit?');
+    expect(chill.line).toBe(chillCard);
+    expect(chill.line).not.toMatch(/5-iron/);
+  });
+
+  it('keeps the tee landing line even when a card line is attached', async () => {
+    const tee = buildTalkContext({
+      hole: 1,
+      par: 5,
+      atTee: true,
+      gpsYards: 460,
+      headwindMph: 0,
+      elevationFeet: 0,
+      temperatureF: 75,
+      profiles: [driver],
+      selectedClubId: 'driver',
+      selectedClubLabel: 'Driver',
+      cardLine: 'Short is dead. 7-iron is 9 yards short of 163.',
+      persona: 'chirpy',
+    });
+    const reply = await sampleTalkReply(tee, 'What should I hit?');
+    expect(reply.line).toBe("Par 5. Nobody's getting home. Driver, find the short grass.");
+  });
+
   it('calls the total club the card would, not the closest carry', async () => {
     const driverTotal = profile({ clubId: 'driver', clubLabel: 'Driver', metric: 'total', stockYards: 213 });
     const sevenTotal = profile({ clubId: '7i', clubLabel: '7-iron', metric: 'total', stockYards: 160 });

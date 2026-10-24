@@ -425,13 +425,17 @@ function axisGap(a: LabelBox, b: LabelBox): number {
  * The sample tag sits beside the oval. It stays clear of yardage pills, the
  * flag, and the green outline. A known overlap is never the fallback.
  */
+function insideView(box: LabelBox, view: LabelBox): boolean {
+  return box.x >= view.x && box.y >= view.y && box.x + box.w <= view.x + view.w && box.y + box.h <= view.y + view.h;
+}
+
 export function sampleCaptionAt(
   oval: { cx: number; cy: number; halfW: number; halfH: number },
   pin: { x: number; y: number } | null,
   obstacles: readonly LabelBox[] = [],
   green: LabelBox | null = null,
   view: LabelBox | null = null,
-): { x: number; y: number; anchor: 'middle' | 'start' | 'end' } {
+): { x: number; y: number; anchor: 'middle' | 'start' | 'end' } | null {
   const halfW = Math.max(10, oval.halfW);
   const halfH = Math.max(10, oval.halfH);
   const candidates: { x: number; y: number; anchor: 'middle' | 'start' | 'end' }[] = [
@@ -454,16 +458,11 @@ export function sampleCaptionAt(
   const blocks = [...obstacles];
   if (pin) blocks.push({ x: pin.x - 8, y: pin.y - 40, w: 32, h: 44 });
   if (green) blocks.push(green);
-  let best = candidates[0]!;
-  let bestGap = Number.NEGATIVE_INFINITY;
   for (const candidate of candidates) {
     const box = captionBox(candidate);
+    if (view && !insideView(box, view)) continue;
     const gap = blocks.length === 0 ? Number.POSITIVE_INFINITY : Math.min(...blocks.map((block) => axisGap(box, block)));
-    if (gap > bestGap) {
-      best = candidate;
-      bestGap = gap;
-    }
     if (gap >= SAMPLE_CAPTION_GAP) return candidate;
   }
-  return best;
+  return null;
 }

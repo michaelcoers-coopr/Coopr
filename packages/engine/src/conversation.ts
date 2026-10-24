@@ -1,4 +1,4 @@
-import type { DistanceProfile } from './profile';
+import { quotedProfile, type DistanceProfile } from './profile';
 import { recommend } from './caddie';
 import { playsLike } from './phase2';
 import { conditionAnswer, parseAsk, type AskMiss } from './voice';
@@ -52,6 +52,8 @@ export interface TalkContext {
   thruLabel: string | null;
   persona: TalkPersona;
   turns: TalkTurn[];
+  /** The sentence already on the card. A club question repeats it so the reply cannot name another club. */
+  cardLine: string | null;
 }
 
 export interface TalkContextInput {
@@ -74,6 +76,7 @@ export interface TalkContextInput {
   thruLabel?: string | null;
   persona?: TalkPersona;
   turns?: readonly TalkTurn[];
+  cardLine?: string | null;
 }
 
 export const TALK_TOOLS = ['get_plays_like', 'recommend_club', 'log_score', 'set_club', 'mark_shot'] as const;
@@ -179,6 +182,7 @@ export function talkPromptView(context: TalkContext): Record<string, unknown> {
     thruLabel: context.thruLabel,
     persona: context.persona,
     turns: context.turns,
+    cardLine: context.cardLine,
   };
 }
 
@@ -221,7 +225,36 @@ export function buildTalkContext(input: TalkContextInput): TalkContext {
     thruLabel: input.thruLabel?.trim() ? input.thruLabel.trim() : null,
     persona: input.persona === 'chill' ? 'chill' : 'chirpy',
     turns,
+    cardLine: input.cardLine?.trim() ? input.cardLine.trim() : null,
   };
+}
+
+/**
+ * The club sentence for a known stock and the same target the card uses.
+ * Short stays short. "Grip it and rip it" is only for a club that is not short.
+ */
+export function clubSituationLine(input: {
+  persona: TalkPersona;
+  clubLabel: string | null;
+  stockYards: number | null;
+  targetYards: number | null;
+}): string | null {
+  if (!input.clubLabel || input.stockYards == null || input.targetYards == null) return null;
+  if (!Number.isFinite(input.stockYards) || !Number.isFinite(input.targetYards)) return null;
+  const stock = roundYards(input.stockYards);
+  const target = roundYards(input.targetYards);
+  const gap = stock - target;
+  const name = clubHead(input.clubLabel);
+  if (input.persona === 'chill') {
+    if (gap <= -5) return `You're ${target} out. ${name} gets you to about ${stock}, so you'll need another shot.`;
+    return `${name}. ${target}.`;
+  }
+  if (gap <= -5) {
+    const short = target - stock;
+    return `Short is dead. ${name} is ${short} ${short === 1 ? 'yard' : 'yards'} short of ${target}.`;
+  }
+  if (gap >= 15) return `That's a lot of club. ${name} covers ${target} by ${gap} ${gap === 1 ? 'yard' : 'yards'}.`;
+  return `Grip it and rip it. ${name}, ${target}.`;
 }
 
 function playsLikeLine(context: TalkContext, playsLikeYards: number | null, raw: number | null): string {
@@ -280,6 +313,20 @@ export function runTalkTool(name: string, args: unknown, context: TalkContext): 
   if (name === 'recommend_club') {
     const distance = context.playsLikeYards ?? context.gpsYards;
     const target = distance == null ? null : roundYards(distance);
+    const selected = quotedProfile(context.profiles, context.selectedClubId);
+    if (target != null && selected) {
+      const label = clubHead(selected.clubLabel);
+      const line =
+        clubSituationLine({ persona: context.persona, clubLabel: label, stockYards: selected.stockYards, targetYards: target }) ??
+        clubLine(context.persona, label, target);
+      return {
+        name,
+        ok: true,
+        action: null,
+        data: { clubId: selected.clubId, clubLabel: label, yards: target, dispersionYards: null },
+        line,
+      };
+    }
     const totals = context.profiles.some(
       (profile) => profile.metric === 'total' && profile.sampleSize >= 1 && Number.isFinite(profile.stockYards) && profile.stockYards > 0,
     );
@@ -305,6 +352,13 @@ export function runTalkTool(name: string, args: unknown, context: TalkContext): 
     const called = card.posture === 'decline' ? null : card.clubLabel ? clubHead(card.clubLabel) : null;
     const partial = card.swingMode === 'partial' && called != null;
     const known = called ? context.clubs.find((club) => club.clubLabel === called || club.clubId === card.clubId) : null;
+    const quoted = quotedProfile(context.profiles, called ? card.clubId : null);
+    const situation = clubSituationLine({
+      persona: context.persona,
+      clubLabel: called,
+      stockYards: quoted?.stockYards ?? null,
+      targetYards: target,
+    });
     return {
       name,
       ok: true,
@@ -315,7 +369,7 @@ export function runTalkTool(name: string, args: unknown, context: TalkContext): 
         yards: called && !partial ? target : null,
         dispersionYards: known?.dispersionYards ?? null,
       },
-      line: partial || !called ? card.lines.reason.replace(/^Declining\.\s*/, '') : clubLine(context.persona, called, target),
+      line: partial || !called ? card.lines.reason.replace(/^Declining\.\s*/, '') : situation ?? clubLine(context.persona, called, target),
     };
   }
 
@@ -447,6 +501,10 @@ export async function sampleTalkReply(context: TalkContext, transcript: string):
     return { mode: 'sample', line, sentences: talkSentences(line), tools, heard: false };
   }
   if (intent.question === 'club' || intent.question == null) {
+    if (context.cardLine) {
+      const line = context.cardLine;
+      return { mode: 'sample', line, sentences: talkSentences(line), tools, heard: false };
+    }
     const line = say(runTalkTool('recommend_club', {}, context));
     return { mode: 'sample', line, sentences: talkSentences(line), tools, heard: false };
   }

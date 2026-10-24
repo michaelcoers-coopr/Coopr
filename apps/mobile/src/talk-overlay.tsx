@@ -57,7 +57,10 @@ export function Waveform({ live, compact = false }: { live: boolean; compact?: b
   );
 }
 
-export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface?: 'overlay' | 'sheet' }): {
+export function useTalkCaddie(input: TalkContextInput & TalkHandlers & {
+  surface?: 'overlay' | 'sheet';
+  cardSnapshot?: () => { line: string | null; clubId: string | null; clubLabel: string | null };
+}): {
   overlay: ReactNode;
   open: () => void;
   close: () => void;
@@ -136,7 +139,14 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
     move('think');
     setTranscript(spoken);
     setReply('');
-    const context = buildTalkContext({ ...latest.current, turns: turns.current });
+    const snap = latest.current.cardSnapshot?.() ?? null;
+    const context = buildTalkContext({
+      ...latest.current,
+      turns: turns.current,
+      selectedClubId: snap?.clubId ?? latest.current.selectedClubId,
+      selectedClubLabel: snap?.clubLabel ?? latest.current.selectedClubLabel,
+      cardLine: snap?.line ?? null,
+    });
     const result = await requestTalk(spoken, context);
     if (gate.current.stopped) return;
     setSample(result.mode === 'sample');
