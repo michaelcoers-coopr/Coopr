@@ -25,6 +25,13 @@
       "expo-router",
       "expo-sqlite",
       [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "COOPR listens while you hold Ask, or while hands-free is on. On this iPhone the words are recognized on the device. A typed question is used when speech recognition is unavailable.",
+          "speechRecognitionPermission": "COOPR turns your question into text on this iPhone. The audio is not kept."
+        }
+      ],
+      [
         "expo-audio",
         {
           "microphonePermission": "COOPR listens while you hold Ask COOPR. The recording goes to the server to be transcribed and is not kept."

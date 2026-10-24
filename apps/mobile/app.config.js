@@ -16,8 +16,15 @@ module.exports = ({ config }) => {
   const projectId = process.env.EXPO_PROJECT_ID || config.extra?.eas?.projectId || null;
   const bundleIdentifier = preview ? 'app.coopr.mobile.preview' : 'app.coopr.mobile';
 
+  // Screenshot exports set COOPR_WEB_STATIC=1 so `expo export -p web` writes
+  // files a static server can host. EAS Hosting stays on `server` (app.json)
+  // for the voice and extract routes.
+  const web =
+    process.env.COOPR_WEB_STATIC === '1' ? { ...(config.web ?? {}), output: 'static' } : config.web;
+
   return {
     ...config,
+    ...(web ? { web } : {}),
     name: preview ? 'COOPR Preview' : config.name,
     ios: {
       ...config.ios,

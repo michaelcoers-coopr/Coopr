@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DistanceProfile } from '@coopr/engine';
 import {
   answerAsk,
+  conditionAnswer,
   cycleAskChip,
   handleVoiceBuffer,
   handleVoiceRequest,
@@ -77,6 +78,10 @@ const phrases: Array<{ text: string; expect: Partial<AskIntent> & { hazard?: str
   { text: '30 yards from the pin in the sand', expect: { distanceYards: 30, lie: 'sand', question: 'club' } },
   { text: 'what club from the fairway, 175 yards', expect: { lie: 'fairway', distanceYards: 175, question: 'club' } },
   { text: 'how does it play', expect: { question: 'plays_like' } },
+  { text: "what's the wind doing?", expect: { question: 'wind', distanceYards: null, command: null } },
+  { text: "what's the elevation?", expect: { question: 'elevation', distanceYards: null } },
+  { text: 'how hot is it?', expect: { question: 'temperature' } },
+  { text: 'how far is it?', expect: { question: 'distance', distanceYards: null } },
   { text: 'I made five', expect: { command: { kind: 'score', strokes: 5 }, distanceYards: null } },
   { text: 'two putt', expect: { command: { kind: 'putts', putts: 2 } } },
   { text: 'next', expect: { command: { kind: 'next' } } },
@@ -202,6 +207,17 @@ describe('lie estimate and the caddie line', () => {
     expect(answer.clubLabel).toMatch(/sand wedge/);
     expect(answer.line).toMatch(/estimate/);
     expect(answer.line).not.toMatch(/7-iron|6-iron/);
+  });
+
+  it('speaks one unit in the singular', () => {
+    expect(conditionAnswer('wind', { windMph: 1 })).toBe('Wind 1 mile per hour.');
+    expect(conditionAnswer('wind', { windMph: 6, headwindMph: 6, windYards: 1 })).toBe('Wind 6 miles per hour. Into you by 1 yard.');
+    expect(conditionAnswer('wind', { windMph: 8, headwindMph: 3, windYards: 5.5 })).toBe('Wind 8 miles per hour. Into you by 5.5 yards.');
+    expect(conditionAnswer('elevation', { elevationFeet: 1 })).toBe('Elevation is 1 foot up.');
+    expect(conditionAnswer('elevation', { elevationFeet: -1 })).toBe('Elevation is 1 foot down.');
+    expect(conditionAnswer('temperature', { temperatureF: 1 })).toBe('1 degree.');
+    expect(conditionAnswer('distance', { distanceYards: 1 })).toBe('1 yard.');
+    expect(conditionAnswer('distance', { distanceYards: 158 })).toBe('158 yards.');
   });
 
   it('says plays-like is blank until the three inputs exist', () => {

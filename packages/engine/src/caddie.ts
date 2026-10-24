@@ -110,8 +110,7 @@ function band(profile: DistanceProfile): QuantileBand {
 }
 
 function yards(value: number): string {
-  const rounded = Math.round(value * 10) / 10;
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  return String(Math.round(value));
 }
 
 function decisionMetric(request: CaddieRequest): DistanceMetric | null {
@@ -181,7 +180,7 @@ function finish(request: CaddieRequest, draft: Draft): CaddieCard {
   const personality = request.personality ?? DEFAULT_PERSONALITY;
   const lines: CaddieLines = {
     distance: `${yards(request.targetDistanceYards)} yards (${request.targetMetric === 'unspecified' ? 'metric not stated' : request.targetMetric})`,
-    club: draft.clubLabel ?? 'No club',
+    club: draft.clubLabel ?? '—',
     swingMode: draft.swingMode ?? 'not recorded',
     target: strategicTarget,
     expected: expectedText(draft.carry, draft.total),
@@ -316,7 +315,7 @@ export function recommend(request: CaddieRequest): CaddieCard {
         : '';
     const frontNote =
       front.length > 0
-        ? ' Hazard clearance uses the carry P20. No club in this set has a carry P20 that clears it.'
+        ? ' Hazard clearance uses the carry P20. Nothing in this set has a carry P20 that clears it.'
         : '';
     return decline(request, {
       clubId: null,
@@ -355,6 +354,26 @@ export function recommend(request: CaddieRequest): CaddieCard {
 
   const gap = Math.abs(winner.stockYards - request.targetDistanceYards);
   if (gap > STOCK_REACH_YARDS) {
+    const shotIsShort = candidates.every((profile) => profile.stockYards > request.targetDistanceYards);
+    const shortest = [...candidates].sort((a, b) => a.stockYards - b.stockYards || a.clubLabel.localeCompare(b.clubLabel))[0];
+    if (shotIsShort && shortest) {
+      const carry = shortest.metric === 'carry' ? band(shortest) : null;
+      const total = shortest.metric === 'total' ? band(shortest) : null;
+      return finish(request, {
+        posture: 'conservative',
+        clubId: shortest.clubId,
+        clubLabel: shortest.clubLabel,
+        swingMode: 'partial',
+        pattern: missPattern(shortest),
+        carry,
+        total,
+        metricUsed: metric,
+        keyRisk: `The shot is shorter than every measured ${metric}.`,
+        reason: `Easy swing. ${shortest.clubLabel} is the shortest full ${metric} at ${yards(shortest.stockYards)}. The shot is ${yards(request.targetDistanceYards)}. That full number is not a partial distance.`,
+        instruction: 'Take an easy swing. The number is the full carry, not a made-up partial.',
+        selectionCost: selectionCost(shortest, request.targetDistanceYards),
+      });
+    }
     return decline(request, {
       clubId: null,
       clubLabel: null,
@@ -364,7 +383,7 @@ export function recommend(request: CaddieRequest): CaddieCard {
       total: null,
       metricUsed: null,
       keyRisk: `The shot is ${yards(gap)} yards from the closest measured stock.`,
-      reason: `No club. The closest ${metric} is ${winner.clubLabel} at ${yards(winner.stockYards)}, ${yards(gap)} yards from ${yards(request.targetDistanceYards)}. A call stays within ${STOCK_REACH_YARDS} yards of a measured stock. Nothing is stretched to fit.`,
+      reason: `The closest ${metric} is ${winner.clubLabel} at ${yards(winner.stockYards)}, ${yards(gap)} yards from ${yards(request.targetDistanceYards)}. A call stays within ${STOCK_REACH_YARDS} yards of a measured stock. Nothing is stretched to fit.`,
       instruction: null,
     });
   }

@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { Button, Card, Muted, Screen, Title } from '../src/ui';
+import { Button, Card, Choice, Muted, Screen, Title } from '../src/ui';
 import { bootDatabase } from '../src/boot-db';
 import { useLocalStore } from '../src/local-store';
+import { useTalkPrefs } from '../src/talk-prefs';
+import { AERIAL_CREDIT } from '../src/aerial/project';
 
 export default function MoreScreen() {
-  const { founderTools, displayName, caddieName, personalityLabel, startNewRound, unit, setUnit, conditions, setConditions } = useLocalStore();
+  const { founderTools, displayName, caddieName, personalityLabel, voice, setVoice, startNewRound, unit, setUnit, conditions, setConditions } = useLocalStore();
+  const talk = useTalkPrefs();
   const [armed, setArmed] = useState(false);
   const [dbStatus, setDbStatus] = useState('Opening the on-device course cache…');
 
@@ -34,6 +37,16 @@ export default function MoreScreen() {
       <Button label="Wedge matrix" tone="ghost" onPress={() => router.push('/wedges')} />
       <Button label="Add from photos" tone="ghost" onPress={() => router.push('/import')} />
       <Button label="Caddie" tone="ghost" onPress={() => router.push('/caddie')} />
+      <Card>
+        <Muted>Caddie voice. Chirpy is the default. Chill keeps the quieter line. Both use the numbers you actually have.</Muted>
+        <Choice label="Chirpy" selected={voice === 'chirpy'} onPress={() => setVoice('chirpy')} />
+        <Choice label="Chill" selected={voice === 'chill'} onPress={() => setVoice('chill')} />
+      </Card>
+      <Card>
+        <Muted>Hands-free keeps listening after the caddie finishes. Callouts speak one short line at a new tee, or within 30 yards of the last mark. Both stay off until you turn them on, and both use only numbers you already have.</Muted>
+        <Choice label={talk.handsFree ? 'Hands-free is on' : 'Hands-free is off'} selected={talk.handsFree} onPress={() => talk.setHandsFree(!talk.handsFree)} />
+        <Choice label={talk.callouts ? 'Callouts are on' : 'Callouts are off'} selected={talk.callouts} onPress={() => talk.setCallouts(!talk.callouts)} />
+      </Card>
       <Button label="Course quality" tone="ghost" onPress={() => router.push('/course')} />
       <Button
         label={conditions.usePlaysLike ? 'Plays-like is on' : 'Plays-like is off'}
@@ -43,6 +56,8 @@ export default function MoreScreen() {
       <Button label={unit === 'yd' ? 'Showing yards' : 'Showing meters'} tone="ghost" onPress={() => setUnit(unit === 'yd' ? 'm' : 'yd')} />
       <Card>
         <Muted>High Cedars, Orting, is the only course on this phone. The hole uses the phone position. Wind and temperature come from the course, and plays-like can be switched off here.</Muted>
+        <Muted>{AERIAL_CREDIT}</Muted>
+        <Muted>Holes 1 and 2 use a stylized 2023 aerial. It is not a true-colour photo and not current conditions. Sample numbers stay labeled Sample.</Muted>
         <Muted>{dbStatus}</Muted>
         {founderTools ? <Muted>{`${displayName}. Caddie ${caddieName}, ${personalityLabel}.`}</Muted> : <Muted>Public shell.</Muted>}
       </Card>

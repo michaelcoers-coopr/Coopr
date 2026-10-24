@@ -58,6 +58,8 @@ https://qr.expo.dev/eas-update?projectId=998f1644-05ec-4980-a0b9-58e5703951d7&ru
 
 Mike runs this on his own machine after `export EXPO_TOKEN=...` or `npx eas-cli login`. The first build asks him to sign in with the Apple Developer account. Let EAS create the distribution certificate and the provisioning profile for `app.coopr.mobile.preview`. Do not paste those into the repo.
 
+That binary is what on-device speech recognition needs. Expo Go keeps a typed question. `CADDIE_LLM_API_KEY` on the EAS server environment is what turns sample-mode answers into a live model. `ELEVENLABS_API_KEY` stays the Scribe key for a posted clip. Neither key belongs in the app.
+
 ```bash
 cd apps/mobile
 npx eas-cli@latest build -p ios --profile preview

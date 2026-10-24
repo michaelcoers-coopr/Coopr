@@ -17,6 +17,7 @@ import {
   type WedgeLength,
 } from '@coopr/engine';
 import { loadFounderDataset, profilesFromFounder } from '@coopr/seed';
+import { DEFAULT_VOICE, parseVoice, VOICE_LABELS, type CaddieVoice } from './design/caddie-voice';
 import { FOUNDER_TOOLS_ENABLED } from './founder-flag';
 import { hasWebStorage, readRound, readRoundSync, writeRound } from './round-save-io';
 import { EMPTY_PUTTS, FRESH_CONDITIONS, type RoundConditions, type RoundSave, type SavedLie, type SavedMark } from './round-save';
@@ -141,6 +142,9 @@ interface LocalStore {
   caddieName: string;
   personality: CaddiePersonality;
   personalityLabel: string;
+  voice: CaddieVoice;
+  voiceLabel: string;
+  setVoice: (voice: CaddieVoice) => void;
   bagStatus: 'provisional' | 'confirmed' | null;
   bagNote: string | null;
   clubs: PlayingClub[];
@@ -164,7 +168,7 @@ interface LocalStore {
   unit: DistanceUnit;
   setUnit: (unit: DistanceUnit) => void;
   currentHole: number;
-  setCurrentHole: (hole: number) => void;
+  setCurrentHole: (hole: number | ((current: number) => number)) => void;
   manualYards: Readonly<Record<number, number | null>>;
   setManualYards: (hole: number, yards: number | null) => void;
   tagged: readonly TaggedShot[];
@@ -330,30 +334,65 @@ function plansFrom(save: RoundSave | null): Record<number, { clubLabel: string; 
   return Object.fromEntries(Object.entries(save.plans).map(([hole, plan]) => [Number(hole), plan]));
 }
 
+function applySavedRound(
+  save: RoundSave | null,
+  apply: {
+    setShots: (shots: LocalShot[]) => void;
+    setHoles: (holes: Array<number | null>) => void;
+    setUnit: (unit: DistanceUnit) => void;
+    setCurrentHole: (hole: number) => void;
+    setManual: (yards: Record<number, number | null>) => void;
+    setTagged: (shots: TaggedShot[]) => void;
+    setPlans: (plans: Record<number, { clubLabel: string; target: string }>) => void;
+    setDebriefs: (debriefs: Array<{ hole: number; choice: 'plan' | 'swing'; note: string }>) => void;
+    setWedges: (wedges: Record<string, Partial<Record<WedgeLength, number | null>>>) => void;
+    setPutts: (putts: Array<number | null>) => void;
+    setMarks: (marks: SavedMark[]) => void;
+    setConditionsState: (conditions: RoundConditions) => void;
+  },
+) {
+  if (!save) return;
+  apply.setShots(save.localShots);
+  apply.setHoles(save.holes);
+  apply.setUnit(save.unit);
+  apply.setCurrentHole(save.currentHole);
+  apply.setManual(manualFrom(save));
+  apply.setTagged(save.tagged);
+  apply.setPlans(plansFrom(save));
+  apply.setDebriefs(save.debriefs);
+  apply.setWedges(save.wedges);
+  apply.setPutts(save.putts);
+  apply.setMarks(save.marks);
+  apply.setConditionsState(save.conditions);
+}
+
 export function LocalStoreProvider({ children }: { children: ReactNode }) {
-  const [boot] = useState(readRoundSync);
-  const [hydrated, setHydrated] = useState(hasWebStorage());
-  const [shots, setShots] = useState<LocalShot[]>(boot?.localShots ?? []);
+  // Server rendering has no localStorage. Reading it in useState made the
+  // server paint nothing and the browser paint the round, which is the
+  // hydration mismatch. Both sides start empty; the effect fills the round.
+  const [hydrated, setHydrated] = useState(false);
+  const [shots, setShots] = useState<LocalShot[]>([]);
   const [reportedAverages, setReportedAverages] = useState<ReportedAverage[]>([]);
   const [photoScorecards, setPhotoScorecards] = useState<PhotoScorecard[]>([]);
   const [keptPhotos, setKeptPhotos] = useState<KeptPhoto[]>([]);
   const [knownClubs, setKnownClubs] = useState<ExistingPhotoRecords['clubs']>([]);
-  const [holes, setHoles] = useState<Array<number | null>>(boot?.holes ?? EMPTY_HOLES);
+  const [holes, setHoles] = useState<Array<number | null>>(EMPTY_HOLES);
   const [clubs, setClubs] = useState<PlayingClub[]>(SHELL?.clubs ?? []);
   const [bagMessage, setBagMessage] = useState('');
   const [courseReviews, setCourseReviews] = useState<Record<number, 'verified' | 'rejected'>>({});
-  const [unit, setUnit] = useState<DistanceUnit>(boot?.unit ?? 'yd');
-  const [currentHole, setCurrentHole] = useState(boot?.currentHole ?? 1);
-  const [manualYards, setManual] = useState<Record<number, number | null>>(manualFrom(boot));
-  const [tagged, setTagged] = useState<TaggedShot[]>(boot?.tagged ?? []);
+  const [unit, setUnit] = useState<DistanceUnit>('yd');
+  const [currentHole, setCurrentHole] = useState(1);
+  const [manualYards, setManual] = useState<Record<number, number | null>>({});
+  const [tagged, setTagged] = useState<TaggedShot[]>([]);
   const [caddieName, setCaddieName] = useState(SHELL?.caddieName ?? 'COOPR');
   const [personality, setPersonality] = useState<CaddiePersonality>(SHELL?.personality ?? 'funny_knowledgeable');
-  const [plans, setPlans] = useState<Record<number, { clubLabel: string; target: string }>>(plansFrom(boot));
-  const [debriefs, setDebriefs] = useState<Array<{ hole: number; choice: 'plan' | 'swing'; note: string }>>(boot?.debriefs ?? []);
-  const [wedges, setWedges] = useState<Record<string, Partial<Record<WedgeLength, number | null>>>>(boot?.wedges ?? {});
-  const [putts, setPutts] = useState<Array<number | null>>(boot?.putts ?? [...EMPTY_PUTTS]);
-  const [marks, setMarks] = useState<SavedMark[]>(boot?.marks ?? []);
-  const [conditions, setConditionsState] = useState<RoundConditions>(boot?.conditions ?? { ...FRESH_CONDITIONS });
+  const [voice, setVoiceState] = useState<CaddieVoice>(DEFAULT_VOICE);
+  const [plans, setPlans] = useState<Record<number, { clubLabel: string; target: string }>>({});
+  const [debriefs, setDebriefs] = useState<Array<{ hole: number; choice: 'plan' | 'swing'; note: string }>>([]);
+  const [wedges, setWedges] = useState<Record<string, Partial<Record<WedgeLength, number | null>>>>({});
+  const [putts, setPutts] = useState<Array<number | null>>([...EMPTY_PUTTS]);
+  const [marks, setMarks] = useState<SavedMark[]>([]);
+  const [conditions, setConditionsState] = useState<RoundConditions>({ ...FRESH_CONDITIONS });
 
   const value = useMemo<LocalStore>(() => {
     const observations: DistanceObservation[] = [];
@@ -377,6 +416,17 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
       caddieName,
       personality,
       personalityLabel: PERSONALITY_LABELS[personality],
+      voice,
+      voiceLabel: VOICE_LABELS[voice],
+      setVoice: (next) => {
+        const parsed = parseVoice(next);
+        setVoiceState(parsed);
+        try {
+          if (typeof localStorage !== 'undefined') localStorage.setItem('coopr.voice', parsed);
+        } catch {
+          // A private browser can refuse the write. The choice still holds for this visit.
+        }
+      },
       bagStatus: SHELL?.bagStatus ?? null,
       bagNote: SHELL?.bagNote ?? null,
       clubs,
@@ -515,7 +565,12 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
       unit,
       setUnit,
       currentHole,
-      setCurrentHole: (hole) => setCurrentHole(Math.min(18, Math.max(1, hole))),
+      setCurrentHole: (hole) =>
+        setCurrentHole((current) => {
+          const next = typeof hole === 'function' ? hole(current) : hole;
+          if (!Number.isFinite(next)) return current;
+          return Math.min(18, Math.max(1, Math.round(next)));
+        }),
       manualYards,
       setManualYards: (hole, yards) => setManual((current) => ({ ...current, [hole]: yards })),
       tagged,
@@ -604,31 +659,43 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
         setConditionsState({ ...FRESH_CONDITIONS });
       },
     };
-  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, plans, debriefs, wedges, putts, conditions, marks]);
+  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, voice, plans, debriefs, wedges, putts, conditions, marks]);
 
   useEffect(() => {
-    if (hasWebStorage()) return;
     let cancel = false;
-    readRound()
-      .then((save) => {
-        if (cancel || !save) return;
-        setShots(save.localShots);
-        setHoles(save.holes);
-        setUnit(save.unit);
-        setCurrentHole(save.currentHole);
-        setManual(manualFrom(save));
-        setTagged(save.tagged);
-        setPlans(plansFrom(save));
-        setDebriefs(save.debriefs);
-        setWedges(save.wedges);
-        setPutts(save.putts);
-        setMarks(save.marks);
-        setConditionsState(save.conditions);
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        if (!cancel) setHydrated(true);
+    const apply = (save: RoundSave | null) => {
+      if (cancel) return;
+      applySavedRound(save, {
+        setShots,
+        setHoles,
+        setUnit,
+        setCurrentHole,
+        setManual,
+        setTagged,
+        setPlans,
+        setDebriefs,
+        setWedges,
+        setPutts,
+        setMarks,
+        setConditionsState,
       });
+    };
+    const finish = () => {
+      if (!cancel) setHydrated(true);
+    };
+    if (hasWebStorage()) {
+      apply(readRoundSync());
+      try {
+        setVoiceState(parseVoice(localStorage.getItem('coopr.voice')));
+      } catch {
+        setVoiceState(DEFAULT_VOICE);
+      }
+      finish();
+      return () => {
+        cancel = true;
+      };
+    }
+    readRound().then(apply).catch(() => undefined).finally(finish);
     return () => {
       cancel = true;
     };
