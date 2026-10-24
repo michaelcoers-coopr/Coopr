@@ -9,7 +9,7 @@ import type { HoleMapProps } from './hole-map-props';
 import { useDisplayFace } from './design/display-font';
 import { HOLE_BLEED_PAD, holeFitPoints, playingWidthMeters, projectHoleFill, projectPlayFrame } from './hole-fit';
 import { tileSourceDrawsVectors } from './tile-source';
-import { boundsBox, clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark, sampleCaptionAt } from './map-label-layout';
+import { boundsBox, clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark, sampleCaptionAt, sampleCaptionBox } from './map-label-layout';
 
 const SURROUND = '#143524';
 const TREE = '#0C2418';
@@ -491,20 +491,26 @@ export function HoleMap(props: HoleMapProps) {
               ];
               const caption = sampleCaptionAt(ellipseDraw, pin, blocked, boundsBox(greenPoints, 8), view);
               if (!caption) return null;
+              const chip = sampleCaptionBox(caption);
+              const textX = chip.x + chip.w / 2;
+              const textY = chip.y + chip.h / 2 + 5;
               return (
-                <MapText
-                  x={caption.x}
-                  y={caption.y}
-                  fill="#FFFFFF"
-                  fontSize={11}
-                  fontWeight="700"
-                  fontFamily={font.family}
-                  fontFeatureSettings='"tnum"'
-                  textAnchor={caption.anchor}
-                  style={mapLabelStyle}
-                >
-                  {props.ellipseCaption}
-                </MapText>
+                <G>
+                  <Rect x={chip.x} y={chip.y} width={chip.w} height={chip.h} rx={14} fill="rgba(6,16,28,0.96)" stroke="#FFFFFF" strokeWidth={1.75} />
+                  <MapText
+                    x={textX}
+                    y={textY}
+                    fill="#FFFFFF"
+                    fontSize={15}
+                    fontWeight="700"
+                    fontFamily={font.family}
+                    fontFeatureSettings='"tnum"'
+                    textAnchor="middle"
+                    style={mapLabelStyle}
+                  >
+                    {props.ellipseCaption}
+                  </MapText>
+                </G>
               );
             })()
           : null}

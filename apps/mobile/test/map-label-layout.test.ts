@@ -134,8 +134,9 @@ describe('hole 1 map labels', () => {
     const besideTheFlag = sampleCaptionAt({ cx: 180, cy: 210, halfW: 36, halfH: 18 }, { x: 184, y: 188 });
     expect(besideTheFlag).not.toBeNull();
     if (!besideTheFlag) return;
-    expect(besideTheFlag.anchor).not.toBe('middle');
-    expect(Math.abs(besideTheFlag.x - 180)).toBeGreaterThan(36);
+    const flagBox = { x: 176, y: 148, w: 32, h: 44 };
+    expect(boxesSeparated(sampleCaptionBox(besideTheFlag), flagBox, 8)).toBe(true);
+    expect(Math.hypot(besideTheFlag.x - 180, besideTheFlag.y - 210)).toBeLessThan(90);
     const clear = sampleCaptionAt({ cx: 40, cy: 500, halfW: 20, halfH: 12 }, { x: 300, y: 80 });
     expect(clear).toEqual({ x: 40, y: 500 - 12 - 18, anchor: 'middle' });
     const crowded = sampleCaptionAt({ cx: 200, cy: 240, halfW: 28, halfH: 16 }, null, [
@@ -163,6 +164,15 @@ describe('hole 1 map labels', () => {
     expect(boxesSeparated(clearedBox, greenOutline, 8)).toBe(true);
     expect(boxesSeparated(clearedBox, flag, 8)).toBe(true);
     const hud = { x: 0, y: 0, w: 390, h: 140 };
+    const lowOval = { cx: 200, cy: 420, halfW: 30, halfH: 18 };
+    const anchored = sampleCaptionAt(lowOval, null, [hud], null, { x: 0, y: 140, w: 390, h: 400 });
+    expect(anchored).not.toBeNull();
+    if (anchored) {
+      expect(Math.hypot(anchored.x - lowOval.cx, anchored.y - lowOval.cy)).toBeLessThan(90);
+      const chip = sampleCaptionBox(anchored);
+      expect(chip.y).toBeGreaterThanOrEqual(140);
+      expect(chip.x).toBeGreaterThan(40);
+    }
     const underTheHud = sampleCaptionAt({ cx: 200, cy: 90, halfW: 28, halfH: 16 }, null, [hud], null, { x: 0, y: 140, w: 390, h: 400 });
     if (underTheHud) {
       const box = sampleCaptionBox(underTheHud);

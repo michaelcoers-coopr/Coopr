@@ -1,6 +1,7 @@
 import { quotedProfile, type DistanceProfile } from './profile';
 import { recommend } from './caddie';
 import { playsLike } from './phase2';
+import { PATTERN_INVITE } from './signature';
 import { conditionAnswer, parseAsk, type AskMiss } from './voice';
 
 /** Chill is short. Chirpy is the default. Neither may invent a number. */
@@ -257,6 +258,39 @@ export function clubSituationLine(input: {
   return `Grip it and rip it. ${name}, ${target}.`;
 }
 
+/** The sentence on the card for this club. An unmeasured club does not borrow another club's number. */
+export function shotCardLine(input: {
+  persona: TalkPersona;
+  clubLabel: string | null;
+  measured: boolean;
+  stockYards: number | null;
+  targetYards: number | null;
+  atTee: boolean;
+  par: number | null;
+}): string | null {
+  if (!input.clubLabel) return null;
+  const name = clubHead(input.clubLabel);
+  if (!input.measured || input.stockYards == null || !Number.isFinite(input.stockYards)) {
+    return `${name}. Carry not measured. ${PATTERN_INVITE}.`;
+  }
+  const target = input.targetYards;
+  if (target == null || !Number.isFinite(target)) return null;
+  const stock = input.stockYards;
+  if (input.atTee && input.par != null && input.par >= 4 && target - stock >= OUT_OF_REACH_YARDS) {
+    return teeLine(input.persona, input.par, name);
+  }
+  return clubSituationLine({
+    persona: input.persona,
+    clubLabel: name,
+    stockYards: stock,
+    targetYards: target,
+  });
+}
+
+function missingNumber(line: string): boolean {
+  return /sample is thin|thin sample/i.test(line) && !/\d/.test(line);
+}
+
 function playsLikeLine(context: TalkContext, playsLikeYards: number | null, raw: number | null): string {
   if (raw == null) return 'Plays-like needs a distance. Nothing was guessed.';
   if (playsLikeYards == null) return 'Plays-like stays blank until wind, elevation, and temperature are known.';
@@ -432,9 +466,9 @@ function wantsClubChange(text: string): boolean {
 
 function outOfReach(context: TalkContext): { club: string } | null {
   if (!context.atTee || context.par == null || context.par < 4 || context.gpsYards == null) return null;
-  const selected = context.clubs.find((club) => club.clubId === context.selectedClubId);
+  if (context.selectedClubId) return null;
   const known = context.clubs.filter((club) => club.carryYards != null);
-  const inHand = selected?.carryYards != null ? selected : known.sort((a, b) => (b.carryYards ?? 0) - (a.carryYards ?? 0))[0];
+  const inHand = known.sort((a, b) => (b.carryYards ?? 0) - (a.carryYards ?? 0))[0];
   if (!inHand?.carryYards || context.gpsYards <= inHand.carryYards + OUT_OF_REACH_YARDS) return null;
   return { club: inHand.clubLabel };
 }
@@ -495,14 +529,32 @@ export async function sampleTalkReply(context: TalkContext, transcript: string):
     const line = say(runTalkTool('set_club', { clubId: named.clubId }, context));
     return { mode: 'sample', line, sentences: talkSentences(line), tools, heard: false };
   }
-  const reach = outOfReach(context);
-  if (reach && (intent.question === 'club' || intent.question == null)) {
-    const line = teeLine(context.persona, context.par ?? 0, reach.club);
-    return { mode: 'sample', line, sentences: talkSentences(line), tools, heard: false };
-  }
   if (intent.question === 'club' || intent.question == null) {
-    if (context.cardLine) {
+    const target = context.playsLikeYards ?? context.gpsYards;
+    if (target == null) {
+      const line = 'No distance yet.';
+      return { mode: 'sample', line, sentences: talkSentences(line), tools, heard: false };
+    }
+    if (context.cardLine && !missingNumber(context.cardLine)) {
       const line = context.cardLine;
+      return { mode: 'sample', line, sentences: talkSentences(line), tools, heard: false };
+    }
+    if (context.selectedClubId) {
+      const quoted = quotedProfile(context.profiles, context.selectedClubId);
+      const line = shotCardLine({
+        persona: context.persona,
+        clubLabel: context.selectedClubLabel ?? quoted?.clubLabel ?? null,
+        measured: quoted != null && quoted.sampleSize >= 1,
+        stockYards: quoted?.stockYards ?? null,
+        targetYards: target,
+        atTee: context.atTee,
+        par: context.par,
+      });
+      if (line) return { mode: 'sample', line, sentences: talkSentences(line), tools, heard: false };
+    }
+    const reach = outOfReach(context);
+    if (reach) {
+      const line = teeLine(context.persona, context.par ?? 0, reach.club);
       return { mode: 'sample', line, sentences: talkSentences(line), tools, heard: false };
     }
     const line = say(runTalkTool('recommend_club', {}, context));

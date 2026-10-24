@@ -6,6 +6,7 @@ import {
   proactiveCallout,
   runTalkTool,
   sampleTalkReply,
+  shotCardLine,
   talkTransition,
 } from '../src/conversation';
 
@@ -188,23 +189,87 @@ describe('talk tools', () => {
     expect(chill.line).not.toMatch(/5-iron/);
   });
 
-  it('keeps the tee landing line even when a card line is attached', async () => {
-    const tee = buildTalkContext({
+  it('names the card club for every scrub, situation, and tone', async () => {
+    const rows: Array<{
+      id: string;
+      label: string;
+      situation: 'tee' | 'approach';
+      tone: 'chirpy' | 'chill';
+      measured: boolean;
+      stock: number | null;
+      yards: number;
+      par: number;
+    }> = [
+      { id: '5i', label: '5-iron', situation: 'tee', tone: 'chirpy', measured: true, stock: 162, yards: 460, par: 5 },
+      { id: '7i', label: '7-iron', situation: 'tee', tone: 'chill', measured: true, stock: 154, yards: 460, par: 5 },
+      { id: '3h', label: '3-hybrid', situation: 'tee', tone: 'chirpy', measured: false, stock: null, yards: 460, par: 5 },
+      { id: '3h', label: '3-hybrid', situation: 'tee', tone: 'chill', measured: false, stock: null, yards: 460, par: 5 },
+      { id: '4h', label: '4-hybrid', situation: 'approach', tone: 'chirpy', measured: false, stock: null, yards: 164, par: 4 },
+      { id: '4h', label: '4-hybrid', situation: 'approach', tone: 'chill', measured: false, stock: null, yards: 164, par: 4 },
+      { id: '7i', label: '7-iron', situation: 'approach', tone: 'chirpy', measured: true, stock: 154, yards: 163, par: 4 },
+      { id: '7i', label: '7-iron', situation: 'approach', tone: 'chill', measured: true, stock: 154, yards: 163, par: 4 },
+      { id: '5i', label: '5-iron', situation: 'approach', tone: 'chirpy', measured: true, stock: 162, yards: 164, par: 4 },
+      { id: '5i', label: '5-iron', situation: 'approach', tone: 'chill', measured: true, stock: 162, yards: 164, par: 4 },
+    ];
+    const driverCarry = profile({ clubId: 'driver', clubLabel: 'Driver', metric: 'carry', stockYards: 186 });
+    const fiveTotal = profile({ clubId: '5i', clubLabel: '5-iron', metric: 'total', stockYards: 162 });
+    for (const row of rows) {
+      const own = row.measured && row.stock != null ? profile({ clubId: row.id, clubLabel: row.label, metric: 'total', stockYards: row.stock }) : null;
+      const profiles = [driverCarry, fiveTotal, ...(own && own.clubId !== '5i' ? [own] : [])];
+      const card = shotCardLine({
+        persona: row.tone,
+        clubLabel: row.label,
+        measured: row.measured,
+        stockYards: row.stock,
+        targetYards: row.yards,
+        atTee: row.situation === 'tee',
+        par: row.par,
+      });
+      expect(card, row.label).toBeTruthy();
+      const context = buildTalkContext({
+        hole: 1,
+        par: row.par,
+        atTee: row.situation === 'tee',
+        gpsYards: row.yards,
+        headwindMph: 0,
+        elevationFeet: 0,
+        temperatureF: 75,
+        profiles,
+        candidateClubIds: ['driver', '5i', row.id],
+        selectedClubId: row.id,
+        selectedClubLabel: row.label,
+        cardLine: card,
+        persona: row.tone,
+      });
+      const reply = await sampleTalkReply(context, 'What should I hit?');
+      expect(reply.line, `${row.situation} ${row.label} ${row.tone}`).toBe(card);
+      expect(reply.line, row.label).toContain(row.label);
+      if (row.label !== '5-iron') expect(reply.line, row.label).not.toMatch(/5-iron/);
+      if (row.label !== 'Driver') expect(reply.line, row.label).not.toMatch(/Driver/);
+      if (card && /not measured|Short is dead|will not reach|another shot|find the short grass/.test(card)) {
+        expect(reply.line, row.label).not.toMatch(/Grip it and rip it/);
+      }
+      const derived = await sampleTalkReply({ ...context, cardLine: null }, 'What should I hit?');
+      expect(derived.line, `${row.label} derived`).toContain(row.label);
+      if (row.label !== 'Driver') expect(derived.line, row.label).not.toMatch(/Driver/);
+    }
+  });
+
+  it('does not qualify a club when there is no distance', async () => {
+    const quiet = buildTalkContext({
       hole: 1,
-      par: 5,
+      par: 4,
       atTee: true,
-      gpsYards: 460,
-      headwindMph: 0,
-      elevationFeet: 0,
-      temperatureF: 75,
-      profiles: [driver],
-      selectedClubId: 'driver',
-      selectedClubLabel: 'Driver',
-      cardLine: 'Short is dead. 7-iron is 9 yards short of 163.',
+      gpsYards: null,
+      profiles: [seven],
+      selectedClubId: '7i',
+      selectedClubLabel: '7-iron',
+      cardLine: 'The sample is thin. Treat the number softly.',
       persona: 'chirpy',
     });
-    const reply = await sampleTalkReply(tee, 'What should I hit?');
-    expect(reply.line).toBe("Par 5. Nobody's getting home. Driver, find the short grass.");
+    const reply = await sampleTalkReply(quiet, 'What should I hit?');
+    expect(reply.line).toBe('No distance yet.');
+    expect(reply.line).not.toMatch(/thin|7-iron|Grip it/);
   });
 
   it('calls the total club the card would, not the closest carry', async () => {

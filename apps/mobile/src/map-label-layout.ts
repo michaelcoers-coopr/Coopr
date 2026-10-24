@@ -379,9 +379,12 @@ export function layoutHoleLabels(input: HoleLabelLayoutInput): HoleLabelLayout {
   return { labels, dots };
 }
 
-const SAMPLE_CAPTION_W = 72;
-const SAMPLE_CAPTION_H = 20;
+const SAMPLE_CAPTION_W = 92;
+const SAMPLE_CAPTION_H = 30;
 const SAMPLE_CAPTION_GAP = 8;
+
+/** Painted size of the Sample chip. The layout box and the map use the same numbers. */
+export const SAMPLE_CHIP = { width: SAMPLE_CAPTION_W, height: SAMPLE_CAPTION_H };
 
 export function boundsBox(points: readonly { x: number; y: number }[], pad = 0): LabelBox | null {
   if (points.length === 0) return null;
@@ -422,8 +425,8 @@ function axisGap(a: LabelBox, b: LabelBox): number {
 }
 
 /**
- * The sample tag sits beside the oval. It stays clear of yardage pills, the
- * flag, and the green outline. A known overlap is never the fallback.
+ * The Sample chip sits on the oval. It stays inside the open map, clear of
+ * yardage pills, the flag, and the top HUD. It is not parked in a corner.
  */
 function insideView(box: LabelBox, view: LabelBox): boolean {
   return box.x >= view.x && box.y >= view.y && box.x + box.w <= view.x + view.w && box.y + box.h <= view.y + view.h;
@@ -449,20 +452,22 @@ export function sampleCaptionAt(
     { x: oval.cx + halfW + 40, y: oval.cy + halfH + 10, anchor: 'start' },
     { x: oval.cx, y: oval.cy - halfH - 48, anchor: 'middle' },
   ];
-  if (view && view.w > SAMPLE_CAPTION_W && view.h > SAMPLE_CAPTION_H) {
-    candidates.push(
-      { x: view.x + 12, y: view.y + SAMPLE_CAPTION_H + 10, anchor: 'start' },
-      { x: view.x + view.w - 12, y: view.y + SAMPLE_CAPTION_H + 10, anchor: 'end' },
-    );
-  }
-  const blocks = [...obstacles];
-  if (pin) blocks.push({ x: pin.x - 8, y: pin.y - 40, w: 32, h: 44 });
-  if (green) blocks.push(green);
+  const hard = [...obstacles];
+  if (pin) hard.push({ x: pin.x - 8, y: pin.y - 40, w: 32, h: 44 });
+  let best: { x: number; y: number; anchor: 'middle' | 'start' | 'end' } | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
   for (const candidate of candidates) {
     const box = captionBox(candidate);
     if (view && !insideView(box, view)) continue;
-    const gap = blocks.length === 0 ? Number.POSITIVE_INFINITY : Math.min(...blocks.map((block) => axisGap(box, block)));
-    if (gap >= SAMPLE_CAPTION_GAP) return candidate;
+    const hardGap = hard.length === 0 ? Number.POSITIVE_INFINITY : Math.min(...hard.map((block) => axisGap(box, block)));
+    if (hardGap < SAMPLE_CAPTION_GAP) continue;
+    const greenGap = green ? axisGap(box, green) : Number.POSITIVE_INFINITY;
+    const dist = Math.hypot(candidate.x - oval.cx, candidate.y - oval.cy);
+    const score = dist + (greenGap < SAMPLE_CAPTION_GAP ? 1000 : 0);
+    if (score < bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
   }
-  return null;
+  return best;
 }

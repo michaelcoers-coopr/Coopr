@@ -33,6 +33,7 @@ import {
   playsLike,
   NEXT_TEE_YARDS,
   proactiveCallout,
+  shotCardLine,
   SAMPLE_PATTERN,
   PATTERN_INVITE,
   CONFIDENCE_LOW,
@@ -773,7 +774,23 @@ export default function PlayScreen() {
       : lowConfidence && !noShots && shotYards == null
         ? thinCopy
         : spoken;
-  visibleCall.current = { line: oneLiner, clubId: shownId, clubLabel: shownLabel };
+  const noDistance = player == null && manual == null;
+  const cardSentence = noDistance
+    ? null
+    : noShots
+      ? shotCardLine({
+          persona: voice,
+          clubLabel: shownLabel,
+          measured: false,
+          stockYards: null,
+          targetYards: shotShown,
+          atTee: player != null && overlay.line[0] != null && distanceYards(player, overlay.line[0]) <= NEXT_TEE_YARDS,
+          par: hole.par,
+        })
+      : oneLiner && /sample is thin|thin sample/i.test(oneLiner) && shotShown == null
+        ? null
+        : oneLiner;
+  visibleCall.current = { line: cardSentence, clubId: shownId, clubLabel: shownLabel };
   const patternLine = patternCaption({
     onGreen,
     noShots,
