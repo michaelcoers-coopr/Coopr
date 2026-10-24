@@ -69,6 +69,8 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
   draft: string;
   setDraft: (value: string) => void;
   askKind: 'typed' | 'voice' | null;
+  voiceHint: string | null;
+  askFocus: number;
   ask: (text: string, kind?: 'typed' | 'voice') => Promise<void>;
 } {
   const latest = useRef(input);
@@ -85,6 +87,9 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
   const [typed, setTyped] = useState(true);
   const [draft, setDraft] = useState('');
   const [askKind, setAskKind] = useState<'typed' | 'voice' | null>(null);
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
+  const [askFocus, setAskFocus] = useState(0);
+  const TYPE_INSTEAD = 'Voice needs the TestFlight build. Type it instead';
   const turns = useRef<TalkTurn[]>([]);
   const preview = useRef(false);
   const speaker = useRef(caddieSpeaker('device'));
@@ -154,16 +159,41 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
     if (done.phase === 'listening') void startEar();
   };
 
+  const typeInstead = () => {
+    stopEar();
+    setTyped(true);
+    setVoiceHint(TYPE_INSTEAD);
+    setAskKind('typed');
+    setAskFocus((value) => value + 1);
+    machine.current = { ...machine.current, phase: 'idle' };
+    setPhase('idle');
+  };
+
   const startEar = async () => {
     stopEar();
+    // Web and Expo Go have no on-device recognizer. The TestFlight build does.
+    if (Platform.OS === 'web') {
+      typeInstead();
+      return;
+    }
+    let heardText = false;
     const heard = await listenForSpeech((text, final) => {
-      if (!text) return;
-      setTranscript(text);
-      if (final) void ask(text, 'voice');
+      if (text) {
+        heardText = true;
+        setTranscript(text);
+        if (final) void ask(text, 'voice');
+        return;
+      }
+      // The recognizer ended without a word. Leave the typed line focused.
+      if (final && !heardText) typeInstead();
     });
     ear.current = heard;
-    setTyped(heard == null);
-    if (heard == null) setPhase(machine.current.phase);
+    if (heard == null) {
+      typeInstead();
+      return;
+    }
+    setTyped(false);
+    setVoiceHint(null);
   };
 
   const closeTalk = () => {
@@ -175,14 +205,18 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
   };
 
   const openTalk = () => {
-    const next = move(machine.current.phase === 'speaking' ? 'barge' : 'listen');
-    if (next.stopSpeech) gate.current.stopped = true;
     setOpen(true);
     setReply('');
+    setVoiceHint(null);
     void tick();
     void deviceSpeechAvailable().then((ready) => {
-      setTyped(!ready);
-      if (ready && machine.current.phase === 'listening') void startEar();
+      if (!ready || Platform.OS === 'web') {
+        typeInstead();
+        return;
+      }
+      const next = move(machine.current.phase === 'speaking' ? 'barge' : 'listen');
+      if (next.stopSpeech) gate.current.stopped = true;
+      if (next.phase === 'listening') void startEar();
     });
   };
 
@@ -234,7 +268,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
         {sample ? <Text style={styles.sample}>Sample mode. No live model on this server.</Text> : null}
         <Waveform live={live} />
         <Text style={styles.kicker}>{phase === 'listening' ? 'Listening' : phase === 'thinking' ? 'Thinking' : 'You'}</Text>
-        <Text style={styles.heard}>{transcript || 'Hold Ask, or type it.'}</Text>
+        <Text style={styles.heard}>{transcript || voiceHint || 'Hold Ask, or type it.'}</Text>
         <Text style={styles.kicker}>Caddie</Text>
         {reply ? <YardageLine text={reply} /> : <Text style={styles.reply}> </Text>}
         {typed ? (
@@ -283,7 +317,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
     </View>
   );
 
-  return { overlay, open: openTalk, close: closeTalk, phase, transcript, reply, sample, typed, draft, setDraft, askKind, ask };
+  return { overlay, open: openTalk, close: closeTalk, phase, transcript, reply, sample, typed, draft, setDraft, askKind, voiceHint, askFocus, ask };
 }
 
 const styles = StyleSheet.create({

@@ -13,7 +13,7 @@ import {
   type LabelBox,
 } from '@coopr/engine';
 import { holeFrame, mapHudInset } from '../src/design/play-polish';
-import { holeLabels } from '../src/map-labels';
+import { holeLabels, limitYardPills } from '../src/map-labels';
 import { boxesSeparated, DOT_STROKE, GREEN_DOT, LABEL_GAP, layoutHoleLabels, leaderLength, LEADER_MAX, nearestMark, ovalGlowBox, sampleCaptionAt, type PlacedMapLabel } from '../src/map-label-layout';
 
 const WIDTH = 390;
@@ -136,6 +136,19 @@ describe('hole 1 map labels', () => {
     expect(Math.abs(besideTheFlag.x - 180)).toBeGreaterThan(36);
     const clear = sampleCaptionAt({ cx: 40, cy: 500, halfW: 20, halfH: 12 }, { x: 300, y: 80 });
     expect(clear).toEqual({ x: 40, y: 500 - 14 - 12, anchor: 'middle' });
+    const crowded = sampleCaptionAt({ cx: 200, cy: 240, halfW: 28, halfH: 16 }, null, [
+      { x: 160, y: 188, w: 90, h: 30 },
+      { x: 90, y: 220, w: 80, h: 40 },
+    ]);
+    expect(crowded).toEqual({ x: 236, y: 244, anchor: 'start' });
+    const fairwayMarks = [
+      { at: { lat: 0, lon: 0 }, label: '150' },
+      { at: { lat: 0, lon: 1 }, label: '300' },
+      { at: { lat: 0, lon: 2 }, label: '450' },
+      { at: { lat: 1, lon: 1 }, label: '186' },
+    ];
+    const kept = limitYardPills(fairwayMarks, { lat: 0, lon: 0 }, 2).map((mark) => mark.label);
+    expect(kept).toEqual(['150', '300', '186']);
 
     for (let index = 0; index < placed.labels.length; index += 1) {
       for (let other = index + 1; other < placed.labels.length; other += 1) {

@@ -379,27 +379,39 @@ export function layoutHoleLabels(input: HoleLabelLayoutInput): HoleLabelLayout {
   return { labels, dots };
 }
 
+function captionBox(
+  at: { x: number; y: number; anchor: 'middle' | 'start' | 'end' },
+  width = 58,
+  height = 16,
+): LabelBox {
+  const x = at.anchor === 'start' ? at.x : at.anchor === 'end' ? at.x - width : at.x - width / 2;
+  return { x, y: at.y - height, w: width, h: height };
+}
+
 /**
- * The sample tag sits above the oval. A green-side oval runs into the flag,
- * so the tag steps out to the side instead of covering the pin.
+ * The sample tag sits above the oval. It steps aside for the flag and for any
+ * yardage pill that would cover the word.
  */
 export function sampleCaptionAt(
   oval: { cx: number; cy: number; halfW: number; halfH: number },
   pin: { x: number; y: number } | null,
+  obstacles: readonly LabelBox[] = [],
 ): { x: number; y: number; anchor: 'middle' | 'start' | 'end' } {
-  const above = {
-    x: oval.cx,
-    y: oval.cy - Math.max(10, oval.halfH) - 14,
-    anchor: 'middle' as const,
-  };
-  if (!pin) return above;
-  const flag = { x: pin.x + 8, y: pin.y - 22 };
-  const onThePin = Math.hypot(above.x - flag.x, above.y - flag.y) < 48 || Math.hypot(oval.cx - pin.x, oval.cy - pin.y) < 56;
-  if (!onThePin) return above;
-  const side = pin.x >= oval.cx ? -1 : 1;
-  return {
-    x: oval.cx + side * (Math.max(10, oval.halfW) + 28),
-    y: oval.cy,
-    anchor: side < 0 ? 'end' : 'start',
-  };
+  const halfW = Math.max(10, oval.halfW);
+  const halfH = Math.max(10, oval.halfH);
+  const candidates: { x: number; y: number; anchor: 'middle' | 'start' | 'end' }[] = [
+    { x: oval.cx, y: oval.cy - halfH - 14, anchor: 'middle' },
+    { x: oval.cx - halfW - 8, y: oval.cy + 4, anchor: 'end' },
+    { x: oval.cx + halfW + 8, y: oval.cy + 4, anchor: 'start' },
+    { x: oval.cx, y: oval.cy + halfH + 18, anchor: 'middle' },
+    { x: oval.cx - halfW - 8, y: oval.cy - halfH + 4, anchor: 'end' },
+    { x: oval.cx + halfW + 8, y: oval.cy - halfH + 4, anchor: 'start' },
+  ];
+  const blocks = [...obstacles];
+  if (pin) blocks.push({ x: pin.x - 8, y: pin.y - 40, w: 32, h: 44 });
+  for (const candidate of candidates) {
+    const box = captionBox(candidate);
+    if (blocks.every((block) => boxesSeparated(box, block, 4))) return candidate;
+  }
+  return candidates[2]!;
 }

@@ -143,7 +143,7 @@ describe('caddie line and risk', () => {
         targetYards: 160,
         lowConfidence: false,
       }),
-    ).toBe("3H is 50 yards short of 160.");
+    ).toBe("You're 160 out. 3H gets you to about 110, so you'll need another shot.");
     expect(
       caddieLine({
         personality: 'funny_knowledgeable',
@@ -153,7 +153,7 @@ describe('caddie line and risk', () => {
         targetYards: 160,
         lowConfidence: false,
       }),
-    ).toBe("Wind's in your face, and 3H is 50 yards short of 160.");
+    ).toBe("Wind's in your face. You're 160 out. 3H gets you to about 110, so you'll need another shot.");
     expect(
       caddieLine({
         personality: 'funny_knowledgeable',

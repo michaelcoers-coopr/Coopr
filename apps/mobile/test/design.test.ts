@@ -5,7 +5,7 @@ import { colors, font, motion, play, radius, signal, space, touch, type } from '
 import { caddieLine } from '@coopr/engine';
 import { DEFAULT_VOICE, caddieVoiceLine } from '../src/design/caddie-voice';
 import { bagGlance, courseCall, holeSubline, hypeHero, resumeLine, skyLine, TEE_IT_UP } from '../src/design/home-copy';
-import { HOLE_BLEED_PAD, holeFitPoints, lineLengthYards, pointAtYards, projectHoleFill, projectPlayFrame, TEE_SHOT_MARKS, teeWindowYards } from '../src/hole-fit';
+import { HOLE_BLEED_PAD, holeFitPoints, lineLengthYards, playCamera, pointAtYards, projectHoleFill, projectPlayFrame, TEE_SHOT_MARKS, teeWindowYards } from '../src/hole-fit';
 import { CLOSED_CARD, CONSOLATION, holeFrame, mapHudInset, scoreMoment, scoreStamp } from '../src/design/play-polish';
 import { marksAt } from '../src/map-labels';
 import { RESULT_ICONS } from '../src/design/icons';
@@ -133,6 +133,9 @@ describe('caddie voice', () => {
     expect(caddieVoiceLine({ ...tee, voice: 'chirpy' })).toBe("Par 5. Nobody's getting home. Driver, find the short grass.");
     expect(caddieVoiceLine({ ...tee, voice: 'chirpy', par: 4 })).toBe("Par 4. Nobody's getting home. Driver, find the short grass.");
     expect(caddieVoiceLine({ ...tee, voice: 'chill' })).toBe('Par 5. Driver will not reach the green.');
+    expect(caddieVoiceLine({ ...tee, voice: 'chill', atTee: false })).toBe(
+      "You're 442 out. Driver gets you to about 213, so you'll need another shot.",
+    );
     expect(caddieVoiceLine({ ...tee, voice: 'chirpy', atTee: false })).toBe('Short is dead. Driver is 229 yards short of 442.');
     expect(caddieVoiceLine({ ...tee, voice: 'chirpy', par: 3 })).toBe('Short is dead. Driver is 229 yards short of 442.');
     expect(caddieVoiceLine({ ...tee, voice: 'chirpy', stockYards: 420 })).toBe('Short is dead. Driver is 22 yards short of 442.');
@@ -280,6 +283,36 @@ describe('play camera', () => {
     expect(ball.y).toBeGreaterThan(openBottom - 30);
     expect(approach.toXY(origin!).y).toBeGreaterThan(openBottom);
     expect(distanceYards(origin!, pointAtYards(hole.line, 0)!)).toBeLessThan(1);
+    const second = holeOverlay(pilot.features, pilot.record.scorecard, 2);
+    const secondBearing = shotBearing(second.line);
+    const secondOrigin = second.line[0];
+    const secondPin = second.line[second.line.length - 1];
+    const secondFairway = second.fairways.flatMap((feature) => feature.rings).flat();
+    const secondAround = [...secondFairway, ...(second.green?.rings.flat() ?? []), ...second.line];
+    const secondFrame = projectPlayFrame({
+      line: second.line,
+      around: secondAround,
+      fairway: secondFairway,
+      width: 390,
+      height,
+      view,
+      bearing: secondBearing!,
+      origin: secondOrigin!,
+      kind: 'hole',
+      reachYards: null,
+      from: null,
+    });
+    const secondTee = secondFrame.toXY(secondOrigin!);
+    const secondPinXY = secondFrame.toXY(secondPin!);
+    const secondGrass = secondFairway.map((point) => secondFrame.toXY(point));
+    expect(secondTee.y).toBeGreaterThan(openTop);
+    expect(secondTee.y).toBeLessThanOrEqual(openBottom + 2);
+    expect(secondPinXY.y).toBeGreaterThanOrEqual(openTop - 2);
+    expect(secondPinXY.y).toBeLessThan(secondTee.y);
+    expect(Math.max(...secondGrass.map((point) => point.y)) - Math.min(...secondGrass.map((point) => point.y))).toBeGreaterThan(80);
+    expect(playCamera({ onTee: false, fullHole: false, reachYards: 220, onThisHole: false, player: true })).toBe('hole');
+    expect(playCamera({ onTee: true, fullHole: false, reachYards: 220, onThisHole: true, player: true })).toBe('hole');
+    expect(playCamera({ onTee: true, fullHole: true, reachYards: 220, onThisHole: true, player: true })).toBe('tee');
   });
 });
 

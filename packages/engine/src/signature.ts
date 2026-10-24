@@ -294,10 +294,11 @@ export function caddieLine(input: {
   }
   if (help && gap === 'plenty') return thin ? `Wind's helping, ${nick}'s plenty. The sample is thin.` : `Wind's helping, ${nick}'s plenty. Don't be a hero.`;
   if (gap === 'short' && input.stockYards != null && input.targetYards != null) {
-    const yards = Math.round(input.targetYards - input.stockYards);
-    if (yards > 0) {
-      const reach = `${nick} is ${yards} yards short of ${Math.round(input.targetYards)}`;
-      return hurt ? `Wind's in your face, and ${reach}.` : `${reach}.`;
+    const stock = Math.round(input.stockYards);
+    const target = Math.round(input.targetYards);
+    if (target - stock > 0) {
+      const reach = `You're ${target} out. ${nick} gets you to about ${stock}, so you'll need another shot.`;
+      return hurt ? `Wind's in your face. ${reach}` : reach;
     }
   }
   if (hurt && gap === 'short') return `Wind's in your face, and ${nick} may not get there.`;

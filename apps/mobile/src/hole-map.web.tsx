@@ -437,26 +437,6 @@ export function HoleMap(props: HoleMapProps) {
                   <Polygon points={ellipseDraw.glow} fill={ink} fillOpacity={0.22} stroke="none" />
                   <Polygon points={ellipseDraw.solid} fill={`url(#${uid}-ovalfill)`} stroke={ink} strokeWidth={1.75} />
                   <Polygon points={ellipseDraw.solid} fill={ink} fillOpacity={0.16} stroke="none" />
-                  {props.ellipseCaption ? (
-                    (() => {
-                      const caption = sampleCaptionAt(ellipseDraw, pin);
-                      return (
-                        <MapText
-                          x={caption.x}
-                          y={caption.y}
-                          fill="#FFFFFF"
-                          fontSize={11}
-                          fontWeight="700"
-                          fontFamily={font.family}
-                          fontFeatureSettings='"tnum"'
-                          textAnchor={caption.anchor}
-                          style={mapLabelStyle}
-                        >
-                          {props.ellipseCaption}
-                        </MapText>
-                      );
-                    })()
-                  ) : null}
                 </G>
               );
             })()
@@ -496,6 +476,30 @@ export function HoleMap(props: HoleMapProps) {
             </G>
           );
         })}
+        {props.ellipseCaption && ellipseDraw
+          ? (() => {
+              const caption = sampleCaptionAt(
+                ellipseDraw,
+                pin,
+                placed.labels.map((label) => label.box),
+              );
+              return (
+                <MapText
+                  x={caption.x}
+                  y={caption.y}
+                  fill="#FFFFFF"
+                  fontSize={11}
+                  fontWeight="700"
+                  fontFamily={font.family}
+                  fontFeatureSettings='"tnum"'
+                  textAnchor={caption.anchor}
+                  style={mapLabelStyle}
+                >
+                  {props.ellipseCaption}
+                </MapText>
+              );
+            })()
+          : null}
         {props.dispersionLine.length > 1 ? (
           <Polyline points={pointsOf(props.dispersionLine, projection)} fill="none" stroke={bleed ? 'rgba(255,255,255,0.7)' : colors.navy} strokeWidth={4} />
         ) : null}

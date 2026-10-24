@@ -69,8 +69,8 @@ import { Glass, Vignette } from '../src/design/glass';
 import { ClubStrip, ThruBar } from '../src/design/signature-ui';
 import { useReduceMotion } from '../src/design/reduce-motion';
 import { CountChip } from '../src/design/count-chip';
-import { lineLengthYards, PAST_STOCK_YARDS, pointAtYards, TEE_SHOT_MARKS, teeWindowYards } from '../src/hole-fit';
-import { holeLabels, marksAt } from '../src/map-labels';
+import { lineLengthYards, PAST_STOCK_YARDS, playCamera, pointAtYards, TEE_SHOT_MARKS, teeWindowYards } from '../src/hole-fit';
+import { holeLabels, limitYardPills, marksAt } from '../src/map-labels';
 import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
 import { useLocalStore, type LandingResult } from '../src/local-store';
@@ -83,7 +83,7 @@ import { useTalkPrefs } from '../src/talk-prefs';
 
 const pilot = loadHighCedarsPilot();
 /** Tall enough for a wrapped caddie sentence and the mic. The locked HUD constant stays shorter. */
-const SHEET_CLOSED = 252;
+const SHEET_CLOSED = 200;
 const SHEET_OPEN = 540;
 /** The score bar is hidden while the sheet is open, so the camera does not reserve its clearance. */
 const OPEN_DOCK_CLEAR = 68;
@@ -703,8 +703,22 @@ export default function PlayScreen() {
     }
     if (nearest < Number.POSITIVE_INFINITY) grassStart = nearest;
   }
-  const reachYards = teeWindowYards(windowStock, lineLengthYards(overlay.line), grassStart);
-  const cameraKind = onTee && fullHole && reachYards != null ? 'tee' : onTee || fullHole || !player ? 'hole' : 'green';
+  const holeYards = lineLengthYards(overlay.line);
+  const reachYards = teeWindowYards(windowStock, holeYards, grassStart);
+  const pinForCamera = overlay.line[overlay.line.length - 1] ?? null;
+  const onThisHole =
+    player != null &&
+    teePoint != null &&
+    pinForCamera != null &&
+    distanceYards(player, teePoint) <= holeYards + 80 &&
+    distanceYards(player, pinForCamera) <= holeYards + 80;
+  const cameraKind = playCamera({
+    onTee,
+    fullHole,
+    reachYards,
+    onThisHole,
+    player: player != null,
+  });
   const oval: DispersionOval | null = sampleOn && !noShots ? dispersionOval([...SAMPLE_PATTERN]) : null;
   const landingYards = focusedPlays ?? focusedRaw;
   const origin = player ?? overlay.line[0] ?? null;
@@ -911,19 +925,21 @@ export default function PlayScreen() {
           })}
           orient={bearing != null && overlay.line[0] ? { bearing, origin: overlay.line[0] } : null}
           camera={{ kind: cameraKind, reachYards, from: player }}
-          labels={
-            cameraKind === 'tee' && reachYards != null
-              ? marksAt(
-                  overlay.line,
-                  TEE_SHOT_MARKS.filter((yards) => yards < reachYards),
-                  unit,
-                )
-              : holeLabels(
-                  overlay.line,
-                  unit,
-                  landing && landingLabelYards != null ? { at: landing, label: formatDistance(landingLabelYards, unit) } : null,
-                )
-          }
+          labels={(() => {
+            const marks =
+              cameraKind === 'tee' && reachYards != null
+                ? marksAt(
+                    overlay.line,
+                    TEE_SHOT_MARKS.filter((yards) => yards < reachYards),
+                    unit,
+                  )
+                : holeLabels(
+                    overlay.line,
+                    unit,
+                    landing && landingLabelYards != null ? { at: landing, label: formatDistance(landingLabelYards, unit) } : null,
+                  );
+            return sheetOpen ? limitYardPills(marks, player ?? overlay.line[0] ?? null, 2) : marks;
+          })()}
           line={overlay.line}
           fairways={ringsOf(overlay.fairways)}
           green={overlay.green ? ringsOf([overlay.green]) : []}
@@ -1112,18 +1128,36 @@ export default function PlayScreen() {
               <View style={styles.tipCard}>
                 <Text style={styles.spark}>✦</Text>
                 <View style={styles.clubCopy}>
-                  <Text style={styles.tipTitle}>{`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}</Text>
-                  <Text style={styles.clubMeta}>{updatedLabel}</Text>
-                  {oneLiner ? <Text style={styles.line}>{oneLiner}</Text> : null}
-                  <Text style={styles.carrySentence}>
-                    {carryYards == null ? 'Carry not measured' : <Text style={[styles.carryNum, { fontFamily: display }]}>{`${carryYards} carry`}</Text>}
-                    {carrySpread ? <Text style={[styles.carryNum, { fontFamily: display }]}>{`  ${carrySpread}`}</Text> : `  ${PATTERN_INVITE}`}
-                  </Text>
+                  {player == null && manual == null ? (
+                    <Text style={styles.line}>Waiting for GPS</Text>
+                  ) : (
+                    <>
+                      <Text style={styles.tipTitle}>{`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}</Text>
+                      <Text style={styles.clubMeta}>{updatedLabel}</Text>
+                      {oneLiner ? <Text style={styles.line}>{oneLiner}</Text> : null}
+                      <Text style={styles.carrySentence}>
+                        {carryYards == null ? (
+                          `Carry not measured. ${PATTERN_INVITE}.`
+                        ) : (
+                          <Text style={[styles.carryNum, { fontFamily: display }]}>{`${carryYards} carry`}</Text>
+                        )}
+                        {carryYards != null ? (carrySpread ? <Text style={[styles.carryNum, { fontFamily: display }]}>{` ${carrySpread}`}</Text> : ` ${PATTERN_INVITE}.`) : null}
+                      </Text>
+                    </>
+                  )}
                 </View>
               </View>
             )}
             {sheetTab === 'coach' ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Talk to the caddie" onPress={() => talk.open()} style={styles.micRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Talk to the caddie"
+                onPress={() => {
+                  applySheet.current(true);
+                  talk.open();
+                }}
+                style={styles.micRow}
+              >
                 <View style={styles.micDot} />
                 <Text style={styles.micLabel}>{talk.phase === 'listening' ? 'Listening' : talk.phase === 'speaking' ? 'Caddie' : 'Mic'}</Text>
               </Pressable>
@@ -1134,12 +1168,14 @@ export default function PlayScreen() {
             <Waveform live={talk.phase === 'listening' || talk.phase === 'speaking'} compact />
             {talk.sample ? <Text style={styles.clubMeta}>Sample mode. No live model on this server.</Text> : null}
             <Text style={styles.clubMeta}>You</Text>
-            <Text style={styles.line}>{talk.transcript || 'Hold the mic, or type it.'}</Text>
+            <Text style={styles.line}>{talk.transcript || talk.voiceHint || 'Hold the mic, or type it.'}</Text>
             <Text style={styles.clubMeta}>Caddie</Text>
             {talk.reply ? <YardageLine text={talk.reply} /> : <Text style={styles.line}> </Text>}
             {talk.typed ? (
               <View style={styles.typeRow}>
                 <TextInput
+                  key={talk.askFocus}
+                  autoFocus={talk.voiceHint != null}
                   value={talk.draft}
                   onChangeText={talk.setDraft}
                   placeholder="Ask your caddie…"

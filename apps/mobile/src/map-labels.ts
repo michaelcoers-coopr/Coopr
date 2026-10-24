@@ -30,6 +30,23 @@ export function marksAt(line: readonly LatLon[], yards: readonly number[], unit:
   return labels;
 }
 
+const FAIRWAY_MARK = new Set(['150', '300', '450']);
+
+/** While the sheet is open, keep the two fairway marks closest to the ball. Other labels stay. */
+export function limitYardPills(
+  labels: readonly { at: LatLon; label: string }[],
+  from: LatLon | null,
+  keep = 2,
+): { at: LatLon; label: string }[] {
+  const marks = labels.filter((label) => FAIRWAY_MARK.has(label.label));
+  if (marks.length <= keep) return [...labels];
+  const origin = from ?? marks[0]!.at;
+  const kept = new Set(
+    [...marks].sort((a, b) => distanceYards(origin, a.at) - distanceYards(origin, b.at)).slice(0, keep),
+  );
+  return labels.filter((label) => !FAIRWAY_MARK.has(label.label) || kept.has(label));
+}
+
 /** Yardage labels measured along the hole, plus the current shot when one exists. */
 export function holeLabels(
   line: readonly LatLon[],

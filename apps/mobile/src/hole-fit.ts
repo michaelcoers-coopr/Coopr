@@ -169,6 +169,23 @@ export function playingWidthMeters(points: readonly LatLon[], bearingDeg: number
 /** Yard marks drawn on the tee shot. */
 export const TEE_SHOT_MARKS = [150, 200, 250] as const;
 
+/**
+ * Tee shot only when the player is on this hole and asked for it.
+ * Someone still standing on the previous tee gets the whole hole, not a green zoom
+ * that shrinks the next hole into a corner.
+ */
+export function playCamera(input: {
+  onTee: boolean;
+  fullHole: boolean;
+  reachYards: number | null;
+  onThisHole: boolean;
+  player: boolean;
+}): 'tee' | 'hole' | 'green' {
+  if (input.onTee && input.fullHole && input.reachYards != null && input.onThisHole) return 'tee';
+  if (input.onTee || input.fullHole || !input.player || !input.onThisHole) return 'hole';
+  return 'green';
+}
+
 /** A point this many yards from the start of the hole line. Past the end, the last point. */
 export function pointAtYards(line: readonly LatLon[], yards: number): LatLon | null {
   if (line.length === 0 || !Number.isFinite(yards) || yards < 0) return null;
