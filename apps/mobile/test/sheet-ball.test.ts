@@ -101,8 +101,8 @@ describe('sheet ball', () => {
     expect(oliveHeight(540)).toBeGreaterThanOrEqual(Math.round(540 * 0.45));
     expect(oliveHeight(176)).toBeGreaterThan(SHEET_BALL_LIME_BAND);
     expect(SHEET_BALL_TEXT.closedPx).toBeGreaterThanOrEqual(6);
-    expect(SHEET_BALL_TEXT.openPx).toBeGreaterThan(SHEET_BALL_SCRIM_TOP);
-    expect(SHEET_BALL_TEXT.openPx).toBeGreaterThan(SHEET_BALL_LIME_BAND);
+    expect(SHEET_BALL_TEXT.openPx + SHEET_BALL_SCROLL_FADE).toBeGreaterThan(SHEET_BALL_SCRIM_TOP);
+    expect(SHEET_BALL_TEXT.openPx).toBeGreaterThan(SHEET_BALL_LIME_BAND - SHEET_BALL_SCROLL_FADE);
     expect(SHEET_BALL_SCROLL_FADE).toBe(48);
     const play = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../app/play.tsx'), 'utf8');
     expect(play).toContain('marginTop: SHEET_BALL_TEXT.closedPx');

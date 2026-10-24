@@ -31,12 +31,11 @@ const stageStyle = {
 };
 
 /**
- * Full-width lime along the bottom of the glass, olive climbing above it,
- * and a line-art cap. The glass clips the paint to the rounded corners.
+ * Full-width lime along the bottom of the glass, olive climbing above it.
+ * The glass clips the paint to the rounded corners. The cap is a sibling, above the scrim.
  */
 export const SheetBallArt = memo(function SheetBallArt({ id = 'sheetball' }: { id?: string }) {
-  const { viewBox, ball } = SHEET_BALL;
-  const dimples = projectedDimples();
+  const { viewBox } = SHEET_BALL;
   const [sheetH, setSheetH] = useState(176);
   const olive = oliveHeight(sheetH);
   return (
@@ -89,6 +88,15 @@ export const SheetBallArt = memo(function SheetBallArt({ id = 'sheetball' }: { i
           <Rect x="0" y="0" width={viewBox.w} height={SHEET_BALL_LIME_BAND} fill={`url(#${id}-lobe-r)`} />
         </Svg>
       </View>
+    </View>
+  );
+});
+
+/** Cap, rim, and dimples. Painted above the scrim so the silhouette stays visible, still under the type. */
+function SheetCap({ id }: { id: string }) {
+  const { viewBox, ball } = SHEET_BALL;
+  const dimples = projectedDimples();
+  return (
       <Svg
         pointerEvents="none"
         style={StyleSheet.absoluteFill}
@@ -140,9 +148,8 @@ export const SheetBallArt = memo(function SheetBallArt({ id = 'sheetball' }: { i
           strokeWidth={SHEET_BALL_STROKE}
         />
       </Svg>
-    </View>
   );
-});
+}
 
 /** Soft dark wash where the lowest type crosses the lime. It fades at both ends. */
 function BallScrim() {
@@ -213,8 +220,9 @@ export function SheetBall({ reduceMotion }: { reduceMotion: boolean }) {
   return (
     <View pointerEvents="none" style={styles.hold} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <SheetBallArt />
-      <BallShimmer reduceMotion={reduceMotion} />
       <BallScrim />
+      <SheetCap id="sheetball" />
+      <BallShimmer reduceMotion={reduceMotion} />
     </View>
   );
 }

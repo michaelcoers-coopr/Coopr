@@ -43,7 +43,11 @@ export const SHEET_BALL_SCROLL_FADE = 48;
  * Closed: gap under the Course / Coach AI / Stats row.
  * Open: the scroll stops above the lime band and the scrim.
  */
-export const SHEET_BALL_TEXT = { closedPx: 8, openPx: 148 } as const;
+/**
+ * Open margin sits the scroll on the glow. The 48px fade covers the overlap,
+ * so the opaque lines still end above the scrim.
+ */
+export const SHEET_BALL_TEXT = { closedPx: 8, openPx: 104 } as const;
 
 /** Dark scrim behind the type that shares pixels with the lime. */
 export const SHEET_BALL_SCRIM = '#040A18';
