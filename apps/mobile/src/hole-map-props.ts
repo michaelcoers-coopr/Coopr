@@ -63,4 +63,9 @@ export interface HoleMapProps {
    * More and the course screen keep the full sentence.
    */
   showCredit?: boolean;
+  /**
+   * Distance from the bottom of the map to the credit line.
+   * Play sets this above the Score and Mark buttons and left of Ask.
+   */
+  creditBottom?: number;
 }

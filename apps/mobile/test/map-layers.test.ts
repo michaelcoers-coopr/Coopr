@@ -40,6 +40,11 @@ describe('aerial layer order', () => {
     expect(source).toContain('styles.vectorOverlay');
     expect(source).toContain('AERIAL_CREDIT_SHORT');
     expect(source).not.toContain(AERIAL_CREDIT);
+    expect(source).toContain("left: 16");
+    expect(source).not.toContain('right: 10, maxWidth');
+    const flag = source.indexOf("fill={colors.red}");
+    const oval = source.lastIndexOf('ovalfill');
+    expect(flag).toBeGreaterThan(oval);
   });
 });
 

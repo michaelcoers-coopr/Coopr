@@ -1042,6 +1042,7 @@ export default function PlayScreen() {
           imagery={VECTOR_TILE_SOURCE}
           plate={plate}
           showCredit={!sheetOpen}
+          creditBottom={SHEET_CLOSED + Math.max(insets.bottom, 8) + 4 + 56 + 8}
         />
         <Vignette deep />
       </Animated.View>
@@ -1298,7 +1299,9 @@ export default function PlayScreen() {
             {longTotal ? <Text style={styles.body}>{longTotal}</Text> : null}
             {missLine ? <Text style={styles.body}>{missLine}</Text> : null}
             <Text style={styles.body}>Putts stay off the score.</Text>
-            <CountChip value={puttCount} confirmed={face.puttsConfirmed} par={null} floor={0} idleLabel="Putts" onWrite={writePutts} />
+            <View style={styles.puttChip}>
+              <CountChip value={puttCount} confirmed={face.puttsConfirmed} par={null} floor={0} idleLabel="Putts" onWrite={writePutts} />
+            </View>
             {face.suggestion != null && face.suggestion !== face.strokes ? (
               <Pressable
                 accessibilityRole="button"
@@ -1573,6 +1576,7 @@ const styles = StyleSheet.create({
   details: { flex: 1, minHeight: 0, zIndex: 1 },
   heard: { paddingHorizontal: 16, paddingBottom: 4, gap: 4, zIndex: 1 },
   detailsBody: { paddingHorizontal: 16, paddingBottom: 36, gap: 12 },
+  puttChip: { alignItems: 'flex-start' },
   body: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24 },
   textHit: { minHeight: 56, justifyContent: 'center' },
   dock: { position: 'absolute', left: 12, right: 112, zIndex: 6, gap: 4 },

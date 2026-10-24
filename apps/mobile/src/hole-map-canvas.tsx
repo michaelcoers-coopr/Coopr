@@ -460,12 +460,6 @@ export function HoleMap(props: HoleMapProps) {
           />
         ) : null}
         {tee ? <Rect x={tee.x - 14} y={tee.y - 5} width={28} height={10} rx={2} fill="#FFFFFF" stroke={photo ? '#06140E' : 'none'} strokeWidth={photo ? 1.5 : 0} /> : null}
-        {pin ? (
-          <G>
-            <Line x1={pin.x} y1={pin.y} x2={pin.x} y2={pin.y - 30} stroke="#F7F5F2" strokeWidth={2} />
-            <Polygon points={`${pin.x},${pin.y - 30} ${pin.x + 16},${pin.y - 23} ${pin.x},${pin.y - 16}`} fill={colors.red} />
-          </G>
-        ) : null}
         {ballXY && aimEnd ? (
           <G>
             <Line x1={ballXY.x} y1={ballXY.y} x2={aimEnd.x} y2={aimEnd.y} stroke="#FFFFFF" strokeOpacity={0.55} strokeWidth={1.5} strokeLinecap="round" />
@@ -506,6 +500,12 @@ export function HoleMap(props: HoleMapProps) {
               );
             })()
           : null}
+        {pin ? (
+          <G>
+            <Line x1={pin.x} y1={pin.y} x2={pin.x} y2={pin.y - 30} stroke="#F7F5F2" strokeWidth={2} />
+            <Polygon points={`${pin.x},${pin.y - 30} ${pin.x + 16},${pin.y - 23} ${pin.x},${pin.y - 16}`} fill={colors.red} />
+          </G>
+        ) : null}
         {placed.dots.map((dot) => (
           <G key={dot.id} accessible={false}>
             <Circle cx={dot.at.x} cy={dot.at.y} r={GREEN_DOT / 2 + DOT_STROKE} fill="#0B1F3A" />
@@ -599,7 +599,7 @@ export function HoleMap(props: HoleMapProps) {
         ))}
       </View>
       {photo && props.showCredit !== false ? (
-        <View pointerEvents="none" style={[styles.creditWrap, { bottom: frame.bottom + 6 }]}>
+        <View pointerEvents="none" style={[styles.creditWrap, { bottom: props.creditBottom ?? frame.bottom + 28 }]}>
           <Text numberOfLines={1} style={styles.credit}>
             {AERIAL_CREDIT_SHORT}
           </Text>
@@ -628,15 +628,15 @@ const styles = StyleSheet.create({
   photoLayer: { zIndex: MAP_LAYER.photo },
   photoImage: { position: 'absolute' },
   vectorOverlay: { position: 'relative', zIndex: MAP_LAYER.overlay },
-  creditWrap: { position: 'absolute', right: 10, maxWidth: '48%', zIndex: MAP_LAYER.credit },
+  creditWrap: { position: 'absolute', left: 16, right: 120, zIndex: MAP_LAYER.credit, alignItems: 'flex-start' },
   credit: {
-    color: 'rgba(244,255,246,0.72)',
-    fontSize: 9,
-    lineHeight: 12,
-    fontWeight: '500',
-    textShadowColor: 'rgba(0,0,0,0.9)',
+    color: 'rgba(255,255,255,0.94)',
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.95)',
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    textShadowRadius: 4,
   },
   dotHits: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: MAP_LAYER.hits },
   dotHit: { position: 'absolute', width: 28, height: 28 },
