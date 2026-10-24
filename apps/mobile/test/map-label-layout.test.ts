@@ -14,7 +14,7 @@ import {
 } from '@coopr/engine';
 import { holeFrame, mapHudInset } from '../src/design/play-polish';
 import { holeLabels } from '../src/map-labels';
-import { boxesSeparated, DOT_STROKE, GREEN_DOT, LABEL_GAP, layoutHoleLabels, leaderLength, LEADER_MAX, nearestMark, ovalGlowBox, type PlacedMapLabel } from '../src/map-label-layout';
+import { boxesSeparated, DOT_STROKE, GREEN_DOT, LABEL_GAP, layoutHoleLabels, leaderLength, LEADER_MAX, nearestMark, ovalGlowBox, sampleCaptionAt, type PlacedMapLabel } from '../src/map-label-layout';
 
 const WIDTH = 390;
 const HEIGHT = 844;
@@ -131,6 +131,12 @@ describe('hole 1 map labels', () => {
       expect(leaderLength(label.anchor, label.box), label.text).toBeLessThanOrEqual(LEADER_MAX);
       if (label.id.startsWith('plays')) expect(boxesSeparated(label.box, greenRect, 0), label.text).toBe(true);
     }
+    const besideTheFlag = sampleCaptionAt({ cx: 180, cy: 210, halfW: 36, halfH: 18 }, { x: 184, y: 188 });
+    expect(besideTheFlag.anchor).not.toBe('middle');
+    expect(Math.abs(besideTheFlag.x - 180)).toBeGreaterThan(36);
+    const clear = sampleCaptionAt({ cx: 40, cy: 500, halfW: 20, halfH: 12 }, { x: 300, y: 80 });
+    expect(clear).toEqual({ x: 40, y: 500 - 14 - 12, anchor: 'middle' });
+
     for (let index = 0; index < placed.labels.length; index += 1) {
       for (let other = index + 1; other < placed.labels.length; other += 1) {
         expect(boxesSeparated(placed.labels[index]!.box, placed.labels[other]!.box, LABEL_GAP), pairName(placed.labels, index, other)).toBe(true);

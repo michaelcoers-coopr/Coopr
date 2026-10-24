@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { KeyboardAvoidingView, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
@@ -60,7 +60,7 @@ import { loadHighCedarsPilot } from '@coopr/course';
 import { HoleMap } from '../src/hole-map';
 import { boom, celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { holeSwipe, rollSteps } from '../src/design/motion';
-import { CLOSED_CARD, clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreGlance, scoreMoment, scoreStamp, sheetSnap, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreGlance, scoreMoment, scoreStamp, sheetSnap, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { caddieVoiceLine } from '../src/design/caddie-voice';
 import { useDisplayFace } from '../src/design/display-font';
 import { MomentOverlay } from '../src/design/moments';
@@ -82,8 +82,10 @@ import { VECTOR_TILE_SOURCE } from '../src/tile-source';
 import { useTalkPrefs } from '../src/talk-prefs';
 
 const pilot = loadHighCedarsPilot();
-const SHEET_CLOSED = CLOSED_CARD;
+/** Tall enough for a wrapped caddie sentence and the mic. The locked HUD constant stays shorter. */
+const SHEET_CLOSED = 252;
 const SHEET_OPEN = 420;
+const VOICE_DWELL_MS = 8000;
 const SHEET_SPRING = { damping: 18, stiffness: 190, mass: 0.75 };
 
 function ringsOf(features: readonly MapFeature[]): LatLon[][] {
@@ -184,6 +186,7 @@ export default function PlayScreen() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetTab, setSheetTab] = useState<'course' | 'coach' | 'stats'>('coach');
   const [clock, setClock] = useState(() => Date.now());
+  const [keyboard, setKeyboard] = useState(0);
   const lineClock = useRef({ key: '', at: Date.now() });
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
   const [sampleOn, setSampleOn] = useState(false);
@@ -234,6 +237,8 @@ export default function PlayScreen() {
     }),
   ).current;
   const heldOpen = useRef(false);
+  const dwell = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const framedHole = useRef<number | null>(null);
   const applySheet = useRef<(open: boolean, fromGesture?: boolean) => void>(() => {});
   applySheet.current = (open: boolean, fromGesture = false) => {
     if (fromGesture) heldOpen.current = open;
@@ -352,9 +357,13 @@ export default function PlayScreen() {
   }, [bannerOn, sheetH]);
 
   useEffect(() => {
+    const previous = framedHole.current;
+    framedHole.current = currentHole;
+    if (previous === currentHole) return;
     setOverrideOpen(false);
     setSaved(null);
     setSky(null);
+    if (previous == null) return;
     sheetOpenRef.current = false;
     setSheetOpen(false);
     setFullHole(false);
@@ -549,15 +558,41 @@ export default function PlayScreen() {
   }, [atTeeNow, currentHole, hole?.par, lastMark?.id, player, talk.phase, talkPrefs.callouts, voice, yardsFromLast, ground?.centerYards]);
 
   useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, (event) => setKeyboard(event.endCoordinates?.height ?? 0));
+    const hide = Keyboard.addListener(hideEvent, () => setKeyboard(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (dwell.current) {
+      clearTimeout(dwell.current);
+      dwell.current = null;
+    }
     if (talk.phase !== 'idle') {
       applySheet.current(true);
       return;
     }
-    if (!heldOpen.current && sheetOpenRef.current) applySheet.current(false);
-  }, [talk.phase]);
+    if (heldOpen.current || !sheetOpenRef.current || talk.askKind !== 'voice') return;
+    dwell.current = setTimeout(() => {
+      dwell.current = null;
+      if (heldOpen.current) return;
+      applySheet.current(false);
+    }, VOICE_DWELL_MS);
+    return () => {
+      if (dwell.current) {
+        clearTimeout(dwell.current);
+        dwell.current = null;
+      }
+    };
+  }, [talk.phase, talk.transcript, talk.reply, talk.draft, talk.askKind]);
 
   useEffect(() => {
-    const id = setInterval(() => setClock(Date.now()), 1000);
+    const id = setInterval(() => setClock(Date.now()), 15000);
     return () => clearInterval(id);
   }, []);
 
@@ -733,9 +768,11 @@ export default function PlayScreen() {
   const tipCarry = carryProfile(profiles, shownId);
   const carryYards = tipCarry != null && Number.isFinite(tipCarry.stockYards) ? Math.round(tipCarry.stockYards) : null;
   const carrySpread = carryBand(tipCarry, unit);
-  const lineKey = `${shownId ?? ''}:${oneLiner ?? ''}:${carryYards ?? ''}:${carrySpread ?? ''}`;
+  const moved = player ? `${player.lat.toFixed(4)},${player.lon.toFixed(4)}` : 'desk';
+  const lineKey = `${shownId ?? ''}:${oneLiner ?? ''}:${carryYards ?? ''}:${carrySpread ?? ''}:${moved}`;
   if (lineClock.current.key !== lineKey) lineClock.current = { key: lineKey, at: Date.now() };
-  const updatedAgo = Math.max(0, Math.round((clock - lineClock.current.at) / 1000));
+  const ageSec = Math.max(0, Math.floor((clock - lineClock.current.at) / 1000));
+  const updatedLabel = ageSec < 60 ? 'Just now' : `Updated ${Math.floor(ageSec / 60)}m ago`;
   const windMph = sky?.current?.windMph;
   const windKnown = windMph != null && Number.isFinite(windMph);
   const windText = windKnown ? String(Math.round(windMph)) : '?';
@@ -902,7 +939,16 @@ export default function PlayScreen() {
             center: greenMarkLabel('Center', ground ? formatDistance(ground.centerYards, unit) : null, unit),
             back: greenMarkLabel('Back', ground ? formatDistance(ground.backYards, unit) : null, unit),
           }}
-          onTap={() => undefined}
+          onTap={() => {
+            if (!sheetOpenRef.current) return;
+            heldOpen.current = false;
+            if (dwell.current) {
+              clearTimeout(dwell.current);
+              dwell.current = null;
+            }
+            talk.close();
+            applySheet.current(false);
+          }}
           rawLabel=""
           playsLabel=""
           aerial
@@ -1011,7 +1057,7 @@ export default function PlayScreen() {
               {ground ? <End label="Back" value={formatDistance(ground.backYards, unit)} /> : <View style={styles.endCol} />}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={windKnown ? `Wind ${windText} miles per hour` : 'Wind unknown'}
+                accessibilityLabel={windKnown ? `Wind ${windText} ${Number(windText) === 1 ? 'mile' : 'miles'} per hour` : 'Wind unknown'}
                 onPress={() => undefined}
                 style={({ pressed }) => [styles.windHit, pressed && !reduceMotion && styles.pressed]}
               >
@@ -1031,7 +1077,7 @@ export default function PlayScreen() {
           </Glass>
         </View>
       ) : null}
-      <Animated.View style={[styles.sheet, sheetStyle, { bottom: Math.max(insets.bottom, 8) }]}>
+      <Animated.View style={[styles.sheet, sheetStyle, { bottom: Math.max(insets.bottom, 8) + (sheetOpen ? keyboard : 0), zIndex: sheetOpen ? 8 : 2 }]}>
         <Glass radius={28} style={styles.sheetGlass} contentStyle={styles.sheetFill}>
           <View style={styles.grab}>
             <View {...sheetPan.panHandlers} style={styles.handleHit}>
@@ -1054,12 +1100,12 @@ export default function PlayScreen() {
               <View style={styles.tipCard}>
                 <Text style={styles.spark}>✦</Text>
                 <View style={styles.clubCopy}>
-                  <Text style={styles.tipTitle} numberOfLines={1}>{`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}</Text>
-                  <Text style={styles.clubMeta}>{`Updated ${updatedAgo}s ago`}</Text>
-                  {oneLiner ? <Text style={styles.line} numberOfLines={sheetOpen ? 3 : 1}>{oneLiner}</Text> : null}
-                  <Text style={[styles.carryLine, { fontFamily: display }]} numberOfLines={1}>
-                    {carryYards == null ? 'Carry not measured' : `${carryYards} carry`}
-                    {carrySpread ? `  ${carrySpread}` : `  ${PATTERN_INVITE}`}
+                  <Text style={styles.tipTitle}>{`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}</Text>
+                  <Text style={styles.clubMeta}>{updatedLabel}</Text>
+                  {oneLiner ? <Text style={styles.line}>{oneLiner}</Text> : null}
+                  <Text style={styles.carrySentence}>
+                    {carryYards == null ? 'Carry not measured' : <Text style={[styles.carryNum, { fontFamily: display }]}>{`${carryYards} carry`}</Text>}
+                    {carrySpread ? <Text style={[styles.carryNum, { fontFamily: display }]}>{`  ${carrySpread}`}</Text> : `  ${PATTERN_INVITE}`}
                   </Text>
                 </View>
               </View>
@@ -1072,8 +1118,7 @@ export default function PlayScreen() {
             ) : null}
           </View>
           {sheetOpen && sheetTab === 'coach' ? (
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.talkGrow}>
-          <ScrollView style={styles.details} contentContainerStyle={styles.detailsBody} keyboardShouldPersistTaps="handled">
+          <ScrollView style={styles.details} contentContainerStyle={styles.detailsBody} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
             <Waveform live={talk.phase === 'listening' || talk.phase === 'speaking'} compact />
             {talk.sample ? <Text style={styles.clubMeta}>Sample mode. No live model on this server.</Text> : null}
             <Text style={styles.clubMeta}>You</Text>
@@ -1092,7 +1137,7 @@ export default function PlayScreen() {
                   onSubmitEditing={() => {
                     const text = talk.draft;
                     talk.setDraft('');
-                    void talk.ask(text);
+                    void talk.ask(text, 'typed');
                   }}
                 />
                 <Pressable
@@ -1101,7 +1146,7 @@ export default function PlayScreen() {
                   onPress={() => {
                     const text = talk.draft;
                     talk.setDraft('');
-                    void talk.ask(text);
+                    void talk.ask(text, 'typed');
                   }}
                 >
                   <Text style={styles.micLabel}>Send</Text>
@@ -1173,7 +1218,6 @@ export default function PlayScreen() {
               <Text style={styles.body}>{score.holesEntered === 0 ? 'Round is in.' : `Round is in. Gross ${score.gross}.`}</Text>
             ) : null}
           </ScrollView>
-          </KeyboardAvoidingView>
           ) : null}
           <View pointerEvents="none" style={styles.footerArt}>
             <View style={styles.limeGlow} />
@@ -1185,8 +1229,10 @@ export default function PlayScreen() {
           </View>
         </Glass>
       </Animated.View>
+      {sheetOpen ? null : (
+        <>
       <View
-        style={[styles.dock, { bottom: CLOSED_CARD + Math.max(insets.bottom, 8) + 4 }]}
+        style={[styles.dock, { bottom: SHEET_CLOSED + Math.max(insets.bottom, 8) + 4 }]}
       >
         {ask.undo}
         <View style={styles.dockRow}>
@@ -1198,9 +1244,11 @@ export default function PlayScreen() {
           </Pressable>
         </View>
       </View>
-      <View pointerEvents="box-none" style={[styles.askFloat, { bottom: CLOSED_CARD + Math.max(insets.bottom, 8) + 4 }]}>
+      <View pointerEvents="box-none" style={[styles.askFloat, { bottom: SHEET_CLOSED + Math.max(insets.bottom, 8) + 4 }]}>
         {ask.button}
       </View>
+        </>
+      )}
       </Animated.View>
       <MomentOverlay
         stamp={stamp}
@@ -1295,7 +1343,8 @@ const styles = StyleSheet.create({
   tipCard: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   spark: { color: '#8AC926', fontSize: 16, lineHeight: 18 },
   tipTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 16, fontWeight: '700' },
-  carryLine: { color: '#FFFFFF', fontSize: 16, lineHeight: 18, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  carrySentence: { color: '#FFFFFF', fontFamily: font.family, fontSize: 14, lineHeight: 18, fontWeight: '600' },
+  carryNum: { color: '#FFFFFF', fontSize: 16, lineHeight: 18, fontWeight: '700', fontVariant: ['tabular-nums'] },
   micRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 28 },
   micDot: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#8AC926' },
   micLabel: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, fontWeight: '700' },
@@ -1419,7 +1468,7 @@ const styles = StyleSheet.create({
   dim: { opacity: 0.55 },
   kicker: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
   details: { flex: 1 },
-  detailsBody: { paddingHorizontal: 16, paddingBottom: 16, gap: 12 },
+  detailsBody: { paddingHorizontal: 16, paddingBottom: 36, gap: 12 },
   body: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24 },
   textHit: { minHeight: 56, justifyContent: 'center' },
   dock: { position: 'absolute', left: 12, right: 112, zIndex: 6, gap: 4 },

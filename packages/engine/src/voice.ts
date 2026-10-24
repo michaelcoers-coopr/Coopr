@@ -395,6 +395,11 @@ function knownNumber(value: number | null | undefined): number | null {
   return value != null && Number.isFinite(value) ? value : null;
 }
 
+function counted(count: number, singular: string, plural: string): string {
+  const shown = Math.round(count);
+  return `${shown} ${Math.abs(shown) === 1 ? singular : plural}`;
+}
+
 /** Wind, elevation, temperature, and distance, spoken from the readings that exist. */
 export function conditionAnswer(
   question: 'wind' | 'elevation' | 'temperature' | 'distance',
@@ -412,11 +417,11 @@ export function conditionAnswer(
     const head = knownNumber(input.headwindMph);
     if (speed == null && head == null) return 'No wind reading yet.';
     const parts: string[] = [];
-    if (speed != null) parts.push(`Wind ${Math.round(speed)} miles per hour.`);
+    if (speed != null) parts.push(`Wind ${counted(speed, 'mile', 'miles')} per hour.`);
     if (head != null) {
       const way = head > 0.5 ? 'Into you' : head < -0.5 ? 'Helping' : 'Across';
       const yards = knownNumber(input.windYards);
-      parts.push(yards == null ? `${way}.` : `${way} by ${Math.round(Math.abs(yards))} yards.`);
+      parts.push(yards == null ? `${way}.` : `${way} by ${counted(Math.abs(yards), 'yard', 'yards')}.`);
     }
     return parts.join(' ');
   }
@@ -425,16 +430,16 @@ export function conditionAnswer(
     if (feet == null) return 'No elevation reading yet.';
     const rounded = Math.round(feet);
     const way = rounded > 0 ? 'up' : rounded < 0 ? 'down' : 'level';
-    return way === 'level' ? 'Elevation is level.' : `Elevation is ${Math.abs(rounded)} feet ${way}.`;
+    return way === 'level' ? 'Elevation is level.' : `Elevation is ${counted(Math.abs(rounded), 'foot', 'feet')} ${way}.`;
   }
   if (question === 'temperature') {
     const degrees = knownNumber(input.temperatureF);
     if (degrees == null) return 'No temperature reading yet.';
-    return `${Math.round(degrees)} degrees.`;
+    return `${counted(degrees, 'degree', 'degrees')}.`;
   }
   const yards = knownNumber(input.distanceYards);
   if (yards == null || yards <= 0) return 'No distance yet.';
-  return `${Math.round(yards)} yards.`;
+  return `${counted(yards, 'yard', 'yards')}.`;
 }
 
 export function answerAsk(input: {

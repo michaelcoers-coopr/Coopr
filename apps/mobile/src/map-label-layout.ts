@@ -378,3 +378,28 @@ export function layoutHoleLabels(input: HoleLabelLayoutInput): HoleLabelLayout {
 
   return { labels, dots };
 }
+
+/**
+ * The sample tag sits above the oval. A green-side oval runs into the flag,
+ * so the tag steps out to the side instead of covering the pin.
+ */
+export function sampleCaptionAt(
+  oval: { cx: number; cy: number; halfW: number; halfH: number },
+  pin: { x: number; y: number } | null,
+): { x: number; y: number; anchor: 'middle' | 'start' | 'end' } {
+  const above = {
+    x: oval.cx,
+    y: oval.cy - Math.max(10, oval.halfH) - 14,
+    anchor: 'middle' as const,
+  };
+  if (!pin) return above;
+  const flag = { x: pin.x + 8, y: pin.y - 22 };
+  const onThePin = Math.hypot(above.x - flag.x, above.y - flag.y) < 48 || Math.hypot(oval.cx - pin.x, oval.cy - pin.y) < 56;
+  if (!onThePin) return above;
+  const side = pin.x >= oval.cx ? -1 : 1;
+  return {
+    x: oval.cx + side * (Math.max(10, oval.halfW) + 28),
+    y: oval.cy,
+    anchor: side < 0 ? 'end' : 'start',
+  };
+}

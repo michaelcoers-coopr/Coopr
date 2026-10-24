@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DistanceProfile } from '@coopr/engine';
 import {
   answerAsk,
+  conditionAnswer,
   cycleAskChip,
   handleVoiceBuffer,
   handleVoiceRequest,
@@ -206,6 +207,16 @@ describe('lie estimate and the caddie line', () => {
     expect(answer.clubLabel).toMatch(/sand wedge/);
     expect(answer.line).toMatch(/estimate/);
     expect(answer.line).not.toMatch(/7-iron|6-iron/);
+  });
+
+  it('speaks one unit in the singular', () => {
+    expect(conditionAnswer('wind', { windMph: 1 })).toBe('Wind 1 mile per hour.');
+    expect(conditionAnswer('wind', { windMph: 6, headwindMph: 6, windYards: 1 })).toBe('Wind 6 miles per hour. Into you by 1 yard.');
+    expect(conditionAnswer('elevation', { elevationFeet: 1 })).toBe('Elevation is 1 foot up.');
+    expect(conditionAnswer('elevation', { elevationFeet: -1 })).toBe('Elevation is 1 foot down.');
+    expect(conditionAnswer('temperature', { temperatureF: 1 })).toBe('1 degree.');
+    expect(conditionAnswer('distance', { distanceYards: 1 })).toBe('1 yard.');
+    expect(conditionAnswer('distance', { distanceYards: 158 })).toBe('158 yards.');
   });
 
   it('says plays-like is blank until the three inputs exist', () => {

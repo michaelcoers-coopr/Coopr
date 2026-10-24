@@ -68,7 +68,8 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
   typed: boolean;
   draft: string;
   setDraft: (value: string) => void;
-  ask: (text: string) => Promise<void>;
+  askKind: 'typed' | 'voice' | null;
+  ask: (text: string, kind?: 'typed' | 'voice') => Promise<void>;
 } {
   const latest = useRef(input);
   latest.current = input;
@@ -83,6 +84,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
   const [sample, setSample] = useState(false);
   const [typed, setTyped] = useState(true);
   const [draft, setDraft] = useState('');
+  const [askKind, setAskKind] = useState<'typed' | 'voice' | null>(null);
   const turns = useRef<TalkTurn[]>([]);
   const preview = useRef(false);
   const speaker = useRef(caddieSpeaker('device'));
@@ -120,9 +122,10 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
     return next;
   };
 
-  const ask = async (text: string) => {
+  const ask = async (text: string, kind: 'typed' | 'voice' = 'voice') => {
     const spoken = text.trim();
     if (!spoken) return;
+    setAskKind(kind);
     stopEar();
     gate.current = { stopped: false };
     move('think');
@@ -156,7 +159,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
     const heard = await listenForSpeech((text, final) => {
       if (!text) return;
       setTranscript(text);
-      if (final) void ask(text);
+      if (final) void ask(text, 'voice');
     });
     ear.current = heard;
     setTyped(heard == null);
@@ -193,7 +196,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
     setTranscript(sim);
     setTyped(true);
     move('listen');
-    void ask(sim);
+    void ask(sim, 'typed');
     // The preview sentence is a desk check. It runs once a real distance is on screen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [input.hole, input.gpsYards]);
@@ -246,7 +249,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
               onSubmitEditing={() => {
                 const text = draft;
                 setDraft('');
-                void ask(text);
+                void ask(text, 'typed');
               }}
             />
             <Pressable
@@ -255,7 +258,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
               onPress={() => {
                 const text = draft;
                 setDraft('');
-                void ask(text);
+                void ask(text, 'typed');
               }}
               style={styles.send}
             >
@@ -280,7 +283,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface
     </View>
   );
 
-  return { overlay, open: openTalk, close: closeTalk, phase, transcript, reply, sample, typed, draft, setDraft, ask };
+  return { overlay, open: openTalk, close: closeTalk, phase, transcript, reply, sample, typed, draft, setDraft, askKind, ask };
 }
 
 const styles = StyleSheet.create({
