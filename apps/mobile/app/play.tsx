@@ -84,7 +84,9 @@ import { useTalkPrefs } from '../src/talk-prefs';
 const pilot = loadHighCedarsPilot();
 /** Tall enough for a wrapped caddie sentence and the mic. The locked HUD constant stays shorter. */
 const SHEET_CLOSED = 252;
-const SHEET_OPEN = 420;
+const SHEET_OPEN = 540;
+/** The score bar is hidden while the sheet is open, so the camera does not reserve its clearance. */
+const OPEN_DOCK_CLEAR = 68;
 const VOICE_DWELL_MS = 8000;
 const SHEET_SPRING = { damping: 18, stiffness: 190, mass: 0.75 };
 
@@ -596,6 +598,12 @@ export default function PlayScreen() {
     return () => clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    if (!sheetOpenRef.current) return;
+    const next = keyboard > 0 ? Math.min(SHEET_OPEN, Math.max(360, 800 - keyboard)) : SHEET_OPEN;
+    sheetH.value = withSpring(next, SHEET_SPRING);
+  }, [keyboard, sheetH]);
+
   if (!hole || !overlay) {
     return (
       <View style={styles.screen}>
@@ -896,7 +904,11 @@ export default function PlayScreen() {
         <HoleMap
           bleed
           height={mapH}
-          pad={holeFrame({ hudHeight: mapHudInset(insets.top), dockHeight: 0, sheetClosed: frameSheet })}
+          pad={holeFrame({
+            hudHeight: mapHudInset(insets.top),
+            dockHeight: 0,
+            sheetClosed: sheetOpen ? Math.max(closedSheet, frameSheet - OPEN_DOCK_CLEAR) : frameSheet,
+          })}
           orient={bearing != null && overlay.line[0] ? { bearing, origin: overlay.line[0] } : null}
           camera={{ kind: cameraKind, reachYards, from: player }}
           labels={
@@ -1451,7 +1463,7 @@ const styles = StyleSheet.create({
   hazardFill: { minHeight: 32, paddingHorizontal: 12, justifyContent: 'center' },
   sheet: { position: 'absolute', left: 12, right: 12, overflow: 'hidden' },
   sheetGlass: { flex: 1 },
-  sheetFill: { flex: 1 },
+  sheetFill: { flex: 1, minHeight: 0 },
   grab: { paddingTop: 0, paddingHorizontal: 12, paddingBottom: 2 },
   tipHit: { marginTop: 2 },
   tip: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold },
@@ -1467,7 +1479,7 @@ const styles = StyleSheet.create({
   sample: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
   dim: { opacity: 0.55 },
   kicker: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
-  details: { flex: 1 },
+  details: { flex: 1, minHeight: 0 },
   detailsBody: { paddingHorizontal: 16, paddingBottom: 36, gap: 12 },
   body: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24 },
   textHit: { minHeight: 56, justifyContent: 'center' },

@@ -49,7 +49,7 @@ export function YardageLine({ text }: { text: string }) {
 
 export function Waveform({ live, compact = false }: { live: boolean; compact?: boolean }) {
   return (
-    <View style={styles.wave} accessibilityLabel={live ? 'Live waveform' : 'Waveform'}>
+    <View style={[styles.wave, compact && styles.waveCompact]} accessibilityLabel={live ? 'Live waveform' : 'Waveform'}>
       {BARS.map((height, index) => (
         <View key={index} style={[styles.bar, { height: (compact ? 6 : 16) + height * (compact ? 18 : 52), opacity: live ? 0.95 : 0.35 }]} />
       ))}
@@ -309,6 +309,7 @@ const styles = StyleSheet.create({
   closeText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
   sample: { color: '#8AC926', fontFamily: font.family, fontSize: type.caption, fontWeight: '700' },
   wave: { height: 78, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  waveCompact: { height: 28 },
   bar: { width: 8, borderRadius: 4, backgroundColor: '#FFFFFF' },
   kicker: { color: 'rgba(255,255,255,0.62)', fontFamily: font.family, fontSize: type.caption, fontWeight: '700', letterSpacing: 0.6 },
   heard: { color: '#FFFFFF', fontFamily: font.family, fontSize: 22, lineHeight: 28, fontWeight: '700' },
