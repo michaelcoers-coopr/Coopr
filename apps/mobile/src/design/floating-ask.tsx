@@ -25,7 +25,8 @@ export function FloatingAsk() {
     return () => cancelAnimation(breathe);
   }, [reduce, breathe]);
   const pulse = useAnimatedStyle(() => ({ transform: [{ scale: breathe.value }] }));
-  if (segments[0] === 'play') return null;
+  const root = segments[0];
+  if (root == null || root === 'index' || root === 'play') return null;
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
       <Animated.View pointerEvents="box-none" style={[styles.slot, { top: insets.top + 8 }, pulse]}>

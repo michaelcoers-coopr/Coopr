@@ -1051,7 +1051,7 @@ export default function PlayScreen() {
 
   const heroText = roll != null ? String(Math.round(roll)) : heroBase == null ? '' : formatDistance(heroBase, unit);
   const heroDigits = heroText.replace(/\D/g, '').length;
-  const heroSize = heroDigits >= 4 ? 56 : heroDigits >= 3 ? 68 : 112;
+  const heroSize = heroDigits >= 4 ? 64 : heroDigits >= 3 ? 84 : 112;
   const playsLikeText =
     playsLikeYards != null && shotRaw != null && Math.round(playsLikeYards) !== Math.round(shotRaw)
       ? `PLAYS LIKE ${formatDistance(playsLikeYards, unit)}`
@@ -1110,11 +1110,14 @@ export default function PlayScreen() {
         <HoleMap
           bleed
           height={mapH}
-          pad={holeFrame({
-            hudHeight: mapHudInset(insets.top),
-            dockHeight: 0,
-            sheetClosed: sheetOpen ? Math.max(closedSheet, frameSheet - OPEN_DOCK_CLEAR) : frameSheet,
-          })}
+          pad={{
+            ...holeFrame({
+              hudHeight: mapHudInset(insets.top),
+              dockHeight: 0,
+              sheetClosed: sheetOpen ? Math.max(closedSheet, frameSheet - OPEN_DOCK_CLEAR) : frameSheet,
+            }),
+            left: 120,
+          }}
           orient={bearing != null && overlay.line[0] ? { bearing, origin: overlay.line[0] } : null}
           camera={{ kind: cameraKind, reachYards, from: player }}
           labels={[]}
@@ -1169,16 +1172,15 @@ export default function PlayScreen() {
         <Vignette deep />
       </Animated.View>
       <View pointerEvents="none" style={[styles.heroScrim, { top: insets.top }]}>
-        <Svg width={390} height={340}>
+        <Svg width={220} height={250}>
           <Defs>
-            <RadialGradient id={scrimId} cx="22%" cy="38%" rx="72%" ry="68%">
-              <Stop offset="0" stopColor="#02060E" stopOpacity="0.96" />
-              <Stop offset="0.46" stopColor="#02060E" stopOpacity="0.9" />
-              <Stop offset="0.72" stopColor="#02060E" stopOpacity="0.62" />
+            <RadialGradient id={scrimId} cx="28%" cy="42%" rx="70%" ry="68%">
+              <Stop offset="0" stopColor="#02060E" stopOpacity="0.94" />
+              <Stop offset="0.55" stopColor="#02060E" stopOpacity="0.72" />
               <Stop offset="1" stopColor="#02060E" stopOpacity="0" />
             </RadialGradient>
           </Defs>
-          <Rect x="0" y="0" width="390" height="340" fill={`url(#${scrimId})`} />
+          <Rect x="0" y="0" width="220" height="250" fill={`url(#${scrimId})`} />
         </Svg>
       </View>
       <View
@@ -1691,7 +1693,7 @@ const styles = StyleSheet.create({
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 8, paddingBottom: 4 },
   tabs: { flexDirection: 'row', gap: 4, minHeight: 44, alignItems: 'center' },
-  tabHit: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 6 },
+  tabHit: { minWidth: 48, minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
   tab: { color: 'rgba(255,255,255,0.55)', fontFamily: font.family, fontSize: 11, fontWeight: '700' },
   tabOn: { color: '#FFFFFF' },
   tipCard: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
@@ -1866,7 +1868,7 @@ const styles = StyleSheet.create({
   saved: { minWidth: 200 },
   savedFill: { paddingVertical: 28, paddingHorizontal: 32, alignItems: 'center', gap: 4 },
   savedTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 40, lineHeight: 46, fontWeight: '700' },
-  heroScrim: { position: 'absolute', left: 0, width: 390, height: 340, zIndex: 3 },
+  heroScrim: { position: 'absolute', left: 0, width: 220, height: 250, zIndex: 3 },
   holePill: { position: 'absolute', left: 12, zIndex: 6 },
   holePillGlass: { width: 214, height: 38 },
   holePillFill: {
@@ -1889,9 +1891,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pillBallNum: { color: '#06101C', fontSize: 22, lineHeight: 22, fontWeight: '700' },
-  hero: { position: 'absolute', left: 12, zIndex: 4, alignItems: 'flex-start', maxWidth: 188 },
+  hero: { position: 'absolute', left: 12, zIndex: 4, alignItems: 'flex-start', maxWidth: 176 },
   heroPlate: {
-    maxWidth: 188,
+    maxWidth: 176,
     backgroundColor: 'rgba(2,6,14,0.9)',
     borderRadius: 16,
     paddingHorizontal: 10,
@@ -1899,6 +1901,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   heroNum: {
+    alignSelf: 'flex-start',
     color: '#FFFFFF',
     fontSize: 120,
     lineHeight: 98,

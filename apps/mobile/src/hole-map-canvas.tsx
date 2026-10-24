@@ -575,6 +575,7 @@ export function HoleMap(props: HoleMapProps) {
                 ...placed.labels.map((label) => label.box),
                 ...(frame.top > 0 ? [{ x: 0, y: 0, w: width, h: frame.top }] : []),
                 ...(frame.bottom > 0 ? [{ x: 0, y: height - frame.bottom, w: width, h: frame.bottom }] : []),
+                ...(bleed ? [{ x: width - 88, y: Math.max(0, height - 460), w: 88, h: 380 }] : []),
               ];
               const caption = sampleCaptionAt(ellipseDraw, pin, blocked, boundsBox(greenPoints, 8), view, chipSize);
               if (!caption) return null;
