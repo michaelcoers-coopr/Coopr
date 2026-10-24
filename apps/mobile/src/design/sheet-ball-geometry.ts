@@ -42,20 +42,20 @@ export const SHEET_BALL_STAGE = SHEET_BALL_DOME + SHEET_BALL_FEATHER;
  * shares pixels with the tabs. Open: the scroll stops above the bright hill
  * and above the short scrim, so a line is not cut in half.
  */
-export const SHEET_BALL_TEXT = { closedPx: 8, openPx: 108 } as const;
+export const SHEET_BALL_TEXT = { closedPx: 8, openPx: 120 } as const;
 
 /** Dark scrim behind the type that shares pixels with the feather. */
 export const SHEET_BALL_SCRIM = '#040A18';
 
 /** Opaque enough that white type on the crest still clears 7:1. */
-export const SHEET_BALL_SCRIM_ALPHA = 0.9;
+export const SHEET_BALL_SCRIM_ALPHA = 0.75;
 
 /**
  * Short scrim, measured from the sheet bottom up to its top edge.
- * The open scroll stops above this (`openPx`), so a line is not cut in half.
+ * It backs the closed card's lowest rows. The open scroll stops above it.
  */
-export const SHEET_BALL_SCRIM_TOP = 70;
-export const SHEET_BALL_SCRIM_HEIGHT = 36;
+export const SHEET_BALL_SCRIM_TOP = 110;
+export const SHEET_BALL_SCRIM_HEIGHT = 58;
 
 /** Hairline. One viewBox unit, so a 3x screen draws a 3px stroke. */
 export const SHEET_BALL_STROKE = 1;

@@ -54,11 +54,11 @@ export const SheetBallArt = memo(function SheetBallArt({ id = 'sheetball' }: { i
               fy={glow.cy + 14}
             >
               <Stop offset="0" stopColor={SHEET_BALL_CREST} stopOpacity="1" />
-              <Stop offset="0.34" stopColor={SHEET_BALL_CREST} stopOpacity="1" />
-              <Stop offset="0.48" stopColor={SHEET_BALL_LIME} stopOpacity="1" />
-              <Stop offset="0.64" stopColor={SHEET_BALL_LIME} stopOpacity="0.82" />
-              <Stop offset="0.78" stopColor={SHEET_BALL_OLIVE} stopOpacity="0.48" />
-              <Stop offset="0.9" stopColor={SHEET_BALL_OLIVE} stopOpacity="0.1" />
+              <Stop offset="0.16" stopColor={SHEET_BALL_CREST} stopOpacity="1" />
+              <Stop offset="0.32" stopColor={SHEET_BALL_LIME} stopOpacity="1" />
+              <Stop offset="0.52" stopColor={SHEET_BALL_LIME} stopOpacity="0.9" />
+              <Stop offset="0.7" stopColor={SHEET_BALL_OLIVE} stopOpacity="0.5" />
+              <Stop offset="0.86" stopColor={SHEET_BALL_OLIVE} stopOpacity="0.12" />
               <Stop offset="1" stopColor={SHEET_BALL_OLIVE} stopOpacity="0" />
             </RadialGradient>
             <RadialGradient id={`${id}-lobe`} cx="50%" cy="68%" r="52%">
@@ -118,8 +118,8 @@ function BallScrim() {
       <Defs>
         <LinearGradient id="sheetball-scrim" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor={SHEET_BALL_SCRIM} stopOpacity="0" />
-          <Stop offset="0.38" stopColor={SHEET_BALL_SCRIM} stopOpacity={SHEET_BALL_SCRIM_ALPHA} />
-          <Stop offset="0.62" stopColor={SHEET_BALL_SCRIM} stopOpacity={SHEET_BALL_SCRIM_ALPHA} />
+          <Stop offset="0.12" stopColor={SHEET_BALL_SCRIM} stopOpacity={SHEET_BALL_SCRIM_ALPHA} />
+          <Stop offset="0.7" stopColor={SHEET_BALL_SCRIM} stopOpacity={SHEET_BALL_SCRIM_ALPHA} />
           <Stop offset="1" stopColor={SHEET_BALL_SCRIM} stopOpacity="0" />
         </LinearGradient>
       </Defs>
