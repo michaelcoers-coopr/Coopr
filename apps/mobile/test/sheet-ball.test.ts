@@ -10,6 +10,7 @@ import {
   SHEET_BALL_DOME,
   SHEET_BALL_LIME,
   SHEET_BALL_LIME_BAND,
+  SHEET_BALL_LIME_FEATHER,
   SHEET_BALL_LINE,
   SHEET_BALL_LINE_OPACITY,
   SHEET_BALL_LOBE_RADIUS,
@@ -89,6 +90,8 @@ describe('sheet ball', () => {
       return score < bestScore ? dimple : best;
     });
     const limb = dimples.reduce((best, dimple) => (Math.abs(dimple.cx - ball.cx) > Math.abs(best.cx - ball.cx) ? dimple : best));
+    expect(face.rx * 2).toBeGreaterThanOrEqual(18);
+    expect(face.rx * 2).toBeLessThanOrEqual(26);
     expect(face.opacity).toBeGreaterThanOrEqual(0.45);
     expect(face.opacity).toBeLessThanOrEqual(0.55);
     expect(limb.opacity).toBeLessThan(face.opacity);
@@ -97,8 +100,9 @@ describe('sheet ball', () => {
   });
 
   it('fills the bottom of the sheet with lime and keeps type clear of the tabs', () => {
-    expect(SHEET_BALL_LIME_BAND).toBeGreaterThanOrEqual(40);
-    expect(SHEET_BALL_LIME_BAND).toBeLessThanOrEqual(SHEET_BALL_DOME + 4);
+    expect(SHEET_BALL_LIME_BAND).toBeGreaterThanOrEqual(60);
+    expect(SHEET_BALL_LIME_BAND).toBeLessThanOrEqual(70);
+    expect(SHEET_BALL_LIME_FEATHER).toBeGreaterThanOrEqual(48);
     expect(SHEET_BALL_LOBE_RADIUS * 2).toBeLessThan(SHEET_BALL.viewBox.w);
     expect(SHEET_BALL_OLIVE).toBe('#2e4a12');
     expect(SHEET_BALL_OLIVE_DEEP).toBe('#1c2e0f');
@@ -120,6 +124,10 @@ describe('sheet ball', () => {
     expect(play).toContain('SHEET_BALL_SCROLL_FADE}px');
     expect(play).toContain('SHEET_BALL_SCROLL_FADE_BOTTOM}px');
     expect(play).toContain('styles.micButton');
+    expect(play).toContain('Dictate to caddie');
+    expect(play).toContain('width: 44');
+    expect(play).toContain('width: 28');
+    expect(play).not.toContain('Talk to the caddie');
     expect(play).not.toContain('styles.micRow');
   });
 

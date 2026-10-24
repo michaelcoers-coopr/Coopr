@@ -150,6 +150,21 @@ function lieResult(lie: FinishLie | null): LandingResult | null {
   return lie;
 }
 
+function DictateButton({ live, onPress }: { live: boolean; onPress: () => void }) {
+  return (
+    <View style={styles.micSlot}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Dictate to caddie" onPress={onPress} style={styles.micHit}>
+        <View style={[styles.micButton, live && styles.micButtonLive]}>
+          <View style={styles.micHead} />
+          <View style={styles.micCradle} />
+          <View style={styles.micStem} />
+          <View style={styles.micFoot} />
+        </View>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function PlayScreen() {
   const {
     clubs,
@@ -1194,15 +1209,12 @@ export default function PlayScreen() {
                   {player == null && manual == null ? (
                     <View style={styles.clubHead}>
                       <Text style={[styles.line, styles.clubHeadTitle]}>Waiting for GPS</Text>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Talk to the caddie"
-                        hitSlop={8}
+                      <DictateButton
+                        live={talk.phase !== 'idle'}
                         onPress={() => {
                           applySheet.current(true);
                           talk.open();
                         }}
-                        style={[styles.micButton, talk.phase !== 'idle' && styles.micButtonLive]}
                       />
                     </View>
                   ) : (
@@ -1210,15 +1222,12 @@ export default function PlayScreen() {
                       <View style={styles.clubHead}>
                         <Text style={[styles.tipTitle, styles.clubHeadTitle]} numberOfLines={1}>{`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}</Text>
                         <Text style={styles.clubMeta}>{updatedLabel}</Text>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="Talk to the caddie"
-                          hitSlop={8}
+                        <DictateButton
+                          live={talk.phase !== 'idle'}
                           onPress={() => {
                             applySheet.current(true);
                             talk.open();
                           }}
-                          style={[styles.micButton, talk.phase !== 'idle' && styles.micButtonLive]}
                         />
                       </View>
                       {oneLiner ? (
@@ -1486,12 +1495,36 @@ const styles = StyleSheet.create({
   tipCard: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   spark: { color: '#8AC926', fontSize: 14, lineHeight: 14 },
   tipTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 16, fontWeight: '700' },
-  clubHead: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 18 },
+  clubHead: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 18, overflow: 'visible' },
   clubHeadTitle: { flex: 1 },
   carrySentence: { color: '#FFFFFF', fontFamily: font.family, fontSize: 14, lineHeight: 14, fontWeight: '600' },
   carryNum: { color: '#FFFFFF', fontSize: 16, lineHeight: 18, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  micButton: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#8AC926' },
-  micButtonLive: { backgroundColor: '#FFFFFF' },
+  micSlot: { width: 30, height: 18, overflow: 'visible' },
+  micHit: { position: 'absolute', width: 44, height: 44, top: -20, left: -7, alignItems: 'center', justifyContent: 'center' },
+  micButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(4,10,24,0.62)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.78)',
+  },
+  micButtonLive: { backgroundColor: 'rgba(138,201,38,0.92)', borderColor: '#FFFFFF' },
+  micHead: { width: 6, height: 8, borderRadius: 3, backgroundColor: '#FFFFFF', zIndex: 1 },
+  micCradle: {
+    width: 12,
+    height: 6,
+    marginTop: -4,
+    borderWidth: 1.5,
+    borderTopWidth: 0,
+    borderColor: '#FFFFFF',
+    borderBottomLeftRadius: 7,
+    borderBottomRightRadius: 7,
+  },
+  micStem: { width: 1.5, height: 3, backgroundColor: '#FFFFFF', marginTop: -1 },
+  micFoot: { width: 8, height: 1.5, borderRadius: 1, backgroundColor: '#FFFFFF' },
   micLabel: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, fontWeight: '700' },
   talkGrow: { flex: 1 },
   typeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
