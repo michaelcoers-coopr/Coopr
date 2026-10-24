@@ -601,7 +601,7 @@ export function HoleMap(props: HoleMapProps) {
       {photo && props.showCredit !== false ? (
         <View pointerEvents="none" style={[styles.creditWrap, { bottom: props.creditBottom ?? frame.bottom + 28 }]}>
           <Text numberOfLines={1} style={styles.credit}>
-            {aerialMapCredit(Math.max(0, width - MAP_CREDIT_LEFT - MAP_CREDIT_RIGHT))}
+            {aerialMapCredit(Math.max(0, width - MAP_CREDIT_LEFT - MAP_CREDIT_RIGHT - MAP_CREDIT_PAD * 2))}
           </Text>
         </View>
       ) : null}
@@ -623,8 +623,10 @@ export function HoleMap(props: HoleMapProps) {
 
 /** Clears the Score tile, which reaches about x=109 on a 390px screen. */
 const MAP_CREDIT_LEFT = 116;
-/** Clears Ask, which is a 96px orb inset 8px from the right. */
-const MAP_CREDIT_RIGHT = 112;
+/** Clears Ask, a 96px orb inset 8px from the right, with a few pixels of spare. */
+const MAP_CREDIT_RIGHT = 104;
+/** Horizontal padding inside the dark credit pill. Counted twice in the fit. */
+const MAP_CREDIT_PAD = 6;
 
 const styles = StyleSheet.create({
   frame: { position: 'relative', borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2', backgroundColor: colors.bg, zIndex: 0 },
@@ -639,9 +641,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 13,
     fontWeight: '600',
-    textShadowColor: 'rgba(0,0,0,0.95)',
+    backgroundColor: 'rgba(10,16,32,0.55)',
+    borderRadius: 7,
+    overflow: 'hidden',
+    paddingHorizontal: MAP_CREDIT_PAD,
+    paddingVertical: 2,
+    textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    textShadowRadius: 2,
   },
   dotHits: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: MAP_LAYER.hits },
   dotHit: { position: 'absolute', width: 28, height: 28 },

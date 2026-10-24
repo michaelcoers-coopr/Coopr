@@ -41,6 +41,9 @@ describe('aerial layer order', () => {
     expect(source).toContain('aerialMapCredit');
     expect(source).not.toContain(AERIAL_CREDIT);
     expect(source).toContain('MAP_CREDIT_LEFT = 116');
+    expect(source).toContain("backgroundColor: 'rgba(10,16,32,0.55)'");
+    expect(source).toContain('borderRadius: 7');
+    expect(source).toContain('zIndex: MAP_LAYER.credit');
     expect(source).not.toContain('right: 10, maxWidth');
     const flag = source.indexOf("fill={colors.red}");
     const oval = source.lastIndexOf('ovalfill');
@@ -59,7 +62,7 @@ describe('map credit', () => {
     expect(AERIAL_CREDIT).toContain('NAIP');
     expect(AERIAL_CREDIT).toContain('stylized');
     expect(AERIAL_CREDIT).toContain(AERIAL_CREDIT_SHORT);
-    expect(aerialMapCredit(390 - 116 - 112)).toBe(AERIAL_CREDIT_SHORT);
+    expect(aerialMapCredit(390 - 116 - 104 - 12)).toBe(AERIAL_CREDIT_SHORT);
     expect(aerialMapCredit(120)).toBe(AERIAL_CREDIT_TIGHT);
     const rendered = renderToStaticMarkup(createElement('span', null, aerialMapCredit(200)));
     expect(rendered).toBe(`<span>${AERIAL_CREDIT_SHORT}</span>`);

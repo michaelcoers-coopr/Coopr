@@ -24,9 +24,9 @@ export const AERIAL_CREDIT_TIGHT = '© OpenStreetMap';
 
 /**
  * Width of the contributors line at the map's 10px face, plus a little spare.
- * On the 390px web export the glyphs ran from x=16 to x=154, so 138px.
+ * On the 390px web export the glyphs ran about 155px before the pill padding.
  */
-const MAP_CREDIT_FULL_PX = 148;
+const MAP_CREDIT_FULL_PX = 156;
 
 /** The on-map credit that fits in `availablePx` on one line. */
 export function aerialMapCredit(availablePx: number): string {
