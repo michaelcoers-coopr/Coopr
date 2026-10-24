@@ -19,6 +19,7 @@ export function CountChip({
   idleLabel,
   onWrite,
   minHeight = 88,
+  rail = false,
 }: {
   value: number | null;
   confirmed: boolean;
@@ -27,6 +28,8 @@ export function CountChip({
   idleLabel: string;
   onWrite: (next: number) => void;
   minHeight?: number;
+  /** Circular thumb-rail button. The caption stays SCORE. */
+  rail?: boolean;
 }) {
   const display = useDisplayFace();
   const glance = scoreGlance(value, par, confirmed);
@@ -91,19 +94,19 @@ export function CountChip({
         current.onWrite(scoreCommit(current.value, 'tap', current.floor));
         void tick();
       }}
-      style={[styles.hit, { minHeight }]}
+      style={[rail ? styles.railHit : styles.hit, rail ? null : { minHeight }]}
     >
       {glow ? <Animated.View pointerEvents="none" style={[styles.halo, { backgroundColor: glow }, ring]} /> : null}
       <Glass
-        radius={24}
+        radius={rail ? 28 : 24}
         intensity={80}
         overlay={hot ? 'rgba(200,16,46,0.92)' : undefined}
-        style={[styles.shell, { minHeight }]}
-        contentStyle={[styles.fill, { minHeight }]}
+        style={[rail ? styles.railShell : styles.shell, rail ? null : { minHeight }]}
+        contentStyle={[rail ? styles.railFill : styles.fill, rail ? null : { minHeight }]}
       >
-        <Animated.View style={[styles.fill, { minHeight }, pop]}>
-          <Text style={[styles.value, { fontFamily: display }]}>{value == null ? '' : String(value)}</Text>
-          <Text style={styles.caption}>{caption}</Text>
+        <Animated.View style={[rail ? styles.railFill : styles.fill, rail ? null : { minHeight }, pop]}>
+          <Text style={[rail ? styles.railValue : styles.value, { fontFamily: display }]}>{value == null ? '—' : String(value)}</Text>
+          <Text style={rail ? styles.railCaption : styles.caption}>{rail ? 'SCORE' : caption}</Text>
         </Animated.View>
       </Glass>
     </Pressable>
@@ -131,4 +134,23 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   caption: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 22, fontWeight: '700' },
+  railHit: { width: 56, height: 56, minWidth: 56, minHeight: 56, justifyContent: 'center' },
+  railShell: { width: 56, height: 56 },
+  railFill: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  railValue: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    lineHeight: 26,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  railCaption: {
+    color: '#FFFFFF',
+    fontFamily: font.family,
+    fontSize: 9,
+    lineHeight: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginTop: 1,
+  },
 });

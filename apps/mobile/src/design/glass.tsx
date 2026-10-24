@@ -14,6 +14,7 @@ export function Glass({
   contentStyle,
   intensity = glassTheme.blur,
   overlay = GLASS_OVERLAY,
+  borderColor,
 }: {
   children?: ReactNode;
   radius?: number;
@@ -21,12 +22,13 @@ export function Glass({
   contentStyle?: StyleProp<ViewStyle>;
   intensity?: number;
   overlay?: string;
+  borderColor?: string;
 }) {
   const sheen = useId().replace(/:/g, '');
   const grain = `${sheen}grain`;
   return (
     <View style={[styles.shadow, { borderRadius: radius }, style]}>
-      <View pointerEvents="box-none" style={[styles.clip, { borderRadius: radius }, contentStyle]}>
+      <View pointerEvents="box-none" style={[styles.clip, { borderRadius: radius }, borderColor ? { borderColor } : null, contentStyle]}>
         <BlurView pointerEvents="none" intensity={intensity} tint={glassTheme.tint} style={StyleSheet.absoluteFill} />
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: overlay }]} />
         <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">

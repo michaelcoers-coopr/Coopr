@@ -78,17 +78,21 @@ const MapText = SvgText as unknown as ComponentType<{
 }>;
 
 /** True-scale oval. A pattern smaller than the floor is drawn larger, and the sheet states the real yards. */
-function drawEllipse(xy: readonly { x: number; y: number }[], floor?: number) {
+function drawEllipse(xy: readonly { x: number; y: number }[], floor?: number, gain = 1) {
   const fit = fittedEllipse(xy, floor);
   if (!fit) return null;
   const { cx, cy, scale } = fit;
+  const drawn = scale * (Number.isFinite(gain) && gain > 0 ? gain : 1);
   const ring = (factor: number) => xy.map((point) => `${cx + (point.x - cx) * factor},${cy + (point.y - cy) * factor}`).join(' ');
   const halos = floor != null ? [1.08, 1.2] : scale > 1 ? [1.7, 2.2] : [1.28, 1.55];
   return {
     ...fit,
-    solid: ring(scale),
-    glow: ring(scale * halos[0]!),
-    glowSoft: ring(scale * halos[1]!),
+    scale: drawn,
+    halfW: fit.halfW * (drawn / scale),
+    halfH: fit.halfH * (drawn / scale),
+    solid: ring(drawn),
+    glow: ring(drawn * halos[0]!),
+    glowSoft: ring(drawn * halos[1]!),
   };
 }
 
@@ -214,13 +218,15 @@ export function HoleMap(props: HoleMapProps) {
   const tee = bleed && projection && props.line[0] ? projection.toXY(props.line[0]) : null;
   const pinPoint = bleed && projection && props.line.length > 1 ? props.line[props.line.length - 1] : null;
   const pin = pinPoint && projection ? projection.toXY(pinPoint) : null;
+  const ellipseGain = props.ellipseScale ?? 1;
+  const ellipseBright = ellipseGain > 1;
   const ellipsePts = projection && props.ellipse && props.ellipse.length > 2 ? props.ellipse.map((point) => projection.toXY(point)) : [];
-  const ellipseDraw = ellipsePts.length > 2 ? drawEllipse(ellipsePts, photo ? AERIAL_OVAL_FLOOR : undefined) : null;
+  const ellipseDraw = ellipsePts.length > 2 ? drawEllipse(ellipsePts, photo ? AERIAL_OVAL_FLOOR : undefined, ellipseGain) : null;
   const ellipseLayoutPts =
-    photo && ellipseDraw
+    ellipseDraw
       ? ellipsePts.map((point) => ({
-          x: ellipseDraw.cx + (point.x - ellipseDraw.cx) * ellipseDraw.scale * 1.2,
-          y: ellipseDraw.cy + (point.y - ellipseDraw.cy) * ellipseDraw.scale * 1.2,
+          x: ellipseDraw.cx + (point.x - ellipseDraw.cx) * ellipseDraw.scale,
+          y: ellipseDraw.cy + (point.y - ellipseDraw.cy) * ellipseDraw.scale,
         }))
       : ellipsePts;
   const lineXY = projection ? props.line.map((point) => projection.toXY(point)) : [];
@@ -376,8 +382,8 @@ export function HoleMap(props: HoleMapProps) {
             </LinearGradient>
             {ellipseDraw ? (
               <RadialGradient id={`${uid}-ovalfill`} cx="50%" cy="42%" r="68%">
-                <Stop offset="0" stopColor={props.ellipseColor ?? '#8AC926'} stopOpacity={photo ? '0.4' : '0.78'} />
-                <Stop offset="0.62" stopColor={props.ellipseColor ?? '#8AC926'} stopOpacity={photo ? '0.2' : '0.34'} />
+                <Stop offset="0" stopColor={props.ellipseColor ?? '#8AC926'} stopOpacity={photo ? (ellipseBright ? '0.62' : '0.4') : '0.78'} />
+                <Stop offset="0.62" stopColor={props.ellipseColor ?? '#8AC926'} stopOpacity={photo ? (ellipseBright ? '0.34' : '0.2') : '0.34'} />
                 <Stop offset="1" stopColor={props.ellipseColor ?? '#8AC926'} stopOpacity="0.05" />
               </RadialGradient>
             ) : null}
@@ -492,10 +498,10 @@ export function HoleMap(props: HoleMapProps) {
               const ink = props.ellipseColor ?? '#8AC926';
               return (
                 <G transform={`translate(${ellipseDraw.cx} ${ellipseDraw.cy}) scale(${breath}) translate(${-ellipseDraw.cx} ${-ellipseDraw.cy})`}>
-                  <Polygon points={ellipseDraw.glowSoft} fill={ink} fillOpacity={0.12} stroke="none" />
-                  <Polygon points={ellipseDraw.glow} fill={ink} fillOpacity={0.22} stroke="none" />
-                  <Polygon points={ellipseDraw.solid} fill={`url(#${uid}-ovalfill)`} stroke={ink} strokeWidth={1.75} />
-                  <Polygon points={ellipseDraw.solid} fill={ink} fillOpacity={photo ? 0.1 : 0.16} stroke="none" />
+                  <Polygon points={ellipseDraw.glowSoft} fill={ink} fillOpacity={ellipseBright ? 0.28 : 0.12} stroke="none" />
+                  <Polygon points={ellipseDraw.glow} fill={ink} fillOpacity={ellipseBright ? 0.42 : 0.22} stroke="none" />
+                  <Polygon points={ellipseDraw.solid} fill={`url(#${uid}-ovalfill)`} stroke={ellipseBright ? '#BEF546' : ink} strokeWidth={ellipseBright ? 2.4 : 1.75} />
+                  <Polygon points={ellipseDraw.solid} fill={ink} fillOpacity={photo ? (ellipseBright ? 0.16 : 0.1) : 0.16} stroke="none" />
                 </G>
               );
             })()
@@ -599,9 +605,19 @@ export function HoleMap(props: HoleMapProps) {
         ))}
       </View>
       {photo && props.showCredit !== false ? (
-        <View pointerEvents="none" style={[styles.creditWrap, { bottom: props.creditBottom ?? frame.bottom + 28 }]}>
+        <View
+          pointerEvents="none"
+          style={[
+            styles.creditWrap,
+            {
+              bottom: props.creditBottom ?? frame.bottom + 28,
+              left: props.creditLeft ?? MAP_CREDIT_LEFT,
+              right: props.creditRight ?? MAP_CREDIT_RIGHT,
+            },
+          ]}
+        >
           <Text numberOfLines={1} style={styles.credit}>
-            {aerialMapCredit(Math.max(0, width - MAP_CREDIT_LEFT - MAP_CREDIT_RIGHT - MAP_CREDIT_PAD * 2))}
+            {aerialMapCredit(Math.max(0, width - (props.creditLeft ?? MAP_CREDIT_LEFT) - (props.creditRight ?? MAP_CREDIT_RIGHT) - MAP_CREDIT_PAD * 2))}
           </Text>
         </View>
       ) : null}

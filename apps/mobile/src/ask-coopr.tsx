@@ -49,6 +49,8 @@ export interface AskContext {
   onRemoveTag: (id: string) => void;
   /** When set, the mic opens the live conversation instead of the one-shot recorder. */
   onAsk?: () => void;
+  /** 56px round button for the right-hand rail. */
+  rail?: boolean;
 }
 
 interface Heard {
@@ -285,18 +287,21 @@ export function useAskCoopr(input: AskContext): { banner: ReactNode; button: Rea
     </View>
     );
 
+  const rail = input.rail === true;
   const button = (
     <Animated.View style={orbStyle}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Ask COOPR" onPressIn={pressIn} onPressOut={pressOut} style={styles.askHit}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Ask COOPR" onPressIn={pressIn} onPressOut={pressOut} style={rail ? styles.askRailHit : styles.askHit}>
         <Glass
-          radius={48}
+          radius={rail ? 28 : 48}
           intensity={84}
           overlay={phase === 'listening' ? 'rgba(200,16,46,0.92)' : undefined}
-          style={styles.ask}
-          contentStyle={styles.askFill}
+          style={rail ? styles.askRailHit : styles.ask}
+          contentStyle={rail ? styles.askRailFill : styles.askFill}
         >
-          <Mic />
-          <Text style={styles.askText}>Ask</Text>
+          <View style={rail ? styles.askRailMic : undefined}>
+            <Mic />
+          </View>
+          <Text style={rail ? styles.askRailText : styles.askText}>{rail ? 'ASK' : 'Ask'}</Text>
         </Glass>
       </Pressable>
     </Animated.View>
@@ -361,6 +366,18 @@ const styles = StyleSheet.create({
   ask: { width: ASK_MIN, height: ASK_MIN },
   askFill: { width: ASK_MIN, height: ASK_MIN, alignItems: 'center', justifyContent: 'center', gap: 2 },
   askText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 20, fontWeight: '700' },
+  askRailHit: { width: 56, height: 56 },
+  askRailFill: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  askRailMic: { transform: [{ scale: 0.72 }] },
+  askRailText: {
+    color: '#FFFFFF',
+    fontFamily: font.family,
+    fontSize: 9,
+    lineHeight: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginTop: 1,
+  },
   mic: { width: 28, height: 32, alignItems: 'center' },
   micHead: { width: 14, height: 20, borderRadius: 7, borderWidth: 2, borderColor: '#FFFFFF' },
   micArc: {

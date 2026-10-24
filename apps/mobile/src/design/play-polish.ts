@@ -157,7 +157,8 @@ const SCORE_CLEAR = 68;
  * Room the map keeps for the compact yardage HUD.
  * The panel's measured height is not an input, so opening the breakdown does not move the hole.
  */
-export const MAP_PANEL_CLEAR = 128;
+/** The hole pill is short. The yardage floats on the map and does not reserve a card. */
+export const MAP_PANEL_CLEAR = 72;
 
 export function mapHudInset(safeTop: number): number {
   const safe = Number.isFinite(safeTop) ? Math.max(0, safeTop) : 0;

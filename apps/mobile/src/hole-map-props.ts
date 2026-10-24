@@ -68,4 +68,10 @@ export interface HoleMapProps {
    * Play sets this above the Score and Mark buttons and left of Ask.
    */
   creditBottom?: number;
+  /** Left inset of the attribution pill. The play rail needs it clear of the right edge. */
+  creditLeft?: number;
+  /** Right inset of the attribution pill. */
+  creditRight?: number;
+  /** Draws the dispersion oval this many times larger. 1 keeps the measured shape. */
+  ellipseScale?: number;
 }

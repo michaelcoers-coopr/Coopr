@@ -1,7 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Keyboard, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance, type ViewStyle } from 'react-native';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
@@ -44,7 +45,6 @@ import {
   leanedLanding,
   patternColor,
   patternSafety,
-  playsLikeChips,
   quotedProfile,
   riskCall,
   thruScore,
@@ -62,7 +62,7 @@ import { HoleMap } from '../src/hole-map';
 import { boom, celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { acceptHoleGesture, shouldAutoAdvance } from '../src/design/hole-nav';
 import { holeSwipe, rollSteps } from '../src/design/motion';
-import { clubDetail, clubFigure, closedPlaySheet, foldInset, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreCommit, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { clubDetail, clubFigure, closedPlaySheet, foldInset, greenMarkLabel, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, samplePatternVisible, scoreCommit, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { SheetBall } from '../src/design/sheet-ball';
 import { SHEET_BALL_SCROLL_FADE, SHEET_BALL_SCROLL_FADE_BOTTOM, SHEET_BALL_TEXT } from '../src/design/sheet-ball-geometry';
 import { caddieVoiceLine } from '../src/design/caddie-voice';
@@ -73,8 +73,7 @@ import { Glass, Vignette } from '../src/design/glass';
 import { ClubStrip, ThruBar } from '../src/design/signature-ui';
 import { useReduceMotion } from '../src/design/reduce-motion';
 import { CountChip } from '../src/design/count-chip';
-import { lineLengthYards, PAST_STOCK_YARDS, playCamera, pointAtYards, TEE_SHOT_MARKS, teeWindowYards } from '../src/hole-fit';
-import { holeLabels, limitYardPills, marksAt } from '../src/map-labels';
+import { lineLengthYards, PAST_STOCK_YARDS, playCamera, pointAtYards, teeWindowYards } from '../src/hole-fit';
 import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
 import { useLocalStore, type LandingResult } from '../src/local-store';
@@ -91,6 +90,23 @@ const pilot = loadHighCedarsPilot();
 /** Tall enough for a wrapped caddie sentence and the mic. The locked HUD constant stays shorter. */
 const SHEET_CLOSED = 176;
 const SHEET_OPEN = 540;
+const RAIL_SIZE = 56;
+const MINUS = '\u2212';
+
+/** Signed tenth. A missing reading stays an em dash. */
+function signedTenths(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  const rounded = Math.round(value * 10) / 10;
+  const body = Number.isInteger(rounded) ? String(Math.abs(rounded)) : Math.abs(rounded).toFixed(1);
+  if (rounded > 0) return `+${body}`;
+  if (rounded < 0) return `${MINUS}${body}`;
+  return '0';
+}
+
+function wholeDegrees(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return String(Math.round(value));
+}
 
 function sheetScrollElement(view: ScrollViewInstance | null): HTMLElement | null {
   if (view == null || typeof HTMLElement === 'undefined') return null;
@@ -256,7 +272,8 @@ export default function PlayScreen() {
   const lineClock = useRef({ key: '', at: Date.now() });
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
   const [sampleOn, setSampleOn] = useState(false);
-  const [fullHole, setFullHole] = useState(false);
+  const fullHole = false;
+  const scrimId = useId().replace(/:/g, '');
   const reduceMotion = useReduceMotion();
   const display = useDisplayFace();
   const [stamp, setStamp] = useState<ReturnType<typeof scoreStamp>>(null);
@@ -390,11 +407,11 @@ export default function PlayScreen() {
   const shotResult = shotPlay && !('error' in shotPlay) ? shotPlay : null;
   const playsLikeYards = shotResult?.playsLikeYards ?? null;
   const shotShown = shotReadout(playsLikeYards, shotRaw);
-  const shotChips = hudChips(hasFix, shotResult ? playsLikeChips(shotResult) : null);
   const shotWind = shotResult?.wind?.yards ?? null;
   const heroBase = shotShown;
   const voiceClubs = clubs.filter((club) => club.slot === 'in_play');
   const ask = useAskCoopr({
+    rail: true,
     hole: currentHole,
     gpsYards: player ? ground?.centerYards ?? null : null,
     headwindMph: conditions.usePlaysLike ? sky?.headwindMph ?? null : null,
@@ -458,7 +475,6 @@ export default function PlayScreen() {
     if (previous == null) return;
     sheetOpenRef.current = false;
     setSheetOpen(false);
-    setFullHole(false);
     sheetDrag.value = 0;
     sheetH.value = closedSheetRef.current;
   }, [currentHole, sheetDrag, sheetH]);
@@ -945,9 +961,17 @@ export default function PlayScreen() {
   if (lineClock.current.key !== lineKey) lineClock.current = { key: lineKey, at: Date.now() };
   const ageSec = Math.max(0, Math.floor((clock - lineClock.current.at) / 1000));
   const updatedLabel = ageSec < 60 ? 'Just now' : `Updated ${Math.floor(ageSec / 60)}m ago`;
-  const windMph = sky?.current?.windMph;
-  const windKnown = windMph != null && Number.isFinite(windMph);
-  const windText = windKnown ? String(Math.round(windMph)) : '?';
+  const windFrom = sky?.current?.windFromDeg;
+  const windArrowDeg =
+    windFrom != null && bearing != null && Number.isFinite(windFrom) && Number.isFinite(bearing) ? windFrom + 180 - bearing : null;
+  const headText = signedTenths(sky?.headwindMph);
+  const elevText = signedTenths(sky?.elevationFeet);
+  const tempText = wholeDegrees(sky?.current?.temperatureF);
+  const skyKnown = headText !== '—' || elevText !== '—' || tempText !== '—';
+  const shotPhase = player != null && onTee && !onGreen ? 'tee shot' : onGreen ? 'green' : player != null ? 'approach' : 'position unknown';
+  const conditionsNote = [sampleOn ? 'Sample pattern' : null, skyKnown ? null : 'Waiting on the sky', `hole ${hole.holeNumber}`, shotPhase]
+    .filter((part) => part != null)
+    .join(' · ');
   const thru = thruScore(pilot.quality.map((item) => ({ par: item.par, strokes: holes[item.holeNumber - 1] ?? null, kept: holes[item.holeNumber - 1] != null })));
   const dispersionLine: LatLon[] = [];
   const strokes = holes[hole.holeNumber - 1] ?? null;
@@ -1033,7 +1057,6 @@ export default function PlayScreen() {
   const greenMarks = player && greenRing ? greenTargets(player, greenRing) : null;
   const plateRecord = aerialPlate(pilot.courseKey, hole.holeNumber);
   const plate = plateRecord != null && (player == null || pointOnAerial(plateRecord.georef, player)) ? plateRecord : null;
-  const centerLive = player != null;
   const writeStrokes = (next: number) => {
     setStrokes(hole.holeNumber, next);
     const moment = scoreMoment(next, par);
@@ -1083,21 +1106,8 @@ export default function PlayScreen() {
           })}
           orient={bearing != null && overlay.line[0] ? { bearing, origin: overlay.line[0] } : null}
           camera={{ kind: cameraKind, reachYards, from: player }}
-          labels={(() => {
-            const marks =
-              cameraKind === 'tee' && reachYards != null
-                ? marksAt(
-                    overlay.line,
-                    TEE_SHOT_MARKS.filter((yards) => yards < reachYards),
-                    unit,
-                  )
-                : holeLabels(
-                    overlay.line,
-                    unit,
-                    landing && landingLabelYards != null ? { at: landing, label: formatDistance(landingLabelYards, unit) } : null,
-                  );
-            return sheetOpen ? limitYardPills(marks, player ?? overlay.line[0] ?? null, 2) : marks;
-          })()}
+          labels={[]}
+          ellipseScale={1.2}
           line={overlay.line}
           fairways={ringsOf(overlay.fairways)}
           green={overlay.green ? ringsOf([overlay.green]) : []}
@@ -1141,125 +1151,129 @@ export default function PlayScreen() {
           imagery={VECTOR_TILE_SOURCE}
           plate={plate}
           showCredit={!sheetOpen}
-          creditBottom={SHEET_CLOSED + Math.max(insets.bottom, 8) + 4 + 56 + 8}
+          creditLeft={14}
+          creditRight={88}
+          creditBottom={SHEET_CLOSED + Math.max(insets.bottom, 8) + 20}
         />
         <Vignette deep />
       </Animated.View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={onTee ? (fullHole ? 'Full hole' : 'Tee shot') : fullHole ? 'To the green' : 'Full hole'}
-        onPress={() => {
-          setFullHole((open) => !open);
-          void tick();
-        }}
-        style={[styles.fullHole, { top: mapHudInset(insets.top) + 8 }]}
-      >
-        <Glass radius={16} contentStyle={styles.fullHoleFill}>
-          <Text style={styles.fullHoleText}>{onTee ? (fullHole ? 'Full hole' : 'Tee shot') : fullHole ? 'To the green' : 'Full hole'}</Text>
-        </Glass>
-      </Pressable>
+      <View pointerEvents="none" style={[styles.heroScrim, { top: insets.top + 30 }]}>
+        <Svg width={300} height={200}>
+          <Defs>
+            <RadialGradient id={scrimId} cx="50%" cy="50%" rx="50%" ry="50%">
+              <Stop offset="0" stopColor="#02060E" stopOpacity="0.92" />
+              <Stop offset="0.42" stopColor="#02060E" stopOpacity="0.78" />
+              <Stop offset="0.76" stopColor="#02060E" stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
+          <Rect x="0" y="0" width="300" height="200" fill={`url(#${scrimId})`} />
+        </Svg>
+      </View>
       <View
         pointerEvents="box-none"
-        style={[styles.hud, { paddingTop: insets.top + 2 }]}
+        accessibilityRole="adjustable"
+        accessibilityLabel={`Hole ${hole.holeNumber}, par ${par ?? 'unknown'}, stroke index ${hole.strokeIndex ?? 'unknown'}`}
+        accessibilityHint="Swipe left for the next hole. Swipe right for the previous hole."
+        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === 'increment') leaveRef.current();
+          if (event.nativeEvent.actionName === 'decrement') backRef.current();
+        }}
+        style={[styles.holePill, { top: insets.top + 12 }]}
       >
-        <Glass radius={22} contentStyle={styles.hudFill}>
-          <View
-            accessibilityRole="adjustable"
-            accessibilityLabel={`Hole ${hole.holeNumber}, par ${par ?? 'unknown'}, stroke index ${hole.strokeIndex ?? 'unknown'}`}
-            accessibilityHint="Swipe left for the next hole. Swipe right for the previous hole."
-            accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
-            onAccessibilityAction={(event) => {
-              if (event.nativeEvent.actionName === 'increment') leaveRef.current();
-              if (event.nativeEvent.actionName === 'decrement') backRef.current();
-            }}
-            style={styles.hudTop}
+        <Glass radius={19} style={styles.holePillGlass} contentStyle={styles.holePillFill}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Previous hole"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={goBack}
+            style={({ pressed }) => [styles.pillArrow, pressed && !reduceMotion && styles.pressed]}
           >
-            <Pressable accessibilityRole="button" accessibilityLabel="Previous hole" onPress={goBack} style={({ pressed }) => [styles.backHit, pressed && !reduceMotion && styles.pressed]}>
-              <View style={styles.chevron} />
-            </Pressable>
-            <Text style={styles.pillMeta}>PAR</Text>
-            <Text style={[styles.pillNum, { fontFamily: display }]}>{par ?? '—'}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Home" onPress={() => router.push('/')} style={styles.ballHit}>
-              <View style={styles.ball}>
-                <View style={[styles.dimple, styles.dimpleA]} />
-                <View style={[styles.dimple, styles.dimpleB]} />
-                <View style={[styles.dimple, styles.dimpleC]} />
-                <Text style={[styles.ballNum, { fontFamily: display }]}>{hole.holeNumber}</Text>
-              </View>
-            </Pressable>
-            <Text style={styles.pillMeta}>HCP</Text>
-            <Text style={[styles.pillNum, { fontFamily: display }]}>{hole.strokeIndex ?? '—'}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Next hole" onPress={leaveHole} style={({ pressed }) => [styles.nextHit, pressed && !reduceMotion && styles.pressed]}>
-              <View style={styles.chevronNext} />
-            </Pressable>
-          </View>
-          <View style={styles.chipRow}>
-            <Text style={styles.chip}>{shotChips.wind}</Text>
-            <Text style={styles.chip}>{shotChips.elevation}</Text>
-            <Text style={styles.chip}>{shotChips.temperature}</Text>
-          </View>
-          {!player && manual == null && !overrideOpen ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Waiting for GPS, or tap to set your position"
-              onPress={() => {
-                setOverrideDraft('');
-                setOverrideOpen(true);
-              }}
-              style={({ pressed }) => [styles.waitHit, pressed && !reduceMotion && styles.pressed]}
-            >
-              <Text style={styles.waitText}>Waiting for GPS · tap to set position</Text>
-            </Pressable>
-          ) : (
-            <View style={styles.yardRow}>
-              {ground ? <End label="Front" value={formatDistance(ground.frontYards, unit)} /> : <View style={styles.endCol} />}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Shot yards"
-                delayLongPress={450}
-                onLongPress={() => {
-                  if (player) return;
-                  setOverrideDraft(manual == null ? '' : formatDistance(manual, unit));
-                  setOverrideOpen(true);
-                }}
-                style={({ pressed }) => [styles.centerHit, pressed && !reduceMotion && styles.pressed]}
-              >
-                {overrideOpen && !player ? (
-                  <TextInput
-                    value={overrideDraft}
-                    onChangeText={setOverrideDraft}
-                    keyboardType="decimal-pad"
-                    autoFocus
-                    style={[styles.centerNum, styles.centerInput]}
-                    accessibilityLabel="Manual yards"
-                    onBlur={() => {
-                      const accepted = acceptShotYards(Number(overrideDraft));
-                      if (typeof accepted === 'number') setManualYards(hole.holeNumber, displayToYards(accepted, unit));
-                      setOverrideOpen(false);
-                    }}
-                  />
-                ) : (
-                  <Text style={[styles.centerNum, { fontFamily: display }, playsLikeYards != null ? styles.glow : centerLive && styles.centerLive]}>{heroText}</Text>
-                )}
-              </Pressable>
-              {ground ? <End label="Back" value={formatDistance(ground.backYards, unit)} /> : <View style={styles.endCol} />}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={windKnown ? `Wind ${windText} ${Number(windText) === 1 ? 'mile' : 'miles'} per hour` : 'Wind unknown'}
-                onPress={() => undefined}
-                style={({ pressed }) => [styles.windHit, pressed && !reduceMotion && styles.pressed]}
-              >
-                <Glass radius={18} style={styles.windPill} contentStyle={styles.windFill} overlay={windKnown ? 'rgba(138,201,38,0.94)' : undefined}>
-                  <WindMark ink={windKnown ? colors.navy : '#FFFFFF'} />
-                  <Text style={[styles.windNum, { fontFamily: display }, windKnown && styles.windKnown]}>{windText}</Text>
-                </Glass>
-              </Pressable>
+            <Text style={styles.pillArrowText}>‹</Text>
+          </Pressable>
+          <Text style={styles.pillMeta}>PAR</Text>
+          <Text style={[styles.pillNum, { fontFamily: display }]}>{par ?? '—'}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Home"
+            hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
+            onPress={() => router.push('/')}
+            style={styles.pillBallHit}
+          >
+            <View style={styles.pillBall}>
+              <Text style={[styles.pillBallNum, { fontFamily: display }]}>{hole.holeNumber}</Text>
             </View>
-          )}
+          </Pressable>
+          <Text style={styles.pillMeta}>HCP</Text>
+          <Text style={[styles.pillNum, { fontFamily: display }]}>{hole.strokeIndex ?? '—'}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Next hole"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={leaveHole}
+            style={({ pressed }) => [styles.pillArrow, pressed && !reduceMotion && styles.pressed]}
+          >
+            <Text style={styles.pillArrowText}>›</Text>
+          </Pressable>
         </Glass>
       </View>
+      <View pointerEvents="box-none" style={[styles.hero, { top: insets.top + 58 }]}>
+        {player == null ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={manual == null ? 'Waiting for GPS, or tap to set your position' : 'Shot yards'}
+            delayLongPress={450}
+            onPress={() => {
+              setOverrideDraft(manual == null ? '' : formatDistance(manual, unit));
+              setOverrideOpen(true);
+            }}
+            onLongPress={() => {
+              setOverrideDraft(manual == null ? '' : formatDistance(manual, unit));
+              setOverrideOpen(true);
+            }}
+          >
+            {overrideOpen ? (
+              <TextInput
+                value={overrideDraft}
+                onChangeText={setOverrideDraft}
+                keyboardType="decimal-pad"
+                autoFocus
+                style={[styles.heroInput, { fontFamily: display }]}
+                accessibilityLabel="Manual yards"
+                onBlur={() => {
+                  const accepted = acceptShotYards(Number(overrideDraft));
+                  if (typeof accepted === 'number') setManualYards(hole.holeNumber, displayToYards(accepted, unit));
+                  setOverrideOpen(false);
+                }}
+              />
+            ) : (
+              <Text style={[styles.heroNum, { fontFamily: display }, playsLikeYards != null && styles.glow]}>{heroText === '' ? '—' : heroText}</Text>
+            )}
+            <Text style={styles.heroCap}>{unit === 'yd' ? 'YARDS TO GREEN' : 'METERS TO GREEN'}</Text>
+            {manual == null ? <Text style={styles.fbInvite}>Waiting for GPS · tap to set position</Text> : null}
+          </Pressable>
+        ) : (
+          <View pointerEvents="none">
+            <Text style={[styles.heroNum, { fontFamily: display }, playsLikeYards != null && styles.glow]}>{heroText === '' ? '—' : heroText}</Text>
+            <Text style={styles.heroCap}>{unit === 'yd' ? 'YARDS TO GREEN' : 'METERS TO GREEN'}</Text>
+          </View>
+        )}
+        {ground ? (
+          <View
+            pointerEvents="none"
+            style={styles.fbLine}
+            accessibilityLabel={`Front ${formatDistance(ground.frontYards, unit)}, back ${formatDistance(ground.backYards, unit)}`}
+          >
+            <Text style={styles.fbWord}>FRONT</Text>
+            <Text style={[styles.fbNum, { fontFamily: display }]}>{formatDistance(ground.frontYards, unit)}</Text>
+            <Text style={styles.fbDot}>·</Text>
+            <Text style={styles.fbWord}>BACK</Text>
+            <Text style={[styles.fbNum, { fontFamily: display }]}>{formatDistance(ground.backYards, unit)}</Text>
+          </View>
+        ) : null}
+      </View>
       {hazardYards != null ? (
-        <View pointerEvents="box-none" style={[styles.hazardFloat, { top: mapHudInset(insets.top) + 52 }]}>
+        <View pointerEvents="box-none" style={[styles.hazardFloat, { top: insets.top + 210 }]}>
           <Glass radius={18} contentStyle={styles.hazardFill}>
             <Text style={styles.hint}>{`Hazard ${formatDistance(hazardYards, unit)}`}</Text>
           </Glass>
@@ -1283,9 +1297,11 @@ export default function PlayScreen() {
             {sheetTab === 'course' ? (
               <Text style={styles.line} numberOfLines={2}>{`${courseCall(pilot.record.name)}. ${holeSubline({ hole: hole.holeNumber, par })}`}</Text>
             ) : sheetTab === 'stats' ? (
-              <View style={styles.thruRow}>
-                <ThruBar label={thru.label} pips={thru.pips} />
-              </View>
+              sheetOpen ? null : (
+                <View style={styles.thruRow}>
+                  <ThruBar label={thru.label} pips={thru.pips} />
+                </View>
+              )
             ) : (
               <View style={styles.tipCard} pointerEvents="box-none">
                 <Text pointerEvents="none" style={styles.spark}>✦</Text>
@@ -1304,7 +1320,10 @@ export default function PlayScreen() {
                   ) : (
                     <>
                       <View style={styles.clubHead} pointerEvents="box-none">
-                        <Text pointerEvents="box-none" style={[styles.tipTitle, styles.clubHeadTitle]} numberOfLines={1}>{`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}</Text>
+                        <Text pointerEvents="box-none" style={[styles.tipTitle, styles.clubHeadTitle]} numberOfLines={1}>
+                          {player != null && onTee && !onGreen ? <Text style={styles.teeKicker}>TEE SHOT </Text> : null}
+                          {`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}
+                        </Text>
                         <Text pointerEvents="box-none" style={styles.clubMeta}>{updatedLabel}</Text>
                         <DictateButton
                           live={talk.phase !== 'idle'}
@@ -1404,7 +1423,6 @@ export default function PlayScreen() {
             {longTotal ? <Text style={styles.body}>{longTotal}</Text> : null}
             {missLine ? <Text style={styles.body}>{missLine}</Text> : null}
             <Text style={styles.body}>Putts stay off the score.</Text>
-            <PuttStepper value={puttCount} onWrite={writePutts} />
             {face.suggestion != null && face.suggestion !== face.strokes ? (
               <Pressable
                 accessibilityRole="button"
@@ -1440,26 +1458,69 @@ export default function PlayScreen() {
             ) : null}
           </ScrollView>
           ) : null}
+          {sheetOpen && sheetTab === 'stats' ? (
+            <ScrollView
+              style={[styles.details, styles.scrollMask, { marginBottom: SHEET_BALL_TEXT.openPx }]}
+              contentContainerStyle={styles.statsBody}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.statGrid}>
+                <View style={styles.statTile} accessibilityLabel={headText === '—' ? 'Wind unknown' : `Wind ${headText} miles per hour`}>
+                  <View style={styles.statLabelRow}>
+                    <Text style={styles.statLabel}>WIND</Text>
+                    <WindArrow degrees={windArrowDeg} />
+                  </View>
+                  <Text style={[styles.statValue, { fontFamily: display }]}>
+                    {headText}
+                    {headText === '—' ? null : <Text style={styles.statUnit}> MPH</Text>}
+                  </Text>
+                </View>
+                <View style={styles.statTile} accessibilityLabel={elevText === '—' ? 'Elevation unknown' : `Elevation ${elevText} feet`}>
+                  <Text style={styles.statLabel}>ELEV</Text>
+                  <Text style={[styles.statValue, { fontFamily: display }]}>
+                    {elevText}
+                    {elevText === '—' ? null : <Text style={styles.statUnit}> FT</Text>}
+                  </Text>
+                </View>
+                <View style={styles.statTile} accessibilityLabel={tempText === '—' ? 'Temperature unknown' : `Temperature ${tempText} degrees`}>
+                  <Text style={styles.statLabel}>TEMP</Text>
+                  <Text style={[styles.statValue, { fontFamily: display }]}>
+                    {tempText}
+                    {tempText === '—' ? null : <Text style={styles.statUnit}> °F</Text>}
+                  </Text>
+                </View>
+                <View style={styles.statTile}>
+                  <Text style={styles.statLabel}>PUTTS</Text>
+                  <PuttStepper value={puttCount} onWrite={writePutts} />
+                </View>
+              </View>
+              <Text style={styles.statNote}>{conditionsNote}</Text>
+              <ThruBar label={thru.label} pips={thru.pips} />
+            </ScrollView>
+          ) : null}
         </Glass>
       </Animated.View>
       {sheetOpen ? null : (
         <>
-      <View
-        style={[styles.dock, { bottom: SHEET_CLOSED + Math.max(insets.bottom, 8) + 4 }]}
-      >
-        {ask.undo}
-        <View style={styles.dockRow}>
-          <CountChip minHeight={56} value={face.strokes} confirmed={face.strokesConfirmed} par={par} floor={1} idleLabel="Score" onWrite={writeStrokes} />
-          <Pressable accessibilityRole="button" accessibilityLabel="Mark shot" onPress={markHere} style={({ pressed }) => [styles.markHit, pressed && !reduceMotion && styles.pressed]}>
-            <Glass radius={24} style={styles.mark} contentStyle={styles.markFill}>
-              <Text style={styles.markText}>Mark shot</Text>
-            </Glass>
-          </Pressable>
-        </View>
-      </View>
-      <View pointerEvents="box-none" style={[styles.askFloat, { bottom: SHEET_CLOSED + Math.max(insets.bottom, 8) + 4 }]}>
-        {ask.button}
-      </View>
+          {ask.undo ? <View pointerEvents="box-none" style={[styles.undoFloat, { bottom: SHEET_CLOSED + Math.max(insets.bottom, 8) + 16 + RAIL_SIZE * 3 + 24 + 8 }]}>{ask.undo}</View> : null}
+          <View pointerEvents="box-none" style={[styles.rail, { bottom: SHEET_CLOSED + Math.max(insets.bottom, 8) + 16 }]}>
+            <CountChip rail value={face.strokes} confirmed={face.strokesConfirmed} par={par} floor={1} idleLabel="Score" onWrite={writeStrokes} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Mark shot, ${holeMarks.length} ${holeMarks.length === 1 ? 'mark' : 'marks'}`}
+              onPress={markHere}
+              style={({ pressed }) => [styles.railBtn, pressed && !reduceMotion && styles.pressed]}
+            >
+              <Glass radius={28} borderColor="rgba(190,245,70,0.9)" style={styles.railBtn} contentStyle={styles.railFill}>
+                <MarkSight />
+                <Text style={styles.railLabel}>MARK</Text>
+              </Glass>
+              <View pointerEvents="none" style={styles.markBadge}>
+                <Text style={[styles.markBadgeNum, { fontFamily: display }]}>{String(holeMarks.length)}</Text>
+              </View>
+            </Pressable>
+            {ask.button}
+          </View>
         </>
       )}
       </Animated.View>
@@ -1485,17 +1546,28 @@ export default function PlayScreen() {
   );
 }
 
-function WindMark({ ink = '#FFFFFF' }: { ink?: string }) {
+/** Points up the hole. Degrees rotate it to the direction the wind is blowing. */
+function WindArrow({ degrees }: { degrees: number | null }) {
+  if (degrees == null || !Number.isFinite(degrees)) return null;
   return (
-    <View style={styles.wind}>
-      <View style={[styles.windLine, { backgroundColor: ink }]} />
-      <View style={[styles.windLineShort, { backgroundColor: ink }]} />
-      <View style={[styles.windLine, { backgroundColor: ink }]} />
+    <View style={[styles.windArrow, { transform: [{ rotate: `${degrees}deg` }] }]}>
+      <View style={styles.windArrowHead} />
+      <View style={styles.windArrowStem} />
     </View>
   );
 }
 
-/** Compact putt stepper. The score tile stays large; this one is a single 36px pill. */
+function MarkSight() {
+  return (
+    <View style={styles.sight}>
+      <View style={styles.sightRing} />
+      <View style={styles.sightH} />
+      <View style={styles.sightV} />
+    </View>
+  );
+}
+
+/** Putts on the Stats tile. Minus and plus stay 44px targets around a 36px ring. */
 function PuttStepper({ value, onWrite }: { value: number | null; onWrite: (next: number) => void }) {
   const display = useDisplayFace();
   const shown = value == null ? 0 : value;
@@ -1504,26 +1576,20 @@ function PuttStepper({ value, onWrite }: { value: number | null; onWrite: (next:
     void tick();
   };
   return (
-    <View style={styles.puttShell}>
+    <View style={styles.puttRow}>
       <Pressable accessibilityRole="button" accessibilityLabel="Fewer putts" onPress={() => step('down')} style={styles.puttHit}>
-        <Text style={styles.puttSign}>−</Text>
+        <View style={styles.puttRing}>
+          <Text style={styles.puttSign}>−</Text>
+        </View>
       </Pressable>
       <Text accessibilityLabel={`Putts ${shown}`} style={[styles.puttNum, { fontFamily: display }]}>
         {String(shown)}
       </Text>
       <Pressable accessibilityRole="button" accessibilityLabel="More putts" onPress={() => step('up')} style={styles.puttHit}>
-        <Text style={styles.puttSign}>+</Text>
+        <View style={styles.puttRing}>
+          <Text style={styles.puttSign}>+</Text>
+        </View>
       </Pressable>
-    </View>
-  );
-}
-
-function End({ label, value }: { label: string; value: string }) {
-  const display = useDisplayFace();
-  return (
-    <View style={styles.endCol} accessibilityLabel={value ? `${label} ${value}` : label}>
-      <Text style={styles.endLabel}>{label}</Text>
-      <Text style={[styles.endNum, { fontFamily: display }]}>{value}</Text>
     </View>
   );
 }
@@ -1731,21 +1797,6 @@ const styles = StyleSheet.create({
   } as unknown as ViewStyle,
   heard: { paddingHorizontal: 16, paddingBottom: 4, gap: 4, zIndex: 1 },
   detailsBody: { paddingHorizontal: 16, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 48, gap: 12 },
-  puttShell: {
-    alignSelf: 'flex-start',
-    height: 36,
-    borderRadius: 18,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 2,
-    backgroundColor: 'rgba(4,10,24,0.94)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.62)',
-  },
-  puttHit: { width: 36, height: 34, alignItems: 'center', justifyContent: 'center' },
-  puttSign: { color: '#FFFFFF', fontSize: 20, lineHeight: 22, fontWeight: '700' },
-  puttNum: { color: '#FFFFFF', fontSize: 16, lineHeight: 20, minWidth: 20, textAlign: 'center', fontVariant: ['tabular-nums'], fontWeight: '700' },
   body: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24 },
   textHit: { minHeight: 56, justifyContent: 'center' },
   dock: { position: 'absolute', left: 12, right: 112, zIndex: 6, gap: 4 },
@@ -1763,4 +1814,182 @@ const styles = StyleSheet.create({
   saved: { minWidth: 200 },
   savedFill: { paddingVertical: 28, paddingHorizontal: 32, alignItems: 'center', gap: 4 },
   savedTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 40, lineHeight: 46, fontWeight: '700' },
+  heroScrim: { position: 'absolute', left: -55, width: 300, height: 200, zIndex: 3 },
+  holePill: { position: 'absolute', left: 12, zIndex: 6 },
+  holePillGlass: { width: 214, height: 38 },
+  holePillFill: {
+    width: 214,
+    height: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 6,
+  },
+  pillArrow: { width: 28, height: 38, alignItems: 'center', justifyContent: 'center' },
+  pillArrowText: { color: 'rgba(255,255,255,0.9)', fontSize: 18, lineHeight: 20, fontWeight: '700' },
+  pillBallHit: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  pillBall: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#F4F1EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillBallNum: { color: '#06101C', fontSize: 22, lineHeight: 22, fontWeight: '700' },
+  hero: { position: 'absolute', left: 16, zIndex: 4, alignItems: 'flex-start' },
+  heroNum: {
+    color: '#FFFFFF',
+    fontSize: 120,
+    lineHeight: 98,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    textShadowColor: 'rgba(0,0,0,0.65)',
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 14,
+  },
+  heroInput: {
+    color: '#FFFFFF',
+    fontSize: 64,
+    lineHeight: 68,
+    fontWeight: '700',
+    minWidth: 140,
+    fontVariant: ['tabular-nums'],
+  },
+  heroCap: {
+    color: '#FFFFFF',
+    fontFamily: font.family,
+    fontSize: 9,
+    lineHeight: 12,
+    fontWeight: '700',
+    letterSpacing: 1.26,
+    marginTop: 6,
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  fbLine: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  fbWord: {
+    color: '#FFFFFF',
+    fontFamily: font.family,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
+    letterSpacing: 1.3,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  fbNum: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    lineHeight: 18,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    marginLeft: 4,
+    fontVariant: ['tabular-nums'],
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  fbDot: { color: '#FFFFFF', opacity: 0.55, marginHorizontal: 4, fontSize: 11, lineHeight: 14 },
+  fbInvite: {
+    color: '#FFFFFF',
+    fontFamily: font.family,
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '700',
+    marginTop: 8,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  rail: { position: 'absolute', right: 12, zIndex: 7, gap: 12, alignItems: 'center' },
+  railBtn: { width: 56, height: 56 },
+  railFill: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  railLabel: {
+    color: '#FFFFFF',
+    fontFamily: font.family,
+    fontSize: 9,
+    lineHeight: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginTop: 1,
+  },
+  markBadge: {
+    position: 'absolute',
+    right: -3,
+    top: -3,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#8AC926',
+    borderWidth: 2,
+    borderColor: '#06101C',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markBadgeNum: { color: '#06101C', fontSize: 15, lineHeight: 16, fontWeight: '700' },
+  sight: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
+  sightRing: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#8AC926',
+  },
+  sightH: { position: 'absolute', width: 22, height: 2, backgroundColor: '#8AC926' },
+  sightV: { position: 'absolute', width: 2, height: 22, backgroundColor: '#8AC926' },
+  undoFloat: { position: 'absolute', left: 12, right: 84, zIndex: 7 },
+  teeKicker: { color: '#8AC926', fontFamily: font.family, fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
+  statsBody: { paddingHorizontal: 6, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 48, gap: 14 },
+  statGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
+  statTile: {
+    width: '48%',
+    minHeight: 86,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  statLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  statLabel: {
+    color: 'rgba(255,255,255,0.78)',
+    fontFamily: font.family,
+    fontSize: 9,
+    lineHeight: 12,
+    fontWeight: '700',
+    letterSpacing: 1.26,
+  },
+  statValue: { color: '#FFFFFF', fontSize: 44, lineHeight: 44, fontWeight: '700', marginTop: 4, fontVariant: ['tabular-nums'] },
+  statUnit: { color: 'rgba(255,255,255,0.78)', fontFamily: font.family, fontSize: 9, lineHeight: 12, fontWeight: '700', letterSpacing: 1.2 },
+  statNote: { color: 'rgba(255,255,255,0.85)', fontFamily: font.family, fontSize: 12, lineHeight: 16, fontWeight: '600' },
+  windArrow: { width: 14, height: 18, alignItems: 'center' },
+  windArrowHead: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderBottomWidth: 7,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#FFFFFF',
+  },
+  windArrowStem: { width: 2, height: 8, backgroundColor: '#FFFFFF', marginTop: -1 },
+  puttRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
+  puttHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  puttRing: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  puttSign: { color: '#FFFFFF', fontSize: 22, lineHeight: 24, fontWeight: '700' },
+  puttNum: { color: '#FFFFFF', fontSize: 40, lineHeight: 40, minWidth: 28, textAlign: 'center', fontVariant: ['tabular-nums'], fontWeight: '700' },
 });
