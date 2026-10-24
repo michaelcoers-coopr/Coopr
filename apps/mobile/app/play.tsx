@@ -1203,12 +1203,12 @@ export default function PlayScreen() {
                 <ThruBar label={thru.label} pips={thru.pips} />
               </View>
             ) : (
-              <View style={styles.tipCard}>
-                <Text style={styles.spark}>✦</Text>
-                <View style={styles.clubCopy}>
+              <View style={styles.tipCard} pointerEvents="box-none">
+                <Text pointerEvents="none" style={styles.spark}>✦</Text>
+                <View style={styles.clubCopy} pointerEvents="box-none">
                   {player == null && manual == null ? (
-                    <View style={styles.clubHead}>
-                      <Text style={[styles.line, styles.clubHeadTitle]}>Waiting for GPS</Text>
+                    <View style={styles.clubHead} pointerEvents="box-none">
+                      <Text pointerEvents="box-none" style={[styles.line, styles.clubHeadTitle]}>Waiting for GPS</Text>
                       <DictateButton
                         live={talk.phase !== 'idle'}
                         onPress={() => {
@@ -1219,9 +1219,9 @@ export default function PlayScreen() {
                     </View>
                   ) : (
                     <>
-                      <View style={styles.clubHead}>
-                        <Text style={[styles.tipTitle, styles.clubHeadTitle]} numberOfLines={1}>{`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}</Text>
-                        <Text style={styles.clubMeta}>{updatedLabel}</Text>
+                      <View style={styles.clubHead} pointerEvents="box-none">
+                        <Text pointerEvents="box-none" style={[styles.tipTitle, styles.clubHeadTitle]} numberOfLines={1}>{`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}</Text>
+                        <Text pointerEvents="box-none" style={styles.clubMeta}>{updatedLabel}</Text>
                         <DictateButton
                           live={talk.phase !== 'idle'}
                           onPress={() => {
@@ -1231,11 +1231,11 @@ export default function PlayScreen() {
                         />
                       </View>
                       {oneLiner ? (
-                        <Text style={styles.line} numberOfLines={2}>
+                        <Text pointerEvents="box-none" style={styles.line} numberOfLines={2}>
                           {oneLiner}
                         </Text>
                       ) : null}
-                      <Text style={styles.carrySentence}>
+                      <Text pointerEvents="box-none" style={styles.carrySentence}>
                         {carryYards == null ? (
                           `Carry not measured. ${PATTERN_INVITE}.`
                         ) : (
@@ -1495,12 +1495,12 @@ const styles = StyleSheet.create({
   tipCard: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   spark: { color: '#8AC926', fontSize: 14, lineHeight: 14 },
   tipTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 16, fontWeight: '700' },
-  clubHead: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 18, overflow: 'visible' },
+  clubHead: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 18, overflow: 'visible', zIndex: 6 },
   clubHeadTitle: { flex: 1 },
   carrySentence: { color: '#FFFFFF', fontFamily: font.family, fontSize: 14, lineHeight: 14, fontWeight: '600' },
   carryNum: { color: '#FFFFFF', fontSize: 16, lineHeight: 18, fontWeight: '700', fontVariant: ['tabular-nums'] },
   micSlot: { width: 30, height: 18, overflow: 'visible' },
-  micHit: { position: 'absolute', width: 44, height: 44, top: -20, left: -7, alignItems: 'center', justifyContent: 'center' },
+  micHit: { position: 'absolute', width: 44, height: 44, top: -20, left: -7, alignItems: 'center', justifyContent: 'center', zIndex: 6 },
   micButton: {
     width: 28,
     height: 28,
@@ -1626,7 +1626,7 @@ const styles = StyleSheet.create({
   sheet: { position: 'absolute', left: 12, right: 12, overflow: 'hidden' },
   sheetGlass: { flex: 1 },
   sheetFill: { flex: 1, minHeight: 0 },
-  grab: { paddingTop: 0, paddingHorizontal: 12, paddingBottom: 0, zIndex: 1 },
+  grab: { paddingTop: 0, paddingHorizontal: 12, paddingBottom: 0, zIndex: 4 },
   tipHit: { marginTop: 2 },
   tip: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold },
   tipLink: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, textDecorationLine: 'underline' },
