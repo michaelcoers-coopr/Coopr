@@ -5,6 +5,7 @@ import type { LatLon } from '@coopr/domain';
 import { colors, font } from '@coopr/tokens';
 import { destinationPoint, distanceYards, shotBearing } from '@coopr/engine';
 import type { HoleMapProps } from './hole-map-props';
+import { HoleMap as AerialCanvas } from './hole-map-canvas';
 import { Muted } from './ui';
 
 export type { HoleMapProps } from './hole-map-props';
@@ -24,6 +25,7 @@ export function HoleMap(props: HoleMapProps) {
     },
     [],
   );
+  if (props.plate) return <AerialCanvas {...props} />;
   const points = [props.line, ...props.fairways, ...props.green, ...props.bunkers, ...props.hazards].flat();
   if (points.length === 0) return <Muted>This hole has no open geometry to draw.</Muted>;
   const lats = points.map((point) => point.lat);

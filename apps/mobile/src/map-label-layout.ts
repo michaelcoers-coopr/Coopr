@@ -12,6 +12,12 @@ export const DOT_STROKE = 1;
 /** A pill farther than this from its point is dropped. The panel still shows the number. */
 export const LEADER_MAX = 28;
 
+/**
+ * Pills closer than this along the hole go to opposite sides.
+ * On hole 1 the 300 and 186 otherwise stack on the same side of a near-vertical line.
+ */
+export const YARD_CROWD_ALONG = 96;
+
 const OVAL_FLOOR = 14;
 
 export interface ScreenPoint {
@@ -140,6 +146,25 @@ export function nearestMark(dots: readonly GreenDot[], x: number, y: number, rad
     if (!best || distance < best.distance) best = { id: dot.id, distance };
   }
   return best?.id ?? null;
+}
+
+function alongSpan(a: ScreenPoint, b: ScreenPoint, axis: Axis): number {
+  return Math.abs((b.x - a.x) * axis.dir.x + (b.y - a.y) * axis.dir.y);
+}
+
+/** The other side of the nearest pill that is close along the hole. */
+function oppositeCrowd(anchor: ScreenPoint, axis: Axis, prior: readonly { anchor: ScreenPoint; side: 1 | -1 }[]): 1 | -1 | null {
+  let nearest: { side: 1 | -1 } | null = null;
+  let best = YARD_CROWD_ALONG;
+  for (const item of prior) {
+    const span = alongSpan(anchor, item.anchor, axis);
+    if (span < best) {
+      best = span;
+      nearest = item;
+    }
+  }
+  if (!nearest) return null;
+  return nearest.side === 1 ? -1 : 1;
 }
 
 function holeAxis(line: readonly ScreenPoint[]): Axis {
@@ -292,7 +317,8 @@ function attachPill(
   const halfW = Math.floor(size.w / 2);
   const halfH = Math.floor(size.h / 2);
   const floor = Math.max(0, Math.ceil(minPerp));
-  for (let perp = 0; perp <= halfW && floor === 0; perp += 1) {
+  // A requested side stays off the point. The on-point search would ignore that side.
+  for (let perp = 0; perp <= halfW && floor === 0 && side == null; perp += 1) {
     for (let along = 0; along <= halfH; along += 1) {
       const perpShifts = perp === 0 ? [0] : [perp, -perp];
       const alongShifts = along === 0 ? [0] : [-along, along];
@@ -338,16 +364,35 @@ export function layoutHoleLabels(input: HoleLabelLayoutInput): HoleLabelLayout {
 
   const labels: PlacedMapLabel[] = [];
   const taken: LabelBox[] = [];
+  const prior: { anchor: ScreenPoint; side: 1 | -1 }[] = [];
   const glow = ovalGlowBox(input.ellipsePoints ?? []);
   const plays = input.labels.filter((label) => !isDistance(label.text) && label.text !== '—' && !label.text.startsWith('Sample'));
   const yards = input.labels.filter((label) => isDistance(label.text));
+  const placeOnOpenSide = (
+    anchor: ScreenPoint,
+    size: { w: number; h: number },
+    fallback: 1 | -1,
+    extra: readonly LabelBox[],
+    minPerp: number,
+  ) => {
+    const preferred = oppositeCrowd(anchor, axis, prior) ?? fallback;
+    const first = attachPill(anchor, size, axis, green, taken, visible, extra, preferred, minPerp);
+    if (first) return first;
+    const other: 1 | -1 = preferred === 1 ? -1 : 1;
+    const second = attachPill(anchor, size, axis, green, taken, visible, extra, other, minPerp);
+    if (second) return second;
+    return attachPill(anchor, size, axis, green, taken, visible, extra, null, minPerp);
+  };
+  const remember = (anchor: ScreenPoint, box: LabelBox) => {
+    prior.push({ anchor, side: perpOffset(anchor, box, axis) >= 0 ? 1 : -1 });
+  };
 
   for (const label of yards) {
     const size = pillSize(label.text);
-    const side = roomierSide(label.at, axis, visible);
-    const placed = attachPill(label.at, size, axis, green, taken, visible, [], side, size.w / 2 + 8);
+    const placed = placeOnOpenSide(label.at, size, roomierSide(label.at, axis, visible), [], size.w / 2 + 8);
     if (!placed) continue;
     taken.push(placed.box);
+    remember(label.at, placed.box);
     labels.push({
       id: `yard-${label.text}`,
       text: label.text,
@@ -361,10 +406,10 @@ export function layoutHoleLabels(input: HoleLabelLayoutInput): HoleLabelLayout {
 
   for (const label of plays) {
     const size = pillSize(label.text);
-    const side = playsSide(label.at, size, axis, green, taken, visible);
-    const placed = attachPill(label.at, size, axis, green, taken, visible, glow ? [glow] : [], side);
+    const placed = placeOnOpenSide(label.at, size, playsSide(label.at, size, axis, green, taken, visible), glow ? [glow] : [], 0);
     if (!placed) continue;
     taken.push(placed.box);
+    remember(label.at, placed.box);
     labels.push({
       id: `plays-${label.text}`,
       text: label.text,

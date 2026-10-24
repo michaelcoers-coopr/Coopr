@@ -82,6 +82,8 @@ import { useAskCoopr } from '../src/ask-coopr';
 import { caddieSpeaker, speakSentences } from '../src/speech/tts';
 import { useTalkCaddie, Waveform, YardageLine } from '../src/talk-overlay';
 import { courseCall, holeSubline } from '../src/design/home-copy';
+import { aerialPlate } from '../src/aerial/registry';
+import { pointOnAerial } from '../src/aerial/project';
 import { VECTOR_TILE_SOURCE } from '../src/tile-source';
 import { useTalkPrefs } from '../src/talk-prefs';
 
@@ -896,6 +898,8 @@ export default function PlayScreen() {
   });
   const whyLine = layup?.call === 'lay_up' ? layup.reason : detail.gap;
   const greenMarks = player && greenRing ? greenTargets(player, greenRing) : null;
+  const plateRecord = aerialPlate(pilot.courseKey, hole.holeNumber);
+  const plate = plateRecord != null && (player == null || pointOnAerial(plateRecord.georef, player)) ? plateRecord : null;
   const centerLive = player != null;
   const writeStrokes = (next: number) => {
     setStrokes(hole.holeNumber, next);
@@ -1002,6 +1006,7 @@ export default function PlayScreen() {
           playsLabel=""
           aerial
           imagery={VECTOR_TILE_SOURCE}
+          plate={plate}
         />
         <Vignette deep />
       </Animated.View>

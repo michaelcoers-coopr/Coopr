@@ -4,6 +4,7 @@ import { Button, Card, Choice, Muted, Screen, Title } from '../src/ui';
 import { bootDatabase } from '../src/boot-db';
 import { useLocalStore } from '../src/local-store';
 import { useTalkPrefs } from '../src/talk-prefs';
+import { AERIAL_CREDIT } from '../src/aerial/project';
 
 export default function MoreScreen() {
   const { founderTools, displayName, caddieName, personalityLabel, voice, setVoice, startNewRound, unit, setUnit, conditions, setConditions } = useLocalStore();
@@ -55,6 +56,8 @@ export default function MoreScreen() {
       <Button label={unit === 'yd' ? 'Showing yards' : 'Showing meters'} tone="ghost" onPress={() => setUnit(unit === 'yd' ? 'm' : 'yd')} />
       <Card>
         <Muted>High Cedars, Orting, is the only course on this phone. The hole uses the phone position. Wind and temperature come from the course, and plays-like can be switched off here.</Muted>
+        <Muted>{AERIAL_CREDIT}</Muted>
+        <Muted>Holes 1 and 2 use a stylized 2023 aerial. It is not a true-colour photo and not current conditions. Sample numbers stay labeled Sample.</Muted>
         <Muted>{dbStatus}</Muted>
         {founderTools ? <Muted>{`${displayName}. Caddie ${caddieName}, ${personalityLabel}.`}</Muted> : <Muted>Public shell.</Muted>}
       </Card>

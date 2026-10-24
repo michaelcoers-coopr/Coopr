@@ -1,5 +1,6 @@
 import type { LatLon } from '@coopr/domain';
 import type { MapPad } from '@coopr/engine';
+import type { AerialPlate } from './aerial/registry';
 import type { MapTileSource } from './tile-source';
 
 export interface HoleMapProps {
@@ -52,4 +53,9 @@ export interface HoleMapProps {
   aerial?: boolean;
   /** Swappable imagery. A null provider keeps the vector drawing. */
   imagery?: MapTileSource | null;
+  /**
+   * Stylized aerial for this hole. Null keeps the vector map.
+   * The picture and the overlay share one scale and origin from the plate's affine.
+   */
+  plate?: AerialPlate | null;
 }
