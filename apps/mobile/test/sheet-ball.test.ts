@@ -17,10 +17,11 @@ import {
   SHEET_BALL_OLIVE_DEEP,
   SHEET_BALL_OLIVE_PORTION,
   SHEET_BALL_RIM_OPACITY,
+  SHEET_BALL_RIM_WIDTH,
   SHEET_BALL_SCRIM,
   SHEET_BALL_SCRIM_ALPHA,
-  SHEET_BALL_SCRIM_TOP,
   SHEET_BALL_SCROLL_FADE,
+  SHEET_BALL_SCROLL_FADE_BOTTOM,
   SHEET_BALL_STROKE,
   SHEET_BALL_TEXT,
   ballChordWidth,
@@ -58,14 +59,18 @@ describe('sheet ball', () => {
     expect(ball.r).toBeLessThanOrEqual(280);
     expect(ball.cy).toBeGreaterThan(viewBox.h);
     expect(ball.cy - ball.r).toBeLessThan(viewBox.h);
-    expect(ballChordWidth()).toBeGreaterThan(viewBox.w);
+    expect(ballChordWidth()).toBeGreaterThan(240);
     expect(ballCrownFromBottom()).toBe(SHEET_BALL_DOME);
-    expect(SHEET_BALL_STROKE).toBe(1);
-    expect(SHEET_BALL_LINE_OPACITY).toBeGreaterThanOrEqual(0.35);
-    expect(SHEET_BALL_LINE_OPACITY).toBeLessThanOrEqual(0.5);
+    expect(SHEET_BALL_DOME).toBeLessThanOrEqual(48);
+    expect(SHEET_BALL_STROKE).toBeGreaterThanOrEqual(0.75);
+    expect(SHEET_BALL_STROKE).toBeLessThanOrEqual(1);
+    expect(SHEET_BALL_RIM_WIDTH).toBe(1);
+    expect(SHEET_BALL_LINE_OPACITY).toBeGreaterThanOrEqual(0.25);
+    expect(SHEET_BALL_LINE_OPACITY).toBeLessThanOrEqual(0.35);
     expect(SHEET_BALL_RIM_OPACITY).toBeCloseTo(0.6, 5);
     const top = dimples.reduce((best, dimple) => (dimple.cy < best.cy ? dimple : best));
     expect(Math.abs(top.cx - ball.cx)).toBeLessThan(50);
+    expect(viewBox.h - top.cy).toBeLessThanOrEqual(SHEET_BALL_DOME + 1);
     const side = dimples.filter((dimple) => Math.abs(dimple.cx - ball.cx) > 130).reduce((best, dimple) => (dimple.cy < best.cy ? dimple : best));
     expect(side.cy).toBeGreaterThan(top.cy + 8);
     const lats = [...new Set(dimples.map((dimple) => dimple.lat.toFixed(3)))];
@@ -79,21 +84,21 @@ describe('sheet ball', () => {
       });
     expect(bowed).toBeTruthy();
     const face = dimples.reduce((best, dimple) => {
-      const score = Math.abs(dimple.cx - ball.cx) + Math.abs(dimple.cy - (viewBox.h - 60));
-      const bestScore = Math.abs(best.cx - ball.cx) + Math.abs(best.cy - (viewBox.h - 60));
+      const score = Math.abs(dimple.cx - ball.cx) + Math.abs(dimple.cy - (viewBox.h - SHEET_BALL_DOME / 2));
+      const bestScore = Math.abs(best.cx - ball.cx) + Math.abs(best.cy - (viewBox.h - SHEET_BALL_DOME / 2));
       return score < bestScore ? dimple : best;
     });
     const limb = dimples.reduce((best, dimple) => (Math.abs(dimple.cx - ball.cx) > Math.abs(best.cx - ball.cx) ? dimple : best));
-    expect(face.opacity).toBeGreaterThanOrEqual(0.35);
-    expect(face.opacity).toBeLessThanOrEqual(0.5);
+    expect(face.opacity).toBeGreaterThanOrEqual(0.25);
+    expect(face.opacity).toBeLessThanOrEqual(0.35);
     expect(limb.opacity).toBeLessThan(face.opacity);
     expect(limb.ry).toBeLessThan(limb.rx);
-    expect(Math.max(...dimples.map((dimple) => dimple.opacity))).toBeLessThanOrEqual(0.5);
+    expect(Math.max(...dimples.map((dimple) => dimple.opacity))).toBeLessThanOrEqual(0.35);
   });
 
   it('fills the bottom of the sheet with lime and keeps type clear of the tabs', () => {
-    expect(SHEET_BALL_LIME_BAND).toBeGreaterThanOrEqual(100);
-    expect(SHEET_BALL_LIME_BAND).toBeLessThanOrEqual(120);
+    expect(SHEET_BALL_LIME_BAND).toBeGreaterThanOrEqual(40);
+    expect(SHEET_BALL_LIME_BAND).toBeLessThanOrEqual(SHEET_BALL_DOME + 4);
     expect(SHEET_BALL_LOBE_RADIUS * 2).toBeLessThan(SHEET_BALL.viewBox.w);
     expect(SHEET_BALL_OLIVE).toBe('#2e4a12');
     expect(SHEET_BALL_OLIVE_DEEP).toBe('#1c2e0f');
@@ -101,17 +106,19 @@ describe('sheet ball', () => {
     expect(oliveHeight(540)).toBeGreaterThanOrEqual(Math.round(540 * 0.45));
     expect(oliveHeight(176)).toBeGreaterThan(SHEET_BALL_LIME_BAND);
     expect(SHEET_BALL_TEXT.closedPx).toBeGreaterThanOrEqual(6);
-    expect(SHEET_BALL_TEXT.openPx + SHEET_BALL_SCROLL_FADE).toBeGreaterThan(SHEET_BALL_SCRIM_TOP);
-    expect(SHEET_BALL_TEXT.openPx).toBeGreaterThan(SHEET_BALL_LIME_BAND - SHEET_BALL_SCROLL_FADE);
+    expect(SHEET_BALL_TEXT.openPx).toBeGreaterThan(SHEET_BALL_DOME);
     expect(SHEET_BALL_SCROLL_FADE).toBe(48);
+    expect(SHEET_BALL_SCROLL_FADE_BOTTOM).toBeLessThan(24);
+    expect(SHEET_BALL_SCROLL_FADE_BOTTOM).toBeGreaterThan(8);
     const play = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../app/play.tsx'), 'utf8');
     expect(play).toContain('marginTop: SHEET_BALL_TEXT.closedPx');
     expect(play).not.toContain('!sheetOpen ? { marginTop: SHEET_BALL_TEXT.closedPx }');
     expect(play).not.toContain("justifyContent: 'flex-end'");
-    expect(play).toContain('paddingBottom: 96');
+    expect(play).toContain('paddingBottom: 48');
     expect(play).toContain('paddingTop: SHEET_BALL_SCROLL_FADE');
     expect(play).toContain('maskImage:');
     expect(play).toContain('SHEET_BALL_SCROLL_FADE}px');
+    expect(play).toContain('SHEET_BALL_SCROLL_FADE_BOTTOM}px');
   });
 
   it('keeps white type at 7:1 on the scrim over the brightest crest', () => {
@@ -153,6 +160,8 @@ describe('sheet ball', () => {
     expect(source).toContain('SHEET_BALL_OLIVE_DEEP');
     expect(source).toContain('gradientUnits="userSpaceOnUse"');
     expect(source).toContain('SHEET_BALL_RIM_OPACITY');
+    expect(source).toContain('stopOpacity="0.15"');
+    expect(source).not.toContain('sheetball-scrim');
     expect(source).toContain('rotate(');
     expect(source).not.toContain('Pattern');
     expect(source).toContain('fill="none"');

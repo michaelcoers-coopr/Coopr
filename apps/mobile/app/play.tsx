@@ -64,7 +64,7 @@ import { acceptHoleGesture, shouldAutoAdvance } from '../src/design/hole-nav';
 import { holeSwipe, rollSteps } from '../src/design/motion';
 import { clubDetail, clubFigure, closedPlaySheet, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreCommit, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { SheetBall } from '../src/design/sheet-ball';
-import { SHEET_BALL_SCROLL_FADE, SHEET_BALL_TEXT } from '../src/design/sheet-ball-geometry';
+import { SHEET_BALL_SCROLL_FADE, SHEET_BALL_SCROLL_FADE_BOTTOM, SHEET_BALL_TEXT } from '../src/design/sheet-ball-geometry';
 import { caddieVoiceLine } from '../src/design/caddie-voice';
 import { useDisplayFace } from '../src/design/display-font';
 import { MomentOverlay } from '../src/design/moments';
@@ -1598,10 +1598,10 @@ const styles = StyleSheet.create({
   kicker: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
   details: { flex: 1, minHeight: 0, zIndex: 1 },
   scrollMask: {
-    maskImage: `linear-gradient(to bottom, transparent, #000 ${SHEET_BALL_SCROLL_FADE}px, #000 calc(100% - ${SHEET_BALL_SCROLL_FADE}px), transparent)`,
+    maskImage: `linear-gradient(to bottom, transparent, #000 ${SHEET_BALL_SCROLL_FADE}px, #000 calc(100% - ${SHEET_BALL_SCROLL_FADE_BOTTOM}px), transparent)`,
   } as unknown as ViewStyle,
   heard: { paddingHorizontal: 16, paddingBottom: 4, gap: 4, zIndex: 1 },
-  detailsBody: { paddingHorizontal: 16, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 96, gap: 12 },
+  detailsBody: { paddingHorizontal: 16, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 48, gap: 12 },
   puttShell: {
     alignSelf: 'flex-start',
     height: 36,

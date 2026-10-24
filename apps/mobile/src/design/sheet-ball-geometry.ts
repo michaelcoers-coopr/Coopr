@@ -7,8 +7,8 @@ export const SHEET_BALL_CREST = '#C6F135';
 /** Pale white-lime for the dimple strokes. */
 export const SHEET_BALL_LINE = '#F4FBD2';
 
-/** Facing dimple strokes. The limb and the cropped base fade below this. */
-export const SHEET_BALL_LINE_OPACITY = 0.46;
+/** Facing dimple strokes. Softer line-art. The limb and the base fade below this. */
+export const SHEET_BALL_LINE_OPACITY = 0.32;
 
 /** Thin rim of the cap. A visible circular silhouette. */
 export const SHEET_BALL_RIM = '#FFFFFF';
@@ -22,10 +22,17 @@ export const SHEET_BALL_OLIVE_DEEP = '#1c2e0f';
  * Corner-lobe radius in the lime band's viewBox.
  * Two lobes this size do not meet, so the middle stays the lime body.
  */
-export const SHEET_BALL_LOBE_RADIUS = 132;
+/**
+ * Corner lobes stay inside the cap. A wider radius climbs into the type.
+ */
+export const SHEET_BALL_LOBE_RADIUS = 72;
 
-/** Full-width lime, in px from the sheet bottom. */
-export const SHEET_BALL_LIME_BAND = 110;
+/**
+ * Bright lime, in px from the sheet bottom.
+ * On the closed sheet the Mic row ends about 54px up, so the lime stays
+ * under that row instead of filling the old 110px slab.
+ */
+export const SHEET_BALL_LIME_BAND = 42;
 
 /** Olive lights the lower portion of the sheet, above and behind the lime. */
 export const SHEET_BALL_OLIVE_PORTION = 0.45;
@@ -33,39 +40,46 @@ export const SHEET_BALL_OLIVE_PORTION = 0.45;
 /** Minimum olive above the lime band, so a short sheet is not pure black. */
 export const SHEET_BALL_OLIVE_LIFT = 56;
 
-/** How far the cap's crown sits above the sheet bottom. */
-export const SHEET_BALL_DOME = 105;
+/**
+ * How far the cap's crown sits above the sheet bottom.
+ * The closed Mic row ends ~54px up, so 42px leaves >=8px of olive under it.
+ */
+export const SHEET_BALL_DOME = 42;
 
-/** Scroll-edge fade. Glyphs dissolve through this instead of being cut. */
+/** Top of the open scroll. Glyphs dissolve here instead of being cut. */
 export const SHEET_BALL_SCROLL_FADE = 48;
 
 /**
- * Closed: gap under the Course / Coach AI / Stats row.
- * Open: the scroll stops above the lime band and the scrim.
+ * Bottom of the open scroll. Short, so the last full line stays opaque
+ * and only the line past it fades.
  */
-/**
- * Open margin sits the scroll on the glow. The 48px fade covers the overlap,
- * so the opaque lines still end above the scrim.
- */
-export const SHEET_BALL_TEXT = { closedPx: 8, openPx: 104 } as const;
+export const SHEET_BALL_SCROLL_FADE_BOTTOM = 18;
 
-/** Dark scrim behind the type that shares pixels with the lime. */
+/**
+ * Closed: gap under the Course / Coach AI / Stats row.
+ * Open: the scroll ends just above the low cap.
+ */
+export const SHEET_BALL_TEXT = { closedPx: 8, openPx: 72 } as const;
+
+/**
+ * Mix used only if type ever shares pixels with the crest.
+ * The sheet does not paint this as a full-width band. That band was the seam.
+ */
 export const SHEET_BALL_SCRIM = '#040A18';
 
 /** Opaque enough that white type on the crest still clears 7:1. */
 export const SHEET_BALL_SCRIM_ALPHA = 0.72;
 
-/**
- * Scrim top, in px above the sheet bottom.
- * It fades in and out. The open scroll stops above it.
- */
+/** Kept so a future text scrim stays under the old open-scroll budget. */
 export const SHEET_BALL_SCRIM_TOP = 128;
 
-/** Hairline. One viewBox unit, so a 3x screen draws a 3px stroke. */
-export const SHEET_BALL_STROKE = 1;
+/** Dimple hairline. The rim stays a full pixel so the silhouette reads. */
+export const SHEET_BALL_STROKE = 0.75;
+export const SHEET_BALL_RIM_WIDTH = 1;
 
 const BALL_VIEW_H = 800;
-const BALL_DROP = 155;
+const BALL_R = 260;
+const BALL_DROP = BALL_R - SHEET_BALL_DOME;
 
 export const SHEET_BALL = {
   viewBox: { w: 360, h: BALL_VIEW_H },
@@ -73,13 +87,13 @@ export const SHEET_BALL = {
    * Center sits below the sheet. Radius 260, so the cap is wider than the
    * sheet and the top of the circle crosses it as a rim.
    */
-  ball: { cx: 180, cy: BALL_VIEW_H + BALL_DROP, r: 260 },
-  spacing: 13,
-  dimple: 3.1,
+  ball: { cx: 180, cy: BALL_VIEW_H + BALL_DROP, r: BALL_R },
+  spacing: 12,
+  dimple: 2.15,
 } as const;
 
-/** Specular just under the crown of the cap. */
-export const SHEET_BALL_SPECULAR = { cx: 180, cy: BALL_VIEW_H - SHEET_BALL_DOME + 24, rx: 48, ry: 14 } as const;
+/** Soft glint just under the crown, inside the cap. */
+export const SHEET_BALL_SPECULAR = { cx: 180, cy: BALL_VIEW_H - SHEET_BALL_DOME + 16, rx: 34, ry: 7 } as const;
 
 /** How far the cap's crown sits above the sheet bottom. */
 export function ballCrownFromBottom(): number {
@@ -143,26 +157,32 @@ export function projectedDimples(): ProjectedDimple[] {
   const cosT = Math.cos(tau);
   const sinT = Math.sin(tau);
   const marks: ProjectedDimple[] = [];
-  for (let phi = -0.35; phi <= 1.4; phi += spacing / r) {
+  let row = 0;
+  for (let phi = -0.2; phi <= 1.45; phi += spacing / r) {
     const cosP = Math.max(0.22, Math.abs(Math.cos(phi)));
     const dLam = spacing / (r * cosP);
-    for (let lam = -Math.PI; lam <= Math.PI; lam += dLam) {
+    const stagger = row % 2 === 0 ? 0 : dLam * 0.5;
+    row += 1;
+    for (let lam = -Math.PI + stagger; lam <= Math.PI; lam += dLam) {
       const x = Math.cos(phi) * Math.sin(lam);
       const y = Math.sin(phi);
       const z = Math.cos(phi) * Math.cos(lam);
       const y2 = y * cosT - z * sinT;
       const z2 = y * sinT + z * cosT;
-      if (z2 < 0.1) continue;
+      if (z2 < 0.05) continue;
       const sx = cx + r * x;
       const sy = cy - r * y2;
-      if (sy < bottom - SHEET_BALL_DOME - 18 || sy > bottom - 2) continue;
-      if (sx < -24 || sx > viewBox.w + 24) continue;
-      const facing = Math.min(1, z2 / 0.34);
-      const base = sy > bottom - 28 ? Math.max(0, (bottom - sy) / 28) : 1;
-      const opacity = SHEET_BALL_LINE_OPACITY * facing * base;
-      const minor = dimple * Math.max(0.32, z2);
-      const major = dimple * (0.82 + 0.18 * Math.min(1, z2));
-      if (opacity < 0.12 || minor < 0.75) continue;
+      if (sy < bottom - SHEET_BALL_DOME + 1 || sy > bottom - 2) continue;
+      if (sx < -16 || sx > viewBox.w + 16) continue;
+      const across = Math.min(1, Math.abs(sx - cx) / (viewBox.w * 0.48));
+      const limb = 1 - across * across * 0.72;
+      const rise = (bottom - sy) / SHEET_BALL_DOME;
+      const base = rise < 0.28 ? rise / 0.28 : 1;
+      const opacity = SHEET_BALL_LINE_OPACITY * limb * base;
+      const nz = Math.min(1, z2 / 0.55);
+      const minor = dimple * Math.max(0.42, nz);
+      const major = dimple * (0.78 + 0.22 * nz);
+      if (opacity < 0.06 || minor < 0.55) continue;
       const radial = Math.atan2(sy - cy, sx - cx);
       marks.push({
         cx: sx,
@@ -208,7 +228,7 @@ export function sheetBallMarks(): BallMark[] {
       r: ball.r,
       fill: 'none',
       stroke: SHEET_BALL_RIM,
-      strokeWidth: SHEET_BALL_STROKE,
+      strokeWidth: SHEET_BALL_RIM_WIDTH,
       strokeOpacity: SHEET_BALL_RIM_OPACITY,
     },
     {
