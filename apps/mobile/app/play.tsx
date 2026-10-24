@@ -83,7 +83,7 @@ import { useTalkPrefs } from '../src/talk-prefs';
 
 const pilot = loadHighCedarsPilot();
 /** Tall enough for a wrapped caddie sentence and the mic. The locked HUD constant stays shorter. */
-const SHEET_CLOSED = 200;
+const SHEET_CLOSED = 176;
 const SHEET_OPEN = 540;
 /** The score bar is hidden while the sheet is open, so the camera does not reserve its clearance. */
 const OPEN_DOCK_CLEAR = 68;
