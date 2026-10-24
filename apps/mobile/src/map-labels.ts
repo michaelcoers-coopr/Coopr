@@ -1,5 +1,6 @@
 import type { LatLon } from '@coopr/domain';
-import { distanceYards, formatDistance, lineMarks, type DistanceUnit } from '@coopr/engine';
+import { distanceYards, formatDistance, type DistanceUnit } from '@coopr/engine';
+import { lineLengthYards, pointAtYards } from './hole-fit';
 
 /** A mark at each requested yardage along the hole. Yardages past the hole are left out. */
 export function marksAt(line: readonly LatLon[], yards: readonly number[], unit: DistanceUnit): { at: LatLon; label: string }[] {
@@ -47,14 +48,29 @@ export function limitYardPills(
   return labels.filter((label) => !FAIRWAY_MARK.has(label.label) || kept.has(label));
 }
 
-/** Yardage labels measured along the hole, plus the current shot when one exists. */
+/** Yards still to play. 150 is the mark nearest the green. A mark the hole cannot hold is left out. */
+const REMAINING_STEPS = [150, 300, 450] as const;
+
+/**
+ * Fairway pills are distance still to go along the line, plus the current shot.
+ * 450 sits near the tee and 150 near the green. The shot label is the carry, unchanged.
+ * A step that would land on the tee, past the green, or on top of the shot is left out.
+ */
 export function holeLabels(
   line: readonly LatLon[],
   unit: DistanceUnit,
   landing: { at: LatLon; label: string } | null,
 ): { at: LatLon; label: string }[] {
-  const stepped = lineMarks(line, 150).filter((mark) => landing == null || distanceYards(mark.at, landing.at) > 28);
-  const labels = stepped.map((mark) => ({ at: mark.at, label: formatDistance(mark.yards, unit) }));
+  const total = lineLengthYards(line);
+  const labels: { at: LatLon; label: string }[] = [];
+  for (const remain of REMAINING_STEPS) {
+    const fromTee = total - remain;
+    if (!(fromTee > 1)) continue;
+    const at = pointAtYards(line, fromTee);
+    if (!at) continue;
+    if (landing && distanceYards(at, landing.at) <= 28) continue;
+    labels.push({ at, label: formatDistance(remain, unit) });
+  }
   if (landing && landing.label !== '—') labels.push(landing);
   return labels;
 }

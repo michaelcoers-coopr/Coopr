@@ -168,7 +168,7 @@ interface LocalStore {
   unit: DistanceUnit;
   setUnit: (unit: DistanceUnit) => void;
   currentHole: number;
-  setCurrentHole: (hole: number) => void;
+  setCurrentHole: (hole: number | ((current: number) => number)) => void;
   manualYards: Readonly<Record<number, number | null>>;
   setManualYards: (hole: number, yards: number | null) => void;
   tagged: readonly TaggedShot[];
@@ -565,7 +565,12 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
       unit,
       setUnit,
       currentHole,
-      setCurrentHole: (hole) => setCurrentHole(Math.min(18, Math.max(1, hole))),
+      setCurrentHole: (hole) =>
+        setCurrentHole((current) => {
+          const next = typeof hole === 'function' ? hole(current) : hole;
+          if (!Number.isFinite(next)) return current;
+          return Math.min(18, Math.max(1, Math.round(next)));
+        }),
       manualYards,
       setManualYards: (hole, yards) => setManual((current) => ({ ...current, [hole]: yards })),
       tagged,

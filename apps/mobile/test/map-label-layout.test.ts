@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { loadHighCedarsPilot } from '@coopr/course';
 import {
   destinationPoint,
+  distanceYards,
   dispersionOval,
   ellipseRing,
   flightArc,
@@ -14,9 +15,9 @@ import {
 } from '@coopr/engine';
 import { aerialGeoref, aerialScreenProjection, aerialView } from '../src/aerial/project';
 import { holeFrame, mapHudInset } from '../src/design/play-polish';
-import { pointAtYards } from '../src/hole-fit';
+import { lineLengthYards, pointAtYards } from '../src/hole-fit';
 import { holeLabels, limitYardPills } from '../src/map-labels';
-import { boxesSeparated, DOT_STROKE, GREEN_DOT, LABEL_GAP, layoutHoleLabels, leaderLength, LEADER_MAX, nearestMark, ovalGlowBox, sampleCaptionAt, sampleCaptionBox, YARD_CROWD_ALONG, type PlacedMapLabel } from '../src/map-label-layout';
+import { AERIAL_OVAL_FLOOR, boxesSeparated, DOT_STROKE, fittedEllipse, GREEN_DOT, LABEL_GAP, layoutHoleLabels, leaderLength, LEADER_MAX, nearestMark, ovalGlowBox, sampleCaptionAt, sampleCaptionBox, YARD_CROWD_ALONG, type PlacedMapLabel } from '../src/map-label-layout';
 
 const WIDTH = 390;
 const HEIGHT = 844;
@@ -199,15 +200,17 @@ describe('hole 1 map labels', () => {
     }
   });
 
-  it('puts the 300 and 186 pills on opposite sides of the hole 1 aerial', () => {
+  it('reads 450 near the tee and 150 near the green on the hole 1 aerial', () => {
     const pilot = loadHighCedarsPilot();
     const overlay = holeOverlay(pilot.features, pilot.record.scorecard, 1);
     const line = [...overlay.line];
     const geo = aerialGeoref(1);
     const landing = pointAtYards(line, 186);
+    const tee = line[0];
+    const pin = line[line.length - 1];
     expect(geo).toBeTruthy();
-    expect(landing).toBeTruthy();
-    if (!geo || !landing) return;
+    expect(landing && tee && pin).toBeTruthy();
+    if (!geo || !landing || !tee || !pin) return;
     const view = aerialView({
       imageWidth: geo.widthPx,
       imageHeight: geo.heightPx,
@@ -219,6 +222,22 @@ describe('hole 1 map labels', () => {
     });
     const projection = aerialScreenProjection(geo, view);
     const labels = holeLabels(line, 'yd', { at: landing, label: '186' });
+    const total = lineLengthYards(line);
+    for (const step of [150, 300, 450]) {
+      const mark = labels.find((item) => item.label === String(step));
+      if (total - step <= 1) {
+        expect(mark).toBeUndefined();
+        continue;
+      }
+      if (distanceYards(pointAtYards(line, total - step)!, landing) <= 28) {
+        expect(mark).toBeUndefined();
+        continue;
+      }
+      expect(mark, String(step)).toBeTruthy();
+      const along = pointAtYards(line, total - step);
+      expect(along).toBeTruthy();
+      expect(distanceYards(along!, mark!.at)).toBeLessThan(1);
+    }
     const pad = holeFrame({ hudHeight: mapHudInset(0), dockHeight: 80, sheetClosed: 200 });
     const green = overlay.green ? [...overlay.green.rings] : [];
     const holeLine = line.map((point) => projection.toXY(point));
@@ -233,14 +252,34 @@ describe('hole 1 map labels', () => {
       greenPoints: green.flatMap((ring) => ring.map((point) => projection.toXY(point))),
       labels: labels.map((label) => ({ text: label.label, at: projection.toXY(label.at) })),
     });
-    const three = placed.labels.find((item) => item.text === '300');
+    const far = placed.labels.find((item) => item.text === '450');
+    const close = placed.labels.find((item) => item.text === '150');
     const carry = placed.labels.find((item) => item.text === '186');
-    expect(three).toBeTruthy();
+    expect(far).toBeTruthy();
+    expect(close).toBeTruthy();
     expect(carry).toBeTruthy();
-    if (!three || !carry) return;
-    const along = Math.abs(three.anchor.y - carry.anchor.y);
-    expect(along).toBeLessThan(YARD_CROWD_ALONG + 30);
-    expect(pillSide(three.anchor, three.box, holeLine)).not.toBe(pillSide(carry.anchor, carry.box, holeLine));
-    expect(boxesSeparated(three.box, carry.box, LABEL_GAP)).toBe(true);
+    if (!far || !close || !carry) return;
+    const teeXY = projection.toXY(tee);
+    const pinXY = projection.toXY(pin);
+    expect(Math.hypot(far.anchor.x - teeXY.x, far.anchor.y - teeXY.y)).toBeLessThan(Math.hypot(close.anchor.x - teeXY.x, close.anchor.y - teeXY.y));
+    expect(Math.hypot(close.anchor.x - pinXY.x, close.anchor.y - pinXY.y)).toBeLessThan(Math.hypot(far.anchor.x - pinXY.x, far.anchor.y - pinXY.y));
+    const three = placed.labels.find((item) => item.text === '300');
+    if (three) {
+      const along = Math.abs(three.anchor.y - carry.anchor.y);
+      if (along < YARD_CROWD_ALONG) {
+        expect(pillSide(three.anchor, three.box, holeLine)).not.toBe(pillSide(carry.anchor, carry.box, holeLine));
+        expect(boxesSeparated(three.box, carry.box, LABEL_GAP)).toBe(true);
+      }
+    }
+    const tiny = [
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      { x: 2, y: 3 },
+    ];
+    const plain = fittedEllipse(tiny);
+    const aerial = fittedEllipse(tiny, AERIAL_OVAL_FLOOR);
+    expect(plain && aerial).toBeTruthy();
+    expect(Math.min(aerial!.halfW, aerial!.halfH) * 2).toBeGreaterThanOrEqual(AERIAL_OVAL_FLOOR);
+    expect(aerial!.scale).toBeGreaterThan(plain!.scale);
   });
 });

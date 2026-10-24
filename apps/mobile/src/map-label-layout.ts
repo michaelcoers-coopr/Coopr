@@ -20,6 +20,13 @@ export const YARD_CROWD_ALONG = 96;
 
 const OVAL_FLOOR = 14;
 
+/**
+ * Short axis of the aerial landing oval, in points.
+ * A measured ±3 yard pattern is only a few pixels on the full-hole photo.
+ * The sheet still states the real yards. This floor is the drawing, not a new measurement.
+ */
+export const AERIAL_OVAL_FLOOR = 52;
+
 export interface ScreenPoint {
   x: number;
   y: number;
@@ -106,14 +113,18 @@ export function clipPolylineAtOval(points: readonly ScreenPoint[], cx: number, c
 }
 
 /** True-scale oval. A pattern smaller than the floor is drawn larger. */
-export function fittedEllipse(points: readonly ScreenPoint[]): { cx: number; cy: number; halfW: number; halfH: number; scale: number } | null {
+export function fittedEllipse(
+  points: readonly ScreenPoint[],
+  floor = OVAL_FLOOR,
+): { cx: number; cy: number; halfW: number; halfH: number; scale: number } | null {
   if (points.length < 3) return null;
   const minX = Math.min(...points.map((point) => point.x));
   const maxX = Math.max(...points.map((point) => point.x));
   const minY = Math.min(...points.map((point) => point.y));
   const maxY = Math.max(...points.map((point) => point.y));
   const short = Math.max(Math.min(maxX - minX, maxY - minY), 0.5);
-  const scale = short < OVAL_FLOOR ? OVAL_FLOOR / short : 1;
+  const minShort = Number.isFinite(floor) && floor > 0 ? floor : OVAL_FLOOR;
+  const scale = short < minShort ? minShort / short : 1;
   return {
     cx: (minX + maxX) / 2,
     cy: (minY + maxY) / 2,

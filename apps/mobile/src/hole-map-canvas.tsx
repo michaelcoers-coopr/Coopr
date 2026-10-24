@@ -9,8 +9,9 @@ import type { HoleMapProps } from './hole-map-props';
 import { useDisplayFace } from './design/display-font';
 import { HOLE_BLEED_PAD, holeFitPoints, playingWidthMeters, projectHoleFill, projectPlayFrame } from './hole-fit';
 import { tileSourceDrawsVectors } from './tile-source';
-import { AERIAL_CREDIT, aerialScreenProjection, aerialView } from './aerial/project';
-import { boundsBox, clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark, sampleCaptionAt, sampleCaptionBox } from './map-label-layout';
+import { MAP_LAYER } from './aerial/map-layers';
+import { AERIAL_CREDIT_SHORT, aerialScreenProjection, aerialView } from './aerial/project';
+import { AERIAL_OVAL_FLOOR, boundsBox, clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark, sampleCaptionAt, sampleCaptionBox } from './map-label-layout';
 
 const SURROUND = '#143524';
 const TREE = '#0C2418';
@@ -77,12 +78,12 @@ const MapText = SvgText as unknown as ComponentType<{
 }>;
 
 /** True-scale oval. A pattern smaller than the floor is drawn larger, and the sheet states the real yards. */
-function drawEllipse(xy: readonly { x: number; y: number }[]) {
-  const fit = fittedEllipse(xy);
+function drawEllipse(xy: readonly { x: number; y: number }[], floor?: number) {
+  const fit = fittedEllipse(xy, floor);
   if (!fit) return null;
   const { cx, cy, scale } = fit;
   const ring = (factor: number) => xy.map((point) => `${cx + (point.x - cx) * factor},${cy + (point.y - cy) * factor}`).join(' ');
-  const halos = scale > 1 ? [1.7, 2.2] : [1.28, 1.55];
+  const halos = floor != null ? [1.08, 1.2] : scale > 1 ? [1.7, 2.2] : [1.28, 1.55];
   return {
     ...fit,
     solid: ring(scale),
@@ -214,7 +215,14 @@ export function HoleMap(props: HoleMapProps) {
   const pinPoint = bleed && projection && props.line.length > 1 ? props.line[props.line.length - 1] : null;
   const pin = pinPoint && projection ? projection.toXY(pinPoint) : null;
   const ellipsePts = projection && props.ellipse && props.ellipse.length > 2 ? props.ellipse.map((point) => projection.toXY(point)) : [];
-  const ellipseDraw = ellipsePts.length > 2 ? drawEllipse(ellipsePts) : null;
+  const ellipseDraw = ellipsePts.length > 2 ? drawEllipse(ellipsePts, photo ? AERIAL_OVAL_FLOOR : undefined) : null;
+  const ellipseLayoutPts =
+    photo && ellipseDraw
+      ? ellipsePts.map((point) => ({
+          x: ellipseDraw.cx + (point.x - ellipseDraw.cx) * ellipseDraw.scale * 1.2,
+          y: ellipseDraw.cy + (point.y - ellipseDraw.cy) * ellipseDraw.scale * 1.2,
+        }))
+      : ellipsePts;
   const lineXY = projection ? props.line.map((point) => projection.toXY(point)) : [];
   const flightXY = projection ? (props.flight ?? []).map((point) => projection.toXY(point)) : [];
   const ball = props.flight?.[0] ?? props.line[0];
@@ -240,7 +248,7 @@ export function HoleMap(props: HoleMapProps) {
         pointSig(greenPoints),
         pointSig([front, center, back].filter((point): point is XY => point != null)),
         mapLabels.map((label) => `${label.text}@${label.at.x.toFixed(0)},${label.at.y.toFixed(0)}`).join('|'),
-        ellipsePts.map((point) => `${point.x.toFixed(0)},${point.y.toFixed(0)}`).join('|'),
+        ellipseLayoutPts.map((point) => `${point.x.toFixed(0)},${point.y.toFixed(0)}`).join('|'),
       ].join(';')
     : '';
   const placed = useMemo(
@@ -255,7 +263,7 @@ export function HoleMap(props: HoleMapProps) {
             center,
             back,
             greenPoints,
-            ellipsePoints: ellipsePts,
+            ellipsePoints: ellipseLayoutPts,
             labels: mapLabels,
           })
         : { labels: [], dots: [] },
@@ -276,7 +284,7 @@ export function HoleMap(props: HoleMapProps) {
       onLayout={(event) => setWidth(Math.max(1, Math.round(event.nativeEvent.layout.width)))}
     >
       {photoBox && plate ? (
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.photoLayer]}>
           <Image accessible={false} source={plate.placeholder} fadeDuration={0} resizeMode="stretch" style={[styles.photoImage, photoBox]} />
           <Image
             accessible
@@ -289,6 +297,7 @@ export function HoleMap(props: HoleMapProps) {
         </View>
       ) : null}
       <Svg
+        style={styles.vectorOverlay}
         width="100%"
         height={height}
         viewBox={`0 0 ${width} ${height}`}
@@ -367,9 +376,9 @@ export function HoleMap(props: HoleMapProps) {
             </LinearGradient>
             {ellipseDraw ? (
               <RadialGradient id={`${uid}-ovalfill`} cx="50%" cy="42%" r="68%">
-                <Stop offset="0" stopColor={props.ellipseColor ?? '#8AC926'} stopOpacity="0.78" />
-                <Stop offset="0.62" stopColor={props.ellipseColor ?? '#8AC926'} stopOpacity="0.34" />
-                <Stop offset="1" stopColor={props.ellipseColor ?? '#8AC926'} stopOpacity="0.06" />
+                <Stop offset="0" stopColor={props.ellipseColor ?? '#8AC926'} stopOpacity={photo ? '0.4' : '0.78'} />
+                <Stop offset="0.62" stopColor={props.ellipseColor ?? '#8AC926'} stopOpacity={photo ? '0.2' : '0.34'} />
+                <Stop offset="1" stopColor={props.ellipseColor ?? '#8AC926'} stopOpacity="0.05" />
               </RadialGradient>
             ) : null}
           </Defs>
@@ -430,6 +439,16 @@ export function HoleMap(props: HoleMapProps) {
             ))
           : null}
         {bleed && !photo && props.green.length > 0 ? <Rect x={0} y={0} width={width} height={height} fill={`url(#${uid}-shine)`} clipPath={`url(#${uid}-green)`} /> : null}
+        {photo
+          ? props.green.map((ring, index) => (
+              <Polygon key={`green-edge-${index}`} points={pointsOf(ring, projection)} fill="none" stroke="#06140E" strokeWidth={5} strokeLinejoin="round" />
+            ))
+          : null}
+        {photo
+          ? props.green.map((ring, index) => (
+              <Polygon key={`green-line-${index}`} points={pointsOf(ring, projection)} fill="none" stroke="#FFFFFF" strokeWidth={2.25} strokeLinejoin="round" />
+            ))
+          : null}
         {props.line.length > 1 ? (
           <Polyline
             points={pointsOf(props.line, projection)}
@@ -482,7 +501,7 @@ export function HoleMap(props: HoleMapProps) {
                   <Polygon points={ellipseDraw.glowSoft} fill={ink} fillOpacity={0.12} stroke="none" />
                   <Polygon points={ellipseDraw.glow} fill={ink} fillOpacity={0.22} stroke="none" />
                   <Polygon points={ellipseDraw.solid} fill={`url(#${uid}-ovalfill)`} stroke={ink} strokeWidth={1.75} />
-                  <Polygon points={ellipseDraw.solid} fill={ink} fillOpacity={0.16} stroke="none" />
+                  <Polygon points={ellipseDraw.solid} fill={ink} fillOpacity={photo ? 0.1 : 0.16} stroke="none" />
                 </G>
               );
             })()
@@ -579,9 +598,11 @@ export function HoleMap(props: HoleMapProps) {
           />
         ))}
       </View>
-      {photo ? (
-        <View pointerEvents="none" style={[styles.creditWrap, { bottom: frame.bottom + 8 }]}>
-          <Text style={styles.credit}>{AERIAL_CREDIT}</Text>
+      {photo && props.showCredit !== false ? (
+        <View pointerEvents="none" style={[styles.creditWrap, { bottom: frame.bottom + 6 }]}>
+          <Text numberOfLines={1} style={styles.credit}>
+            {AERIAL_CREDIT_SHORT}
+          </Text>
         </View>
       ) : null}
       {bleed ? null : (
@@ -601,24 +622,23 @@ export function HoleMap(props: HoleMapProps) {
 }
 
 const styles = StyleSheet.create({
-  frame: { borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2', backgroundColor: colors.bg },
+  frame: { position: 'relative', borderRadius: 18, overflow: 'hidden', borderWidth: 2, borderColor: '#F7F5F2', backgroundColor: colors.bg, zIndex: 0 },
   bleed: { width: '100%', borderRadius: 0, borderWidth: 0, backgroundColor: SURROUND },
   photo: { backgroundColor: '#06140E' },
+  photoLayer: { zIndex: MAP_LAYER.photo },
   photoImage: { position: 'absolute' },
-  creditWrap: { position: 'absolute', left: 12, right: 72 },
+  vectorOverlay: { position: 'relative', zIndex: MAP_LAYER.overlay },
+  creditWrap: { position: 'absolute', right: 10, maxWidth: '48%', zIndex: MAP_LAYER.credit },
   credit: {
-    alignSelf: 'flex-start',
-    color: '#F4FFF6',
-    backgroundColor: 'rgba(4,10,24,0.78)',
-    overflow: 'hidden',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    fontSize: 10,
-    lineHeight: 13,
-    fontWeight: '600',
+    color: 'rgba(244,255,246,0.72)',
+    fontSize: 9,
+    lineHeight: 12,
+    fontWeight: '500',
+    textShadowColor: 'rgba(0,0,0,0.9)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  dotHits: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
+  dotHits: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: MAP_LAYER.hits },
   dotHit: { position: 'absolute', width: 28, height: 28 },
   float: {
     position: 'absolute',

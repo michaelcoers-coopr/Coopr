@@ -1,31 +1,33 @@
 /** Lime from the sheet. The glow and the dimple edges use this and nothing else. */
 export const SHEET_BALL_LIME = '#8AC926';
 
-/** Dark green-black. White type on these fills stays above AA. */
-export const SHEET_BALL_BODY = '#0C1410';
-export const SHEET_BALL_BODY_LIT = '#14201A';
-export const SHEET_BALL_BODY_EDGE = '#080E0B';
-export const SHEET_BALL_WELL = '#1A2620';
-export const SHEET_BALL_SHADOW = '#060908';
+/**
+ * Dark green, light enough that the cap separates from the glass.
+ * White type on these fills stays above AA.
+ */
+export const SHEET_BALL_BODY = '#173024';
+export const SHEET_BALL_BODY_LIT = '#2C4A38';
+export const SHEET_BALL_BODY_EDGE = '#102018';
+export const SHEET_BALL_WELL = '#07140E';
+export const SHEET_BALL_SHADOW = '#040C08';
 
 /**
  * Absolute stage. It does not add to the sheet height.
  * The viewBox matches this height so the art is not letterboxed inside a taller box.
+ * The closed sheet stays 176. The coach stack is tightened so this cap fits under the type.
  */
-export const SHEET_BALL_STAGE = 48;
+export const SHEET_BALL_STAGE = 70;
 
 /**
  * Lowest resting ink, in px from the sheet bottom.
- * Closed coach stack, one line each, mic row included:
- * 12 + 18 + 16 + 18 + 17 + 18 + 28 = 127, and 176 - 127 = 49.
- * A second line on the pattern sentence still leaves the mic glyphs above the paint.
- * Open details use paddingBottom 36, and the scroll itself stops above the paint
- * so a line in the middle of the list cannot sit on the glow.
+ * Closed coach stack, sentence wrapped to two lines:
+ * 6 + 14 + 14 + 14 + 30 + 15 + 18 = 111, and 176 - 111 = 65.
+ * The crown sits under that. Open details stop above the same line.
  */
-export const SHEET_BALL_TEXT = { closedPx: 49, openPx: 36 } as const;
+export const SHEET_BALL_TEXT = { closedPx: 62, openPx: 62 } as const;
 
-/** Bright paint lives in this many px at the bottom, under both text lines. */
-export const SHEET_BALL_PAINT_TOP = 28;
+/** Bright lime lives in this many px at the bottom, on the rim, under the type. */
+export const SHEET_BALL_PAINT_TOP = 30;
 
 /** ViewBox y. Bright paint stays below this line. */
 export const SHEET_BALL_CLEAR_Y = SHEET_BALL_STAGE - SHEET_BALL_PAINT_TOP;
@@ -41,17 +43,20 @@ export const SHEET_BALL_GLOW_PEAK = 0.92;
 
 export const SHEET_BALL = {
   viewBox: { w: 360, h: SHEET_BALL_STAGE },
-  /** Large ball, center below the view, so only a shallow cap shows. */
-  ball: { cx: 180, cy: 934, r: 900 },
-  spacing: 7,
-  dimple: 2.35,
+  /**
+   * Center sits below the view. The crown is `stage - (cy - r)` = 58px,
+   * inside the 55–70px cap, with enough curve that the dimples read.
+   */
+  ball: { cx: 180, cy: 160, r: 148 },
+  spacing: 16,
+  dimple: 5.6,
 } as const;
 
 /**
- * Wide lime pool behind the cap. Its top is an ellipse, under the type.
+ * Lime pool along the lower rim. Its top stays inside the paint strip.
  * The radial fill reaches opacity 0 inside this shape, so the edge is not a line.
  */
-export const SHEET_BALL_GLOW_ELLIPSE = { cx: 180, cy: 52, rx: 240, ry: 32 } as const;
+export const SHEET_BALL_GLOW_ELLIPSE = { cx: 180, cy: 80, rx: 250, ry: 40 } as const;
 
 /** How far the cap's crown sits above the sheet bottom. */
 export function ballCrownFromBottom(): number {

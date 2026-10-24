@@ -8,7 +8,6 @@ import type { LatLon, MapFeature } from '@coopr/domain';
 import { colors, font, motion, play as field, type } from '@coopr/tokens';
 import {
   acceptShotYards,
-  arrivedAtNextTee,
   classifyFinish,
   closeMarkedShot,
   debriefNote,
@@ -61,6 +60,7 @@ import {
 import { loadHighCedarsPilot } from '@coopr/course';
 import { HoleMap } from '../src/hole-map';
 import { boom, celebrate, holeFeel, pulse, tick } from '../src/haptics';
+import { acceptHoleGesture, shouldAutoAdvance } from '../src/design/hole-nav';
 import { holeSwipe, rollSteps } from '../src/design/motion';
 import { clubDetail, clubFigure, closedPlaySheet, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { SheetBall } from '../src/design/sheet-ball';
@@ -221,6 +221,8 @@ export default function PlayScreen() {
     if (scrub != null && /^\d+$/.test(scrub)) setScrubIndex(Number(scrub));
   }, []);
   const advanced = useRef(0);
+  const manualNav = useRef(false);
+  const lastButtonNav = useRef<{ dir: 'next' | 'prev'; at: number } | null>(null);
   const openTalk = useRef<() => void>(() => {});
   const visibleCall = useRef<{ line: string | null; clubId: string | null; clubLabel: string | null }>({ line: null, clubId: null, clubLabel: null });
   const voiceClub = useRef<{
@@ -234,6 +236,16 @@ export default function PlayScreen() {
       onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 24 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.4,
       onPanResponderRelease: (_, gesture) => {
         const dir = holeSwipe(gesture.dx, gesture.dy, holeNo.current);
+        const last = lastButtonNav.current;
+        if (
+          !acceptHoleGesture({
+            dir,
+            lastDir: last?.dir ?? null,
+            elapsedMs: last ? Date.now() - last.at : Number.POSITIVE_INFINITY,
+          })
+        ) {
+          return;
+        }
         if (dir === 'next') leaveRef.current();
         if (dir === 'prev') backRef.current();
       },
@@ -263,11 +275,17 @@ export default function PlayScreen() {
         sheetDrag.value = 0;
         sheetH.value = visual;
         const dir = holeSwipe(gesture.dx, gesture.dy, holeNo.current);
-        if (dir === 'next') {
+        const last = lastButtonNav.current;
+        const swipe = acceptHoleGesture({
+          dir,
+          lastDir: last?.dir ?? null,
+          elapsedMs: last ? Date.now() - last.at : Number.POSITIVE_INFINITY,
+        });
+        if (swipe && dir === 'next') {
           leaveRef.current();
           return;
         }
-        if (dir === 'prev') {
+        if (swipe && dir === 'prev') {
           backRef.current();
           return;
         }
@@ -472,14 +490,26 @@ export default function PlayScreen() {
   }, [currentHole, player]);
 
   useEffect(() => {
+    const manual = manualNav.current;
+    manualNav.current = false;
     if (!player || currentHole >= 18) return;
     const geometry = holeOverlay(pilot.features, pilot.record.scorecard, currentHole);
     const nextTee = holeOverlay(pilot.features, pilot.record.scorecard, currentHole + 1).line[0] ?? null;
     const center = geometry.green?.rings[0] ? ringCentroid(geometry.green.rings[0]) : null;
-    if (!arrivedAtNextTee({ player, nextTee, currentGreen: center })) return;
-    if (advanced.current === currentHole) return;
+    if (
+      !shouldAutoAdvance({
+        manual,
+        player,
+        currentHole,
+        nextTee,
+        currentGreen: center,
+        alreadyAdvanced: advanced.current === currentHole,
+      })
+    ) {
+      return;
+    }
     advanced.current = currentHole;
-    leaveRef.current();
+    setCurrentHole((hole) => hole + 1);
   }, [player, currentHole]);
 
   const talkPrefs = useTalkPrefs();
@@ -839,18 +869,22 @@ export default function PlayScreen() {
   const shownTotal = totalProfile(profiles, shownId);
   const longTotal = !onGreen && !short && shownTotal ? longestWords(shownTotal, unit) : null;
   const answered = debriefs.some((item) => item.hole === hole.holeNumber);
-  const advance = () => {
-    if (hole.holeNumber >= 18) return;
-    setCurrentHole(hole.holeNumber + 1);
+  const moveHole = (dir: 'next' | 'prev') => {
+    const current = holeNo.current;
+    if (dir === 'next' && current >= 18) return;
+    if (dir === 'prev' && current <= 1) return;
+    manualNav.current = true;
+    advanced.current = 0;
+    lastButtonNav.current = { dir, at: Date.now() };
+    setCurrentHole((shown) => shown + (dir === 'next' ? 1 : -1));
   };
 
   const leaveHole = () => {
-    advance();
+    moveHole('next');
   };
 
   const goBack = () => {
-    if (hole.holeNumber <= 1) return;
-    setCurrentHole(hole.holeNumber - 1);
+    moveHole('prev');
   };
   leaveRef.current = leaveHole;
   backRef.current = goBack;
@@ -1007,6 +1041,7 @@ export default function PlayScreen() {
           aerial
           imagery={VECTOR_TILE_SOURCE}
           plate={plate}
+          showCredit={!sheetOpen}
         />
         <Vignette deep />
       </Animated.View>
@@ -1029,7 +1064,6 @@ export default function PlayScreen() {
       >
         <Glass radius={22} contentStyle={styles.hudFill}>
           <View
-            {...pan.panHandlers}
             accessibilityRole="adjustable"
             accessibilityLabel={`Hole ${hole.holeNumber}, par ${par ?? 'unknown'}, stroke index ${hole.strokeIndex ?? 'unknown'}`}
             accessibilityHint="Swipe left for the next hole. Swipe right for the previous hole."
@@ -1161,7 +1195,11 @@ export default function PlayScreen() {
                     <>
                       <Text style={styles.tipTitle}>{`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}</Text>
                       <Text style={styles.clubMeta}>{updatedLabel}</Text>
-                      {oneLiner ? <Text style={styles.line}>{oneLiner}</Text> : null}
+                      {oneLiner ? (
+                        <Text style={styles.line} numberOfLines={2}>
+                          {oneLiner}
+                        </Text>
+                      ) : null}
                       <Text style={styles.carrySentence}>
                         {carryYards == null ? (
                           `Carry not measured. ${PATTERN_INVITE}.`
@@ -1372,8 +1410,8 @@ function ClubPulse({ clubLabel, yards }: { clubLabel: string | null; yards: numb
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: fieldNavy, overflow: 'hidden' },
   shake: { flex: 1 },
-  mapWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: fieldNavy },
-  hud: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 10 },
+  mapWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: fieldNavy, zIndex: 0 },
+  hud: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 10, zIndex: 20 },
   hudFill: { paddingHorizontal: 6, paddingTop: 2, paddingBottom: 4 },
   hudTop: { minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 4 },
   titleGap: { flex: 1 },
@@ -1406,16 +1444,16 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 8, paddingBottom: 4 },
-  tabs: { flexDirection: 'row', gap: 12, minHeight: 18, alignItems: 'center' },
+  tabs: { flexDirection: 'row', gap: 10, minHeight: 14, alignItems: 'center' },
   tab: { color: 'rgba(255,255,255,0.55)', fontFamily: font.family, fontSize: 11, fontWeight: '700' },
   tabOn: { color: '#FFFFFF' },
   tipCard: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  spark: { color: '#8AC926', fontSize: 16, lineHeight: 18 },
-  tipTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 16, fontWeight: '700' },
-  carrySentence: { color: '#FFFFFF', fontFamily: font.family, fontSize: 14, lineHeight: 18, fontWeight: '600' },
+  spark: { color: '#8AC926', fontSize: 14, lineHeight: 14 },
+  tipTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 14, fontWeight: '700' },
+  carrySentence: { color: '#FFFFFF', fontFamily: font.family, fontSize: 14, lineHeight: 15, fontWeight: '600' },
   carryNum: { color: '#FFFFFF', fontSize: 16, lineHeight: 18, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  micRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 28 },
-  micDot: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#8AC926' },
+  micRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 18 },
+  micDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#8AC926' },
   micLabel: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, fontWeight: '700' },
   talkGrow: { flex: 1 },
   typeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -1517,17 +1555,17 @@ const styles = StyleSheet.create({
   sheet: { position: 'absolute', left: 12, right: 12, overflow: 'hidden' },
   sheetGlass: { flex: 1 },
   sheetFill: { flex: 1, minHeight: 0 },
-  grab: { paddingTop: 0, paddingHorizontal: 12, paddingBottom: 2, zIndex: 1 },
+  grab: { paddingTop: 0, paddingHorizontal: 12, paddingBottom: 0, zIndex: 1 },
   tipHit: { marginTop: 2 },
   tip: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold },
   tipLink: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, textDecorationLine: 'underline' },
-  handleHit: { minHeight: 12, alignItems: 'center', justifyContent: 'center' },
+  handleHit: { minHeight: 6, alignItems: 'center', justifyContent: 'center' },
   handle: { width: 44, height: 4, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.72)' },
   clubRow: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 8 },
   clubCopy: { flex: 1, gap: 0 },
   clubName: { color: '#FFFFFF', fontFamily: font.family, fontSize: 22, lineHeight: 24, fontWeight: font.bold, letterSpacing: 0.3 },
-  clubMeta: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
-  line: { color: '#FFFFFF', fontFamily: font.family, fontSize: 14, lineHeight: 17, fontWeight: font.medium },
+  clubMeta: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 14, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
+  line: { color: '#FFFFFF', fontFamily: font.family, fontSize: 14, lineHeight: 15, fontWeight: font.medium },
   unlock: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 22, fontWeight: font.medium, marginTop: 0 },
   sample: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
   dim: { opacity: 0.55 },

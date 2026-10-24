@@ -58,4 +58,9 @@ export interface HoleMapProps {
    * The picture and the overlay share one scale and origin from the plate's affine.
    */
   plate?: AerialPlate | null;
+  /**
+   * Map credit. Off while the sheet is open so the line cannot cover a pill.
+   * More and the course screen keep the full sentence.
+   */
+  showCredit?: boolean;
 }

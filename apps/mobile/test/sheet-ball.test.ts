@@ -51,17 +51,23 @@ describe('sheet ball', () => {
     expect(SHEET_BALL.viewBox.h).toBe(SHEET_BALL_STAGE);
   });
 
-  it('keeps the cap and the bright paint under the closed and open type', () => {
+  it('keeps a readable cap under the type, with dimples in the lime rim', () => {
     const crown = ballCrownFromBottom();
-    expect(crown).toBeGreaterThan(8);
-    expect(crown).toBeLessThanOrEqual(SHEET_BALL_PAINT_TOP);
+    expect(crown).toBeGreaterThanOrEqual(55);
+    expect(crown).toBeLessThanOrEqual(70);
+    expect(crown).toBeLessThanOrEqual(SHEET_BALL_TEXT.closedPx);
+    expect(crown).toBeLessThanOrEqual(SHEET_BALL_TEXT.openPx);
     expect(SHEET_BALL_PAINT_TOP).toBeLessThan(SHEET_BALL_TEXT.closedPx);
     expect(SHEET_BALL_PAINT_TOP).toBeLessThan(SHEET_BALL_TEXT.openPx);
     expect(SHEET_BALL_CLEAR_Y).toBe(SHEET_BALL_STAGE - SHEET_BALL_PAINT_TOP);
     expect(SHEET_BALL_STAGE - SHEET_BALL_CLEAR_Y).toBeLessThanOrEqual(SHEET_BALL_TEXT.openPx);
     const glowTop = SHEET_BALL_STAGE - (SHEET_BALL_GLOW_ELLIPSE.cy - SHEET_BALL_GLOW_ELLIPSE.ry);
     expect(glowTop).toBeLessThanOrEqual(SHEET_BALL_PAINT_TOP);
-    expect(glowTop).toBeGreaterThan(crown);
+    expect(glowTop).toBeLessThan(crown);
+    expect(SHEET_BALL.dimple * 2).toBeGreaterThanOrEqual(9);
+    const row = SHEET_BALL.spacing * Math.sqrt(3);
+    expect(crown / row).toBeGreaterThanOrEqual(2);
+    expect(SHEET_BALL_PAINT_TOP / row).toBeGreaterThanOrEqual(1);
   });
 
   it('keeps white type above AA on the ball, the well, and a lime catch', () => {

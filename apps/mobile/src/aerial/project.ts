@@ -9,8 +9,11 @@ const ON_IMAGE_SLACK_PX = 1;
 
 export const AERIAL_TOLERANCE_PX = 0.25;
 
-/** Shown on the map and in About. The picture is stylized NAIP, not current conditions. */
+/** Shown on More and the course screen. The picture is stylized NAIP, not current conditions. */
 export const AERIAL_CREDIT = 'Imagery: USDA NAIP, stylized. Outlines © OpenStreetMap contributors';
+
+/** One line on the map. The full credit stays on More and the course screen. */
+export const AERIAL_CREDIT_SHORT = 'USDA NAIP, stylized · © OSM';
 
 export interface AerialTestPoint {
   name: string;

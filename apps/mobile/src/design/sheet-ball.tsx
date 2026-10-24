@@ -57,8 +57,8 @@ export const SheetBallArt = memo(function SheetBallArt({ id = 'sheetball' }: { i
             id={`${id}-glow`}
             cx={ball.cx}
             cy={viewBox.h + 8}
-            rx="230"
-            ry="34"
+            rx={SHEET_BALL_GLOW_ELLIPSE.rx}
+            ry={SHEET_BALL_GLOW_ELLIPSE.ry}
             fx={ball.cx}
             fy={viewBox.h + 8}
             gradientUnits="userSpaceOnUse"
@@ -131,7 +131,7 @@ function BallShimmer({ reduceMotion }: { reduceMotion: boolean }) {
   }, [reduceMotion]);
   const { viewBox, ball } = SHEET_BALL;
   const phase = reduceMotion ? 0.35 : t;
-  const crown = ball.cy - ball.r;
+  const rim = viewBox.h - 14;
   return (
     <Svg
       pointerEvents="none"
@@ -148,7 +148,7 @@ function BallShimmer({ reduceMotion }: { reduceMotion: boolean }) {
         <LinearGradient id="sheetball-shimmerfade" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
           <Stop offset={SHEET_BALL_CLEAR_Y / viewBox.h} stopColor="#FFFFFF" stopOpacity="0" />
-          <Stop offset={(crown + 8) / viewBox.h} stopColor="#FFFFFF" stopOpacity="1" />
+          <Stop offset={Math.min(1, (SHEET_BALL_CLEAR_Y + 8) / viewBox.h)} stopColor="#FFFFFF" stopOpacity="1" />
           <Stop offset="1" stopColor="#FFFFFF" stopOpacity="1" />
         </LinearGradient>
         <Mask id="sheetball-shimmermask" maskUnits="userSpaceOnUse" x="0" y="0" width={viewBox.w} height={viewBox.h}>
@@ -160,7 +160,7 @@ function BallShimmer({ reduceMotion }: { reduceMotion: boolean }) {
         </RadialGradient>
       </Defs>
       <G clipPath="url(#sheetball-cap)" mask="url(#sheetball-shimmermask)">
-        <Ellipse cx={120 + phase * 120} cy={crown + 10} rx={70} ry={8} fill="url(#sheetball-sweep)" />
+        <Ellipse cx={80 + phase * 180} cy={rim} rx={96} ry={14} fill="url(#sheetball-sweep)" />
       </G>
     </Svg>
   );
