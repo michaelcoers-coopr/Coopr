@@ -1,129 +1,52 @@
-import { createElement } from 'react';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
-  SHEET_BALL,
-  SHEET_BALL_CREST,
-  SHEET_BALL_DOME,
-  SHEET_BALL_INTERIOR,
-  SHEET_BALL_INTERIOR_ALPHA,
-  SHEET_BALL_LIME,
-  SHEET_BALL_LIME_BAND,
-  SHEET_BALL_LIME_FEATHER,
-  SHEET_BALL_LINE,
-  SHEET_BALL_LINE_OPACITY,
-  SHEET_BALL_LOBE_RADIUS,
-  SHEET_BALL_OLIVE,
-  SHEET_BALL_OLIVE_DEEP,
-  SHEET_BALL_OLIVE_PORTION,
-  SHEET_BALL_RIM_OPACITY,
-  SHEET_BALL_RIM_WIDTH,
-  SHEET_BALL_SCRIM,
-  SHEET_BALL_SCRIM_ALPHA,
+  SHEET_BALL_CAP_HEIGHT,
+  SHEET_BALL_CROWN,
+  SHEET_BALL_OLIVE_OPEN,
   SHEET_BALL_SCROLL_FADE,
   SHEET_BALL_SCROLL_FADE_BOTTOM,
-  SHEET_BALL_STROKE,
   SHEET_BALL_TEXT,
-  ballChordWidth,
-  ballCrownFromBottom,
-  contrastRatio,
-  mixHex,
   oliveHeight,
-  projectedDimples,
-  sheetBallMarks,
-  type BallMark,
 } from '../src/design/sheet-ball-geometry';
 
-function markElement(mark: BallMark) {
-  return createElement(mark.tag, {
-    key: `${mark.tag}-${mark.cx}-${mark.cy}-${mark.r ?? mark.rx}`,
-    cx: mark.cx,
-    cy: mark.cy,
-    r: mark.r,
-    rx: mark.rx,
-    ry: mark.ry,
-    fill: mark.fill,
-    stroke: mark.stroke,
-    strokeWidth: mark.strokeWidth,
-    strokeOpacity: mark.strokeOpacity,
-    fillOpacity: mark.fillOpacity,
-  });
+const here = dirname(fileURLToPath(import.meta.url));
+
+/** Canvas size of a VP8X WebP (the alpha photo uses that container). */
+function webpSize(bytes: Buffer): { width: number; height: number } {
+  expect(bytes.subarray(0, 4).toString('ascii')).toBe('RIFF');
+  expect(bytes.subarray(8, 12).toString('ascii')).toBe('WEBP');
+  expect(bytes.subarray(12, 16).toString('ascii')).toBe('VP8X');
+  const width = 1 + bytes[24]! + (bytes[25]! << 8) + (bytes[26]! << 16);
+  const height = 1 + bytes[27]! + (bytes[28]! << 8) + (bytes[29]! << 16);
+  return { width, height };
 }
 
 describe('sheet ball', () => {
-  it('projects latitude arcs on a cap wider than the sheet', () => {
-    const dimples = projectedDimples();
-    const { ball, viewBox } = SHEET_BALL;
-    expect(dimples.length).toBeGreaterThan(24);
-    expect(dimples.length).toBeLessThan(48);
-    expect(ball.r).toBeGreaterThanOrEqual(230);
-    expect(ball.r).toBeLessThanOrEqual(280);
-    expect(ball.cy).toBeGreaterThan(viewBox.h);
-    expect(ball.cy - ball.r).toBeLessThan(viewBox.h);
-    expect(ballChordWidth()).toBeGreaterThan(240);
-    expect(ballCrownFromBottom()).toBe(SHEET_BALL_DOME);
-    expect(SHEET_BALL_DOME).toBeGreaterThanOrEqual(70);
-    expect(SHEET_BALL_DOME).toBeLessThanOrEqual(90);
-    expect(SHEET_BALL_STROKE).toBe(1);
-    expect(SHEET_BALL_RIM_WIDTH).toBe(1);
-    expect(SHEET_BALL_LINE_OPACITY).toBeGreaterThanOrEqual(0.35);
-    expect(SHEET_BALL_LINE_OPACITY).toBeLessThanOrEqual(0.45);
-    expect(SHEET_BALL_RIM_OPACITY).toBeCloseTo(0.4, 5);
-    const top = dimples
-      .filter((dimple) => dimple.lat === 0)
-      .reduce((best, dimple) => (Math.abs(dimple.cx - ball.cx) < Math.abs(best.cx - ball.cx) ? dimple : best));
-    expect(Math.abs(top.cx - ball.cx)).toBeLessThan(12);
-    expect(viewBox.h - top.cy).toBeLessThanOrEqual(SHEET_BALL_DOME + 1);
-    const side = dimples.filter((dimple) => Math.abs(dimple.cx - ball.cx) > 130).reduce((best, dimple) => (dimple.cy < best.cy ? dimple : best));
-    expect(side.cy).toBeGreaterThan(top.cy + 8);
-    const lats = [...new Set(dimples.map((dimple) => dimple.lat))];
-    expect(lats).toHaveLength(3);
-    let nearestGap = Infinity;
-    for (let i = 0; i < dimples.length; i += 1) {
-      for (let j = i + 1; j < dimples.length; j += 1) {
-        const dist = Math.hypot(dimples[i]!.cx - dimples[j]!.cx, dimples[i]!.cy - dimples[j]!.cy);
-        if (dist > SHEET_BALL.spacing * 1.2) continue;
-        nearestGap = Math.min(nearestGap, dist - (dimples[i]!.rx + dimples[j]!.rx));
-      }
-    }
-    expect(nearestGap).toBeGreaterThanOrEqual(1.5);
-    const face = dimples
-      .filter((dimple) => Math.abs(dimple.cx - ball.cx) < SHEET_BALL.spacing)
-      .reduce((best, dimple) => (dimple.opacity > best.opacity ? dimple : best));
-    const limb = dimples.reduce((best, dimple) => (Math.abs(dimple.cx - ball.cx) > Math.abs(best.cx - ball.cx) ? dimple : best));
-    expect(face.rx * 2).toBeGreaterThanOrEqual(16);
-    expect(face.rx * 2).toBeLessThanOrEqual(20);
-    expect(face.opacity).toBeGreaterThanOrEqual(0.35);
-    expect(face.opacity).toBeLessThanOrEqual(0.45);
-    expect(limb.opacity).toBeLessThan(face.opacity);
-    expect(limb.ry).toBeLessThan(limb.rx);
-    expect(Math.max(...dimples.map((dimple) => dimple.opacity))).toBeLessThanOrEqual(0.45);
+  it('uses the doubled photo cap and keeps the crown under the type', () => {
+    const asset = readFileSync(join(here, '../assets/images/ball-lime.webp'));
+    expect(webpSize(asset)).toEqual({ width: 720, height: 154 });
+    expect(SHEET_BALL_CROWN).toBe(76);
+    expect(SHEET_BALL_CAP_HEIGHT).toBe(78);
+    expect(oliveHeight(176)).toBe(176);
+    expect(oliveHeight(540)).toBe(SHEET_BALL_OLIVE_OPEN);
+    expect(oliveHeight(200)).toBe(200);
+    expect(oliveHeight(400)).toBe(310);
+    expect(SHEET_BALL_TEXT.openPx).toBeGreaterThanOrEqual(86);
+    expect(SHEET_BALL_TEXT.openPx).toBeGreaterThan(SHEET_BALL_CROWN);
+    expect(SHEET_BALL_TEXT.closedPx).toBeGreaterThanOrEqual(6);
   });
 
-  it('fills the bottom of the sheet with lime and keeps type clear of the tabs', () => {
-    expect(SHEET_BALL_LIME_BAND).toBeGreaterThanOrEqual(70);
-    expect(SHEET_BALL_LIME_BAND).toBeLessThanOrEqual(80);
-    expect(SHEET_BALL_LOBE_RADIUS / SHEET_BALL.viewBox.w).toBeGreaterThan(0.4);
-    expect(SHEET_BALL_LOBE_RADIUS / SHEET_BALL.viewBox.w).toBeLessThan(0.5);
-    expect(SHEET_BALL_LIME_FEATHER).toBeGreaterThanOrEqual(48);
-    expect(SHEET_BALL_LOBE_RADIUS * 2).toBeLessThan(SHEET_BALL.viewBox.w);
-    expect(SHEET_BALL_OLIVE).toBe('#2e4a12');
-    expect(SHEET_BALL_OLIVE_DEEP).toBe('#1c2e0f');
-    expect(SHEET_BALL_OLIVE_PORTION).toBeCloseTo(0.45, 5);
-    expect(oliveHeight(540)).toBeGreaterThanOrEqual(Math.round(540 * 0.45));
-    expect(oliveHeight(176)).toBeGreaterThan(SHEET_BALL_LIME_BAND);
-    expect(SHEET_BALL_TEXT.closedPx).toBeGreaterThanOrEqual(6);
-    expect(SHEET_BALL_TEXT.openPx + SHEET_BALL_SCROLL_FADE_BOTTOM).toBeGreaterThan(SHEET_BALL_DOME);
+  it('keeps the mic, the tab gap, and the open-sheet fades', () => {
     expect(SHEET_BALL_SCROLL_FADE).toBe(48);
+    expect(SHEET_BALL_SCROLL_FADE_BOTTOM).toBe(18);
     expect(SHEET_BALL_SCROLL_FADE_BOTTOM).toBeLessThan(24);
-    expect(SHEET_BALL_SCROLL_FADE_BOTTOM).toBeGreaterThan(8);
-    const play = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../app/play.tsx'), 'utf8');
+    const play = readFileSync(join(here, '../app/play.tsx'), 'utf8');
     expect(play).toContain('marginTop: SHEET_BALL_TEXT.closedPx');
     expect(play).not.toContain('!sheetOpen ? { marginTop: SHEET_BALL_TEXT.closedPx }');
-    expect(play).not.toContain("justifyContent: 'flex-end'");
+    expect(play).toContain('marginBottom: SHEET_BALL_TEXT.openPx');
     expect(play).toContain('paddingBottom: 48');
     expect(play).toContain('paddingTop: SHEET_BALL_SCROLL_FADE');
     expect(play).toContain('maskImage:');
@@ -135,56 +58,21 @@ describe('sheet ball', () => {
     expect(play).toContain('width: 28');
     expect(play).not.toContain('Talk to the caddie');
     expect(play).not.toContain('styles.micRow');
-  });
-
-  it('keeps white type at 7:1 on the scrim over the brightest crest', () => {
-    for (const under of [SHEET_BALL_CREST, SHEET_BALL_LIME, SHEET_BALL_OLIVE, SHEET_BALL_OLIVE_DEEP]) {
-      const ink = mixHex(SHEET_BALL_SCRIM, under, SHEET_BALL_SCRIM_ALPHA);
-      expect(contrastRatio('#FFFFFF', ink)).toBeGreaterThanOrEqual(7);
-    }
-    expect(contrastRatio('#FFFFFF', SHEET_BALL_OLIVE)).toBeGreaterThanOrEqual(7);
-    expect(contrastRatio('#FFFFFF', SHEET_BALL_OLIVE_DEEP)).toBeGreaterThanOrEqual(7);
-  });
-
-  it('renders a full-width lime hill, corner crests, a rim, and hairline dimples', () => {
-    const marks = sheetBallMarks();
-    const html = renderToStaticMarkup(
-      createElement(
-        'svg',
-        { viewBox: `0 0 ${SHEET_BALL.viewBox.w} ${SHEET_BALL.viewBox.h}`, role: 'img', 'aria-label': 'Golf ball' },
-        marks.map((mark) => markElement(mark)),
-      ),
-    );
-    const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../src/design/sheet-ball.tsx'), 'utf8');
-    expect(html).toContain(SHEET_BALL_LIME);
-    expect(html).toContain(SHEET_BALL_CREST);
-    expect(html).toContain(SHEET_BALL_OLIVE);
-    expect(html).toContain(SHEET_BALL_OLIVE_DEEP);
-    expect(html).toContain(SHEET_BALL_LINE);
-    expect(html).toContain('fill="none"');
-    expect(html).not.toContain('#173024');
-    expect(html).not.toContain('#07140E');
-    expect(html).not.toContain('#6E685E');
-    expect(html).not.toContain('data:image');
-    expect(html.match(/<ellipse/g)?.length ?? 0).toBeGreaterThan(12);
-    expect(html.match(/<circle/g)?.length ?? 0).toBeGreaterThan(0);
-    expect(html.length).toBeLessThan(120000);
+    const source = readFileSync(join(here, '../src/design/sheet-ball.tsx'), 'utf8');
+    expect(source).toContain('ball-lime.webp');
+    expect(source).toContain('#0A0E04');
+    expect(source).toContain('#243008');
+    expect(source).toContain('#3C4E0C');
+    expect(source).toContain('#607E14');
+    expect(source).toContain('#BEF546');
+    expect(source).toContain('#8AC926');
+    expect(source).toContain('#A0E132');
+    expect(source).toContain('resizeMode="stretch"');
+    expect(source).toContain('fadeDuration={0}');
+    expect(source).toContain('pointerEvents="none"');
+    expect(source).not.toContain('projectedDimples');
+    expect(source).not.toContain('BallShimmer');
+    expect(source).not.toContain('SheetCap');
     expect(source).not.toContain('mixBlendMode');
-    expect(source).toContain('SHEET_BALL_LOBE_RADIUS');
-    expect(source).toContain('stopOpacity="1"');
-    expect(source).toContain('projectedDimples');
-    expect(source).toContain('SHEET_BALL_OLIVE_DEEP');
-    expect(source).toContain('gradientUnits="userSpaceOnUse"');
-    expect(source).toContain('SHEET_BALL_RIM_OPACITY');
-    expect(source).toContain('SHEET_BALL_LIME_FEATHER');
-    expect(source).toContain('stopOpacity="0.15"');
-    expect(source).toContain('SHEET_BALL_INTERIOR_ALPHA');
-    const interior = marks.find((mark) => mark.fill === SHEET_BALL_INTERIOR);
-    expect(interior?.fillOpacity).toBe(SHEET_BALL_INTERIOR_ALPHA);
-    expect(source).not.toContain('sheetball-scrim');
-    expect(source).toContain('rotate(');
-    expect(source).not.toContain('Pattern');
-    expect(source).toContain('fill="none"');
-    expect(source).not.toContain('data:image');
   });
 });
