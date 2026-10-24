@@ -1,6 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { cardGravity, CLOSED_CARD, clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreCommit, scoreDrag, scoreGlance, scoreGlow, sheetSnap, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { cardGravity, CLOSED_CARD, clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreCommit, scoreDrag, scoreGlance, scoreGlow, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { dispersionOval, PATTERN_INVITE, SAMPLE_PATTERN } from '@coopr/engine';
+
+describe('one shot readout', () => {
+  it('uses the rounded plays-like, and hides adjustments and the sample when there is no position', () => {
+    expect(shotReadout(478.6, 476)).toBe(479);
+    expect(shotReadout(null, 476.2)).toBe(476);
+    expect(shotReadout(null, null)).toBeNull();
+    expect(hudChips(false, { wind: 'Wind +5.5', elevation: 'Elev +1', temperature: 'Temp \u22125.4' })).toEqual({
+      wind: 'Wind ?',
+      elevation: 'Elev ?',
+      temperature: 'Temp ?',
+    });
+    expect(hudChips(true, { wind: 'Wind +5.5', elevation: 'Elev +1', temperature: 'Temp \u22125.4' }).wind).toBe('Wind +5.5');
+    expect(samplePatternVisible({ sampleOn: true, hasFix: false, measured: true })).toBe(false);
+    expect(samplePatternVisible({ sampleOn: true, hasFix: true, measured: true })).toBe(true);
+    expect(samplePatternVisible({ sampleOn: true, hasFix: true, measured: false })).toBe(false);
+  });
+});
 
 describe('club card copy', () => {
   it('shows plays-like on the card and leaves a live GPS number off it', () => {

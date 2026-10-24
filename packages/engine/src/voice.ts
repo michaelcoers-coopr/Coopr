@@ -2,6 +2,7 @@ import type { DistanceProfile } from './profile';
 import { layupDecision } from './layup';
 import { missReport, type MissMark, playsLike, shortShotCall, type ShortShotCell, SHORT_SHOT_YARDS } from './phase2';
 import { recommend } from './caddie';
+import { formatTenths } from './units';
 
 /**
  * English is the live lexicon. German and Spanish keep the same intent shape
@@ -421,7 +422,8 @@ export function conditionAnswer(
     if (head != null) {
       const way = head > 0.5 ? 'Into you' : head < -0.5 ? 'Helping' : 'Across';
       const yards = knownNumber(input.windYards);
-      parts.push(yards == null ? `${way}.` : `${way} by ${counted(Math.abs(yards), 'yard', 'yards')}.`);
+      const shown = yards == null ? null : formatTenths(yards);
+      parts.push(shown == null ? `${way}.` : `${way} by ${shown} ${shown === '1' ? 'yard' : 'yards'}.`);
     }
     return parts.join(' ');
   }

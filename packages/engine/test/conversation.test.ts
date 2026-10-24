@@ -155,6 +155,26 @@ describe('talk tools', () => {
     expect((await sampleTalkReply(blank, 'How far is it?')).line).toBe('No distance yet.');
   });
 
+  it('calls the total club the card would, not the closest carry', async () => {
+    const driverTotal = profile({ clubId: 'driver', clubLabel: 'Driver', metric: 'total', stockYards: 213 });
+    const sevenTotal = profile({ clubId: '7i', clubLabel: '7-iron', metric: 'total', stockYards: 160 });
+    const approach = buildTalkContext({
+      hole: 3,
+      par: 4,
+      atTee: false,
+      gpsYards: 165,
+      headwindMph: 0,
+      elevationFeet: 0,
+      temperatureF: 75,
+      profiles: [driver, seven, driverTotal, sevenTotal],
+      persona: 'chirpy',
+    });
+    const reply = await sampleTalkReply(approach, 'hit');
+    expect(reply.line).toMatch(/7-iron/);
+    expect(reply.line).not.toMatch(/closest carry/i);
+    expect(reply.line).not.toMatch(/Driver/);
+  });
+
   it('calls an easy swing in whole yards when the shot is shorter than every club', async () => {
     const context = buildTalkContext({
       hole: 7,

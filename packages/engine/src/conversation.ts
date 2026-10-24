@@ -278,8 +278,11 @@ export function runTalkTool(name: string, args: unknown, context: TalkContext): 
   }
 
   if (name === 'recommend_club') {
-    const target = context.playsLikeYards ?? context.gpsYards;
-    const carryReady = context.profiles.some((profile) => profile.metric === 'carry' && profile.sampleSize >= 5);
+    const distance = context.playsLikeYards ?? context.gpsYards;
+    const target = distance == null ? null : roundYards(distance);
+    const totals = context.profiles.some(
+      (profile) => profile.metric === 'total' && profile.sampleSize >= 1 && Number.isFinite(profile.stockYards) && profile.stockYards > 0,
+    );
     if (target == null) {
       return {
         name,
@@ -291,7 +294,7 @@ export function runTalkTool(name: string, args: unknown, context: TalkContext): 
     }
     const card = recommend({
       targetDistanceYards: target,
-      targetMetric: carryReady ? 'carry' : 'total',
+      targetMetric: totals ? 'total' : 'carry',
       hazards: [],
       intent: 'neutral',
       riskPreference: 'neutral',

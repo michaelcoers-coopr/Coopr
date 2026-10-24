@@ -14,7 +14,7 @@ import {
 } from '@coopr/engine';
 import { holeFrame, mapHudInset } from '../src/design/play-polish';
 import { holeLabels, limitYardPills } from '../src/map-labels';
-import { boxesSeparated, DOT_STROKE, GREEN_DOT, LABEL_GAP, layoutHoleLabels, leaderLength, LEADER_MAX, nearestMark, ovalGlowBox, sampleCaptionAt, type PlacedMapLabel } from '../src/map-label-layout';
+import { boxesSeparated, DOT_STROKE, GREEN_DOT, LABEL_GAP, layoutHoleLabels, leaderLength, LEADER_MAX, nearestMark, ovalGlowBox, sampleCaptionAt, sampleCaptionBox, type PlacedMapLabel } from '../src/map-label-layout';
 
 const WIDTH = 390;
 const HEIGHT = 844;
@@ -135,12 +135,27 @@ describe('hole 1 map labels', () => {
     expect(besideTheFlag.anchor).not.toBe('middle');
     expect(Math.abs(besideTheFlag.x - 180)).toBeGreaterThan(36);
     const clear = sampleCaptionAt({ cx: 40, cy: 500, halfW: 20, halfH: 12 }, { x: 300, y: 80 });
-    expect(clear).toEqual({ x: 40, y: 500 - 14 - 12, anchor: 'middle' });
+    expect(clear).toEqual({ x: 40, y: 500 - 12 - 18, anchor: 'middle' });
     const crowded = sampleCaptionAt({ cx: 200, cy: 240, halfW: 28, halfH: 16 }, null, [
       { x: 160, y: 188, w: 90, h: 30 },
       { x: 90, y: 220, w: 80, h: 40 },
     ]);
-    expect(crowded).toEqual({ x: 236, y: 244, anchor: 'start' });
+    const crowdedBox = sampleCaptionBox(crowded);
+    for (const block of [
+      { x: 160, y: 188, w: 90, h: 30 },
+      { x: 90, y: 220, w: 80, h: 40 },
+    ]) {
+      expect(boxesSeparated(crowdedBox, block, 8)).toBe(true);
+    }
+    const greenOutline = { x: 150, y: 200, w: 140, h: 90 };
+    const pill = { x: 236, y: 220, w: 40, h: 24 };
+    const pin = { x: 210, y: 250 };
+    const cleared = sampleCaptionAt({ cx: 200, cy: 240, halfW: 28, halfH: 16 }, pin, [pill], greenOutline, { x: 0, y: 0, w: 390, h: 500 });
+    const clearedBox = sampleCaptionBox(cleared);
+    const flag = { x: pin.x - 8, y: pin.y - 40, w: 32, h: 44 };
+    expect(boxesSeparated(clearedBox, pill, 8)).toBe(true);
+    expect(boxesSeparated(clearedBox, greenOutline, 8)).toBe(true);
+    expect(boxesSeparated(clearedBox, flag, 8)).toBe(true);
     const fairwayMarks = [
       { at: { lat: 0, lon: 0 }, label: '150' },
       { at: { lat: 0, lon: 1 }, label: '300' },

@@ -122,7 +122,7 @@ describe('caddie line and risk', () => {
         targetYards: 150,
         lowConfidence: false,
       }),
-    ).toBe("Wind's helping, 7's plenty. Don't be a hero.");
+    ).toBe("Wind's helping, 7-iron's plenty. Don't be a hero.");
     const quiet = caddieLine({
       personality: 'direct_analytical',
       clubLabel: '7-iron',

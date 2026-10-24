@@ -212,6 +212,7 @@ describe('lie estimate and the caddie line', () => {
   it('speaks one unit in the singular', () => {
     expect(conditionAnswer('wind', { windMph: 1 })).toBe('Wind 1 mile per hour.');
     expect(conditionAnswer('wind', { windMph: 6, headwindMph: 6, windYards: 1 })).toBe('Wind 6 miles per hour. Into you by 1 yard.');
+    expect(conditionAnswer('wind', { windMph: 8, headwindMph: 3, windYards: 5.5 })).toBe('Wind 8 miles per hour. Into you by 5.5 yards.');
     expect(conditionAnswer('elevation', { elevationFeet: 1 })).toBe('Elevation is 1 foot up.');
     expect(conditionAnswer('elevation', { elevationFeet: -1 })).toBe('Elevation is 1 foot down.');
     expect(conditionAnswer('temperature', { temperatureF: 1 })).toBe('1 degree.');

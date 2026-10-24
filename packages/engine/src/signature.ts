@@ -233,9 +233,10 @@ export function playsLikeChips(result: PlaysLikeResult): { wind: string; elevati
 }
 
 function clubNick(label: string): string {
-  const iron = label.match(/(\d+)\s*-?\s*iron/i);
-  if (iron) return iron[1]!;
-  return label.split('·')[0]?.trim() || label;
+  const head = label.split('·')[0]?.trim() || label;
+  const iron = head.match(/(\d+)\s*-?\s*iron/i);
+  if (iron) return `${iron[1]}-iron`;
+  return head;
 }
 
 /**

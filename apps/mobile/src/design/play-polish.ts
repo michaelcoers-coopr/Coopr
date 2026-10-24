@@ -10,6 +10,30 @@ export interface ClubFigure {
  * The card number is the plays-like when that adjustment exists.
  * A phone with no position can still show the shot. A live GPS number stays on the map.
  */
+/**
+ * The HUD, the card, and the reply share this whole-yard shot.
+ * Plays-like when wind, elevation, and temperature are known. Otherwise the raw center.
+ */
+export function shotReadout(playsLikeYards: number | null, rawYards: number | null): number | null {
+  const value = playsLikeYards != null && Number.isFinite(playsLikeYards) ? playsLikeYards : rawYards;
+  if (value == null || !Number.isFinite(value)) return null;
+  return Math.round(value);
+}
+
+/** No position means no shot adjustment. A scrubbed club is not a stand-in distance. */
+export function hudChips(
+  hasFix: boolean,
+  chips: { wind: string; elevation: string; temperature: string } | null,
+): { wind: string; elevation: string; temperature: string } {
+  if (!hasFix || chips == null) return { wind: 'Wind ?', elevation: 'Elev ?', temperature: 'Temp ?' };
+  return chips;
+}
+
+/** The sample oval needs a real GPS position and a measured pattern. */
+export function samplePatternVisible(input: { sampleOn: boolean; hasFix: boolean; measured: boolean }): boolean {
+  return input.sampleOn && input.hasFix && input.measured;
+}
+
 export function clubFigure(playsLikeYards: number | null, shotYards: number | null, gpsLive: boolean): ClubFigure | null {
   if (playsLikeYards != null && Number.isFinite(playsLikeYards)) return { label: 'Plays like', yards: playsLikeYards };
   if (!gpsLive && shotYards != null && Number.isFinite(shotYards)) return { label: 'Shot', yards: shotYards };

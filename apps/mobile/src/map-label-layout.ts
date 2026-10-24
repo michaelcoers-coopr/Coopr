@@ -379,39 +379,91 @@ export function layoutHoleLabels(input: HoleLabelLayoutInput): HoleLabelLayout {
   return { labels, dots };
 }
 
+const SAMPLE_CAPTION_W = 72;
+const SAMPLE_CAPTION_H = 20;
+const SAMPLE_CAPTION_GAP = 8;
+
+export function boundsBox(points: readonly { x: number; y: number }[], pad = 0): LabelBox | null {
+  if (points.length === 0) return null;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const point of points) {
+    if (point.x < minX) minX = point.x;
+    if (point.y < minY) minY = point.y;
+    if (point.x > maxX) maxX = point.x;
+    if (point.y > maxY) maxY = point.y;
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null;
+  return { x: minX - pad, y: minY - pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 };
+}
+
 function captionBox(
   at: { x: number; y: number; anchor: 'middle' | 'start' | 'end' },
-  width = 58,
-  height = 16,
+  width = SAMPLE_CAPTION_W,
+  height = SAMPLE_CAPTION_H,
 ): LabelBox {
   const x = at.anchor === 'start' ? at.x : at.anchor === 'end' ? at.x - width : at.x - width / 2;
   return { x, y: at.y - height, w: width, h: height };
 }
 
+/** The painted "Sample" word. Tests use the same box the map clears. */
+export function sampleCaptionBox(at: { x: number; y: number; anchor: 'middle' | 'start' | 'end' }): LabelBox {
+  return captionBox(at);
+}
+
+/** Positive when the boxes are apart. Negative is how far they overlap. */
+function axisGap(a: LabelBox, b: LabelBox): number {
+  const dx = Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w));
+  const dy = Math.max(b.y - (a.y + a.h), a.y - (b.y + b.h));
+  if (dx > 0 && dy > 0) return Math.hypot(dx, dy);
+  return Math.max(dx, dy);
+}
+
 /**
- * The sample tag sits above the oval. It steps aside for the flag and for any
- * yardage pill that would cover the word.
+ * The sample tag sits beside the oval. It stays clear of yardage pills, the
+ * flag, and the green outline. A known overlap is never the fallback.
  */
 export function sampleCaptionAt(
   oval: { cx: number; cy: number; halfW: number; halfH: number },
   pin: { x: number; y: number } | null,
   obstacles: readonly LabelBox[] = [],
+  green: LabelBox | null = null,
+  view: LabelBox | null = null,
 ): { x: number; y: number; anchor: 'middle' | 'start' | 'end' } {
   const halfW = Math.max(10, oval.halfW);
   const halfH = Math.max(10, oval.halfH);
   const candidates: { x: number; y: number; anchor: 'middle' | 'start' | 'end' }[] = [
-    { x: oval.cx, y: oval.cy - halfH - 14, anchor: 'middle' },
-    { x: oval.cx - halfW - 8, y: oval.cy + 4, anchor: 'end' },
-    { x: oval.cx + halfW + 8, y: oval.cy + 4, anchor: 'start' },
-    { x: oval.cx, y: oval.cy + halfH + 18, anchor: 'middle' },
-    { x: oval.cx - halfW - 8, y: oval.cy - halfH + 4, anchor: 'end' },
-    { x: oval.cx + halfW + 8, y: oval.cy - halfH + 4, anchor: 'start' },
+    { x: oval.cx, y: oval.cy - halfH - 18, anchor: 'middle' },
+    { x: oval.cx - halfW - 16, y: oval.cy - 4, anchor: 'end' },
+    { x: oval.cx + halfW + 16, y: oval.cy - 4, anchor: 'start' },
+    { x: oval.cx, y: oval.cy + halfH + 28, anchor: 'middle' },
+    { x: oval.cx - halfW - 20, y: oval.cy - halfH - 8, anchor: 'end' },
+    { x: oval.cx + halfW + 20, y: oval.cy - halfH - 8, anchor: 'start' },
+    { x: oval.cx - halfW - 40, y: oval.cy + halfH + 10, anchor: 'end' },
+    { x: oval.cx + halfW + 40, y: oval.cy + halfH + 10, anchor: 'start' },
+    { x: oval.cx, y: oval.cy - halfH - 48, anchor: 'middle' },
   ];
+  if (view && view.w > SAMPLE_CAPTION_W && view.h > SAMPLE_CAPTION_H) {
+    candidates.push(
+      { x: view.x + 12, y: view.y + SAMPLE_CAPTION_H + 10, anchor: 'start' },
+      { x: view.x + view.w - 12, y: view.y + SAMPLE_CAPTION_H + 10, anchor: 'end' },
+    );
+  }
   const blocks = [...obstacles];
   if (pin) blocks.push({ x: pin.x - 8, y: pin.y - 40, w: 32, h: 44 });
+  if (green) blocks.push(green);
+  let best = candidates[0]!;
+  let bestGap = Number.NEGATIVE_INFINITY;
   for (const candidate of candidates) {
     const box = captionBox(candidate);
-    if (blocks.every((block) => boxesSeparated(box, block, 4))) return candidate;
+    const gap = blocks.length === 0 ? Number.POSITIVE_INFINITY : Math.min(...blocks.map((block) => axisGap(box, block)));
+    if (gap > bestGap) {
+      best = candidate;
+      bestGap = gap;
+    }
+    if (gap >= SAMPLE_CAPTION_GAP) return candidate;
   }
-  return candidates[2]!;
+  return best;
 }

@@ -9,7 +9,7 @@ import type { HoleMapProps } from './hole-map-props';
 import { useDisplayFace } from './design/display-font';
 import { HOLE_BLEED_PAD, holeFitPoints, playingWidthMeters, projectHoleFill, projectPlayFrame } from './hole-fit';
 import { tileSourceDrawsVectors } from './tile-source';
-import { clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark, sampleCaptionAt } from './map-label-layout';
+import { boundsBox, clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark, sampleCaptionAt } from './map-label-layout';
 
 const SURROUND = '#143524';
 const TREE = '#0C2418';
@@ -482,6 +482,13 @@ export function HoleMap(props: HoleMapProps) {
                 ellipseDraw,
                 pin,
                 placed.labels.map((label) => label.box),
+                boundsBox(greenPoints, 8),
+                {
+                  x: frame.left,
+                  y: frame.top,
+                  w: Math.max(0, width - frame.left - frame.right),
+                  h: Math.max(0, height - frame.top - frame.bottom),
+                },
               );
               return (
                 <MapText

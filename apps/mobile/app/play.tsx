@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Keyboard, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
@@ -60,7 +60,7 @@ import { loadHighCedarsPilot } from '@coopr/course';
 import { HoleMap } from '../src/hole-map';
 import { boom, celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { holeSwipe, rollSteps } from '../src/design/motion';
-import { clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, scoreGlance, scoreMoment, scoreStamp, sheetSnap, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { clubFigure, closedPlaySheet, clubWhy, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { caddieVoiceLine } from '../src/design/caddie-voice';
 import { useDisplayFace } from '../src/design/display-font';
 import { MomentOverlay } from '../src/design/moments';
@@ -211,6 +211,7 @@ export default function PlayScreen() {
   const rolledFrom = useRef<number | null>(null);
   const rollHole = useRef<number | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const detailsRef = useRef<ScrollViewInstance>(null);
   const leaveRef = useRef<() => void>(() => {});
   const backRef = useRef<() => void>(() => {});
   const holeNo = useRef(1);
@@ -289,20 +290,23 @@ export default function PlayScreen() {
   const shotYards = player ? ground?.centerYards ?? null : manual;
   const stripClubs = clubs.filter((club) => club.slot === 'in_play' && !/putter/i.test(club.label));
   const scrubClub = scrubIndex != null && stripClubs.length > 0 ? stripClubs[Math.min(scrubIndex, stripClubs.length - 1)] ?? null : null;
-  const scrubProfile = scrubClub ? measuredProfile(profiles, scrubClub.id) : null;
-  const focusedRaw = scrubProfile?.stockYards ?? shotYards;
-  const focusedPlay =
-    !conditions.usePlaysLike || focusedRaw == null
+  const hasFix = player != null || manual != null;
+  const shotRaw = hasFix ? shotYards : null;
+  const shotPlay =
+    !conditions.usePlaysLike || shotRaw == null
       ? null
       : playsLike({
-          rawYards: focusedRaw,
+          rawYards: shotRaw,
           headwindMph: sky?.headwindMph ?? null,
           elevationFeet: sky?.elevationFeet ?? null,
           temperatureF: sky?.current?.temperatureF ?? null,
         });
-  const focusedPlays = focusedPlay && !('error' in focusedPlay) ? focusedPlay.playsLikeYards : null;
-  const focusedChips = focusedPlay && !('error' in focusedPlay) ? playsLikeChips(focusedPlay) : null;
-  const heroBase = focusedPlays != null ? Math.round(focusedPlays) : focusedRaw == null ? null : Math.round(focusedRaw);
+  const shotResult = shotPlay && !('error' in shotPlay) ? shotPlay : null;
+  const playsLikeYards = shotResult?.playsLikeYards ?? null;
+  const shotShown = shotReadout(playsLikeYards, shotRaw);
+  const shotChips = hudChips(hasFix, shotResult ? playsLikeChips(shotResult) : null);
+  const shotWind = shotResult?.wind?.yards ?? null;
+  const heroBase = shotShown;
   const voiceClubs = clubs.filter((club) => club.slot === 'in_play');
   const ask = useAskCoopr({
     hole: currentHole,
@@ -604,6 +608,16 @@ export default function PlayScreen() {
     sheetH.value = withSpring(next, SHEET_SPRING);
   }, [keyboard, sheetH]);
 
+  useEffect(() => {
+    if (!sheetOpen) return;
+    detailsRef.current?.scrollTo({ y: 0, animated: false });
+  }, [sheetOpen, talk.transcript, talk.reply, talk.voiceHint]);
+
+  useEffect(() => {
+    if (!sheetOpen || talk.voiceHint == null || Platform.OS !== 'web' || typeof document === 'undefined') return;
+    document.querySelector<HTMLInputElement>('[aria-label="Typed ask"]')?.focus({ preventScroll: true });
+  }, [sheetOpen, talk.askFocus, talk.voiceHint]);
+
   if (!hole || !overlay) {
     return (
       <View style={styles.screen}>
@@ -620,17 +634,7 @@ export default function PlayScreen() {
     hazards: overlay.hazards.flatMap((feature) => feature.rings),
   };
   const onGreen = player ? classifyFinish(player, polygons) === 'green' : false;
-  const adjustment =
-    !conditions.usePlaysLike || shotYards == null
-      ? null
-      : playsLike({
-          rawYards: shotYards,
-          headwindMph: sky?.headwindMph ?? null,
-          elevationFeet: sky?.elevationFeet ?? null,
-          temperatureF: sky?.current?.temperatureF ?? null,
-        });
-  const playsLikeYards = adjustment && !('error' in adjustment) ? adjustment.playsLikeYards : null;
-  const callYards = conditions.usePlaysLike && playsLikeYards != null ? playsLikeYards : shotYards;
+  const callYards = shotShown;
   const inPlay = clubs.filter((club) => club.slot === 'in_play');
   const putter = inPlay.find((club) => /putter/i.test(club.label)) ?? null;
   const shortMode = !onGreen && callYards != null && callYards <= SHORT_SHOT_YARDS;
@@ -719,8 +723,8 @@ export default function PlayScreen() {
     onThisHole,
     player: player != null,
   });
-  const oval: DispersionOval | null = sampleOn && !noShots ? dispersionOval([...SAMPLE_PATTERN]) : null;
-  const landingYards = focusedPlays ?? focusedRaw;
+  const showSample = samplePatternVisible({ sampleOn, hasFix: player != null, measured: !noShots });
+  const oval: DispersionOval | null = showSample ? dispersionOval([...SAMPLE_PATTERN]) : null;
   const origin = player ?? overlay.line[0] ?? null;
   const pinPoint = overlay.line[overlay.line.length - 1] ?? null;
   const greenCenter = greenRing ? ringCentroid(greenRing) : pinPoint;
@@ -732,7 +736,7 @@ export default function PlayScreen() {
     distanceYards(origin, greenCenter) > teeCarry + PAST_STOCK_YARDS;
   const stockLanding = greenOut && teeCarry != null ? pointAtYards(overlay.line, teeCarry) : null;
   const landing = stockLanding ?? greenCenter;
-  const landingLabelYards = stockLanding != null && teeCarry != null ? teeCarry : landingYards;
+  const landingLabelYards = player == null ? null : stockLanding != null && teeCarry != null ? teeCarry : shotShown;
   const hazardRings = [...polygons.hazards, ...polygons.bunkers];
   const measuredCenter = oval && landing && bearing != null ? destinationPoint(landing, bearing + 90, oval.meanLateralYards) : landing;
   const safety = oval && measuredCenter && bearing != null ? patternSafety(measuredCenter, bearing, oval, hazardRings) : null;
@@ -746,9 +750,9 @@ export default function PlayScreen() {
         iqr: shownProfile.iqr,
         stockYards: shownProfile.stockYards,
         dispersionKnown: shownProfile.dispersionKnown,
-        windKnown: focusedPlay != null && !('error' in focusedPlay) && focusedPlay.wind != null,
-        elevationKnown: focusedPlay != null && !('error' in focusedPlay) && focusedPlay.elevation != null,
-        temperatureKnown: focusedPlay != null && !('error' in focusedPlay) && focusedPlay.temperature != null,
+        windKnown: shotResult?.wind != null,
+        elevationKnown: shotResult?.elevation != null,
+        temperatureKnown: shotResult?.temperature != null,
       })
     : null;
   const lowConfidence = percent != null && percent < CONFIDENCE_LOW;
@@ -758,10 +762,10 @@ export default function PlayScreen() {
         voice,
         personality,
         clubLabel: shownLabel,
-        windYards: focusedPlay && !('error' in focusedPlay) ? focusedPlay.wind?.yards ?? null : null,
+        windYards: shotWind,
         stockYards: shownProfile?.stockYards ?? (scrubClub ? null : stockYards),
-        targetYards: shotYards,
-        playsLikeYards: focusedPlays,
+        targetYards: shotShown,
+        playsLikeYards: shotShown,
         lowConfidence,
         unit,
         par: hole.par,
@@ -866,7 +870,7 @@ export default function PlayScreen() {
   };
 
   const heroText = roll != null ? String(Math.round(roll)) : heroBase == null ? '' : formatDistance(heroBase, unit);
-  const figure = clubFigure(scrubClub ? focusedPlays : playsLikeYards, scrubClub ? focusedRaw : shotYards, scrubClub ? false : player != null);
+  const figure = clubFigure(playsLikeYards, shotRaw, player != null);
   const whyLine = clubWhy({
     layupReason: layup?.call === 'lay_up' ? layup.reason : null,
     stockYards: calledId ? stockYards : null,
@@ -913,7 +917,7 @@ export default function PlayScreen() {
       <Animated.View pointerEvents="box-none" style={[styles.shake, bumpStyle]}>
       <StatusBar style="light" />
       <Stack.Screen options={{ headerShown: false, title: `Hole ${hole.holeNumber}` }} />
-      <ClubPulse clubLabel={shownLabel} yards={landingYards} />
+      <ClubPulse clubLabel={shownLabel} yards={landingLabelYards} />
       <Animated.View {...pan.panHandlers} style={[styles.mapWrap, mapStyle]}>
         <HoleMap
           bleed
@@ -946,7 +950,7 @@ export default function PlayScreen() {
           bunkers={ringsOf(overlay.bunkers)}
           hazards={ringsOf(overlay.hazards)}
           ellipse={ellipse}
-          ellipseCaption={sampleOn && ellipse ? 'Sample' : null}
+          ellipseCaption={showSample && ellipse ? 'Sample' : null}
           ellipseColor={safety ? patternColor(safety) : null}
           flight={flight}
           reduceMotion={reduceMotion}
@@ -1034,9 +1038,9 @@ export default function PlayScreen() {
             </Pressable>
           </View>
           <View style={styles.chipRow}>
-            <Text style={styles.chip}>{focusedChips?.wind ?? 'Wind ?'}</Text>
-            <Text style={styles.chip}>{focusedChips?.elevation ?? 'Elev ?'}</Text>
-            <Text style={styles.chip}>{focusedChips?.temperature ?? 'Temp ?'}</Text>
+            <Text style={styles.chip}>{shotChips.wind}</Text>
+            <Text style={styles.chip}>{shotChips.elevation}</Text>
+            <Text style={styles.chip}>{shotChips.temperature}</Text>
           </View>
           {!player && manual == null && !overrideOpen ? (
             <Pressable
@@ -1079,7 +1083,7 @@ export default function PlayScreen() {
                     }}
                   />
                 ) : (
-                  <Text style={[styles.centerNum, { fontFamily: display }, focusedPlays != null ? styles.glow : centerLive && styles.centerLive]}>{heroText}</Text>
+                  <Text style={[styles.centerNum, { fontFamily: display }, playsLikeYards != null ? styles.glow : centerLive && styles.centerLive]}>{heroText}</Text>
                 )}
               </Pressable>
               {ground ? <End label="Back" value={formatDistance(ground.backYards, unit)} /> : <View style={styles.endCol} />}
@@ -1164,18 +1168,20 @@ export default function PlayScreen() {
             ) : null}
           </View>
           {sheetOpen && sheetTab === 'coach' ? (
-          <ScrollView style={styles.details} contentContainerStyle={styles.detailsBody} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+          <View style={styles.heard}>
             <Waveform live={talk.phase === 'listening' || talk.phase === 'speaking'} compact />
             {talk.sample ? <Text style={styles.clubMeta}>Sample mode. No live model on this server.</Text> : null}
             <Text style={styles.clubMeta}>You</Text>
             <Text style={styles.line}>{talk.transcript || talk.voiceHint || 'Hold the mic, or type it.'}</Text>
             <Text style={styles.clubMeta}>Caddie</Text>
             {talk.reply ? <YardageLine text={talk.reply} /> : <Text style={styles.line}> </Text>}
+          </View>
+          ) : null}
+          {sheetOpen && sheetTab === 'coach' ? (
+          <ScrollView ref={detailsRef} style={styles.details} contentContainerStyle={styles.detailsBody} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
             {talk.typed ? (
               <View style={styles.typeRow}>
                 <TextInput
-                  key={talk.askFocus}
-                  autoFocus={talk.voiceHint != null}
                   value={talk.draft}
                   onChangeText={talk.setDraft}
                   placeholder="Ask your caddie…"
@@ -1516,6 +1522,7 @@ const styles = StyleSheet.create({
   dim: { opacity: 0.55 },
   kicker: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
   details: { flex: 1, minHeight: 0 },
+  heard: { paddingHorizontal: 16, paddingBottom: 4, gap: 4 },
   detailsBody: { paddingHorizontal: 16, paddingBottom: 36, gap: 12 },
   body: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24 },
   textHit: { minHeight: 56, justifyContent: 'center' },

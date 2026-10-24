@@ -101,6 +101,9 @@ describe('caddie voice', () => {
       unit: 'yd' as const,
     };
     expect(caddieVoiceLine({ ...measured, voice: 'chirpy' })).toBe('Grip it and rip it. 7-iron, 152.');
+    expect(caddieVoiceLine({ ...measured, voice: 'chirpy', windYards: 5.5, targetYards: 159, playsLikeYards: 159 })).toBe(
+      'Wind 5.5 yards in your face. Grip it and rip it. 7-iron, 159.',
+    );
     expect(caddieVoiceLine({ ...measured, voice: 'chirpy', stockYards: 140, targetYards: 160, playsLikeYards: 160 })).toBe(
       'Short is dead. 7-iron is 20 yards short of 160.',
     );

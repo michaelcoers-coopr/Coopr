@@ -1,5 +1,5 @@
 import type { CaddiePersonality } from '@coopr/domain';
-import { caddieLine, formatDistance, type DistanceUnit } from '@coopr/engine';
+import { caddieLine, formatDistance, formatTenths, type DistanceUnit } from '@coopr/engine';
 
 /** Chill keeps the measured line. Chirpy is the default. */
 export type CaddieVoice = 'chill' | 'chirpy';
@@ -82,14 +82,15 @@ function chirp(input: {
     if (gap >= 15) return `That's a lot of club. ${name} covers ${card} by ${gap} ${unitWord(input.unit, gap)}.`;
   }
   if (input.lowConfidence) return `The sample is thin. ${name}, ${card}.`;
-  const wind = input.windYards != null && Number.isFinite(input.windYards) ? Math.round(input.windYards) : null;
-  if (wind != null && wind >= 1) {
-    const face = shown(input.windYards!, input.unit);
-    return `Wind ${face} ${unitWord(input.unit, face)} in your face. Grip it and rip it. ${name}, ${card}.`;
-  }
-  if (wind != null && wind <= -1) {
-    const help = shown(Math.abs(input.windYards!), input.unit);
-    return `Wind ${help} ${unitWord(input.unit, help)} helping. Grip it and rip it. ${name}, ${card}.`;
+  if (input.windYards != null && Number.isFinite(input.windYards)) {
+    const tenth = Math.round(input.windYards * 10) / 10;
+    if (tenth >= 0.1 || tenth <= -0.1) {
+      const magnitude = input.unit === 'yd' ? formatTenths(tenth) : formatDistance(Math.abs(tenth), input.unit);
+      const count = Number(magnitude);
+      const words = unitWord(input.unit, Number.isFinite(count) ? count : 2);
+      if (tenth > 0) return `Wind ${magnitude} ${words} in your face. Grip it and rip it. ${name}, ${card}.`;
+      return `Wind ${magnitude} ${words} helping. Grip it and rip it. ${name}, ${card}.`;
+    }
   }
   return `Grip it and rip it. ${name}, ${card}.`;
 }
