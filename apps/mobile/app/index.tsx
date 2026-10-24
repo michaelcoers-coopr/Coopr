@@ -1,36 +1,66 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming } from 'react-native-reanimated';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
-import { holeOverlay, ringCentroid, roundProgress, shotBearing } from '@coopr/engine';
+import { buildTalkContext, holeOverlay, ringCentroid, roundProgress, sampleTalkReply, shotBearing } from '@coopr/engine';
 import { loadHighCedarsPilot } from '@coopr/course';
-import { colors, font, radius, signal, space, type } from '@coopr/tokens';
+import { colors, font, signal, type } from '@coopr/tokens';
 import { useReduceMotion } from '../src/design/reduce-motion';
 import { useDisplayFace } from '../src/design/display-font';
-import { bagGlance, hypeHero, resumeLine, skyLine, TEE_IT_UP } from '../src/design/home-copy';
+import { bagGlance, courseCall, hypeHero, resumeLine, skyLine } from '../src/design/home-copy';
 import { fieldNavy } from '../src/design/theme';
 import { Glass } from '../src/design/glass';
 import { Pips } from '../src/design/signature-ui';
+import { SheetBall } from '../src/design/sheet-ball';
+import { SHEET_BALL_SCROLL_FADE, SHEET_BALL_TEXT } from '../src/design/sheet-ball-geometry';
 import { HoleMap } from '../src/hole-map';
-import { holeLabels } from '../src/map-labels';
+import { aerialPlate } from '../src/aerial/registry';
+import { VECTOR_TILE_SOURCE } from '../src/tile-source';
 import { useLocalStore } from '../src/local-store';
 import { readWeather, type WeatherRead } from '../src/weather';
 import { Crest } from '../src/ui';
 
 const pilot = loadHighCedarsPilot();
 const holeOne = holeOverlay(pilot.features, pilot.record.scorecard, 1);
+const holeOneCard = pilot.record.scorecard.find((item) => item.holeNumber === 1);
+const HOME_CLOSED = 268;
+const HOME_OPEN = 540;
+const RAIL = 56;
+const SHEET_SPRING = { damping: 18, stiffness: 190, mass: 0.75 };
+const GAMES_LINE = 'Voice scorecard, Stableford, Skins, Nassau, Wolf. Coming to the TestFlight build.';
 
 function ringsOf(features: readonly MapFeature[]): LatLon[][] {
   return features.flatMap((feature) => feature.rings.filter((ring) => ring.length >= 3).map((ring) => [...ring]));
 }
 
+function windCell(sky: WeatherRead | null): string {
+  const mph = sky?.current?.windMph;
+  if (mph == null || !Number.isFinite(mph)) return '—';
+  const base = `${Math.round(mph)} MPH`;
+  const face = sky?.headwindMph;
+  if (face == null || !Number.isFinite(face)) return base;
+  const rounded = Math.round(face);
+  if (rounded > 0) return `${base} · ${rounded} IN YOUR FACE`;
+  if (rounded < 0) return `${base} · ${Math.abs(rounded)} HELPING`;
+  return `${base} · ACROSS`;
+}
+
+function tempCell(sky: WeatherRead | null): string {
+  const temp = sky?.current?.temperatureF;
+  if (temp == null || !Number.isFinite(temp)) return '—';
+  return `${Math.round(temp)}°`;
+}
+
 export default function HomeScreen() {
-  const { currentHole, score, clubs, unit, holes, displayName } = useLocalStore();
+  const { currentHole, score, clubs, holes, displayName } = useLocalStore();
   const display = useDisplayFace();
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReduceMotion();
+  const scrimId = useId().replace(/:/g, '');
   const hero = hypeHero({ name: displayName, course: pilot.record.name });
   const roundsKept = holes.length >= 18 && holes.every((strokes) => strokes != null) ? 1 : 0;
   const progress = roundProgress(roundsKept);
@@ -42,27 +72,39 @@ export default function HomeScreen() {
     gross: score.holesEntered > 0 ? score.gross : null,
     par: cardHole?.par ?? null,
   });
-  const [washH, setWashH] = useState(844);
+  const started = score.holesEntered > 0;
+  const sticker = started ? 'RESUME ROUND' : 'START ROUND';
+  const courseName = courseCall(pilot.record.name);
+  const parLabel = holeOneCard?.par != null ? `Par ${holeOneCard.par}` : null;
+  const pillLine = [courseName.toUpperCase(), 'Hole 1', parLabel, 'White tees'].filter((part) => part != null).join(' · ');
+  const firstHole = started
+    ? `${currentHole}${cardHole?.par != null ? ` · PAR ${cardHole.par}` : ''}`
+    : `1${holeOneCard?.par != null ? ` · PAR ${holeOneCard.par}` : ''}`;
+  const [mapH, setMapH] = useState(844);
   const [sky, setSky] = useState<WeatherRead | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetTab, setSheetTab] = useState<'round' | 'games' | 'more'>('round');
+  const [askOn, setAskOn] = useState(false);
+  const [askDraft, setAskDraft] = useState('');
+  const [askReply, setAskReply] = useState<string | null>(null);
+  const sheetOpenRef = useRef(false);
+  const sheetH = useSharedValue(HOME_CLOSED);
+  const breathe = useSharedValue(1);
   const bearing = shotBearing(holeOne.line);
   const weather = skyLine(
     sky?.current
       ? { temperatureF: sky.current.temperatureF, windMph: sky.current.windMph, headwindMph: sky.headwindMph }
       : null,
   );
-  const reduceMotion = useReduceMotion();
-  const drift = useSharedValue(0.5);
-  const washStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1.08 }, { translateX: (drift.value - 0.5) * 28 }, { translateY: (0.5 - drift.value) * 16 }],
-  }));
+  const plate = aerialPlate(pilot.courseKey, 1);
 
   useEffect(() => {
     if (reduceMotion) {
-      drift.value = 0.5;
+      breathe.value = 1;
       return;
     }
-    drift.value = withRepeat(withTiming(1, { duration: 16000 }), -1, true);
-  }, [drift, reduceMotion]);
+    breathe.value = withRepeat(withTiming(1.06, { duration: 1600 }), -1, true);
+  }, [breathe, reduceMotion]);
 
   useEffect(() => {
     const at = holeOne.line[0];
@@ -78,126 +120,294 @@ export default function HomeScreen() {
     };
   }, []);
 
+  const applySheet = (open: boolean) => {
+    sheetOpenRef.current = open;
+    setSheetOpen(open);
+    sheetH.value = withSpring(open ? HOME_OPEN : HOME_CLOSED, SHEET_SPRING);
+  };
+
+  const openGames = () => {
+    setAskOn(false);
+    setSheetTab('games');
+    applySheet(true);
+  };
+
+  const sheetPan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+      onPanResponderRelease: (_, gesture) => {
+        if (Math.abs(gesture.dy) < 16) {
+          applySheet(!sheetOpenRef.current);
+          return;
+        }
+        applySheet(gesture.dy < 0);
+      },
+    }),
+  ).current;
+
+  const sheetStyle = useAnimatedStyle(() => ({ height: sheetH.value }));
+  const askPulse = useAnimatedStyle(() => ({ transform: [{ scale: breathe.value }] }));
+
+  const sendAsk = () => {
+    const text = askDraft.trim();
+    if (!text) return;
+    setAskDraft('');
+    const context = buildTalkContext({
+      hole: started ? currentHole : 1,
+      par: (started ? cardHole?.par : holeOneCard?.par) ?? null,
+      atTee: !started,
+      gpsYards: null,
+      headwindMph: sky?.headwindMph ?? null,
+      elevationFeet: sky?.elevationFeet ?? null,
+      temperatureF: sky?.current?.temperatureF ?? null,
+      windMph: sky?.current?.windMph ?? null,
+      profiles: [],
+      cardLine: null,
+    });
+    void sampleTalkReply(context, text).then((reply) => setAskReply(reply.line));
+  };
+
+  const bottomInset = Math.max(insets.bottom, 8);
+  const railBottom = HOME_CLOSED + bottomInset + 16;
+
   return (
-    <View style={styles.screen} onLayout={(event) => setWashH(Math.max(1, Math.round(event.nativeEvent.layout.height)))}>
+    <View style={styles.screen} onLayout={(event) => setMapH(Math.max(1, Math.round(event.nativeEvent.layout.height)))}>
       <StatusBar style="light" />
       <Stack.Screen options={{ headerShown: false }} />
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <Animated.View pointerEvents="none" style={[styles.wash, washStyle]}>
-          <HoleMap
-            bleed
-            height={washH + 120}
-            orient={bearing != null && holeOne.line[0] ? { bearing, origin: holeOne.line[0] } : null}
-            labels={holeLabels(holeOne.line, unit, null)}
-            line={holeOne.line}
-            fairways={ringsOf(holeOne.fairways)}
-            green={holeOne.green ? ringsOf([holeOne.green]) : []}
-            bunkers={ringsOf(holeOne.bunkers)}
-            hazards={ringsOf(holeOne.hazards)}
-            ellipse={null}
-            dispersionLine={[]}
-            measure={[]}
-            onTap={() => undefined}
-            rawLabel=""
-            playsLabel=""
-          />
-        </Animated.View>
-        <BlurView pointerEvents="none" intensity={22} tint="dark" style={StyleSheet.absoluteFill} />
-        <View pointerEvents="none" style={styles.scrim} />
+        <HoleMap
+          bleed
+          height={mapH}
+          orient={bearing != null && holeOne.line[0] ? { bearing, origin: holeOne.line[0] } : null}
+          labels={[]}
+          line={holeOne.line}
+          fairways={ringsOf(holeOne.fairways)}
+          green={holeOne.green ? ringsOf([holeOne.green]) : []}
+          bunkers={ringsOf(holeOne.bunkers)}
+          hazards={ringsOf(holeOne.hazards)}
+          ellipse={null}
+          dispersionLine={[]}
+          measure={[]}
+          onTap={() => undefined}
+          rawLabel=""
+          playsLabel=""
+          aerial
+          imagery={VECTOR_TILE_SOURCE}
+          plate={plate}
+          showCredit={!sheetOpen}
+          creditLeft={14}
+          creditRight={88}
+          creditBottom={HOME_CLOSED + bottomInset + 20}
+        />
       </View>
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-          <View style={styles.crestPlate}>
-            <Crest size={56} />
+      <View pointerEvents="none" style={[styles.scrim, { top: insets.top }]}>
+        <Svg width={360} height={420}>
+          <Defs>
+            <RadialGradient id={scrimId} cx="18%" cy="34%" rx="78%" ry="70%">
+              <Stop offset="0" stopColor="#02060E" stopOpacity="0.94" />
+              <Stop offset="0.5" stopColor="#02060E" stopOpacity="0.82" />
+              <Stop offset="0.78" stopColor="#02060E" stopOpacity="0.4" />
+              <Stop offset="1" stopColor="#02060E" stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
+          <Rect x="0" y="0" width="360" height="420" fill={`url(#${scrimId})`} />
+        </Svg>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${pillLine}. Opens the round sheet.`}
+        onPress={() => applySheet(true)}
+        style={[styles.pillHit, { top: insets.top + 12 }]}
+      >
+        <Glass radius={19} style={styles.pill} contentStyle={styles.pillFill}>
+          <View style={styles.crestClip}>
+            <Crest size={26} />
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${TEE_IT_UP}. ${hero}`}
-            onPress={() => router.push('/play')}
-            style={({ pressed }) => [pressed && !reduceMotion && styles.pressed]}
-          >
-            <Glass radius={radius.sheet} style={styles.play} contentStyle={styles.playFill}>
-              <Text style={styles.kicker}>{resume.title}</Text>
-              <Text style={[styles.playTitle, { fontFamily: display }]}>{hero}</Text>
-              <Text style={styles.playDetail}>{resume.detail}</Text>
-              <Text style={styles.playMeta}>{`${bagGlance(inPlay)} in the bag`}</Text>
-              {weather ? (
-                <View style={styles.weatherStamp}>
-                  <WindMark />
-                  <Text style={styles.weatherText}>{weather}</Text>
-                </View>
-              ) : null}
-              <View style={styles.playButton}>
-                <Text style={[styles.playButtonText, { fontFamily: display }]}>{TEE_IT_UP}</Text>
-              </View>
+          <Text style={styles.pillText} numberOfLines={1}>
+            {pillLine}
+          </Text>
+          <Text style={styles.chevron}>›</Text>
+        </Glass>
+      </Pressable>
+      <View pointerEvents="box-none" style={[styles.wordmark, { top: insets.top + 64 }]}>
+        <Text style={[styles.word, { fontFamily: display }]}>TEE</Text>
+        <Text style={[styles.word, { fontFamily: display }]}>
+          IT <Text style={styles.wordLime}>UP</Text>
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${sticker}. ${resume.detail}`}
+          onPress={() => router.push('/play')}
+          style={({ pressed }) => [styles.sticker, pressed && !reduceMotion && styles.pressed]}
+        >
+          <Text style={[styles.stickerText, { fontFamily: display }]}>{sticker}</Text>
+        </Pressable>
+        {sheetOpen ? null : (
+          <View style={styles.weather}>
+            <WindMark />
+            <Text style={styles.weatherText}>{weather ?? 'Waiting on the sky'}</Text>
+          </View>
+        )}
+      </View>
+      {sheetOpen ? null : (
+        <View pointerEvents="box-none" style={[styles.rail, { bottom: railBottom }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Foursome games" onPress={openGames} style={styles.railBtn}>
+            <Glass radius={28} style={styles.railBtn} contentStyle={styles.railFill}>
+              <PeopleMark />
+              <Text style={styles.railLabel}>GAMES</Text>
             </Glass>
           </Pressable>
-          <View style={styles.glance}>
-            <Stat
-              icon={<FlagMark />}
-              label="Gross"
-              value={score.holesEntered > 0 ? String(score.gross) : undefined}
-              detail={score.holesEntered > 0 ? undefined : progress.gross}
-              pips={progress}
-            />
-            <Stat icon={<DashMark />} label="Handicap" detail={progress.handicap} pips={progress} />
-          </View>
-        </ScrollView>
-        <Glass radius={28} style={styles.tab} contentStyle={styles.tabFill}>
-          <View style={styles.tabItem} accessibilityRole="tab" accessibilityLabel="Round" accessibilityState={{ selected: true }}>
-            <View style={styles.tabMark} />
-            <Text style={styles.tabText}>Round</Text>
-          </View>
-          <Pressable accessibilityRole="tab" accessibilityLabel="More" onPress={() => router.push('/more')} style={({ pressed }) => [styles.tabItem, pressed && !reduceMotion && styles.pressed]}>
-            <Text style={styles.tabText}>More</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Bag, ${inPlay} clubs in play`} onPress={() => router.push('/bag')} style={styles.railBtn}>
+            <Glass radius={28} style={styles.railBtn} contentStyle={styles.railFill}>
+              <BagMark />
+              <Text style={styles.railLabel}>BAG</Text>
+            </Glass>
+            <View pointerEvents="none" style={styles.badge}>
+              <Text style={[styles.badgeNum, { fontFamily: display }]}>{String(inPlay)}</Text>
+            </View>
           </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ask COOPR"
+            onPress={() => {
+              setSheetTab('round');
+              setAskOn(true);
+              applySheet(true);
+            }}
+            style={styles.railBtn}
+          >
+            <Animated.View style={askPulse}>
+              <Glass radius={28} borderColor="rgba(190,245,70,0.95)" style={styles.railBtn} contentStyle={styles.railFill}>
+                <MicMark />
+                <Text style={styles.railLabel}>ASK</Text>
+              </Glass>
+            </Animated.View>
+          </Pressable>
+        </View>
+      )}
+      <Animated.View style={[styles.sheet, sheetStyle, { bottom: bottomInset, zIndex: sheetOpen ? 8 : 2 }]}>
+        <Glass radius={28} style={styles.sheetGlass} contentStyle={styles.sheetFill}>
+          <SheetBall reduceMotion={reduceMotion} />
+          <View style={styles.grab}>
+            <View {...sheetPan.panHandlers} style={styles.handleHit}>
+              <View style={styles.handle} />
+            </View>
+            <View style={styles.tabs}>
+              <Pressable accessibilityRole="tab" accessibilityLabel="Round" accessibilityState={{ selected: sheetTab === 'round' }} onPress={() => setSheetTab('round')} style={styles.tabHit}>
+                <Text style={[styles.tab, sheetTab === 'round' && styles.tabOn]}>Round</Text>
+              </Pressable>
+              <Pressable accessibilityRole="tab" accessibilityLabel="Games" accessibilityState={{ selected: sheetTab === 'games' }} onPress={openGames} style={styles.tabHit}>
+                <Text style={[styles.tab, sheetTab === 'games' && styles.tabOn]}>Games</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="tab"
+                accessibilityLabel="More"
+                onPress={() => router.push('/more')}
+                style={styles.tabHit}
+              >
+                <Text style={styles.tab}>More</Text>
+              </Pressable>
+            </View>
+          </View>
+          {sheetOpen ? (
+            <ScrollView
+              style={[styles.scroll, { marginBottom: SHEET_BALL_TEXT.openPx }]}
+              contentContainerStyle={styles.scrollBody}
+              keyboardShouldPersistTaps="handled"
+            >
+              {sheetTab === 'games' ? (
+                <View style={styles.stub}>
+                  <Text style={[styles.stubTitle, { fontFamily: display }]}>Foursome games</Text>
+                  <Text style={styles.stubLine}>{GAMES_LINE}</Text>
+                  <Text style={styles.stubInvite}>Bring your group.</Text>
+                </View>
+              ) : (
+                <View style={styles.roundBody}>
+                  <Text style={styles.caddieKicker}>✦  COOPR Caddie</Text>
+                  <Text style={styles.hello}>{hero}</Text>
+                  {askOn ? (
+                    <View style={styles.askBox}>
+                      <TextInput
+                        value={askDraft}
+                        onChangeText={setAskDraft}
+                        placeholder="Ask your caddie…"
+                        placeholderTextColor="rgba(255,255,255,0.55)"
+                        style={styles.askInput}
+                        accessibilityLabel="Typed ask"
+                        onSubmitEditing={sendAsk}
+                      />
+                      <Pressable accessibilityRole="button" accessibilityLabel="Send question" onPress={sendAsk} style={styles.sendHit}>
+                        <Text style={styles.send}>Send</Text>
+                      </Pressable>
+                      {askReply ? <Text style={styles.hello}>{askReply}</Text> : null}
+                    </View>
+                  ) : null}
+                  <View style={styles.teeCard}>
+                    <TeeRow label="COURSE" value={courseName.toUpperCase()} />
+                    <TeeRow label="TEES" value="WHITE" />
+                    <TeeRow label="FIRST HOLE" value={firstHole} />
+                    <TeeRow label="BAG" value={bagGlance(inPlay).toUpperCase()} />
+                    <TeeRow label="WIND" value={windCell(sky)} />
+                    <TeeRow label="TEMP" value={tempCell(sky)} />
+                  </View>
+                  <View style={styles.tiles}>
+                    <View style={styles.tile}>
+                      <Text style={styles.tileLabel}>GROSS</Text>
+                      <Text style={[styles.tileValue, { fontFamily: display }]}>{started ? String(score.gross) : '—'}</Text>
+                      {progress.filled < 3 ? <Text style={styles.tileNote}>{progress.gross}</Text> : null}
+                    </View>
+                    <View style={styles.tile}>
+                      <Text style={styles.tileLabel}>HANDICAP</Text>
+                      <Text style={[styles.tileValue, { fontFamily: display }]}>—</Text>
+                      <Text style={styles.tileNote}>{progress.handicap}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.section}>RECENT ROUNDS</Text>
+                  <View style={styles.empty}>
+                    {roundsKept > 0 && started ? (
+                      <Text style={styles.emptyText}>{`Gross ${score.gross}`}</Text>
+                    ) : (
+                      <Text style={styles.emptyText}>No rounds yet. Your first one lands here.</Text>
+                    )}
+                  </View>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Foursome games" onPress={openGames} style={styles.foursome}>
+                    <View style={styles.foursomeIcon}>
+                      <PeopleMark />
+                    </View>
+                    <View style={styles.foursomeCopy}>
+                      <Text style={styles.foursomeTitle}>FOURSOME GAMES</Text>
+                      <Text style={styles.foursomeNote}>Add your group. Play for something.</Text>
+                    </View>
+                    <Text style={styles.foursomeChevron}>›</Text>
+                  </Pressable>
+                </View>
+              )}
+            </ScrollView>
+          ) : (
+            <View style={[styles.peek, { marginTop: SHEET_BALL_TEXT.closedPx }]}>
+              <Text style={styles.caddieKicker}>✦  COOPR Caddie</Text>
+              <Text style={styles.hello} numberOfLines={2}>
+                {hero}
+              </Text>
+              <View style={styles.peekPips}>
+                <Pips filled={progress.filled} total={progress.total} />
+                <Text style={styles.peekNote} numberOfLines={2}>
+                  {progress.handicap}
+                </Text>
+              </View>
+            </View>
+          )}
         </Glass>
-      </SafeAreaView>
+      </Animated.View>
     </View>
   );
 }
 
-function Stat({
-  icon,
-  label,
-  value,
-  detail,
-  pips,
-}: {
-  icon: ReactNode;
-  label: string;
-  value?: string;
-  detail?: string;
-  pips?: { filled: number; total: number };
-}) {
-  const display = useDisplayFace();
+function TeeRow({ label, value }: { label: string; value: string }) {
   return (
-    <Glass radius={radius.card} style={styles.stat} contentStyle={styles.statFill}>
-      {icon}
-      <View style={styles.statCopy}>
-        <Text style={styles.statLabel}>{label}</Text>
-        {detail ? <Text style={styles.statNote}>{detail}</Text> : null}
-        {pips ? <Pips filled={pips.filled} total={pips.total} /> : null}
-      </View>
-      {value ? <Text style={[styles.statValue, { fontFamily: display }]}>{value}</Text> : null}
-    </Glass>
-  );
-}
-
-function FlagMark() {
-  return (
-    <View style={styles.icon}>
-      <View style={styles.flagPole} />
-      <View style={styles.flagFly} />
-    </View>
-  );
-}
-
-function DashMark() {
-  return (
-    <View style={styles.icon}>
-      <View style={styles.dashRing} />
-      <View style={styles.dash} />
+    <View style={styles.teeRow}>
+      <Text style={styles.teeLabel}>{label}</Text>
+      <Text style={styles.teeValue}>{value}</Text>
     </View>
   );
 }
@@ -212,53 +422,46 @@ function WindMark() {
   );
 }
 
+function PeopleMark() {
+  return (
+    <View style={styles.people}>
+      <View style={styles.person} />
+      <View style={[styles.person, styles.personRight]} />
+    </View>
+  );
+}
+
+function BagMark() {
+  return <View style={styles.bag} />;
+}
+
+function MicMark() {
+  return (
+    <View style={styles.mic}>
+      <View style={styles.micHead} />
+      <View style={styles.micCradle} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: fieldNavy },
-  wash: { position: 'absolute', top: -60, right: -60, bottom: -60, left: -60 },
-  scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(4,10,24,0.55)' },
-  safe: { flex: 1 },
-  scroll: { flex: 1 },
-  content: { paddingHorizontal: space[3], paddingTop: space[2], paddingBottom: space[4], gap: space[2] },
-  pressed: { transform: [{ scale: 0.98 }] },
-  crestPlate: {
-    alignSelf: 'center',
-    backgroundColor: colors.white,
-    borderRadius: radius.sheet,
-    padding: space[1],
-  },
-  weatherStamp: {
+  scrim: { position: 'absolute', left: 0, width: 360, height: 420, zIndex: 3 },
+  pillHit: { position: 'absolute', left: 12, right: 72, zIndex: 6, minHeight: 44, justifyContent: 'center' },
+  pill: { minHeight: 44 },
+  pillFill: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingVertical: 6 },
+  crestClip: { width: 28, height: 28, borderRadius: 14, overflow: 'hidden', backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  pillText: { flex: 1, color: '#FFFFFF', fontFamily: font.family, fontSize: 12, lineHeight: 16, fontWeight: '700' },
+  chevron: { color: 'rgba(255,255,255,0.85)', fontSize: 18, lineHeight: 20, fontWeight: '700', paddingRight: 4 },
+  wordmark: { position: 'absolute', left: 16, zIndex: 4, maxWidth: 250 },
+  word: { color: '#FFFFFF', fontSize: 80, lineHeight: 72, fontWeight: '700', letterSpacing: 1 },
+  wordLime: { color: '#8AC926' },
+  sticker: {
     alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[1],
-    minHeight: 36,
-    marginTop: space[1],
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: signal.go,
-    borderWidth: 2,
-    borderColor: colors.navy,
-    transform: [{ rotate: '-1.5deg' }],
-  },
-  weatherText: { color: colors.navy, fontFamily: font.family, fontSize: type.body, lineHeight: 22, fontWeight: font.bold, fontVariant: ['tabular-nums'], flexShrink: 1 },
-  play: { minHeight: 220 },
-  playFill: { minHeight: 220, padding: space[3], gap: space[1], justifyContent: 'center' },
-  kicker: {
-    color: '#FFFFFF',
-    fontFamily: font.family,
-    fontSize: type.caption,
-    fontWeight: font.semibold,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  playTitle: { color: colors.white, fontFamily: font.family, fontSize: 42, lineHeight: 46, fontWeight: font.bold, letterSpacing: 0.4 },
-  playDetail: { color: colors.white, fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: font.medium },
-  playMeta: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
-  playButton: {
-    alignSelf: 'flex-start',
-    marginTop: space[2],
-    minHeight: 56,
-    paddingHorizontal: 18,
+    marginTop: 8,
+    minHeight: 52,
+    minWidth: 168,
+    paddingHorizontal: 16,
     backgroundColor: colors.red,
     borderWidth: 3,
     borderColor: colors.white,
@@ -266,37 +469,126 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     transform: [{ rotate: '-2deg' }],
   },
-  playButtonText: { color: colors.white, fontFamily: font.family, fontSize: 32, lineHeight: 36, letterSpacing: 1 },
-  glance: { gap: space[2] },
-  stat: { minHeight: 72 },
-  statFill: { minHeight: 72, paddingHorizontal: space[2], paddingVertical: space[2], flexDirection: 'row', alignItems: 'center', gap: space[2] },
-  statCopy: { flex: 1, gap: space[1] },
-  statLabel: { color: colors.white, fontFamily: font.family, fontSize: type.body, fontWeight: font.bold },
-  statValue: { color: colors.white, fontFamily: font.family, fontSize: type.title, lineHeight: 40, fontWeight: font.bold, fontVariant: ['tabular-nums'] },
-  statNote: { color: colors.white, fontFamily: font.family, fontSize: type.body, lineHeight: 24, fontWeight: font.medium },
-  icon: { width: 28, height: 28, marginBottom: 4 },
-  flagPole: { position: 'absolute', left: 6, top: 2, width: 2, height: 22, backgroundColor: colors.white },
-  flagFly: {
-    position: 'absolute',
-    left: 8,
-    top: 2,
-    width: 0,
-    height: 0,
-    borderTopWidth: 6,
-    borderBottomWidth: 6,
-    borderLeftWidth: 12,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: colors.red,
+  stickerText: { color: colors.white, fontSize: 28, lineHeight: 32, letterSpacing: 1 },
+  pressed: { transform: [{ scale: 0.98 }, { rotate: '-2deg' }] },
+  weather: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+    minHeight: 36,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: signal.go,
+    transform: [{ rotate: '-1.5deg' }],
   },
-  dashRing: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.white },
-  dash: { position: 'absolute', left: 6, top: 10, width: 10, height: 2, backgroundColor: colors.white },
-  wind: { width: 22, height: 18, justifyContent: 'space-between' },
+  weatherText: { color: colors.navy, fontFamily: font.family, fontSize: 15, lineHeight: 20, fontWeight: '700' },
+  wind: { width: 18, height: 14, justifyContent: 'space-between' },
   windLine: { height: 2, borderRadius: 1, backgroundColor: colors.navy },
-  windLineShort: { height: 2, width: 14, borderRadius: 1, backgroundColor: colors.navy },
-  tab: { marginHorizontal: space[3], marginBottom: space[1] },
-  tabFill: { minHeight: 64, flexDirection: 'row', alignItems: 'stretch' },
-  tabItem: { flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 4 },
-  tabMark: { width: 18, height: 3, borderRadius: 2, backgroundColor: colors.red },
-  tabText: { color: colors.white, fontFamily: font.family, fontSize: type.body, fontWeight: font.bold },
+  windLineShort: { height: 2, width: 12, borderRadius: 1, backgroundColor: colors.navy },
+  rail: { position: 'absolute', right: 12, zIndex: 7, gap: 12, alignItems: 'center' },
+  railBtn: { width: RAIL, height: RAIL },
+  railFill: { width: RAIL, height: RAIL, alignItems: 'center', justifyContent: 'center' },
+  railLabel: { color: '#FFFFFF', fontFamily: font.family, fontSize: 9, lineHeight: 11, fontWeight: '700', letterSpacing: 0.8, marginTop: 2 },
+  badge: {
+    position: 'absolute',
+    right: -4,
+    top: -4,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 4,
+    backgroundColor: '#F4F1EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeNum: { color: '#06101C', fontSize: 13, lineHeight: 16, fontWeight: '700' },
+  people: { width: 22, height: 16, flexDirection: 'row' },
+  person: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#FFFFFF', marginTop: 4 },
+  personRight: { marginLeft: -4 },
+  bag: { width: 14, height: 16, borderWidth: 2, borderColor: '#FFFFFF', borderRadius: 3, borderTopWidth: 3 },
+  mic: { width: 14, height: 16, alignItems: 'center' },
+  micHead: { width: 6, height: 8, borderRadius: 3, backgroundColor: '#FFFFFF' },
+  micCradle: { width: 10, height: 6, marginTop: -3, borderWidth: 2, borderTopWidth: 0, borderColor: '#FFFFFF', borderBottomLeftRadius: 6, borderBottomRightRadius: 6 },
+  sheet: { position: 'absolute', left: 12, right: 12 },
+  sheetGlass: { flex: 1 },
+  sheetFill: { flex: 1, overflow: 'hidden' },
+  grab: { paddingTop: 6, paddingHorizontal: 12, zIndex: 4 },
+  handleHit: { minHeight: 28, alignItems: 'center', justifyContent: 'center' },
+  handle: { width: 44, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.72)' },
+  tabs: { flexDirection: 'row', minHeight: 44, alignItems: 'center' },
+  tabHit: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' },
+  tab: { color: 'rgba(255,255,255,0.55)', fontFamily: font.family, fontSize: 16, fontWeight: '700' },
+  tabOn: { color: '#FFFFFF' },
+  peek: { paddingHorizontal: 16, gap: 6, zIndex: 1 },
+  caddieKicker: { color: '#8AC926', fontFamily: font.family, fontSize: 13, lineHeight: 18, fontWeight: '700' },
+  hello: { color: '#FFFFFF', fontFamily: font.family, fontSize: 17, lineHeight: 24, fontWeight: '600' },
+  peekPips: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  peekNote: { flex: 1, color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  scroll: { flex: 1, zIndex: 1 },
+  scrollBody: { paddingHorizontal: 14, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 24, gap: 12 },
+  roundBody: { gap: 12 },
+  askBox: { gap: 8 },
+  askInput: {
+    minHeight: 44,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    color: '#FFFFFF',
+    fontFamily: font.family,
+    fontSize: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  sendHit: { minHeight: 44, justifyContent: 'center' },
+  send: { color: '#8AC926', fontFamily: font.family, fontSize: 16, fontWeight: '700' },
+  teeCard: { borderRadius: 16, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.04)' },
+  teeRow: {
+    minHeight: 44,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.16)',
+  },
+  teeLabel: { color: '#FFFFFF', fontFamily: font.family, fontSize: 12, fontWeight: '700', letterSpacing: 0.8 },
+  teeValue: { flex: 1, color: '#FFFFFF', fontFamily: font.family, fontSize: 16, fontWeight: '700', textAlign: 'right' },
+  tiles: { flexDirection: 'row', gap: 10 },
+  tile: {
+    flex: 1,
+    minHeight: 108,
+    borderRadius: 16,
+    padding: 12,
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+  },
+  tileLabel: { color: '#FFFFFF', fontFamily: font.family, fontSize: 12, fontWeight: '700', letterSpacing: 0.8 },
+  tileValue: { color: '#FFFFFF', fontSize: 28, lineHeight: 32, fontWeight: '700' },
+  tileNote: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  section: { color: '#FFFFFF', fontFamily: font.family, fontSize: 12, fontWeight: '700', letterSpacing: 1 },
+  empty: { minHeight: 64, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', padding: 14, justifyContent: 'center' },
+  emptyText: { color: '#FFFFFF', fontFamily: font.family, fontSize: 15, lineHeight: 22, fontWeight: '600' },
+  foursome: {
+    minHeight: 64,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: '#8AC926',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  foursomeIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(138,201,38,0.16)' },
+  foursomeCopy: { flex: 1 },
+  foursomeTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 16, fontWeight: '800', letterSpacing: 0.4 },
+  foursomeNote: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 18 },
+  foursomeChevron: { color: '#8AC926', fontSize: 22, fontWeight: '700' },
+  stub: { gap: 10, paddingTop: 8 },
+  stubTitle: { color: '#FFFFFF', fontSize: 32, lineHeight: 36, fontWeight: '700' },
+  stubLine: { color: '#FFFFFF', fontFamily: font.family, fontSize: 17, lineHeight: 24, fontWeight: '600' },
+  stubInvite: { color: '#8AC926', fontFamily: font.family, fontSize: 17, lineHeight: 24, fontWeight: '700' },
 });
