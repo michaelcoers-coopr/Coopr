@@ -62,7 +62,7 @@ import { HoleMap } from '../src/hole-map';
 import { boom, celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { acceptHoleGesture, shouldAutoAdvance } from '../src/design/hole-nav';
 import { holeSwipe, rollSteps } from '../src/design/motion';
-import { clubDetail, clubFigure, closedPlaySheet, foldInset, greenMarkLabel, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, samplePatternVisible, scoreCommit, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { carryChipLine, clubDetail, clubFigure, closedPlaySheet, foldInset, greenMarkLabel, holeEnter, holeFrame, holeShift, mapHudInset, patternCaption, samplePatternVisible, scoreCommit, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { SheetBall } from '../src/design/sheet-ball';
 import { SHEET_BALL_SCROLL_FADE, SHEET_BALL_SCROLL_FADE_BOTTOM, SHEET_BALL_TEXT } from '../src/design/sheet-ball-geometry';
 import { caddieVoiceLine } from '../src/design/caddie-voice';
@@ -1128,7 +1128,7 @@ export default function PlayScreen() {
           bunkers={ringsOf(overlay.bunkers)}
           hazards={ringsOf(overlay.hazards)}
           ellipse={ellipse}
-          ellipseCaption={showSample && oval ? `${Math.round(oval.meanCarryYards)} CARRY\nSample` : null}
+          ellipseCaption={carryChipLine(showSample ? carryYards : null, true)}
           ellipseColor={safety ? patternColor(safety) : null}
           flight={flight}
           reduceMotion={reduceMotion}
@@ -1232,7 +1232,7 @@ export default function PlayScreen() {
         </Glass>
       </View>
       <View pointerEvents="box-none" style={[styles.hero, { top: insets.top + 58 }]}>
-        <View style={styles.heroPlate}>
+        <View style={[styles.heroPlate, hole.holeNumber === 2 && styles.heroPlateClear]}>
         {player == null ? (
           <Pressable
             accessibilityRole="button"
@@ -1904,6 +1904,7 @@ const styles = StyleSheet.create({
     paddingTop: 2,
     paddingBottom: 8,
   },
+  heroPlateClear: { paddingHorizontal: 2, paddingBottom: 4 },
   heroNum: {
     alignSelf: 'flex-start',
     color: '#FFFFFF',
@@ -2039,7 +2040,18 @@ const styles = StyleSheet.create({
   },
   statLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   statLabelPair: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statLive: { color: '#8AC926', fontFamily: font.family, fontSize: 9, lineHeight: 12, fontWeight: '700', letterSpacing: 1 },
+  statLive: {
+    color: '#8AC926',
+    backgroundColor: '#02060E',
+    fontFamily: font.family,
+    fontSize: 9,
+    lineHeight: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    paddingHorizontal: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
   statLabel: {
     color: 'rgba(255,255,255,0.78)',
     fontFamily: font.family,

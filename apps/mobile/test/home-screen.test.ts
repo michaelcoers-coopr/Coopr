@@ -19,6 +19,14 @@ describe('home tee sheet', () => {
     expect(home).toContain("router.push('/play')");
     expect(home).toContain("router.push('/bag')");
     expect(home).toContain('labels={[]}');
+    expect(home).toContain('coursePill(');
+    expect(home).toContain("started ? 'NEXT HOLE' : 'FIRST HOLE'");
+    expect(home).toContain('progress.filled >= 3 ? String(score.gross) : ');
+    expect(home).toContain('foldSnap(');
+    expect(home).toContain("backgroundColor: '#02060E'");
+    expect(home).toContain('displayName.trim()');
+    expect(home).not.toContain("Let's go, Mike");
+    expect(home).not.toContain('White tees');
     expect(home).not.toContain('57°');
     expect(home).not.toContain('2 mph');
   });

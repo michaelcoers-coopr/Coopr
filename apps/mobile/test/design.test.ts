@@ -4,7 +4,7 @@ import { loadHighCedarsPilot } from '@coopr/course';
 import { colors, font, motion, play, radius, signal, space, touch, type } from '@coopr/tokens';
 import { caddieLine } from '@coopr/engine';
 import { DEFAULT_VOICE, caddieVoiceLine } from '../src/design/caddie-voice';
-import { bagGlance, courseCall, holeSubline, hypeHero, resumeLine, skyLine, TEE_IT_UP } from '../src/design/home-copy';
+import { bagGlance, courseCall, coursePill, holeSubline, hypeHero, resumeLine, skyLine, TEE_IT_UP } from '../src/design/home-copy';
 import { HOLE_BLEED_PAD, holeFitPoints, lineLengthYards, playCamera, pointAtYards, projectHoleFill, projectPlayFrame, TEE_SHOT_MARKS, teeWindowYards } from '../src/hole-fit';
 import { CLOSED_CARD, CONSOLATION, holeFrame, mapHudInset, scoreMoment, scoreStamp } from '../src/design/play-polish';
 import { marksAt } from '../src/map-labels';
@@ -83,6 +83,9 @@ describe('home glance', () => {
     expect(hypeHero({ name: 'Mike Coers', course: 'Cedars At High Cedars Golf Club' })).toBe("Let's go, Mike. High Cedars is waiting.");
     expect(hypeHero({ name: '', course: 'Cedars At High Cedars Golf Club' })).toBe('High Cedars is waiting.');
     expect(hypeHero({ name: '', course: '' })).toBe("Let's go.");
+    expect(hypeHero({ name: '   ', course: 'High Cedars' })).toBe('High Cedars is waiting.');
+    expect(coursePill({ course: 'High Cedars', hole: 1, par: 5 })).toBe('HIGH CEDARS · Hole 1 · Par 5');
+    expect(coursePill({ course: 'High Cedars', hole: 1, par: 5 })).not.toMatch(/white/i);
     expect(TEE_IT_UP).toBe('TEE IT UP');
   });
 });

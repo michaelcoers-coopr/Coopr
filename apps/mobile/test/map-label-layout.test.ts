@@ -17,7 +17,7 @@ import { aerialGeoref, aerialScreenProjection, aerialView } from '../src/aerial/
 import { holeFrame, mapHudInset } from '../src/design/play-polish';
 import { lineLengthYards, pointAtYards } from '../src/hole-fit';
 import { holeLabels, limitYardPills } from '../src/map-labels';
-import { AERIAL_OVAL_FLOOR, boxesSeparated, DOT_STROKE, fittedEllipse, GREEN_DOT, LABEL_GAP, layoutHoleLabels, leaderLength, LEADER_MAX, nearestMark, ovalGlowBox, sampleCaptionAt, sampleCaptionBox, YARD_CROWD_ALONG, type PlacedMapLabel } from '../src/map-label-layout';
+import { AERIAL_OVAL_FLOOR, boxesSeparated, CAPTION_OVAL_GLOW, CARRY_CHIP, DOT_STROKE, fittedEllipse, GREEN_DOT, LABEL_GAP, layoutHoleLabels, leaderLength, LEADER_MAX, nearestMark, ovalGlowBox, pinFromPoint, sampleCaptionAt, sampleCaptionBox, YARD_CROWD_ALONG, type PlacedMapLabel } from '../src/map-label-layout';
 
 const WIDTH = 390;
 const HEIGHT = 844;
@@ -108,6 +108,17 @@ describe('hole 1 map labels', () => {
     expect(placed.dots[2]!.at).toEqual(back);
     expect(nearestMark(placed.dots, middle.x, middle.y)).toBe('center');
     expect(nearestMark(placed.dots, 0, 0)).toBeNull();
+    const pinDots = [
+      { id: 'front' as const, at: { x: 206, y: 211 } },
+      { id: 'center' as const, at: { x: 206, y: 198 } },
+      { id: 'back' as const, at: { x: 206, y: 185 } },
+    ];
+    expect(pinFromPoint(pinDots, 206, 211)).toBe('front');
+    expect(pinFromPoint(pinDots, 206, 198)).toBe('center');
+    expect(pinFromPoint(pinDots, 206, 185)).toBe('back');
+    expect(pinFromPoint(pinDots, 206, 206)).toBe('front');
+    expect(pinFromPoint(pinDots, 206, 192)).toBe('center');
+    expect(pinFromPoint(pinDots, 20, 20)).toBeNull();
     expect(placed.labels.some((item) => item.text === 'F' || item.text === 'C' || item.text === 'B')).toBe(false);
     expect(placed.labels.some((item) => item.text.startsWith('Sample'))).toBe(false);
     expect(again.labels).toEqual(placed.labels);
@@ -141,7 +152,25 @@ describe('hole 1 map labels', () => {
     expect(boxesSeparated(sampleCaptionBox(besideTheFlag), flagBox, 8)).toBe(true);
     expect(Math.hypot(besideTheFlag.x - 180, besideTheFlag.y - 210)).toBeLessThan(90);
     const clear = sampleCaptionAt({ cx: 40, cy: 500, halfW: 20, halfH: 12 }, { x: 300, y: 80 });
-    expect(clear).toEqual({ x: 40, y: 500 - 12 - 18, anchor: 'middle' });
+    expect(clear).toEqual({ x: 40, y: 500 - 12 * CAPTION_OVAL_GLOW - 8, anchor: 'middle' });
+    const vectorOval = { cx: 200, cy: 300, halfW: 37.5, halfH: 30 };
+    const vectorPin = { x: 200, y: 230 };
+    const vectorGreen = { x: 80, y: 200, w: 260, h: 180 };
+    const vectorView = { x: 0, y: 40, w: 390, h: 520 };
+    const carryAt = sampleCaptionAt(vectorOval, vectorPin, [], vectorGreen, vectorView, CARRY_CHIP);
+    expect(carryAt).not.toBeNull();
+    if (carryAt) {
+      const carryChip = sampleCaptionBox(carryAt, CARRY_CHIP);
+      const glowBox = {
+        x: vectorOval.cx - vectorOval.halfW * CAPTION_OVAL_GLOW,
+        y: vectorOval.cy - vectorOval.halfH * CAPTION_OVAL_GLOW,
+        w: vectorOval.halfW * CAPTION_OVAL_GLOW * 2,
+        h: vectorOval.halfH * CAPTION_OVAL_GLOW * 2,
+      };
+      expect(boxesSeparated(carryChip, glowBox, 8)).toBe(true);
+      expect(boxesSeparated(carryChip, { x: vectorPin.x - 8, y: vectorPin.y - 40, w: 32, h: 44 }, 8)).toBe(true);
+      expect(boxesSeparated(carryChip, vectorGreen, 8)).toBe(true);
+    }
     const crowded = sampleCaptionAt({ cx: 200, cy: 240, halfW: 28, halfH: 16 }, null, [
       { x: 160, y: 188, w: 90, h: 30 },
       { x: 90, y: 220, w: 80, h: 40 },

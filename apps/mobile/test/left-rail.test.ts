@@ -24,7 +24,10 @@ describe('left rail hole screen', () => {
     expect(play).toContain('PLAYS LIKE');
     expect(play).toContain('Sample conditions');
     expect(play).toContain('THRU 0');
-    expect(play).toContain('CARRY\\nSample');
+    expect(play).toContain('carryChipLine(');
+    expect(play).toContain('heroPlateClear');
+    expect(play).not.toContain('meanCarryYards');
+    expect(play).toMatch(/statLive:\s*\{[^}]*backgroundColor:\s*'#02060E'/);
     expect(map).toContain('VECTOR_OVAL_BOX');
     expect(map).toContain('width: 44, height: 44');
     expect(play).toContain('Fewer putts');

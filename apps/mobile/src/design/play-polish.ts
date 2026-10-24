@@ -33,6 +33,17 @@ export function samplePatternVisible(input: { sampleOn: boolean; hasFix: boolean
   return input.sampleOn && input.hasFix && input.measured;
 }
 
+/**
+ * Map chip for the landing oval.
+ * The number is the same whole-yard carry the sheet prints. A missing carry
+ * leaves the chip off. The sample pattern's own mean is not a carry.
+ */
+export function carryChipLine(carryYards: number | null, sample: boolean): string | null {
+  if (carryYards == null || !Number.isFinite(carryYards)) return null;
+  const yards = Math.round(carryYards);
+  return sample ? `${yards} CARRY\nSample` : `${yards} CARRY`;
+}
+
 export function clubFigure(playsLikeYards: number | null, shotYards: number | null, gpsLive: boolean): ClubFigure | null {
   if (playsLikeYards != null && Number.isFinite(playsLikeYards)) return { label: 'Plays like', yards: playsLikeYards };
   if (!gpsLive && shotYards != null && Number.isFinite(shotYards)) return { label: 'Shot', yards: shotYards };
@@ -259,6 +270,24 @@ export function sheetSnap(open: boolean, dy: number, vy: number): boolean {
   if (vy < -0.65 || dy < -48) return true;
   if (vy > 0.65 || dy > 48) return false;
   return open;
+}
+
+/**
+ * How far to scroll so a text block that crosses the fold sits fully above it.
+ * A block already clear of the edge does not move. The cap keeps a long row
+ * from jumping the whole sheet.
+ */
+export function foldSnap(blocks: readonly { top: number; bottom: number }[], edge: number, gap = 8): number {
+  if (!Number.isFinite(edge) || !Number.isFinite(gap)) return 0;
+  let overflow = 0;
+  for (const block of blocks) {
+    if (!Number.isFinite(block.top) || !Number.isFinite(block.bottom)) continue;
+    if (block.top < edge - 0.5 && block.bottom > edge + 0.5) {
+      overflow = Math.max(overflow, block.bottom - edge + gap);
+    }
+  }
+  if (overflow <= 0) return 0;
+  return Math.min(Math.round(overflow), 96);
 }
 
 /**

@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,7 +11,8 @@ import { loadHighCedarsPilot } from '@coopr/course';
 import { colors, font, signal, type } from '@coopr/tokens';
 import { useReduceMotion } from '../src/design/reduce-motion';
 import { useDisplayFace } from '../src/design/display-font';
-import { bagGlance, courseCall, hypeHero, resumeLine, skyLine } from '../src/design/home-copy';
+import { bagGlance, courseCall, coursePill, hypeHero, resumeLine, skyLine } from '../src/design/home-copy';
+import { foldSnap } from '../src/design/play-polish';
 import { fieldNavy } from '../src/design/theme';
 import { Glass } from '../src/design/glass';
 import { Pips } from '../src/design/signature-ui';
@@ -55,13 +56,53 @@ function tempCell(sky: WeatherRead | null): string {
   return `${Math.round(temp)}°`;
 }
 
+function sheetScrollElement(view: ScrollViewInstance | null): HTMLElement | null {
+  if (view == null || typeof HTMLElement === 'undefined') return null;
+  const node = view.getScrollableNode() as unknown;
+  return node instanceof HTMLElement ? node : null;
+}
+
+/** Text blocks in content-y, so a scroll offset does not move the rest edge. */
+function foldBlocks(scroll: HTMLElement): { top: number; bottom: number }[] {
+  const content = scroll.firstElementChild;
+  if (!(content instanceof HTMLElement) || typeof document === 'undefined') return [];
+  const origin = content.getBoundingClientRect().top;
+  const blocks: { top: number; bottom: number }[] = [];
+  const seen = new Set<HTMLElement>();
+  const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  while (node) {
+    const parent = node.parentElement;
+    const value = node.textContent ?? '';
+    if (parent && value.trim().length > 0) {
+      let box = parent.getBoundingClientRect();
+      const ranged = box.height > 120 || box.height < 8;
+      if (ranged) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        box = range.getBoundingClientRect();
+      }
+      if (!ranged && seen.has(parent)) {
+        node = walker.nextNode();
+        continue;
+      }
+      if (!ranged) seen.add(parent);
+      if (box.height >= 8 && box.height <= 120 && box.width >= 8) {
+        blocks.push({ top: box.top - origin, bottom: box.bottom - origin });
+      }
+    }
+    node = walker.nextNode();
+  }
+  return blocks;
+}
+
 export default function HomeScreen() {
   const { currentHole, score, clubs, holes, displayName } = useLocalStore();
   const display = useDisplayFace();
   const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
   const scrimId = useId().replace(/:/g, '');
-  const hero = hypeHero({ name: displayName, course: pilot.record.name });
+  const hero = hypeHero({ name: displayName.trim(), course: pilot.record.name });
   const roundsKept = holes.length >= 18 && holes.every((strokes) => strokes != null) ? 1 : 0;
   const progress = roundProgress(roundsKept);
   const inPlay = clubs.filter((club) => club.slot === 'in_play').length;
@@ -75,8 +116,7 @@ export default function HomeScreen() {
   const started = score.holesEntered > 0;
   const sticker = started ? 'RESUME ROUND' : 'START ROUND';
   const courseName = courseCall(pilot.record.name);
-  const parLabel = holeOneCard?.par != null ? `Par ${holeOneCard.par}` : null;
-  const pillLine = [courseName.toUpperCase(), 'Hole 1', parLabel, 'White tees'].filter((part) => part != null).join(' · ');
+  const pillLine = coursePill({ course: courseName, hole: 1, par: holeOneCard?.par ?? null });
   const firstHole = started
     ? `${currentHole}${cardHole?.par != null ? ` · PAR ${cardHole.par}` : ''}`
     : `1${holeOneCard?.par != null ? ` · PAR ${holeOneCard.par}` : ''}`;
@@ -88,6 +128,7 @@ export default function HomeScreen() {
   const [askDraft, setAskDraft] = useState('');
   const [askReply, setAskReply] = useState<string | null>(null);
   const sheetOpenRef = useRef(false);
+  const sheetScrollRef = useRef<ScrollViewInstance>(null);
   const sheetH = useSharedValue(HOME_CLOSED);
   const breathe = useSharedValue(1);
   const bearing = shotBearing(holeOne.line);
@@ -167,6 +208,37 @@ export default function HomeScreen() {
     void sampleTalkReply(context, text).then((reply) => setAskReply(reply.line));
   };
 
+  useEffect(() => {
+    if (!sheetOpen || Platform.OS !== 'web') return;
+    let stopped = false;
+    let placed = 0;
+    const snap = () => {
+      if (stopped) return;
+      const scroll = sheetScrollElement(sheetScrollRef.current);
+      if (!scroll || scroll.clientHeight < 80) return;
+      if (Math.abs(scroll.scrollTop - placed) > 2) return;
+      scroll.scrollTop = 0;
+      const blocks = foldBlocks(scroll);
+      const next = blocks.length === 0 ? 0 : foldSnap(blocks, scroll.clientHeight);
+      const top = next > 0 ? Math.min(Math.max(0, scroll.scrollHeight - scroll.clientHeight), next) : 0;
+      scroll.scrollTop = top;
+      placed = top;
+    };
+    snap();
+    const timers = [160, 420, 800].map((ms) => setTimeout(snap, ms));
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(snap);
+    const scroll = sheetScrollElement(sheetScrollRef.current);
+    if (observer && scroll) {
+      observer.observe(scroll);
+      if (scroll.parentElement) observer.observe(scroll.parentElement);
+    }
+    return () => {
+      stopped = true;
+      for (const timer of timers) clearTimeout(timer);
+      observer?.disconnect();
+    };
+  }, [sheetOpen, sheetTab, askOn, askReply, askDraft, started, firstHole]);
+
   const bottomInset = Math.max(insets.bottom, 8);
   const railBottom = HOME_CLOSED + bottomInset + 16;
 
@@ -230,10 +302,12 @@ export default function HomeScreen() {
         </Glass>
       </Pressable>
       <View pointerEvents="box-none" style={[styles.wordmark, { top: insets.top + 64 }]}>
-        <Text style={[styles.word, { fontFamily: display }]}>TEE</Text>
-        <Text style={[styles.word, { fontFamily: display }]}>
-          IT <Text style={styles.wordLime}>UP</Text>
-        </Text>
+        <View style={styles.wordPlate}>
+          <Text style={[styles.word, { fontFamily: display }]}>TEE</Text>
+          <Text style={[styles.word, { fontFamily: display }]}>
+            IT <Text style={styles.wordLime}>UP</Text>
+          </Text>
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${sticker}. ${resume.detail}`}
@@ -311,6 +385,8 @@ export default function HomeScreen() {
           </View>
           {sheetOpen ? (
             <ScrollView
+              ref={sheetScrollRef}
+              testID="home-sheet-scroll"
               style={[styles.scroll, { marginBottom: SHEET_BALL_TEXT.openPx }]}
               contentContainerStyle={styles.scrollBody}
               keyboardShouldPersistTaps="handled"
@@ -345,7 +421,7 @@ export default function HomeScreen() {
                   <View style={styles.teeCard}>
                     <TeeRow label="COURSE" value={courseName.toUpperCase()} />
                     <TeeRow label="TEES" value="WHITE" />
-                    <TeeRow label="FIRST HOLE" value={firstHole} />
+                    <TeeRow label={started ? 'NEXT HOLE' : 'FIRST HOLE'} value={firstHole} />
                     <TeeRow label="BAG" value={bagGlance(inPlay).toUpperCase()} />
                     <TeeRow label="WIND" value={windCell(sky)} />
                     <TeeRow label="TEMP" value={tempCell(sky)} />
@@ -353,7 +429,7 @@ export default function HomeScreen() {
                   <View style={styles.tiles}>
                     <View style={styles.tile}>
                       <Text style={styles.tileLabel}>GROSS</Text>
-                      <Text style={[styles.tileValue, { fontFamily: display }]}>{started ? String(score.gross) : '—'}</Text>
+                      <Text style={[styles.tileValue, { fontFamily: display }]}>{progress.filled >= 3 ? String(score.gross) : '—'}</Text>
                       {progress.filled < 3 ? <Text style={styles.tileNote}>{progress.gross}</Text> : null}
                     </View>
                     <View style={styles.tile}>
@@ -454,6 +530,7 @@ const styles = StyleSheet.create({
   pillText: { flex: 1, color: '#FFFFFF', fontFamily: font.family, fontSize: 12, lineHeight: 16, fontWeight: '700' },
   chevron: { color: 'rgba(255,255,255,0.85)', fontSize: 18, lineHeight: 20, fontWeight: '700', paddingRight: 4 },
   wordmark: { position: 'absolute', left: 16, zIndex: 4, maxWidth: 250 },
+  wordPlate: { alignSelf: 'flex-start', backgroundColor: '#02060E', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
   word: { color: '#FFFFFF', fontSize: 80, lineHeight: 72, fontWeight: '700', letterSpacing: 1 },
   wordLime: { color: '#8AC926' },
   sticker: {
@@ -527,7 +604,7 @@ const styles = StyleSheet.create({
   peekPips: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   peekNote: { flex: 1, color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 18, fontWeight: '600' },
   scroll: { flex: 1, minHeight: 0, zIndex: 1 },
-  scrollBody: { paddingHorizontal: 14, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 24, gap: 12 },
+  scrollBody: { paddingHorizontal: 14, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 48, gap: 12 },
   roundBody: { gap: 12 },
   askBox: { gap: 8 },
   askInput: {

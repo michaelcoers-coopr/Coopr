@@ -147,6 +147,12 @@ export function fittedEllipse(
 /** Largest glow the oval breathes to. The plays pill clears this, so the breath does not move it. */
 const OVAL_BREATH = 1.045;
 
+/**
+ * Soft halo on a floored oval, times the breath.
+ * The carry chip clears this box, so it does not sit on the glow.
+ */
+export const CAPTION_OVAL_GLOW = 1.2 * OVAL_BREATH;
+
 /** Axis-aligned bounds of the soft glow, including the breath. */
 export function ovalGlowBox(points: readonly ScreenPoint[]): LabelBox | null {
   const fit = fittedEllipse(points);
@@ -156,6 +162,21 @@ export function ovalGlowBox(points: readonly ScreenPoint[]): LabelBox | null {
   const halfW = fit.halfW * grow;
   const halfH = fit.halfH * grow;
   return { x: fit.cx - halfW, y: fit.cy - halfH, w: halfW * 2, h: halfH * 2 };
+}
+
+/** Square target around each green dot. Neighboring dots sit closer than this, so the resolver breaks the tie. */
+export const PIN_HIT = 44;
+
+/**
+ * The pin a tap selects.
+ * The 44px boxes overlap when the dots are a few points apart. The box that
+ * receives the touch still resolves to the nearest dot center.
+ */
+export function pinFromPoint(dots: readonly GreenDot[], x: number, y: number, hit = PIN_HIT): GreenDot['id'] | null {
+  const half = hit / 2;
+  const covered = dots.some((dot) => Math.abs(x - dot.at.x) <= half && Math.abs(y - dot.at.y) <= half);
+  if (!covered) return null;
+  return nearestMark(dots, x, y, Math.hypot(half, half));
 }
 
 /** The dot under a tap, when the tap is close enough to mean that dot. */
@@ -511,18 +532,42 @@ export function sampleCaptionAt(
 ): { x: number; y: number; anchor: 'middle' | 'start' | 'end' } | null {
   const halfW = Math.max(10, oval.halfW);
   const halfH = Math.max(10, oval.halfH);
+  // Soft halo and the breath. The chip has to clear the glow, not only the stroke.
+  const glow = CAPTION_OVAL_GLOW;
+  const ovalBox: LabelBox = {
+    x: oval.cx - halfW * glow,
+    y: oval.cy - halfH * glow,
+    w: halfW * glow * 2,
+    h: halfH * glow * 2,
+  };
+  const gap = SAMPLE_CAPTION_GAP;
+  const chipH = chip.height;
+  const top = ovalBox.y;
+  const bottom = ovalBox.y + ovalBox.h;
+  const left = ovalBox.x;
+  const right = ovalBox.x + ovalBox.w;
   const candidates: { x: number; y: number; anchor: 'middle' | 'start' | 'end' }[] = [
-    { x: oval.cx, y: oval.cy - halfH - 18, anchor: 'middle' },
-    { x: oval.cx - halfW - 16, y: oval.cy - 4, anchor: 'end' },
-    { x: oval.cx + halfW + 16, y: oval.cy - 4, anchor: 'start' },
-    { x: oval.cx, y: oval.cy + halfH + 28, anchor: 'middle' },
-    { x: oval.cx - halfW - 20, y: oval.cy - halfH - 8, anchor: 'end' },
-    { x: oval.cx + halfW + 20, y: oval.cy - halfH - 8, anchor: 'start' },
-    { x: oval.cx - halfW - 40, y: oval.cy + halfH + 10, anchor: 'end' },
-    { x: oval.cx + halfW + 40, y: oval.cy + halfH + 10, anchor: 'start' },
-    { x: oval.cx, y: oval.cy - halfH - 48, anchor: 'middle' },
+    { x: oval.cx, y: top - gap, anchor: 'middle' },
+    { x: oval.cx, y: bottom + gap + chipH, anchor: 'middle' },
+    { x: left - gap, y: oval.cy + chipH / 2, anchor: 'end' },
+    { x: right + gap, y: oval.cy + chipH / 2, anchor: 'start' },
+    { x: left - gap, y: top - gap, anchor: 'end' },
+    { x: right + gap, y: top - gap, anchor: 'start' },
+    { x: left - gap, y: bottom + gap + chipH, anchor: 'end' },
+    { x: right + gap, y: bottom + gap + chipH, anchor: 'start' },
+    { x: oval.cx, y: top - gap - 30, anchor: 'middle' },
   ];
-  const hard = [...obstacles];
+  // Step away when the green or the sheet covers the near pockets.
+  for (const step of [36, 72, 108]) {
+    candidates.push(
+      { x: oval.cx, y: bottom + gap + chipH + step, anchor: 'middle' },
+      { x: oval.cx, y: top - gap - step, anchor: 'middle' },
+      { x: left - gap - step, y: oval.cy + chipH / 2, anchor: 'end' },
+      { x: right + gap + step, y: oval.cy + chipH / 2, anchor: 'start' },
+    );
+  }
+  const hard = [...obstacles, ovalBox];
+  if (green) hard.push(green);
   if (pin) hard.push({ x: pin.x - 8, y: pin.y - 40, w: 32, h: 44 });
   let best: { x: number; y: number; anchor: 'middle' | 'start' | 'end' } | null = null;
   let bestScore = Number.POSITIVE_INFINITY;
@@ -531,12 +576,10 @@ export function sampleCaptionAt(
     if (view && !insideView(box, view)) continue;
     const hardGap = hard.length === 0 ? Number.POSITIVE_INFINITY : Math.min(...hard.map((block) => axisGap(box, block)));
     if (hardGap < SAMPLE_CAPTION_GAP) continue;
-    const greenGap = green ? axisGap(box, green) : Number.POSITIVE_INFINITY;
     const dist = Math.hypot(candidate.x - oval.cx, candidate.y - oval.cy);
-    const score = dist + (greenGap < SAMPLE_CAPTION_GAP ? 1000 : 0);
-    if (score < bestScore) {
+    if (dist < bestScore) {
       best = candidate;
-      bestScore = score;
+      bestScore = dist;
     }
   }
   return best;

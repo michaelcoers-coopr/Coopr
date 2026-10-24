@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardGravity, CLOSED_CARD, clubDetail, clubFigure, closedPlaySheet, clubWhy, foldInset, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreCommit, scoreDrag, scoreGlance, scoreGlow, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { cardGravity, carryChipLine, CLOSED_CARD, clubDetail, clubFigure, closedPlaySheet, clubWhy, foldInset, foldSnap, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreCommit, scoreDrag, scoreGlance, scoreGlow, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { dispersionOval, PATTERN_INVITE, SAMPLE_PATTERN } from '@coopr/engine';
 
 describe('one shot readout', () => {
@@ -16,6 +16,10 @@ describe('one shot readout', () => {
     expect(samplePatternVisible({ sampleOn: true, hasFix: false, measured: true })).toBe(false);
     expect(samplePatternVisible({ sampleOn: true, hasFix: true, measured: true })).toBe(true);
     expect(samplePatternVisible({ sampleOn: true, hasFix: true, measured: false })).toBe(false);
+    expect(carryChipLine(186, true)).toBe('186 CARRY\nSample');
+    expect(carryChipLine(186.4, false)).toBe('186 CARRY');
+    expect(carryChipLine(null, true)).toBeNull();
+    expect(carryChipLine(Number.NaN, true)).toBeNull();
   });
 });
 
@@ -148,6 +152,9 @@ describe('one-thumb score', () => {
   });
 
   it('raises a cut paragraph to the gap above it and leaves a clear edge alone', () => {
+    expect(foldSnap([{ top: 700, bottom: 716 }], 713)).toBe(11);
+    expect(foldSnap([{ top: 100, bottom: 140 }], 200)).toBe(0);
+    expect(foldSnap([], Number.NaN)).toBe(0);
     expect(foldInset([{ top: 714, bottom: 762 }], 737)).toBe(29);
     expect(foldInset([{ top: 660, bottom: 710 }, { top: 700, bottom: 740 }], 720)).toBe(66);
     expect(foldInset([{ top: 100, bottom: 120 }], 140)).toBe(0);

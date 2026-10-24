@@ -11,7 +11,7 @@ import { HOLE_BLEED_PAD, holeFitPoints, playingWidthMeters, projectHoleFill, pro
 import { tileSourceDrawsVectors } from './tile-source';
 import { MAP_LAYER } from './aerial/map-layers';
 import { aerialMapCredit, aerialScreenProjection, aerialView } from './aerial/project';
-import { AERIAL_OVAL_FLOOR, boundsBox, CARRY_CHIP, clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark, sampleCaptionAt, sampleCaptionBox, SAMPLE_CHIP, VECTOR_OVAL_BOX } from './map-label-layout';
+import { AERIAL_OVAL_FLOOR, boundsBox, CARRY_CHIP, clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark, PIN_HIT, pinFromPoint, sampleCaptionAt, sampleCaptionBox, SAMPLE_CHIP, VECTOR_OVAL_BOX } from './map-label-layout';
 
 const SURROUND = '#143524';
 const TREE = '#0C2418';
@@ -619,8 +619,13 @@ export function HoleMap(props: HoleMapProps) {
             accessibilityActions={[{ name: 'activate' }]}
             onAccessibilityAction={() => showMark(dot.id)}
             onStartShouldSetResponder={() => true}
-            onResponderRelease={() => showMark(dot.id)}
-            style={[styles.dotHit, { left: dot.at.x - 22, top: dot.at.y - 22 }]}
+            onResponderRelease={(event) => {
+              const x = dot.at.x - PIN_HIT / 2 + event.nativeEvent.locationX;
+              const y = dot.at.y - PIN_HIT / 2 + event.nativeEvent.locationY;
+              const hit = pinFromPoint(placed.dots, x, y);
+              if (hit) showMark(hit);
+            }}
+            style={[styles.dotHit, { left: dot.at.x - PIN_HIT / 2, top: dot.at.y - PIN_HIT / 2 }]}
           />
         ))}
       </View>
