@@ -284,9 +284,11 @@ export function projectPlayFrame(input: {
   let near = Math.min(start.along, end.along);
   let far = Math.max(start.along, end.along);
   if (input.kind !== 'tee') {
+    const pinAlong = Math.max(start.along, end.along);
+    const farCap = pinAlong + 45;
     for (const point of input.around) {
       if (!Number.isFinite(point.lat) || !Number.isFinite(point.lon)) continue;
-      far = Math.max(far, frame(point).along);
+      far = Math.max(far, Math.min(frame(point).along, farCap));
     }
   }
   const minSpan = 40 * 0.9144;
@@ -330,12 +332,37 @@ export function projectPlayFrame(input: {
     minAcross = -18;
     maxAcross = 18;
   }
+  // A water hazard much wider than the hole shoves the green off the screen.
+  // The camera stays on the tee-to-green corridor, with a little grass either side.
+  let corridorMin = Number.POSITIVE_INFINITY;
+  let corridorMax = Number.NEGATIVE_INFINITY;
+  for (const point of [...input.line, ...(input.fairway ?? [])]) {
+    if (!Number.isFinite(point.lat) || !Number.isFinite(point.lon)) continue;
+    const framed = frame(point);
+    if (framed.along < near - 30 || framed.along > far + 30) continue;
+    corridorMin = Math.min(corridorMin, framed.across);
+    corridorMax = Math.max(corridorMax, framed.across);
+  }
+  if (Number.isFinite(corridorMin) && Number.isFinite(corridorMax)) {
+    const corridorSpan = Math.max(18, corridorMax - corridorMin);
+    const side = Math.max(14, corridorSpan * 0.45);
+    const limitMin = corridorMin - side;
+    const limitMax = corridorMax + side;
+    if (maxAcross - minAcross > (limitMax - limitMin) * 1.25) {
+      minAcross = limitMin;
+      maxAcross = limitMax;
+    }
+  }
   if (maxAcross - minAcross < 18) {
     const mid = (minAcross + maxAcross) / 2;
     minAcross = mid - 18;
     maxAcross = mid + 18;
   }
-  const usedW = (maxAcross - minAcross) * scale;
+  let usedW = (maxAcross - minAcross) * scale;
+  if (usedW > innerW && maxAcross > minAcross) {
+    scale *= innerW / usedW;
+    usedW = innerW;
+  }
   const offsetX = input.view.left + (innerW - usedW) / 2;
   const toEn = (along: number, across: number) => ({
     east: along * Math.sin(theta) + across * Math.cos(theta),

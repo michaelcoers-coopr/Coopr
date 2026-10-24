@@ -41,7 +41,7 @@ describe('aerial layer order', () => {
     expect(source).toContain('aerialMapCredit');
     expect(source).not.toContain(AERIAL_CREDIT);
     expect(source).toContain('MAP_CREDIT_LEFT = 116');
-    expect(source).toContain("backgroundColor: 'rgba(10,16,32,0.55)'");
+    expect(source).toContain("backgroundColor: 'rgba(2,6,14,0.92)'");
     expect(source).toContain('borderRadius: 7');
     expect(source).toContain('zIndex: MAP_LAYER.credit');
     expect(source).not.toContain('right: 10, maxWidth');

@@ -11,7 +11,7 @@ import { HOLE_BLEED_PAD, holeFitPoints, playingWidthMeters, projectHoleFill, pro
 import { tileSourceDrawsVectors } from './tile-source';
 import { MAP_LAYER } from './aerial/map-layers';
 import { aerialMapCredit, aerialScreenProjection, aerialView } from './aerial/project';
-import { AERIAL_OVAL_FLOOR, boundsBox, clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark, sampleCaptionAt, sampleCaptionBox } from './map-label-layout';
+import { AERIAL_OVAL_FLOOR, boundsBox, CARRY_CHIP, clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark, sampleCaptionAt, sampleCaptionBox, SAMPLE_CHIP, VECTOR_OVAL_BOX } from './map-label-layout';
 
 const SURROUND = '#143524';
 const TREE = '#0C2418';
@@ -78,18 +78,32 @@ const MapText = SvgText as unknown as ComponentType<{
 }>;
 
 /** True-scale oval. A pattern smaller than the floor is drawn larger, and the sheet states the real yards. */
-function drawEllipse(xy: readonly { x: number; y: number }[], floor?: number, gain = 1) {
+function drawEllipse(
+  xy: readonly { x: number; y: number }[],
+  floor?: number,
+  gain = 1,
+  minBox?: { short: number; long: number },
+) {
   const fit = fittedEllipse(xy, floor);
   if (!fit) return null;
   const { cx, cy, scale } = fit;
-  const drawn = scale * (Number.isFinite(gain) && gain > 0 ? gain : 1);
+  const gainSafe = Number.isFinite(gain) && gain > 0 ? gain : 1;
+  let halfW = fit.halfW * gainSafe;
+  let halfH = fit.halfH * gainSafe;
+  let drawn = scale * gainSafe;
+  if (minBox && halfW > 0 && halfH > 0) {
+    const lift = Math.max(minBox.short / (Math.min(halfW, halfH) * 2), minBox.long / (Math.max(halfW, halfH) * 2), 1);
+    halfW *= lift;
+    halfH *= lift;
+    drawn *= lift;
+  }
   const ring = (factor: number) => xy.map((point) => `${cx + (point.x - cx) * factor},${cy + (point.y - cy) * factor}`).join(' ');
-  const halos = floor != null ? [1.08, 1.2] : scale > 1 ? [1.7, 2.2] : [1.28, 1.55];
+  const halos = floor != null || (minBox && drawn / scale > 1.4) ? [1.08, 1.2] : scale > 1 ? [1.7, 2.2] : [1.28, 1.55];
   return {
     ...fit,
     scale: drawn,
-    halfW: fit.halfW * (drawn / scale),
-    halfH: fit.halfH * (drawn / scale),
+    halfW,
+    halfH,
     solid: ring(drawn),
     glow: ring(drawn * halos[0]!),
     glowSoft: ring(drawn * halos[1]!),
@@ -221,7 +235,7 @@ export function HoleMap(props: HoleMapProps) {
   const ellipseGain = props.ellipseScale ?? 1;
   const ellipseBright = ellipseGain > 1;
   const ellipsePts = projection && props.ellipse && props.ellipse.length > 2 ? props.ellipse.map((point) => projection.toXY(point)) : [];
-  const ellipseDraw = ellipsePts.length > 2 ? drawEllipse(ellipsePts, photo ? AERIAL_OVAL_FLOOR : undefined, ellipseGain) : null;
+  const ellipseDraw = ellipsePts.length > 2 ? drawEllipse(ellipsePts, photo ? AERIAL_OVAL_FLOOR : undefined, ellipseGain, photo ? undefined : VECTOR_OVAL_BOX) : null;
   const ellipseLayoutPts =
     ellipseDraw
       ? ellipsePts.map((point) => ({
@@ -312,7 +326,7 @@ export function HoleMap(props: HoleMapProps) {
           const x = event.nativeEvent.locationX;
           const y = event.nativeEvent.locationY;
           if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-          const hit = nearestMark(placed.dots, x, y);
+          const hit = nearestMark(placed.dots, x, y, 22);
           if (hit && props.markReadout?.[hit] && props.markReadout[hit] !== '—') {
             showMark(hit);
             return;
@@ -465,7 +479,7 @@ export function HoleMap(props: HoleMapProps) {
             strokeLinecap="round"
           />
         ) : null}
-        {tee ? <Rect x={tee.x - 14} y={tee.y - 5} width={28} height={10} rx={2} fill="#FFFFFF" stroke={photo ? '#06140E' : 'none'} strokeWidth={photo ? 1.5 : 0} /> : null}
+        {tee ? <Circle cx={tee.x} cy={tee.y} r={7} fill="#FFFFFF" stroke={photo ? '#06140E' : 'none'} strokeWidth={photo ? 1.5 : 0} /> : null}
         {ballXY && aimEnd ? (
           <G>
             <Line x1={ballXY.x} y1={ballXY.y} x2={aimEnd.x} y2={aimEnd.y} stroke="#FFFFFF" strokeOpacity={0.55} strokeWidth={1.5} strokeLinecap="round" />
@@ -549,6 +563,8 @@ export function HoleMap(props: HoleMapProps) {
         })}
         {props.ellipseCaption && ellipseDraw
           ? (() => {
+              const lines = props.ellipseCaption.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
+              const chipSize = lines.length > 1 ? CARRY_CHIP : SAMPLE_CHIP;
               const view = {
                 x: frame.left,
                 y: frame.top,
@@ -560,27 +576,29 @@ export function HoleMap(props: HoleMapProps) {
                 ...(frame.top > 0 ? [{ x: 0, y: 0, w: width, h: frame.top }] : []),
                 ...(frame.bottom > 0 ? [{ x: 0, y: height - frame.bottom, w: width, h: frame.bottom }] : []),
               ];
-              const caption = sampleCaptionAt(ellipseDraw, pin, blocked, boundsBox(greenPoints, 8), view);
+              const caption = sampleCaptionAt(ellipseDraw, pin, blocked, boundsBox(greenPoints, 8), view, chipSize);
               if (!caption) return null;
-              const chip = sampleCaptionBox(caption);
+              const chip = sampleCaptionBox(caption, chipSize);
               const textX = chip.x + chip.w / 2;
-              const textY = chip.y + chip.h / 2 + 5;
               return (
                 <G>
                   <Rect x={chip.x} y={chip.y} width={chip.w} height={chip.h} rx={14} fill="rgba(6,16,28,0.96)" stroke="#FFFFFF" strokeWidth={1.75} />
-                  <MapText
-                    x={textX}
-                    y={textY}
-                    fill="#FFFFFF"
-                    fontSize={15}
-                    fontWeight="700"
-                    fontFamily={font.family}
-                    fontFeatureSettings='"tnum"'
-                    textAnchor="middle"
-                    style={mapLabelStyle}
-                  >
-                    {props.ellipseCaption}
-                  </MapText>
+                  {lines.map((line, index) => (
+                    <MapText
+                      key={line}
+                      x={textX}
+                      y={chip.y + (lines.length === 1 ? chip.h / 2 + 5 : 18 + index * 16)}
+                      fill={index === 0 ? '#FFFFFF' : '#8AC926'}
+                      fontSize={index === 0 ? 13 : 12}
+                      fontWeight="700"
+                      fontFamily={font.family}
+                      fontFeatureSettings='"tnum"'
+                      textAnchor="middle"
+                      style={mapLabelStyle}
+                    >
+                      {line}
+                    </MapText>
+                  ))}
                 </G>
               );
             })()
@@ -599,8 +617,9 @@ export function HoleMap(props: HoleMapProps) {
             accessibilityLabel={props.markAccess?.[dot.id] ?? (dot.id === 'front' ? 'Front' : dot.id === 'center' ? 'Center' : 'Back')}
             accessibilityActions={[{ name: 'activate' }]}
             onAccessibilityAction={() => showMark(dot.id)}
-            pointerEvents="none"
-            style={[styles.dotHit, { left: dot.at.x - 14, top: dot.at.y - 14 }]}
+            onStartShouldSetResponder={() => true}
+            onResponderRelease={() => showMark(dot.id)}
+            style={[styles.dotHit, { left: dot.at.x - 22, top: dot.at.y - 22 }]}
           />
         ))}
       </View>
@@ -657,7 +676,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 13,
     fontWeight: '600',
-    backgroundColor: 'rgba(10,16,32,0.55)',
+    backgroundColor: 'rgba(2,6,14,0.92)',
     borderRadius: 7,
     overflow: 'hidden',
     paddingHorizontal: MAP_CREDIT_PAD,
@@ -667,7 +686,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   dotHits: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: MAP_LAYER.hits },
-  dotHit: { position: 'absolute', width: 28, height: 28 },
+  dotHit: { position: 'absolute', width: 44, height: 44 },
   float: {
     position: 'absolute',
     left: 12,

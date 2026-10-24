@@ -27,6 +27,16 @@ const OVAL_FLOOR = 14;
  */
 export const AERIAL_OVAL_FLOOR = 52;
 
+/**
+ * Drawn box of a vector landing oval, in points.
+ * A measured pattern of a few yards is only a speck on a full hole.
+ * The floor is the drawing. The sheet still states the real yards.
+ */
+export const VECTOR_OVAL_BOX = { short: 60, long: 75 } as const;
+
+/** Two-line Sample chip: the sample carry, then the word Sample. */
+export const CARRY_CHIP = { width: 112, height: 48 } as const;
+
 export interface ScreenPoint {
   x: number;
   y: number;
@@ -467,9 +477,12 @@ function captionBox(
   return { x, y: at.y - height, w: width, h: height };
 }
 
-/** The painted "Sample" word. Tests use the same box the map clears. */
-export function sampleCaptionBox(at: { x: number; y: number; anchor: 'middle' | 'start' | 'end' }): LabelBox {
-  return captionBox(at);
+/** The painted Sample chip. Tests use the same box the map clears. */
+export function sampleCaptionBox(
+  at: { x: number; y: number; anchor: 'middle' | 'start' | 'end' },
+  chip: { width: number; height: number } = SAMPLE_CHIP,
+): LabelBox {
+  return captionBox(at, chip.width, chip.height);
 }
 
 /** Positive when the boxes are apart. Negative is how far they overlap. */
@@ -494,6 +507,7 @@ export function sampleCaptionAt(
   obstacles: readonly LabelBox[] = [],
   green: LabelBox | null = null,
   view: LabelBox | null = null,
+  chip: { width: number; height: number } = SAMPLE_CHIP,
 ): { x: number; y: number; anchor: 'middle' | 'start' | 'end' } | null {
   const halfW = Math.max(10, oval.halfW);
   const halfH = Math.max(10, oval.halfH);
@@ -513,7 +527,7 @@ export function sampleCaptionAt(
   let best: { x: number; y: number; anchor: 'middle' | 'start' | 'end' } | null = null;
   let bestScore = Number.POSITIVE_INFINITY;
   for (const candidate of candidates) {
-    const box = captionBox(candidate);
+    const box = captionBox(candidate, chip.width, chip.height);
     if (view && !insideView(box, view)) continue;
     const hardGap = hard.length === 0 ? Number.POSITIVE_INFINITY : Math.min(...hard.map((block) => axisGap(box, block)));
     if (hardGap < SAMPLE_CAPTION_GAP) continue;

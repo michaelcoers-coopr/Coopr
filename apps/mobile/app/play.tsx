@@ -88,7 +88,7 @@ import { useTalkPrefs } from '../src/talk-prefs';
 
 const pilot = loadHighCedarsPilot();
 /** Tall enough for a wrapped caddie sentence and the mic. The locked HUD constant stays shorter. */
-const SHEET_CLOSED = 176;
+const SHEET_CLOSED = 240;
 const SHEET_OPEN = 540;
 const RAIL_SIZE = 56;
 const MINUS = '\u2212';
@@ -408,7 +408,7 @@ export default function PlayScreen() {
   const playsLikeYards = shotResult?.playsLikeYards ?? null;
   const shotShown = shotReadout(playsLikeYards, shotRaw);
   const shotWind = shotResult?.wind?.yards ?? null;
-  const heroBase = shotShown;
+  const heroBase = shotRaw;
   const voiceClubs = clubs.filter((club) => club.slot === 'in_play');
   const ask = useAskCoopr({
     rail: true,
@@ -970,11 +970,13 @@ export default function PlayScreen() {
   const headText = signedTenths(sky?.headwindMph);
   const elevText = signedTenths(sky?.elevationFeet);
   const tempText = wholeDegrees(sky?.current?.temperatureF);
-  const skyKnown = headText !== '—' || elevText !== '—' || tempText !== '—';
   const shotPhase = player != null && onTee && !onGreen ? 'tee shot' : onGreen ? 'green' : player != null ? 'approach' : 'position unknown';
-  const conditionsNote = [sampleOn ? 'Sample pattern' : null, skyKnown ? null : 'Waiting on the sky', `hole ${hole.holeNumber}`, shotPhase]
+  const liveSky = sky?.current != null && (Number.isFinite(sky.current.windMph) || Number.isFinite(sky.current.temperatureF));
+  const conditionsNote = [sampleOn ? 'Sample conditions' : null, liveSky ? 'Live sky' : 'Waiting on the sky', `hole ${hole.holeNumber}`, shotPhase]
     .filter((part) => part != null)
     .join(' · ');
+  const windTag = Number.isFinite(sky?.current?.windMph) ? 'LIVE' : sampleOn ? 'SAMPLE' : null;
+  const tempTag = Number.isFinite(sky?.current?.temperatureF) ? 'LIVE' : sampleOn ? 'SAMPLE' : null;
   const thru = thruScore(pilot.quality.map((item) => ({ par: item.par, strokes: holes[item.holeNumber - 1] ?? null, kept: holes[item.holeNumber - 1] != null })));
   const dispersionLine: LatLon[] = [];
   const strokes = holes[hole.holeNumber - 1] ?? null;
@@ -1048,6 +1050,12 @@ export default function PlayScreen() {
   };
 
   const heroText = roll != null ? String(Math.round(roll)) : heroBase == null ? '' : formatDistance(heroBase, unit);
+  const heroDigits = heroText.replace(/\D/g, '').length;
+  const heroSize = heroDigits >= 4 ? 56 : heroDigits >= 3 ? 68 : 112;
+  const playsLikeText =
+    playsLikeYards != null && shotRaw != null && Math.round(playsLikeYards) !== Math.round(shotRaw)
+      ? `PLAYS LIKE ${formatDistance(playsLikeYards, unit)}`
+      : null;
   const figure = clubFigure(playsLikeYards, shotRaw, player != null);
   const detail = clubDetail({
     clubLabel: shownLabel,
@@ -1117,7 +1125,7 @@ export default function PlayScreen() {
           bunkers={ringsOf(overlay.bunkers)}
           hazards={ringsOf(overlay.hazards)}
           ellipse={ellipse}
-          ellipseCaption={showSample && ellipse ? 'Sample' : null}
+          ellipseCaption={showSample && oval ? `${Math.round(oval.meanCarryYards)} CARRY\nSample` : null}
           ellipseColor={safety ? patternColor(safety) : null}
           flight={flight}
           reduceMotion={reduceMotion}
@@ -1160,16 +1168,17 @@ export default function PlayScreen() {
         />
         <Vignette deep />
       </Animated.View>
-      <View pointerEvents="none" style={[styles.heroScrim, { top: insets.top + 30 }]}>
-        <Svg width={300} height={200}>
+      <View pointerEvents="none" style={[styles.heroScrim, { top: insets.top }]}>
+        <Svg width={390} height={340}>
           <Defs>
-            <RadialGradient id={scrimId} cx="50%" cy="50%" rx="50%" ry="50%">
-              <Stop offset="0" stopColor="#02060E" stopOpacity="0.92" />
-              <Stop offset="0.42" stopColor="#02060E" stopOpacity="0.78" />
-              <Stop offset="0.76" stopColor="#02060E" stopOpacity="0" />
+            <RadialGradient id={scrimId} cx="22%" cy="38%" rx="72%" ry="68%">
+              <Stop offset="0" stopColor="#02060E" stopOpacity="0.96" />
+              <Stop offset="0.46" stopColor="#02060E" stopOpacity="0.9" />
+              <Stop offset="0.72" stopColor="#02060E" stopOpacity="0.62" />
+              <Stop offset="1" stopColor="#02060E" stopOpacity="0" />
             </RadialGradient>
           </Defs>
-          <Rect x="0" y="0" width="300" height="200" fill={`url(#${scrimId})`} />
+          <Rect x="0" y="0" width="390" height="340" fill={`url(#${scrimId})`} />
         </Svg>
       </View>
       <View
@@ -1221,10 +1230,11 @@ export default function PlayScreen() {
         </Glass>
       </View>
       <View pointerEvents="box-none" style={[styles.hero, { top: insets.top + 58 }]}>
+        <View style={styles.heroPlate}>
         {player == null ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={manual == null ? 'Waiting for GPS, or tap to set your position' : 'Shot yards'}
+            accessibilityLabel={manual == null ? 'Waiting for GPS, or tap to set your position' : `Shot yards${playsLikeText ? `, ${playsLikeText}` : ''}`}
             delayLongPress={450}
             onPress={() => {
               setOverrideDraft(manual == null ? '' : formatDistance(manual, unit));
@@ -1250,14 +1260,14 @@ export default function PlayScreen() {
                 }}
               />
             ) : (
-              <Text style={[styles.heroNum, { fontFamily: display }, playsLikeYards != null && styles.glow]}>{heroText === '' ? '—' : heroText}</Text>
+              <Text style={[styles.heroNum, { fontFamily: display, fontSize: heroSize, lineHeight: heroSize * 0.86 }]}>{heroText === '' ? '—' : heroText}</Text>
             )}
             <Text style={styles.heroCap}>{unit === 'yd' ? 'YARDS TO GREEN' : 'METERS TO GREEN'}</Text>
             {manual == null ? <Text style={styles.fbInvite}>Waiting for GPS · tap to set position</Text> : null}
           </Pressable>
         ) : (
-          <View pointerEvents="none">
-            <Text style={[styles.heroNum, { fontFamily: display }, playsLikeYards != null && styles.glow]}>{heroText === '' ? '—' : heroText}</Text>
+          <View pointerEvents="none" accessibilityLabel={playsLikeText ? `${heroText} yards to the green. ${playsLikeText}` : undefined}>
+            <Text style={[styles.heroNum, { fontFamily: display, fontSize: heroSize, lineHeight: heroSize * 0.86 }]}>{heroText === '' ? '—' : heroText}</Text>
             <Text style={styles.heroCap}>{unit === 'yd' ? 'YARDS TO GREEN' : 'METERS TO GREEN'}</Text>
           </View>
         )}
@@ -1274,6 +1284,8 @@ export default function PlayScreen() {
             <Text style={[styles.fbNum, { fontFamily: display }]}>{formatDistance(ground.backYards, unit)}</Text>
           </View>
         ) : null}
+        {playsLikeText ? <Text style={styles.playsLike}>{playsLikeText}</Text> : null}
+        </View>
       </View>
       {hazardYards != null ? (
         <View pointerEvents="box-none" style={[styles.hazardFloat, { top: insets.top + 210 }]}>
@@ -1291,7 +1303,14 @@ export default function PlayScreen() {
             </View>
             <View style={styles.tabs}>
               {(['course', 'coach', 'stats'] as const).map((tab) => (
-                <Pressable key={tab} accessibilityRole="button" accessibilityLabel={tab === 'coach' ? 'Coach AI' : tab === 'course' ? 'Course' : 'Stats'} onPress={() => setSheetTab(tab)}>
+                <Pressable
+                  key={tab}
+                  accessibilityRole="button"
+                  accessibilityLabel={tab === 'coach' ? 'Coach AI' : tab === 'course' ? 'Course' : 'Stats'}
+                  onPress={() => setSheetTab(tab)}
+                  hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                  style={styles.tabHit}
+                >
                   <Text style={[styles.tab, sheetTab === tab && styles.tabOn]}>{tab === 'coach' ? 'Coach AI' : tab === 'course' ? 'Course' : 'Stats'}</Text>
                 </Pressable>
               ))}
@@ -1301,8 +1320,18 @@ export default function PlayScreen() {
               <Text style={styles.line} numberOfLines={2}>{`${courseCall(pilot.record.name)}. ${holeSubline({ hole: hole.holeNumber, par })}`}</Text>
             ) : sheetTab === 'stats' ? (
               sheetOpen ? null : (
-                <View style={styles.thruRow}>
-                  <ThruBar label={thru.label} pips={thru.pips} />
+                <View style={styles.statsPeek}>
+                  <View style={styles.statsPeekCopy}>
+                    <Text style={styles.thruWord}>{thru.label ?? 'THRU 0'}</Text>
+                    <ThruBar label={thru.label ?? 'THRU'} pips={thru.pips} />
+                  </View>
+                  <DictateButton
+                    live={talk.phase !== 'idle'}
+                    onPress={() => {
+                      applySheet.current(true);
+                      talk.open();
+                    }}
+                  />
                 </View>
               )
             ) : (
@@ -1324,7 +1353,7 @@ export default function PlayScreen() {
                     <>
                       <View style={styles.clubHead} pointerEvents="box-none">
                         <Text pointerEvents="box-none" style={[styles.tipTitle, styles.clubHeadTitle]} numberOfLines={1}>
-                          {player != null && onTee && !onGreen ? <Text style={styles.teeKicker}>TEE SHOT </Text> : null}
+                          {player != null && onTee && !onGreen ? <Text style={styles.teeKickerPlate}>TEE SHOT </Text> : null}
                           {`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}
                         </Text>
                         <Text pointerEvents="box-none" style={styles.clubMeta}>{updatedLabel}</Text>
@@ -1467,10 +1496,23 @@ export default function PlayScreen() {
               contentContainerStyle={styles.statsBody}
               keyboardShouldPersistTaps="handled"
             >
+              <View style={styles.statsHead}>
+                <Text style={styles.statNote}>{conditionsNote}</Text>
+                <DictateButton
+                  live={talk.phase !== 'idle'}
+                  onPress={() => {
+                    applySheet.current(true);
+                    talk.open();
+                  }}
+                />
+              </View>
               <View style={styles.statGrid}>
-                <View style={styles.statTile} accessibilityLabel={headText === '—' ? 'Wind unknown' : `Wind ${headText} miles per hour`}>
+                <View style={styles.statTile} accessibilityLabel={headText === '—' ? 'Wind unknown' : `Wind ${headText} miles per hour, ${windTag === 'LIVE' ? 'live' : windTag === 'SAMPLE' ? 'sample' : 'unknown'}`}>
                   <View style={styles.statLabelRow}>
-                    <Text style={styles.statLabel}>WIND</Text>
+                    <View style={styles.statLabelPair}>
+                      <Text style={styles.statLabel}>WIND</Text>
+                      {windTag ? <Text style={styles.statLive}>{windTag}</Text> : null}
+                    </View>
                     <WindArrow degrees={windArrowDeg} />
                   </View>
                   <Text style={[styles.statValue, { fontFamily: display }]}>
@@ -1485,8 +1527,11 @@ export default function PlayScreen() {
                     {elevText === '—' ? null : <Text style={styles.statUnit}> FT</Text>}
                   </Text>
                 </View>
-                <View style={styles.statTile} accessibilityLabel={tempText === '—' ? 'Temperature unknown' : `Temperature ${tempText} degrees`}>
-                  <Text style={styles.statLabel}>TEMP</Text>
+                <View style={styles.statTile} accessibilityLabel={tempText === '—' ? 'Temperature unknown' : `Temperature ${tempText} degrees, ${tempTag === 'LIVE' ? 'live' : tempTag === 'SAMPLE' ? 'sample' : 'unknown'}`}>
+                  <View style={styles.statLabelPair}>
+                    <Text style={styles.statLabel}>TEMP</Text>
+                    {tempTag ? <Text style={styles.statLive}>{tempTag}</Text> : null}
+                  </View>
                   <Text style={[styles.statValue, { fontFamily: display }]}>
                     {tempText}
                     {tempText === '—' ? null : <Text style={styles.statUnit}> °F</Text>}
@@ -1497,8 +1542,7 @@ export default function PlayScreen() {
                   <PuttStepper value={puttCount} onWrite={writePutts} />
                 </View>
               </View>
-              <Text style={styles.statNote}>{conditionsNote}</Text>
-              <ThruBar label={thru.label} pips={thru.pips} />
+              <ThruBar label={thru.label ?? 'THRU'} pips={thru.pips} />
             </ScrollView>
           ) : null}
         </Glass>
@@ -1614,6 +1658,10 @@ const styles = StyleSheet.create({
   hudTop: { minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 4 },
   titleGap: { flex: 1 },
   thruRow: { minHeight: 20, justifyContent: 'center', paddingHorizontal: 4 },
+  statsPeek: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  statsPeekCopy: { flex: 1, gap: 2 },
+  thruWord: { color: '#FFFFFF', fontFamily: font.family, fontSize: 11, lineHeight: 14, fontWeight: '700', letterSpacing: 1.1 },
+  statsHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 44, paddingRight: 4 },
   pillMeta: { color: 'rgba(255,255,255,0.72)', fontFamily: font.family, fontSize: 10, fontWeight: '700', letterSpacing: 0.6 },
   pillNum: { color: '#FFFFFF', fontSize: 18, lineHeight: 20, fontWeight: '700', fontVariant: ['tabular-nums'] },
   ballHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
@@ -1642,7 +1690,8 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 8, paddingBottom: 4 },
-  tabs: { flexDirection: 'row', gap: 10, minHeight: 14, alignItems: 'center' },
+  tabs: { flexDirection: 'row', gap: 4, minHeight: 44, alignItems: 'center' },
+  tabHit: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 6 },
   tab: { color: 'rgba(255,255,255,0.55)', fontFamily: font.family, fontSize: 11, fontWeight: '700' },
   tabOn: { color: '#FFFFFF' },
   tipCard: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
@@ -1817,7 +1866,7 @@ const styles = StyleSheet.create({
   saved: { minWidth: 200 },
   savedFill: { paddingVertical: 28, paddingHorizontal: 32, alignItems: 'center', gap: 4 },
   savedTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 40, lineHeight: 46, fontWeight: '700' },
-  heroScrim: { position: 'absolute', left: -55, width: 300, height: 200, zIndex: 3 },
+  heroScrim: { position: 'absolute', left: 0, width: 390, height: 340, zIndex: 3 },
   holePill: { position: 'absolute', left: 12, zIndex: 6 },
   holePillGlass: { width: 214, height: 38 },
   holePillFill: {
@@ -1840,7 +1889,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pillBallNum: { color: '#06101C', fontSize: 22, lineHeight: 22, fontWeight: '700' },
-  hero: { position: 'absolute', left: 16, zIndex: 4, alignItems: 'flex-start' },
+  hero: { position: 'absolute', left: 12, zIndex: 4, alignItems: 'flex-start', maxWidth: 188 },
+  heroPlate: {
+    maxWidth: 188,
+    backgroundColor: 'rgba(2,6,14,0.9)',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingTop: 2,
+    paddingBottom: 8,
+  },
   heroNum: {
     color: '#FFFFFF',
     fontSize: 120,
@@ -1896,6 +1953,15 @@ const styles = StyleSheet.create({
     textShadowRadius: 6,
   },
   fbDot: { color: '#FFFFFF', opacity: 0.55, marginHorizontal: 4, fontSize: 11, lineHeight: 14 },
+  playsLike: {
+    color: '#FFFFFF',
+    fontFamily: font.family,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginTop: 6,
+  },
   fbInvite: {
     color: '#FFFFFF',
     fontFamily: font.family,
@@ -1946,6 +2012,14 @@ const styles = StyleSheet.create({
   sightV: { position: 'absolute', width: 2, height: 22, backgroundColor: '#8AC926' },
   undoFloat: { position: 'absolute', left: 12, right: 84, zIndex: 7 },
   teeKicker: { color: '#8AC926', fontFamily: font.family, fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
+  teeKickerPlate: {
+    color: '#8AC926',
+    backgroundColor: '#02060E',
+    fontFamily: font.family,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
   statsBody: { paddingHorizontal: 6, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 48, gap: 14 },
   statGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
   statTile: {
@@ -1959,6 +2033,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   statLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  statLabelPair: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statLive: { color: '#8AC926', fontFamily: font.family, fontSize: 9, lineHeight: 12, fontWeight: '700', letterSpacing: 1 },
   statLabel: {
     color: 'rgba(255,255,255,0.78)',
     fontFamily: font.family,

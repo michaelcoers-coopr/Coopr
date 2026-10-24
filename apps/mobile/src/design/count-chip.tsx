@@ -96,7 +96,16 @@ export function CountChip({
       }}
       style={[rail ? styles.railHit : styles.hit, rail ? null : { minHeight }]}
     >
-      {glow ? <Animated.View pointerEvents="none" style={[styles.halo, { backgroundColor: glow }, ring]} /> : null}
+      {glow ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            rail ? styles.railHalo : styles.halo,
+            rail ? { borderColor: glow === '#C8102E' ? '#C8102E' : '#8AC926' } : { backgroundColor: glow },
+            ring,
+          ]}
+        />
+      ) : null}
       <Glass
         radius={rail ? 28 : 24}
         intensity={80}
@@ -134,6 +143,16 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   caption: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 22, fontWeight: '700' },
+  railHalo: {
+    position: 'absolute',
+    width: 64,
+    height: 64,
+    left: -4,
+    top: -4,
+    borderRadius: 32,
+    borderWidth: 3,
+    backgroundColor: 'transparent',
+  },
   railHit: { width: 56, height: 56, minWidth: 56, minHeight: 56, justifyContent: 'center' },
   railShell: { width: 56, height: 56 },
   railFill: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
