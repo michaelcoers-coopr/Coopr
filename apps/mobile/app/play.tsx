@@ -1049,7 +1049,7 @@ export default function PlayScreen() {
                 <View style={styles.clubCopy}>
                   <Text style={styles.tipTitle} numberOfLines={1}>{`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}</Text>
                   <Text style={styles.clubMeta}>{`Updated ${updatedAgo}s ago`}</Text>
-                  {sheetOpen && oneLiner ? <Text style={styles.line} numberOfLines={3}>{oneLiner}</Text> : null}
+                  {oneLiner ? <Text style={styles.line} numberOfLines={sheetOpen ? 3 : 1}>{oneLiner}</Text> : null}
                   <Text style={[styles.carryLine, { fontFamily: display }]} numberOfLines={1}>
                     {carryYards == null ? 'Carry not measured' : `${carryYards} carry`}
                     {band ? `  ${band}` : `  ${PATTERN_INVITE}`}
