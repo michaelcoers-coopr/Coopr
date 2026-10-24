@@ -1,7 +1,27 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { SHEET_BALL, SHEET_BALL_LIME, hexDimpleSeeds, sheetBallMarks, type BallMark } from '../src/design/sheet-ball-geometry';
+import {
+  SHEET_BALL,
+  SHEET_BALL_BODY,
+  SHEET_BALL_BODY_EDGE,
+  SHEET_BALL_BODY_LIT,
+  SHEET_BALL_CLEAR_Y,
+  SHEET_BALL_GLOW_ELLIPSE,
+  SHEET_BALL_LIME,
+  SHEET_BALL_LIME_ON_TYPE,
+  SHEET_BALL_PAINT_TOP,
+  SHEET_BALL_SHADOW,
+  SHEET_BALL_STAGE,
+  SHEET_BALL_TEXT,
+  SHEET_BALL_WELL,
+  ballCrownFromBottom,
+  contrastRatio,
+  hexDimpleSeeds,
+  mixHex,
+  sheetBallMarks,
+  type BallMark,
+} from '../src/design/sheet-ball-geometry';
 
 function markElement(mark: BallMark) {
   return createElement(mark.tag, {
@@ -28,6 +48,30 @@ describe('sheet ball', () => {
     expect(SHEET_BALL.ball.cy).toBeGreaterThan(SHEET_BALL.viewBox.h);
     expect(SHEET_BALL.ball.cy - SHEET_BALL.ball.r).toBeLessThan(SHEET_BALL.viewBox.h);
     expect(SHEET_BALL.dimple * 2).toBeLessThan(SHEET_BALL.spacing);
+    expect(SHEET_BALL.viewBox.h).toBe(SHEET_BALL_STAGE);
+  });
+
+  it('keeps the cap and the bright paint under the closed and open type', () => {
+    const crown = ballCrownFromBottom();
+    expect(crown).toBeGreaterThan(8);
+    expect(crown).toBeLessThanOrEqual(SHEET_BALL_PAINT_TOP);
+    expect(SHEET_BALL_PAINT_TOP).toBeLessThan(SHEET_BALL_TEXT.closedPx);
+    expect(SHEET_BALL_PAINT_TOP).toBeLessThan(SHEET_BALL_TEXT.openPx);
+    expect(SHEET_BALL_CLEAR_Y).toBe(SHEET_BALL_STAGE - SHEET_BALL_PAINT_TOP);
+    expect(SHEET_BALL_STAGE - SHEET_BALL_CLEAR_Y).toBeLessThanOrEqual(SHEET_BALL_TEXT.openPx);
+    const glowTop = SHEET_BALL_STAGE - (SHEET_BALL_GLOW_ELLIPSE.cy - SHEET_BALL_GLOW_ELLIPSE.ry);
+    expect(glowTop).toBeLessThanOrEqual(SHEET_BALL_PAINT_TOP);
+    expect(glowTop).toBeGreaterThan(crown);
+  });
+
+  it('keeps white type above AA on the ball, the well, and a lime catch', () => {
+    for (const fill of [SHEET_BALL_BODY, SHEET_BALL_BODY_LIT, SHEET_BALL_BODY_EDGE, SHEET_BALL_WELL, SHEET_BALL_SHADOW]) {
+      expect(contrastRatio('#FFFFFF', fill)).toBeGreaterThanOrEqual(4.5);
+    }
+    const catchFill = mixHex(SHEET_BALL_LIME, SHEET_BALL_WELL, SHEET_BALL_LIME_ON_TYPE);
+    const lift = mixHex(SHEET_BALL_LIME, SHEET_BALL_BODY, SHEET_BALL_LIME_ON_TYPE);
+    expect(contrastRatio('#FFFFFF', catchFill)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio('#FFFFFF', lift)).toBeGreaterThanOrEqual(4.5);
   });
 
   it('renders the glow, the lime rim, and a dimple with a shadow and a highlight', () => {
@@ -41,8 +85,12 @@ describe('sheet ball', () => {
     );
     expect(html).toContain('<svg');
     expect(html).toContain(SHEET_BALL_LIME);
-    expect(html).toContain('#6E685E');
-    expect(html).toContain('#FFFFFF');
+    expect(html).toContain(SHEET_BALL_WELL);
+    expect(html).toContain(SHEET_BALL_SHADOW);
+    expect(html).not.toContain('#FFFFFF');
+    expect(html).not.toContain('#6E685E');
+    expect(html).not.toContain('#E6E1D6');
+    expect(html).not.toContain('#040A18');
     expect(html.match(/<circle/g)?.length).toBeGreaterThan(12);
     expect(html).toContain('<ellipse');
     expect(html).not.toContain('data:image');

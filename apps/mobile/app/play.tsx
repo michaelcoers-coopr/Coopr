@@ -64,6 +64,7 @@ import { boom, celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { holeSwipe, rollSteps } from '../src/design/motion';
 import { clubDetail, clubFigure, closedPlaySheet, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { SheetBall } from '../src/design/sheet-ball';
+import { SHEET_BALL_TEXT } from '../src/design/sheet-ball-geometry';
 import { caddieVoiceLine } from '../src/design/caddie-voice';
 import { useDisplayFace } from '../src/design/display-font';
 import { MomentOverlay } from '../src/design/moments';
@@ -1195,7 +1196,7 @@ export default function PlayScreen() {
           </View>
           ) : null}
           {sheetOpen && sheetTab === 'coach' ? (
-          <ScrollView ref={detailsRef} style={styles.details} contentContainerStyle={styles.detailsBody} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+          <ScrollView ref={detailsRef} style={[styles.details, { marginBottom: SHEET_BALL_TEXT.openPx }]} contentContainerStyle={styles.detailsBody} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
             {talk.typed ? (
               <View style={styles.typeRow}>
                 <TextInput
