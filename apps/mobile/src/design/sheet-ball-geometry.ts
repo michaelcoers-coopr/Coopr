@@ -8,31 +8,28 @@ export const SHEET_BALL_CREST = '#C6F135';
 export const SHEET_BALL_LINE = '#F4FBD2';
 
 /** Facing wireframe strokes. They fade toward the limb and the base. */
-export const SHEET_BALL_LINE_OPACITY = 0.55;
+export const SHEET_BALL_LINE_OPACITY = 0.4;
 
-/** Dark olive inside the cap, so the lime reads as light behind it. */
+/** Dark olive inside the cap. Painted translucent so the lime shows through. */
 export const SHEET_BALL_INTERIOR = '#122006';
+export const SHEET_BALL_INTERIOR_ALPHA = 0.35;
 
-/** Thin rim of the cap. A visible circular silhouette. */
+/** Thin rim of the cap. Soft, so it does not cut a line into the lime. */
 export const SHEET_BALL_RIM = '#FFFFFF';
-export const SHEET_BALL_RIM_OPACITY = 0.75;
+export const SHEET_BALL_RIM_OPACITY = 0.4;
 
 /** Dark olive the glow climbs through, then the deeper olive above it. */
 export const SHEET_BALL_OLIVE = '#2e4a12';
 export const SHEET_BALL_OLIVE_DEEP = '#1c2e0f';
 
 /**
- * Corner-lobe radius in the lime band's viewBox.
- * Two lobes this size do not meet, so the middle stays the lime body.
+ * Horizontal reach of one corner lobe, about 45% of the sheet.
+ * Two of these leave a valley under the cap.
  */
-/**
- * Corner-lobe radius. The two lobes fade out before they meet,
- * so the middle stays the darker valley under the cap.
- */
-export const SHEET_BALL_LOBE_RADIUS = 148;
+export const SHEET_BALL_LOBE_RADIUS = 162;
 
 /** How far each corner lobe reaches above the sheet bottom. */
-export const SHEET_BALL_LIME_BAND = 68;
+export const SHEET_BALL_LIME_BAND = 76;
 
 /** Soft tail of each lobe, so the bulge fades instead of ending in a line. */
 export const SHEET_BALL_LIME_FEATHER = 50;
@@ -91,10 +88,10 @@ export const SHEET_BALL = {
    * sheet and the top of the circle crosses it as a rim.
    */
   ball: { cx: 180, cy: BALL_VIEW_H + BALL_DROP, r: BALL_R },
-  /** Center spacing of a hex cell, in px on the face. */
-  spacing: 22,
-  /** Half-width of a facing cell. About 22px across. */
-  dimple: 11,
+  /** Center spacing of a hex cell. Diameter plus about a 2px gap. */
+  spacing: 20,
+  /** Half-width of a facing cell. 18px across, so neighbors do not touch. */
+  dimple: 9,
 } as const;
 
 /** Glint just under the crown, inside the cap. */
@@ -145,57 +142,41 @@ export interface ProjectedDimple {
 }
 
 /**
- * Large dimple outlines on the visible cap.
- * Orthographic projection of a sphere:
- *   x = R cos(lat) sin(lon)
- *   y = R sin(lat)
- *   z = R cos(lat) cos(lon)
- * Rows are hex-packed. A tilt about X bows each parallel.
- * The minor axis points at the sphere center and shortens toward the limb.
+ * Three rows of dimple outlines on the cap.
+ * Centers sit on a hex lattice in the sheet, with a gap between cells.
+ * Cells toward the limb squash and fade. Cells toward the base fade.
  */
 export function projectedDimples(): ProjectedDimple[] {
   const { viewBox, ball, spacing, dimple } = SHEET_BALL;
   const { cx, cy, r } = ball;
   const bottom = viewBox.h;
-  const tau = (46 * Math.PI) / 180;
-  const cosT = Math.cos(tau);
-  const sinT = Math.sin(tau);
+  const pitch = spacing * 0.8660254;
   const marks: ProjectedDimple[] = [];
-  const rowPitch = spacing * 0.866;
-  let row = 0;
-  for (let phi = -0.15; phi <= 1.5; phi += rowPitch / r) {
-    const cosP = Math.max(0.22, Math.abs(Math.cos(phi)));
-    const dLam = spacing / (r * cosP);
-    const stagger = row % 2 === 0 ? 0 : dLam * 0.5;
-    row += 1;
-    for (let lam = -Math.PI + stagger; lam <= Math.PI; lam += dLam) {
-      const x = Math.cos(phi) * Math.sin(lam);
-      const y = Math.sin(phi);
-      const z = Math.cos(phi) * Math.cos(lam);
-      const y2 = y * cosT - z * sinT;
-      const z2 = y * sinT + z * cosT;
-      if (z2 < 0.04) continue;
-      const sx = cx + r * x;
-      const sy = cy - r * y2;
-      if (sy < bottom - SHEET_BALL_DOME + 2 || sy > bottom - 4) continue;
-      if (sx < -20 || sx > viewBox.w + 20) continue;
-      const across = Math.min(1, Math.abs(sx - cx) / (viewBox.w * 0.52));
-      const squash = Math.max(0.34, 1 - across * across * 0.72);
+  for (let row = 0; row < 3; row += 1) {
+    const sy = bottom - SHEET_BALL_DOME + dimple + 6 + row * pitch;
+    const stagger = row % 2 === 0 ? 0 : spacing / 2;
+    for (let i = -14; i <= 14; i += 1) {
+      const sx = cx + stagger + i * spacing;
+      if (sx < -8 || sx > viewBox.w + 8) continue;
+      const dx = sx - cx;
+      const dy = sy - cy;
+      if (dx * dx + dy * dy > (r - 4) * (r - 4)) continue;
+      if (sy > bottom - dimple) continue;
+      const across = Math.min(1, Math.abs(sx - cx) / (viewBox.w * 0.48));
+      const squash = Math.max(0.4, 1 - across * across * 0.62);
       const rise = (bottom - sy) / SHEET_BALL_DOME;
-      const base = rise < 0.24 ? rise / 0.24 : 1;
-      const opacity = SHEET_BALL_LINE_OPACITY * (0.34 + 0.66 * squash) * base;
-      const rx = dimple * (0.84 + 0.16 * squash);
-      const ry = dimple * squash * (0.78 + 0.22 * Math.min(1, z2 / 0.4));
-      if (opacity < 0.08 || ry < 2.2) continue;
+      const base = rise < 0.5 ? rise / 0.5 : 1;
+      const opacity = SHEET_BALL_LINE_OPACITY * (0.35 + 0.65 * squash) * base;
+      if (opacity < 0.08) continue;
       const radial = Math.atan2(sy - cy, sx - cx);
       marks.push({
         cx: sx,
         cy: sy,
-        rx,
-        ry,
+        rx: dimple,
+        ry: dimple * squash,
         rotation: (radial * 180) / Math.PI - 90,
         opacity,
-        lat: phi,
+        lat: row,
       });
     }
   }
@@ -220,7 +201,14 @@ export function sheetBallMarks(): BallMark[] {
     strokeOpacity: dimple.opacity,
   }));
   return [
-    { tag: 'circle', cx: ball.cx, cy: ball.cy, r: ball.r, fill: SHEET_BALL_INTERIOR },
+    {
+      tag: 'circle',
+      cx: ball.cx,
+      cy: ball.cy,
+      r: ball.r,
+      fill: SHEET_BALL_INTERIOR,
+      fillOpacity: SHEET_BALL_INTERIOR_ALPHA,
+    },
     { tag: 'ellipse', cx: viewBox.w / 2, cy: viewBox.h - 40, rx: viewBox.w / 2, ry: 70, fill: SHEET_BALL_OLIVE_DEEP },
     { tag: 'ellipse', cx: viewBox.w / 2, cy: viewBox.h - 24, rx: viewBox.w / 2 + 8, ry: 56, fill: SHEET_BALL_OLIVE },
     { tag: 'ellipse', cx: viewBox.w / 2, cy: viewBox.h, rx: viewBox.w / 2 + 4, ry: 48, fill: SHEET_BALL_LIME },

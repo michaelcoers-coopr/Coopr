@@ -6,6 +6,7 @@ import {
   SHEET_BALL_CREST,
   SHEET_BALL_DOME,
   SHEET_BALL_INTERIOR,
+  SHEET_BALL_INTERIOR_ALPHA,
   SHEET_BALL_LIME,
   SHEET_BALL_LIME_BAND,
   SHEET_BALL_LIME_FEATHER,
@@ -32,16 +33,20 @@ const stageStyle = {
 };
 
 /**
- * Olive through the lower sheet, with two soft lime lobes at the bottom corners.
- * The middle stays the darker valley. The cap paints on top of it.
+ * Bright lime across the bottom of the sheet, with a crest in each corner.
+ * A short blend keeps the lime below the type. The cap paints on top.
  */
 export const SheetBallArt = memo(function SheetBallArt({ id = 'sheetball' }: { id?: string }) {
   const { viewBox } = SHEET_BALL;
   const [sheetH, setSheetH] = useState(176);
   const olive = oliveHeight(sheetH);
-  const crown = Math.max(0, olive - SHEET_BALL_DOME) / olive;
-  const lobeReach = SHEET_BALL_LIME_BAND / SHEET_BALL_LOBE_RADIUS;
-  const lobeSoft = Math.max(0.05, (SHEET_BALL_LIME_BAND - SHEET_BALL_LIME_FEATHER) / SHEET_BALL_LOBE_RADIUS);
+  const limeTop = 60;
+  const blend = 20;
+  const limeStart = (olive - limeTop) / olive;
+  const blendStart = (olive - limeTop - blend) / olive;
+  const deepIn = Math.min(0.14, blendStart * 0.35);
+  const lobeCore = (SHEET_BALL_LIME_BAND - SHEET_BALL_LIME_FEATHER) / SHEET_BALL_LIME_BAND;
+  const lobeMid = lobeCore + (1 - lobeCore) * 0.42;
   return (
     <View
       pointerEvents="none"
@@ -58,37 +63,45 @@ export const SheetBallArt = memo(function SheetBallArt({ id = 'sheetball' }: { i
           <Defs>
             <LinearGradient id={`${id}-olive`} x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0" stopColor={SHEET_BALL_OLIVE_DEEP} stopOpacity="0" />
-              <Stop offset={Math.min(0.18, crown)} stopColor={SHEET_BALL_OLIVE_DEEP} stopOpacity="1" />
-              <Stop offset={crown} stopColor={SHEET_BALL_OLIVE} stopOpacity="1" />
-              <Stop offset="1" stopColor={SHEET_BALL_OLIVE_DEEP} stopOpacity="1" />
+              <Stop offset={deepIn} stopColor={SHEET_BALL_OLIVE_DEEP} stopOpacity="1" />
+              <Stop offset={blendStart} stopColor={SHEET_BALL_OLIVE} stopOpacity="1" />
+              <Stop offset={limeStart} stopColor={SHEET_BALL_LIME} stopOpacity="1" />
+              <Stop offset="1" stopColor={SHEET_BALL_LIME} stopOpacity="1" />
             </LinearGradient>
-            <RadialGradient id={`${id}-lobe-l`} gradientUnits="userSpaceOnUse" cx="0" cy={olive} r={SHEET_BALL_LOBE_RADIUS}>
-              <Stop offset="0" stopColor={SHEET_BALL_CREST} stopOpacity="1" />
-              <Stop offset={lobeSoft} stopColor={SHEET_BALL_LIME} stopOpacity="0.95" />
-              <Stop offset={(lobeSoft + lobeReach) / 2} stopColor={SHEET_BALL_LIME} stopOpacity="0.55" />
-              <Stop offset={lobeReach} stopColor={SHEET_BALL_LIME} stopOpacity="0" />
+            <RadialGradient id={`${id}-valley`} cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor={SHEET_BALL_OLIVE} stopOpacity="0.22" />
+              <Stop offset="0.6" stopColor={SHEET_BALL_OLIVE} stopOpacity="0.08" />
+              <Stop offset="1" stopColor={SHEET_BALL_OLIVE} stopOpacity="0" />
             </RadialGradient>
-            <RadialGradient id={`${id}-lobe-r`} gradientUnits="userSpaceOnUse" cx={viewBox.w} cy={olive} r={SHEET_BALL_LOBE_RADIUS}>
+            <RadialGradient id={`${id}-lobe-l`} cx="50%" cy="50%" r="50%">
               <Stop offset="0" stopColor={SHEET_BALL_CREST} stopOpacity="1" />
-              <Stop offset={lobeSoft} stopColor={SHEET_BALL_LIME} stopOpacity="0.95" />
-              <Stop offset={(lobeSoft + lobeReach) / 2} stopColor={SHEET_BALL_LIME} stopOpacity="0.55" />
-              <Stop offset={lobeReach} stopColor={SHEET_BALL_LIME} stopOpacity="0" />
+              <Stop offset={lobeCore} stopColor={SHEET_BALL_CREST} stopOpacity="1" />
+              <Stop offset={lobeMid} stopColor={SHEET_BALL_LIME} stopOpacity="0.7" />
+              <Stop offset="1" stopColor={SHEET_BALL_LIME} stopOpacity="0" />
+            </RadialGradient>
+            <RadialGradient id={`${id}-lobe-r`} cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor={SHEET_BALL_CREST} stopOpacity="1" />
+              <Stop offset={lobeCore} stopColor={SHEET_BALL_CREST} stopOpacity="1" />
+              <Stop offset={lobeMid} stopColor={SHEET_BALL_LIME} stopOpacity="0.7" />
+              <Stop offset="1" stopColor={SHEET_BALL_LIME} stopOpacity="0" />
             </RadialGradient>
           </Defs>
           <Rect x="0" y="0" width={viewBox.w} height={olive} fill={`url(#${id}-olive)`} />
-          <Rect x="0" y="0" width={viewBox.w} height={olive} fill={`url(#${id}-lobe-l)`} />
-          <Rect x="0" y="0" width={viewBox.w} height={olive} fill={`url(#${id}-lobe-r)`} />
+          <Ellipse cx={viewBox.w / 2} cy={olive} rx={viewBox.w * 0.28} ry={46} fill={`url(#${id}-valley)`} />
+          <Ellipse cx={0} cy={olive} rx={SHEET_BALL_LOBE_RADIUS} ry={SHEET_BALL_LIME_BAND} fill={`url(#${id}-lobe-l)`} />
+          <Ellipse cx={viewBox.w} cy={olive} rx={SHEET_BALL_LOBE_RADIUS} ry={SHEET_BALL_LIME_BAND} fill={`url(#${id}-lobe-r)`} />
         </Svg>
       </View>
     </View>
   );
 });
 
-/** Cap, rim, and dimples. Anything above the crown fades to 15% so it cannot sit under type. */
+/** Cap, rim, and dimples. The rim dissolves into the lime, and anything above the crown stays at 15%. */
 function SheetCap({ id }: { id: string }) {
   const { viewBox, ball } = SHEET_BALL;
   const dimples = projectedDimples();
   const crown = (viewBox.h - SHEET_BALL_DOME - 2) / viewBox.h;
+  const edge = 1 - 18 / ball.r;
   return (
       <Svg
         pointerEvents="none"
@@ -108,14 +121,15 @@ function SheetCap({ id }: { id: string }) {
             <Stop offset={Math.min(1, crown + 0.004)} stopColor="#FFFFFF" stopOpacity="1" />
             <Stop offset="1" stopColor="#FFFFFF" stopOpacity="1" />
           </LinearGradient>
+          <RadialGradient id={`${id}-edge`} gradientUnits="userSpaceOnUse" cx={ball.cx} cy={ball.cy} r={ball.r}>
+            <Stop offset="0" stopColor="#FFFFFF" stopOpacity="1" />
+            <Stop offset={edge} stopColor="#FFFFFF" stopOpacity="1" />
+            <Stop offset="1" stopColor="#000000" stopOpacity="1" />
+          </RadialGradient>
           <Mask id={`${id}-capmask`}>
             <Rect x="0" y="0" width={viewBox.w} height={viewBox.h} fill={`url(#${id}-undertext)`} />
+            <Circle cx={ball.cx} cy={ball.cy} r={ball.r} fill={`url(#${id}-edge)`} />
           </Mask>
-          <LinearGradient id={`${id}-body`} x1="0" y1={viewBox.h - SHEET_BALL_DOME} x2="0" y2={viewBox.h} gradientUnits="userSpaceOnUse">
-            <Stop offset="0" stopColor={SHEET_BALL_INTERIOR} stopOpacity="1" />
-            <Stop offset="0.55" stopColor={SHEET_BALL_INTERIOR} stopOpacity="1" />
-            <Stop offset="1" stopColor={SHEET_BALL_OLIVE} stopOpacity="1" />
-          </LinearGradient>
           <RadialGradient id={`${id}-spec`} cx="50%" cy="42%" r="50%">
             <Stop offset="0" stopColor={SHEET_BALL_RIM} stopOpacity="0.92" />
             <Stop offset="0.38" stopColor={SHEET_BALL_CREST} stopOpacity="0.55" />
@@ -124,7 +138,7 @@ function SheetCap({ id }: { id: string }) {
         </Defs>
         <G mask={`url(#${id}-capmask)`}>
           <G clipPath={`url(#${id}-cap)`}>
-            <Circle cx={ball.cx} cy={ball.cy} r={ball.r} fill={`url(#${id}-body)`} />
+            <Circle cx={ball.cx} cy={ball.cy} r={ball.r} fill={SHEET_BALL_INTERIOR} fillOpacity={SHEET_BALL_INTERIOR_ALPHA} />
             {dimples.map((dimple) => (
               <Ellipse
                 key={`${dimple.cx.toFixed(1)}-${dimple.cy.toFixed(1)}`}
@@ -181,6 +195,7 @@ function BallShimmer({ reduceMotion }: { reduceMotion: boolean }) {
   }, [reduceMotion]);
   const { viewBox, ball } = SHEET_BALL;
   const phase = reduceMotion ? 0.35 : t;
+  const edge = 1 - 18 / ball.r;
   return (
     <Svg
       pointerEvents="none"
@@ -199,8 +214,14 @@ function BallShimmer({ reduceMotion }: { reduceMotion: boolean }) {
           <Stop offset={(viewBox.h - SHEET_BALL_DOME) / viewBox.h} stopColor="#FFFFFF" stopOpacity="0.15" />
           <Stop offset="1" stopColor="#FFFFFF" stopOpacity="1" />
         </LinearGradient>
+        <RadialGradient id="sheetball-sweepedge" gradientUnits="userSpaceOnUse" cx={ball.cx} cy={ball.cy} r={ball.r}>
+          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="1" />
+          <Stop offset={edge} stopColor="#FFFFFF" stopOpacity="1" />
+          <Stop offset="1" stopColor="#000000" stopOpacity="1" />
+        </RadialGradient>
         <Mask id="sheetball-sweepclip">
           <Rect x="0" y="0" width={viewBox.w} height={viewBox.h} fill="url(#sheetball-sweepmask)" />
+          <Circle cx={ball.cx} cy={ball.cy} r={ball.r} fill="url(#sheetball-sweepedge)" />
         </Mask>
         <RadialGradient id="sheetball-sweep" cx="50%" cy="50%" r="50%">
           <Stop offset="0" stopColor={SHEET_BALL_RIM} stopOpacity="0.7" />

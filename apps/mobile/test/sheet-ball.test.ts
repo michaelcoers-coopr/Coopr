@@ -8,6 +8,8 @@ import {
   SHEET_BALL,
   SHEET_BALL_CREST,
   SHEET_BALL_DOME,
+  SHEET_BALL_INTERIOR,
+  SHEET_BALL_INTERIOR_ALPHA,
   SHEET_BALL_LIME,
   SHEET_BALL_LIME_BAND,
   SHEET_BALL_LIME_FEATHER,
@@ -55,7 +57,8 @@ describe('sheet ball', () => {
   it('projects latitude arcs on a cap wider than the sheet', () => {
     const dimples = projectedDimples();
     const { ball, viewBox } = SHEET_BALL;
-    expect(dimples.length).toBeGreaterThan(40);
+    expect(dimples.length).toBeGreaterThan(24);
+    expect(dimples.length).toBeLessThan(48);
     expect(ball.r).toBeGreaterThanOrEqual(230);
     expect(ball.r).toBeLessThanOrEqual(280);
     expect(ball.cy).toBeGreaterThan(viewBox.h);
@@ -66,42 +69,45 @@ describe('sheet ball', () => {
     expect(SHEET_BALL_DOME).toBeLessThanOrEqual(90);
     expect(SHEET_BALL_STROKE).toBe(1);
     expect(SHEET_BALL_RIM_WIDTH).toBe(1);
-    expect(SHEET_BALL_LINE_OPACITY).toBeGreaterThanOrEqual(0.45);
-    expect(SHEET_BALL_LINE_OPACITY).toBeLessThanOrEqual(0.55);
-    expect(SHEET_BALL_RIM_OPACITY).toBeCloseTo(0.75, 5);
-    const top = dimples.reduce((best, dimple) => (dimple.cy < best.cy ? dimple : best));
-    expect(Math.abs(top.cx - ball.cx)).toBeLessThan(50);
+    expect(SHEET_BALL_LINE_OPACITY).toBeGreaterThanOrEqual(0.35);
+    expect(SHEET_BALL_LINE_OPACITY).toBeLessThanOrEqual(0.45);
+    expect(SHEET_BALL_RIM_OPACITY).toBeCloseTo(0.4, 5);
+    const top = dimples
+      .filter((dimple) => dimple.lat === 0)
+      .reduce((best, dimple) => (Math.abs(dimple.cx - ball.cx) < Math.abs(best.cx - ball.cx) ? dimple : best));
+    expect(Math.abs(top.cx - ball.cx)).toBeLessThan(12);
     expect(viewBox.h - top.cy).toBeLessThanOrEqual(SHEET_BALL_DOME + 1);
     const side = dimples.filter((dimple) => Math.abs(dimple.cx - ball.cx) > 130).reduce((best, dimple) => (dimple.cy < best.cy ? dimple : best));
     expect(side.cy).toBeGreaterThan(top.cy + 8);
-    const lats = [...new Set(dimples.map((dimple) => dimple.lat.toFixed(3)))];
-    const bowed = lats
-      .map((lat) => dimples.filter((dimple) => dimple.lat.toFixed(3) === lat))
-      .filter((row) => Math.max(...row.map((dimple) => dimple.cx)) - Math.min(...row.map((dimple) => dimple.cx)) > 200)
-      .find((row) => {
-        const mid = row.reduce((best, dimple) => (Math.abs(dimple.cx - ball.cx) < Math.abs(best.cx - ball.cx) ? dimple : best));
-        const edge = row.reduce((best, dimple) => (Math.abs(dimple.cx - ball.cx) > Math.abs(best.cx - ball.cx) ? dimple : best));
-        return edge.cy > mid.cy + 12;
-      });
-    expect(bowed).toBeTruthy();
-    const face = dimples.reduce((best, dimple) => {
-      const score = Math.abs(dimple.cx - ball.cx) + Math.abs(dimple.cy - (viewBox.h - SHEET_BALL_DOME / 2));
-      const bestScore = Math.abs(best.cx - ball.cx) + Math.abs(best.cy - (viewBox.h - SHEET_BALL_DOME / 2));
-      return score < bestScore ? dimple : best;
-    });
+    const lats = [...new Set(dimples.map((dimple) => dimple.lat))];
+    expect(lats).toHaveLength(3);
+    let nearestGap = Infinity;
+    for (let i = 0; i < dimples.length; i += 1) {
+      for (let j = i + 1; j < dimples.length; j += 1) {
+        const dist = Math.hypot(dimples[i]!.cx - dimples[j]!.cx, dimples[i]!.cy - dimples[j]!.cy);
+        if (dist > SHEET_BALL.spacing * 1.2) continue;
+        nearestGap = Math.min(nearestGap, dist - (dimples[i]!.rx + dimples[j]!.rx));
+      }
+    }
+    expect(nearestGap).toBeGreaterThanOrEqual(1.5);
+    const face = dimples
+      .filter((dimple) => Math.abs(dimple.cx - ball.cx) < SHEET_BALL.spacing)
+      .reduce((best, dimple) => (dimple.opacity > best.opacity ? dimple : best));
     const limb = dimples.reduce((best, dimple) => (Math.abs(dimple.cx - ball.cx) > Math.abs(best.cx - ball.cx) ? dimple : best));
-    expect(face.rx * 2).toBeGreaterThanOrEqual(18);
-    expect(face.rx * 2).toBeLessThanOrEqual(26);
-    expect(face.opacity).toBeGreaterThanOrEqual(0.45);
-    expect(face.opacity).toBeLessThanOrEqual(0.55);
+    expect(face.rx * 2).toBeGreaterThanOrEqual(16);
+    expect(face.rx * 2).toBeLessThanOrEqual(20);
+    expect(face.opacity).toBeGreaterThanOrEqual(0.35);
+    expect(face.opacity).toBeLessThanOrEqual(0.45);
     expect(limb.opacity).toBeLessThan(face.opacity);
     expect(limb.ry).toBeLessThan(limb.rx);
-    expect(Math.max(...dimples.map((dimple) => dimple.opacity))).toBeLessThanOrEqual(0.55);
+    expect(Math.max(...dimples.map((dimple) => dimple.opacity))).toBeLessThanOrEqual(0.45);
   });
 
   it('fills the bottom of the sheet with lime and keeps type clear of the tabs', () => {
-    expect(SHEET_BALL_LIME_BAND).toBeGreaterThanOrEqual(60);
-    expect(SHEET_BALL_LIME_BAND).toBeLessThanOrEqual(70);
+    expect(SHEET_BALL_LIME_BAND).toBeGreaterThanOrEqual(70);
+    expect(SHEET_BALL_LIME_BAND).toBeLessThanOrEqual(80);
+    expect(SHEET_BALL_LOBE_RADIUS / SHEET_BALL.viewBox.w).toBeGreaterThan(0.4);
+    expect(SHEET_BALL_LOBE_RADIUS / SHEET_BALL.viewBox.w).toBeLessThan(0.5);
     expect(SHEET_BALL_LIME_FEATHER).toBeGreaterThanOrEqual(48);
     expect(SHEET_BALL_LOBE_RADIUS * 2).toBeLessThan(SHEET_BALL.viewBox.w);
     expect(SHEET_BALL_OLIVE).toBe('#2e4a12');
@@ -172,6 +178,9 @@ describe('sheet ball', () => {
     expect(source).toContain('SHEET_BALL_RIM_OPACITY');
     expect(source).toContain('SHEET_BALL_LIME_FEATHER');
     expect(source).toContain('stopOpacity="0.15"');
+    expect(source).toContain('SHEET_BALL_INTERIOR_ALPHA');
+    const interior = marks.find((mark) => mark.fill === SHEET_BALL_INTERIOR);
+    expect(interior?.fillOpacity).toBe(SHEET_BALL_INTERIOR_ALPHA);
     expect(source).not.toContain('sheetball-scrim');
     expect(source).toContain('rotate(');
     expect(source).not.toContain('Pattern');
