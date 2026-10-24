@@ -1,62 +1,81 @@
-/** Lime from the sheet. The glow and the dimple edges use this and nothing else. */
+/** Saturated lime. The dome body is this, and the crest shifts toward SHEET_BALL_CREST. */
 export const SHEET_BALL_LIME = '#8AC926';
 
+/** Yellow-lime at the crest of the hill. */
+export const SHEET_BALL_CREST = '#C6F135';
+
+/** Hairline dimples and the ball rim. Line art, not a filled photo. */
+export const SHEET_BALL_LINE = '#FFFFFF';
+
 /**
- * Dark green, light enough that the cap separates from the glass.
- * White type on these fills stays above AA.
+ * White dimple strokes. Kept inside 35–55% so the lime shows through the lines.
  */
-export const SHEET_BALL_BODY = '#173024';
-export const SHEET_BALL_BODY_LIT = '#2C4A38';
-export const SHEET_BALL_BODY_EDGE = '#102018';
-export const SHEET_BALL_WELL = '#07140E';
-export const SHEET_BALL_SHADOW = '#040C08';
+export const SHEET_BALL_LINE_OPACITY = 0.45;
+
+/**
+ * How the glow composites over the dark glass.
+ * Screen keeps a low-opacity feather lime, instead of sinking into olive.
+ */
+export const SHEET_BALL_GLOW_BLEND = 'screen' as const;
+
+/**
+ * Solid hill, in px from the sheet bottom.
+ * The crest is the brightest point. The ball's visible cap matches this height.
+ */
+export const SHEET_BALL_DOME = 84;
+
+/** Soft spill above the crest, fading to nothing. */
+export const SHEET_BALL_FEATHER = 30;
 
 /**
  * Absolute stage. It does not add to the sheet height.
- * The viewBox matches this height so the art is not letterboxed inside a taller box.
- * The closed sheet stays 176. The coach stack is tightened so this cap fits under the type.
+ * Dome plus the feather above it. The closed sheet stays 176.
  */
-export const SHEET_BALL_STAGE = 70;
+export const SHEET_BALL_STAGE = SHEET_BALL_DOME + SHEET_BALL_FEATHER;
 
 /**
- * Lowest resting ink, in px from the sheet bottom.
- * Closed coach stack, sentence wrapped to two lines:
- * 6 + 14 + 14 + 14 + 30 + 15 + 18 = 111, and 176 - 111 = 65.
- * The crown sits under that. Open details stop above the same line.
+ * Closed: the mic and the caddie line sit this far above the sheet bottom,
+ * just over the vivid hill. Open: scrolled details stop above the dome.
+ * The feather may still spill under those rows; the scrim keeps the type.
  */
-export const SHEET_BALL_TEXT = { closedPx: 62, openPx: 62 } as const;
+export const SHEET_BALL_TEXT = { closedPx: 68, openPx: SHEET_BALL_DOME } as const;
 
-/** Bright lime lives in this many px at the bottom, on the rim, under the type. */
-export const SHEET_BALL_PAINT_TOP = 30;
+/** Dark scrim behind the type that shares pixels with the feather. */
+export const SHEET_BALL_SCRIM = '#040A18';
 
-/** ViewBox y. Bright paint stays below this line. */
-export const SHEET_BALL_CLEAR_Y = SHEET_BALL_STAGE - SHEET_BALL_PAINT_TOP;
+/** Opaque enough that white type on the crest still clears 7:1. */
+export const SHEET_BALL_SCRIM_ALPHA = 0.9;
 
-/**
- * Lime that can share a pixel with type stays at or under this opacity.
- * Brighter lime is only used inside the paint strip, below the text.
- */
-export const SHEET_BALL_LIME_ON_TYPE = 0.48;
-
-/** Peak of the radial glow at the bottom edge. It sits below the text. */
-export const SHEET_BALL_GLOW_PEAK = 0.92;
+/** Hairline. One viewBox unit, so a 3x screen draws a 3px stroke. */
+export const SHEET_BALL_STROKE = 1;
 
 export const SHEET_BALL = {
   viewBox: { w: 360, h: SHEET_BALL_STAGE },
   /**
-   * Center sits below the view. The crown is `stage - (cy - r)` = 58px,
-   * inside the 55–70px cap, with enough curve that the dimples read.
+   * Center sits below the view. The crown is `stage - (cy - r)` = the dome,
+   * so only the top of the ball shows and the bottom edge crops it.
    */
-  ball: { cx: 180, cy: 160, r: 148 },
-  spacing: 16,
-  dimple: 5.6,
+  ball: { cx: 180, cy: SHEET_BALL_FEATHER + 230, r: 230 },
+  spacing: 10,
+  dimple: 3.4,
 } as const;
 
 /**
- * Lime pool along the lower rim. Its top stays inside the paint strip.
- * The radial fill reaches opacity 0 inside this shape, so the edge is not a line.
+ * Hill sitting on the sheet's bottom edge. The top of the ellipse is the crest.
+ * The radial hot spot and the feather live above that line.
  */
-export const SHEET_BALL_GLOW_ELLIPSE = { cx: 180, cy: 80, rx: 250, ry: 40 } as const;
+export const SHEET_BALL_GLOW_ELLIPSE = {
+  cx: 180,
+  cy: SHEET_BALL_STAGE,
+  rx: 300,
+  ry: SHEET_BALL_DOME,
+} as const;
+
+/**
+ * Specular on the visible cap, just below the type.
+ * The geometric crest is higher and sits under the scrim.
+ */
+export const SHEET_BALL_SPECULAR = { cx: 180, cy: SHEET_BALL_FEATHER + 28, rx: 36, ry: 10 } as const;
 
 /** How far the cap's crown sits above the sheet bottom. */
 export function ballCrownFromBottom(): number {
@@ -93,30 +112,59 @@ export interface BallMark {
   fillOpacity?: number;
 }
 
-/** One dimple: a dark well, an inner shadow, and a lime catch on the rim. */
+/** One dimple: a hairline circle, no fill. The lime glow is the ball's color. */
 export function dimpleMarks(cx: number, cy: number, r: number): BallMark[] {
   return [
-    { tag: 'circle', cx, cy, r, fill: SHEET_BALL_WELL },
-    { tag: 'circle', cx: cx + r * 0.2, cy: cy + r * 0.24, r: r * 0.76, fill: SHEET_BALL_SHADOW },
     {
       tag: 'circle',
-      cx: cx - r * 0.28,
-      cy: cy - r * 0.32,
-      r: r * 0.55,
-      fill: SHEET_BALL_LIME,
-      fillOpacity: SHEET_BALL_LIME_ON_TYPE,
+      cx,
+      cy,
+      r,
+      fill: 'none',
+      stroke: SHEET_BALL_LINE,
+      strokeWidth: SHEET_BALL_STROKE,
+      strokeOpacity: SHEET_BALL_LINE_OPACITY,
     },
   ];
 }
 
-/** Dimple wells, the ball rim, and the glow. The sheet draws these. A render test draws the same list. */
+/**
+ * Glow hill, the cropped ball rim, a crest highlight, and the dimple seeds.
+ * The sheet draws the same shapes. A render test draws this list.
+ */
 export function sheetBallMarks(): BallMark[] {
-  const { ball, spacing, dimple, viewBox } = SHEET_BALL;
+  const { ball, spacing, dimple } = SHEET_BALL;
+  const glow = SHEET_BALL_GLOW_ELLIPSE;
   const wells = hexDimpleSeeds(spacing).flatMap((seed) => dimpleMarks(seed.x, seed.y, dimple));
   return [
-    { tag: 'ellipse', cx: ball.cx, cy: viewBox.h - 4, rx: 176, ry: 36, fill: SHEET_BALL_LIME },
-    { tag: 'circle', cx: ball.cx, cy: ball.cy, r: ball.r - 1.2, fill: 'none', stroke: SHEET_BALL_LIME, strokeOpacity: 0.7, strokeWidth: 2.4 },
-    { tag: 'circle', cx: ball.cx, cy: ball.cy, r: ball.r + 3, fill: 'none', stroke: SHEET_BALL_LIME, strokeOpacity: 0.28, strokeWidth: 8 },
+    { tag: 'ellipse', cx: glow.cx, cy: glow.cy, rx: glow.rx, ry: glow.ry, fill: SHEET_BALL_LIME },
+    {
+      tag: 'ellipse',
+      cx: SHEET_BALL_SPECULAR.cx,
+      cy: SHEET_BALL_FEATHER,
+      rx: 120,
+      ry: SHEET_BALL_FEATHER,
+      fill: SHEET_BALL_CREST,
+    },
+    {
+      tag: 'circle',
+      cx: ball.cx,
+      cy: ball.cy,
+      r: ball.r,
+      fill: 'none',
+      stroke: SHEET_BALL_LINE,
+      strokeWidth: SHEET_BALL_STROKE,
+      strokeOpacity: SHEET_BALL_LINE_OPACITY,
+    },
+    {
+      tag: 'ellipse',
+      cx: SHEET_BALL_SPECULAR.cx,
+      cy: SHEET_BALL_SPECULAR.cy,
+      rx: SHEET_BALL_SPECULAR.rx,
+      ry: SHEET_BALL_SPECULAR.ry,
+      fill: SHEET_BALL_LINE,
+      fillOpacity: 0.85,
+    },
     ...wells,
   ];
 }

@@ -1169,7 +1169,7 @@ export default function PlayScreen() {
       <Animated.View style={[styles.sheet, sheetStyle, { bottom: Math.max(insets.bottom, 8) + (sheetOpen ? keyboard : 0), zIndex: sheetOpen ? 8 : 2 }]}>
         <Glass radius={28} style={styles.sheetGlass} contentStyle={styles.sheetFill}>
           <SheetBall reduceMotion={reduceMotion} />
-          <View style={styles.grab}>
+          <View style={[styles.grab, !sheetOpen && styles.grabClosed]}>
             <View {...sheetPan.panHandlers} style={styles.handleHit}>
               <View style={styles.handle} />
             </View>
@@ -1180,6 +1180,7 @@ export default function PlayScreen() {
                 </Pressable>
               ))}
             </View>
+            <View style={!sheetOpen ? [styles.closedLower, { paddingBottom: SHEET_BALL_TEXT.closedPx }] : undefined}>
             {sheetTab === 'course' ? (
               <Text style={styles.line} numberOfLines={2}>{`${courseCall(pilot.record.name)}. ${holeSubline({ hole: hole.holeNumber, par })}`}</Text>
             ) : sheetTab === 'stats' ? (
@@ -1228,6 +1229,7 @@ export default function PlayScreen() {
                 <Text style={styles.micLabel}>{talk.phase === 'listening' ? 'Listening' : talk.phase === 'speaking' ? 'Caddie' : 'Mic'}</Text>
               </Pressable>
             ) : null}
+            </View>
           </View>
           {sheetOpen && sheetTab === 'coach' ? (
           <View style={styles.heard}>
@@ -1580,6 +1582,8 @@ const styles = StyleSheet.create({
   sheetGlass: { flex: 1 },
   sheetFill: { flex: 1, minHeight: 0 },
   grab: { paddingTop: 0, paddingHorizontal: 12, paddingBottom: 0, zIndex: 1 },
+  grabClosed: { flex: 1 },
+  closedLower: { flex: 1, justifyContent: 'flex-end' },
   tipHit: { marginTop: 2 },
   tip: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold },
   tipLink: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, textDecorationLine: 'underline' },

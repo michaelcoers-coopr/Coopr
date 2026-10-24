@@ -1,20 +1,24 @@
 import { createElement } from 'react';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
   SHEET_BALL,
-  SHEET_BALL_BODY,
-  SHEET_BALL_BODY_EDGE,
-  SHEET_BALL_BODY_LIT,
-  SHEET_BALL_CLEAR_Y,
+  SHEET_BALL_CREST,
+  SHEET_BALL_DOME,
+  SHEET_BALL_FEATHER,
+  SHEET_BALL_GLOW_BLEND,
   SHEET_BALL_GLOW_ELLIPSE,
   SHEET_BALL_LIME,
-  SHEET_BALL_LIME_ON_TYPE,
-  SHEET_BALL_PAINT_TOP,
-  SHEET_BALL_SHADOW,
+  SHEET_BALL_LINE,
+  SHEET_BALL_LINE_OPACITY,
+  SHEET_BALL_SCRIM,
+  SHEET_BALL_SCRIM_ALPHA,
   SHEET_BALL_STAGE,
+  SHEET_BALL_STROKE,
   SHEET_BALL_TEXT,
-  SHEET_BALL_WELL,
   ballCrownFromBottom,
   contrastRatio,
   hexDimpleSeeds,
@@ -40,7 +44,7 @@ function markElement(mark: BallMark) {
 }
 
 describe('sheet ball', () => {
-  it('packs dimples on a hex lattice and crops the ball at the sheet edge', () => {
+  it('packs hairline dimples on a hex lattice and crops the ball at the sheet edge', () => {
     const seeds = hexDimpleSeeds(SHEET_BALL.spacing);
     const offset = seeds[4];
     expect(offset).toBeTruthy();
@@ -49,38 +53,37 @@ describe('sheet ball', () => {
     expect(SHEET_BALL.ball.cy - SHEET_BALL.ball.r).toBeLessThan(SHEET_BALL.viewBox.h);
     expect(SHEET_BALL.dimple * 2).toBeLessThan(SHEET_BALL.spacing);
     expect(SHEET_BALL.viewBox.h).toBe(SHEET_BALL_STAGE);
+    expect(SHEET_BALL_STROKE).toBe(1);
+    expect(SHEET_BALL_LINE_OPACITY).toBeGreaterThanOrEqual(0.35);
+    expect(SHEET_BALL_LINE_OPACITY).toBeLessThanOrEqual(0.55);
   });
 
-  it('keeps a readable cap under the type, with dimples in the lime rim', () => {
+  it('raises a lime dome with a feather, and keeps the cap on that dome', () => {
     const crown = ballCrownFromBottom();
-    expect(crown).toBeGreaterThanOrEqual(55);
-    expect(crown).toBeLessThanOrEqual(70);
-    expect(crown).toBeLessThanOrEqual(SHEET_BALL_TEXT.closedPx);
-    expect(crown).toBeLessThanOrEqual(SHEET_BALL_TEXT.openPx);
-    expect(SHEET_BALL_PAINT_TOP).toBeLessThan(SHEET_BALL_TEXT.closedPx);
-    expect(SHEET_BALL_PAINT_TOP).toBeLessThan(SHEET_BALL_TEXT.openPx);
-    expect(SHEET_BALL_CLEAR_Y).toBe(SHEET_BALL_STAGE - SHEET_BALL_PAINT_TOP);
-    expect(SHEET_BALL_STAGE - SHEET_BALL_CLEAR_Y).toBeLessThanOrEqual(SHEET_BALL_TEXT.openPx);
-    const glowTop = SHEET_BALL_STAGE - (SHEET_BALL_GLOW_ELLIPSE.cy - SHEET_BALL_GLOW_ELLIPSE.ry);
-    expect(glowTop).toBeLessThanOrEqual(SHEET_BALL_PAINT_TOP);
-    expect(glowTop).toBeLessThan(crown);
-    expect(SHEET_BALL.dimple * 2).toBeGreaterThanOrEqual(9);
+    expect(SHEET_BALL_DOME).toBeGreaterThanOrEqual(70);
+    expect(SHEET_BALL_DOME).toBeLessThanOrEqual(90);
+    expect(SHEET_BALL_FEATHER).toBeGreaterThanOrEqual(28);
+    expect(SHEET_BALL_FEATHER).toBeLessThanOrEqual(34);
+    expect(crown).toBe(SHEET_BALL_DOME);
+    expect(SHEET_BALL_STAGE).toBe(SHEET_BALL_DOME + SHEET_BALL_FEATHER);
+    expect(SHEET_BALL_GLOW_ELLIPSE.ry).toBe(SHEET_BALL_DOME);
+    const ellipseTop = SHEET_BALL_GLOW_ELLIPSE.cy - SHEET_BALL_GLOW_ELLIPSE.ry;
+    expect(ellipseTop).toBe(SHEET_BALL_FEATHER);
+    expect(SHEET_BALL_TEXT.openPx).toBeGreaterThanOrEqual(SHEET_BALL_DOME);
+    expect(SHEET_BALL_TEXT.closedPx).toBeGreaterThan(40);
+    expect(SHEET_BALL_TEXT.closedPx).toBeLessThan(SHEET_BALL_DOME);
     const row = SHEET_BALL.spacing * Math.sqrt(3);
-    expect(crown / row).toBeGreaterThanOrEqual(2);
-    expect(SHEET_BALL_PAINT_TOP / row).toBeGreaterThanOrEqual(1);
+    expect(crown / row).toBeGreaterThanOrEqual(3);
   });
 
-  it('keeps white type above AA on the ball, the well, and a lime catch', () => {
-    for (const fill of [SHEET_BALL_BODY, SHEET_BALL_BODY_LIT, SHEET_BALL_BODY_EDGE, SHEET_BALL_WELL, SHEET_BALL_SHADOW]) {
-      expect(contrastRatio('#FFFFFF', fill)).toBeGreaterThanOrEqual(4.5);
+  it('keeps white type at 7:1 on the scrim over the brightest crest', () => {
+    for (const under of [SHEET_BALL_CREST, SHEET_BALL_LIME]) {
+      const ink = mixHex(SHEET_BALL_SCRIM, under, SHEET_BALL_SCRIM_ALPHA);
+      expect(contrastRatio('#FFFFFF', ink)).toBeGreaterThanOrEqual(7);
     }
-    const catchFill = mixHex(SHEET_BALL_LIME, SHEET_BALL_WELL, SHEET_BALL_LIME_ON_TYPE);
-    const lift = mixHex(SHEET_BALL_LIME, SHEET_BALL_BODY, SHEET_BALL_LIME_ON_TYPE);
-    expect(contrastRatio('#FFFFFF', catchFill)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio('#FFFFFF', lift)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('renders the glow, the lime rim, and a dimple with a shadow and a highlight', () => {
+  it('renders a lime hill, a crest highlight, and hairline dimples', () => {
     const marks = sheetBallMarks();
     const html = renderToStaticMarkup(
       createElement(
@@ -89,17 +92,24 @@ describe('sheet ball', () => {
         marks.map((mark) => markElement(mark)),
       ),
     );
+    const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../src/design/sheet-ball.tsx'), 'utf8');
     expect(html).toContain('<svg');
     expect(html).toContain(SHEET_BALL_LIME);
-    expect(html).toContain(SHEET_BALL_WELL);
-    expect(html).toContain(SHEET_BALL_SHADOW);
-    expect(html).not.toContain('#FFFFFF');
+    expect(html).toContain(SHEET_BALL_CREST);
+    expect(html).toContain(SHEET_BALL_LINE);
+    expect(html).toContain('fill="none"');
+    expect(html).not.toContain('#173024');
+    expect(html).not.toContain('#07140E');
     expect(html).not.toContain('#6E685E');
-    expect(html).not.toContain('#E6E1D6');
-    expect(html).not.toContain('#040A18');
-    expect(html.match(/<circle/g)?.length).toBeGreaterThan(12);
-    expect(html).toContain('<ellipse');
     expect(html).not.toContain('data:image');
+    expect(html.match(/<circle/g)?.length).toBeGreaterThan(4);
+    expect(html).toContain('<ellipse');
     expect(html.length).toBeLessThan(12000);
+    expect(source).toContain('mixBlendMode: SHEET_BALL_GLOW_BLEND');
+    expect(SHEET_BALL_GLOW_BLEND).toBe('screen');
+    expect(source).toContain('Pattern');
+    expect(source).toContain('hexDimpleSeeds');
+    expect(source).toContain('fill="none"');
+    expect(source).not.toContain('data:image');
   });
 });
