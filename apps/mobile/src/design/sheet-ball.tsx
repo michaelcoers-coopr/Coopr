@@ -6,6 +6,7 @@ import {
   SHEET_BALL_CREST,
   SHEET_BALL_DOME,
   SHEET_BALL_LIME,
+  SHEET_BALL_LIME_FEATHER,
   SHEET_BALL_LINE,
   SHEET_BALL_LOBE_RADIUS,
   SHEET_BALL_OLIVE,
@@ -38,7 +39,7 @@ export const SheetBallArt = memo(function SheetBallArt({ id = 'sheetball' }: { i
   const [sheetH, setSheetH] = useState(176);
   const olive = oliveHeight(sheetH);
   const crown = Math.max(0, olive - SHEET_BALL_DOME) / olive;
-  const limeFull = Math.min(1, crown + 16 / olive);
+  const limeFull = Math.min(1, crown + SHEET_BALL_LIME_FEATHER / olive);
   return (
     <View
       pointerEvents="none"
@@ -62,18 +63,20 @@ export const SheetBallArt = memo(function SheetBallArt({ id = 'sheetball' }: { i
             </LinearGradient>
             <RadialGradient id={`${id}-lobe-l`} gradientUnits="userSpaceOnUse" cx="0" cy={olive} r={SHEET_BALL_LOBE_RADIUS}>
               <Stop offset="0" stopColor={SHEET_BALL_CREST} stopOpacity="1" />
-              <Stop offset="0.34" stopColor={SHEET_BALL_CREST} stopOpacity="0.75" />
-              <Stop offset="0.58" stopColor={SHEET_BALL_CREST} stopOpacity="0" />
+              <Stop offset="0.28" stopColor={SHEET_BALL_CREST} stopOpacity="0.92" />
+              <Stop offset="0.48" stopColor={SHEET_BALL_CREST} stopOpacity="0.4" />
+              <Stop offset="0.68" stopColor={SHEET_BALL_CREST} stopOpacity="0" />
             </RadialGradient>
             <RadialGradient id={`${id}-lobe-r`} gradientUnits="userSpaceOnUse" cx={viewBox.w} cy={olive} r={SHEET_BALL_LOBE_RADIUS}>
               <Stop offset="0" stopColor={SHEET_BALL_CREST} stopOpacity="1" />
-              <Stop offset="0.34" stopColor={SHEET_BALL_CREST} stopOpacity="0.75" />
-              <Stop offset="0.58" stopColor={SHEET_BALL_CREST} stopOpacity="0" />
+              <Stop offset="0.28" stopColor={SHEET_BALL_CREST} stopOpacity="0.92" />
+              <Stop offset="0.48" stopColor={SHEET_BALL_CREST} stopOpacity="0.4" />
+              <Stop offset="0.68" stopColor={SHEET_BALL_CREST} stopOpacity="0" />
             </RadialGradient>
           </Defs>
           <Rect x="0" y="0" width={viewBox.w} height={olive} fill={`url(#${id}-olive)`} />
-          <Rect x="0" y={olive - SHEET_BALL_DOME} width={viewBox.w} height={SHEET_BALL_DOME} fill={`url(#${id}-lobe-l)`} />
-          <Rect x="0" y={olive - SHEET_BALL_DOME} width={viewBox.w} height={SHEET_BALL_DOME} fill={`url(#${id}-lobe-r)`} />
+          <Rect x="0" y="0" width={viewBox.w} height={olive} fill={`url(#${id}-lobe-l)`} />
+          <Rect x="0" y="0" width={viewBox.w} height={olive} fill={`url(#${id}-lobe-r)`} />
         </Svg>
       </View>
     </View>
@@ -84,7 +87,7 @@ export const SheetBallArt = memo(function SheetBallArt({ id = 'sheetball' }: { i
 function SheetCap({ id }: { id: string }) {
   const { viewBox, ball } = SHEET_BALL;
   const dimples = projectedDimples();
-  const crown = (viewBox.h - SHEET_BALL_DOME) / viewBox.h;
+  const crown = (viewBox.h - SHEET_BALL_DOME - 2) / viewBox.h;
   return (
       <Svg
         pointerEvents="none"
@@ -108,8 +111,8 @@ function SheetCap({ id }: { id: string }) {
             <Rect x="0" y="0" width={viewBox.w} height={viewBox.h} fill={`url(#${id}-undertext)`} />
           </Mask>
           <RadialGradient id={`${id}-spec`} cx="50%" cy="42%" r="50%">
-            <Stop offset="0" stopColor={SHEET_BALL_RIM} stopOpacity="0.45" />
-            <Stop offset="0.55" stopColor={SHEET_BALL_CREST} stopOpacity="0.12" />
+            <Stop offset="0" stopColor={SHEET_BALL_RIM} stopOpacity="0.92" />
+            <Stop offset="0.38" stopColor={SHEET_BALL_CREST} stopOpacity="0.55" />
             <Stop offset="1" stopColor={SHEET_BALL_RIM} stopOpacity="0" />
           </RadialGradient>
         </Defs>
@@ -193,7 +196,7 @@ function BallShimmer({ reduceMotion }: { reduceMotion: boolean }) {
           <Rect x="0" y="0" width={viewBox.w} height={viewBox.h} fill="url(#sheetball-sweepmask)" />
         </Mask>
         <RadialGradient id="sheetball-sweep" cx="50%" cy="50%" r="50%">
-          <Stop offset="0" stopColor={SHEET_BALL_RIM} stopOpacity="0.35" />
+          <Stop offset="0" stopColor={SHEET_BALL_RIM} stopOpacity="0.7" />
           <Stop offset="1" stopColor={SHEET_BALL_RIM} stopOpacity="0" />
         </RadialGradient>
       </Defs>

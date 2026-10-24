@@ -7,12 +7,12 @@ export const SHEET_BALL_CREST = '#C6F135';
 /** Pale white-lime for the dimple strokes. */
 export const SHEET_BALL_LINE = '#F4FBD2';
 
-/** Facing dimple strokes. Softer line-art. The limb and the base fade below this. */
-export const SHEET_BALL_LINE_OPACITY = 0.32;
+/** Facing dimple strokes. They fade toward the limb and the base. */
+export const SHEET_BALL_LINE_OPACITY = 0.5;
 
 /** Thin rim of the cap. A visible circular silhouette. */
 export const SHEET_BALL_RIM = '#FFFFFF';
-export const SHEET_BALL_RIM_OPACITY = 0.6;
+export const SHEET_BALL_RIM_OPACITY = 0.75;
 
 /** Dark olive the glow climbs through, then the deeper olive above it. */
 export const SHEET_BALL_OLIVE = '#2e4a12';
@@ -25,14 +25,15 @@ export const SHEET_BALL_OLIVE_DEEP = '#1c2e0f';
 /**
  * Corner lobes stay inside the cap. A wider radius climbs into the type.
  */
-export const SHEET_BALL_LOBE_RADIUS = 72;
+export const SHEET_BALL_LOBE_RADIUS = 118;
 
 /**
- * Bright lime, in px from the sheet bottom.
- * On the closed sheet the Mic row ends about 54px up, so the lime stays
- * under that row instead of filling the old 110px slab.
+ * Bright lime, in px from the sheet bottom. The top of this band feathers into olive.
  */
-export const SHEET_BALL_LIME_BAND = 42;
+export const SHEET_BALL_LIME_BAND = 75;
+
+/** How far the lime floor fades up into the olive, so the join is not a line. */
+export const SHEET_BALL_LIME_FEATHER = 24;
 
 /** Olive lights the lower portion of the sheet, above and behind the lime. */
 export const SHEET_BALL_OLIVE_PORTION = 0.45;
@@ -42,9 +43,9 @@ export const SHEET_BALL_OLIVE_LIFT = 56;
 
 /**
  * How far the cap's crown sits above the sheet bottom.
- * The closed Mic row ends ~54px up, so 42px leaves >=8px of olive under it.
+ * The closed card's last line ends about 84px up, so 75px leaves >=8px clear.
  */
-export const SHEET_BALL_DOME = 42;
+export const SHEET_BALL_DOME = 75;
 
 /** Top of the open scroll. Glyphs dissolve here instead of being cut. */
 export const SHEET_BALL_SCROLL_FADE = 48;
@@ -73,8 +74,8 @@ export const SHEET_BALL_SCRIM_ALPHA = 0.72;
 /** Kept so a future text scrim stays under the old open-scroll budget. */
 export const SHEET_BALL_SCRIM_TOP = 128;
 
-/** Dimple hairline. The rim stays a full pixel so the silhouette reads. */
-export const SHEET_BALL_STROKE = 0.75;
+/** Dimple and rim hairline. One pixel reads at 1x. */
+export const SHEET_BALL_STROKE = 1;
 export const SHEET_BALL_RIM_WIDTH = 1;
 
 const BALL_VIEW_H = 800;
@@ -89,11 +90,11 @@ export const SHEET_BALL = {
    */
   ball: { cx: 180, cy: BALL_VIEW_H + BALL_DROP, r: BALL_R },
   spacing: 12,
-  dimple: 2.15,
+  dimple: 2.4,
 } as const;
 
-/** Soft glint just under the crown, inside the cap. */
-export const SHEET_BALL_SPECULAR = { cx: 180, cy: BALL_VIEW_H - SHEET_BALL_DOME + 16, rx: 34, ry: 7 } as const;
+/** Glint just under the crown, inside the cap. */
+export const SHEET_BALL_SPECULAR = { cx: 180, cy: BALL_VIEW_H - SHEET_BALL_DOME + 20, rx: 48, ry: 12 } as const;
 
 /** How far the cap's crown sits above the sheet bottom. */
 export function ballCrownFromBottom(): number {
@@ -238,7 +239,7 @@ export function sheetBallMarks(): BallMark[] {
       rx: SHEET_BALL_SPECULAR.rx,
       ry: SHEET_BALL_SPECULAR.ry,
       fill: SHEET_BALL_RIM,
-      fillOpacity: 0.55,
+      fillOpacity: 0.85,
     },
     ...dimples,
   ];

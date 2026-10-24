@@ -61,13 +61,13 @@ describe('sheet ball', () => {
     expect(ball.cy - ball.r).toBeLessThan(viewBox.h);
     expect(ballChordWidth()).toBeGreaterThan(240);
     expect(ballCrownFromBottom()).toBe(SHEET_BALL_DOME);
-    expect(SHEET_BALL_DOME).toBeLessThanOrEqual(48);
-    expect(SHEET_BALL_STROKE).toBeGreaterThanOrEqual(0.75);
-    expect(SHEET_BALL_STROKE).toBeLessThanOrEqual(1);
+    expect(SHEET_BALL_DOME).toBeGreaterThanOrEqual(70);
+    expect(SHEET_BALL_DOME).toBeLessThanOrEqual(90);
+    expect(SHEET_BALL_STROKE).toBe(1);
     expect(SHEET_BALL_RIM_WIDTH).toBe(1);
-    expect(SHEET_BALL_LINE_OPACITY).toBeGreaterThanOrEqual(0.25);
-    expect(SHEET_BALL_LINE_OPACITY).toBeLessThanOrEqual(0.35);
-    expect(SHEET_BALL_RIM_OPACITY).toBeCloseTo(0.6, 5);
+    expect(SHEET_BALL_LINE_OPACITY).toBeGreaterThanOrEqual(0.45);
+    expect(SHEET_BALL_LINE_OPACITY).toBeLessThanOrEqual(0.55);
+    expect(SHEET_BALL_RIM_OPACITY).toBeCloseTo(0.75, 5);
     const top = dimples.reduce((best, dimple) => (dimple.cy < best.cy ? dimple : best));
     expect(Math.abs(top.cx - ball.cx)).toBeLessThan(50);
     expect(viewBox.h - top.cy).toBeLessThanOrEqual(SHEET_BALL_DOME + 1);
@@ -89,11 +89,11 @@ describe('sheet ball', () => {
       return score < bestScore ? dimple : best;
     });
     const limb = dimples.reduce((best, dimple) => (Math.abs(dimple.cx - ball.cx) > Math.abs(best.cx - ball.cx) ? dimple : best));
-    expect(face.opacity).toBeGreaterThanOrEqual(0.25);
-    expect(face.opacity).toBeLessThanOrEqual(0.35);
+    expect(face.opacity).toBeGreaterThanOrEqual(0.45);
+    expect(face.opacity).toBeLessThanOrEqual(0.55);
     expect(limb.opacity).toBeLessThan(face.opacity);
     expect(limb.ry).toBeLessThan(limb.rx);
-    expect(Math.max(...dimples.map((dimple) => dimple.opacity))).toBeLessThanOrEqual(0.35);
+    expect(Math.max(...dimples.map((dimple) => dimple.opacity))).toBeLessThanOrEqual(0.55);
   });
 
   it('fills the bottom of the sheet with lime and keeps type clear of the tabs', () => {
@@ -106,7 +106,7 @@ describe('sheet ball', () => {
     expect(oliveHeight(540)).toBeGreaterThanOrEqual(Math.round(540 * 0.45));
     expect(oliveHeight(176)).toBeGreaterThan(SHEET_BALL_LIME_BAND);
     expect(SHEET_BALL_TEXT.closedPx).toBeGreaterThanOrEqual(6);
-    expect(SHEET_BALL_TEXT.openPx).toBeGreaterThan(SHEET_BALL_DOME);
+    expect(SHEET_BALL_TEXT.openPx + SHEET_BALL_SCROLL_FADE_BOTTOM).toBeGreaterThan(SHEET_BALL_DOME);
     expect(SHEET_BALL_SCROLL_FADE).toBe(48);
     expect(SHEET_BALL_SCROLL_FADE_BOTTOM).toBeLessThan(24);
     expect(SHEET_BALL_SCROLL_FADE_BOTTOM).toBeGreaterThan(8);
@@ -119,6 +119,8 @@ describe('sheet ball', () => {
     expect(play).toContain('maskImage:');
     expect(play).toContain('SHEET_BALL_SCROLL_FADE}px');
     expect(play).toContain('SHEET_BALL_SCROLL_FADE_BOTTOM}px');
+    expect(play).toContain('styles.micButton');
+    expect(play).not.toContain('styles.micRow');
   });
 
   it('keeps white type at 7:1 on the scrim over the brightest crest', () => {
@@ -160,6 +162,7 @@ describe('sheet ball', () => {
     expect(source).toContain('SHEET_BALL_OLIVE_DEEP');
     expect(source).toContain('gradientUnits="userSpaceOnUse"');
     expect(source).toContain('SHEET_BALL_RIM_OPACITY');
+    expect(source).toContain('SHEET_BALL_LIME_FEATHER');
     expect(source).toContain('stopOpacity="0.15"');
     expect(source).not.toContain('sheetball-scrim');
     expect(source).toContain('rotate(');

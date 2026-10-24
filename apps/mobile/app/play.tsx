@@ -1192,11 +1192,35 @@ export default function PlayScreen() {
                 <Text style={styles.spark}>✦</Text>
                 <View style={styles.clubCopy}>
                   {player == null && manual == null ? (
-                    <Text style={styles.line}>Waiting for GPS</Text>
+                    <View style={styles.clubHead}>
+                      <Text style={[styles.line, styles.clubHeadTitle]}>Waiting for GPS</Text>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Talk to the caddie"
+                        hitSlop={8}
+                        onPress={() => {
+                          applySheet.current(true);
+                          talk.open();
+                        }}
+                        style={[styles.micButton, talk.phase !== 'idle' && styles.micButtonLive]}
+                      />
+                    </View>
                   ) : (
                     <>
-                      <Text style={styles.tipTitle}>{`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}</Text>
-                      <Text style={styles.clubMeta}>{updatedLabel}</Text>
+                      <View style={styles.clubHead}>
+                        <Text style={[styles.tipTitle, styles.clubHeadTitle]} numberOfLines={1}>{`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}</Text>
+                        <Text style={styles.clubMeta}>{updatedLabel}</Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Talk to the caddie"
+                          hitSlop={8}
+                          onPress={() => {
+                            applySheet.current(true);
+                            talk.open();
+                          }}
+                          style={[styles.micButton, talk.phase !== 'idle' && styles.micButtonLive]}
+                        />
+                      </View>
                       {oneLiner ? (
                         <Text style={styles.line} numberOfLines={2}>
                           {oneLiner}
@@ -1215,20 +1239,6 @@ export default function PlayScreen() {
                 </View>
               </View>
             )}
-            {sheetTab === 'coach' ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Talk to the caddie"
-                onPress={() => {
-                  applySheet.current(true);
-                  talk.open();
-                }}
-                style={styles.micRow}
-              >
-                <View style={styles.micDot} />
-                <Text style={styles.micLabel}>{talk.phase === 'listening' ? 'Listening' : talk.phase === 'speaking' ? 'Caddie' : 'Mic'}</Text>
-              </Pressable>
-            ) : null}
             </View>
           </View>
           {sheetOpen && sheetTab === 'coach' ? (
@@ -1475,11 +1485,13 @@ const styles = StyleSheet.create({
   tabOn: { color: '#FFFFFF' },
   tipCard: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   spark: { color: '#8AC926', fontSize: 14, lineHeight: 14 },
-  tipTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 14, fontWeight: '700' },
-  carrySentence: { color: '#FFFFFF', fontFamily: font.family, fontSize: 14, lineHeight: 15, fontWeight: '600' },
+  tipTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 16, fontWeight: '700' },
+  clubHead: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 18 },
+  clubHeadTitle: { flex: 1 },
+  carrySentence: { color: '#FFFFFF', fontFamily: font.family, fontSize: 14, lineHeight: 14, fontWeight: '600' },
   carryNum: { color: '#FFFFFF', fontSize: 16, lineHeight: 18, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  micRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 18 },
-  micDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#8AC926' },
+  micButton: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#8AC926' },
+  micButtonLive: { backgroundColor: '#FFFFFF' },
   micLabel: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, fontWeight: '700' },
   talkGrow: { flex: 1 },
   typeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
