@@ -1354,8 +1354,12 @@ export default function PlayScreen() {
                   ) : (
                     <>
                       <View style={styles.clubHead} pointerEvents="box-none">
+                        {player != null && onTee && !onGreen ? (
+                          <View style={styles.teeChip}>
+                            <Text style={styles.teeKicker}>TEE SHOT </Text>
+                          </View>
+                        ) : null}
                         <Text pointerEvents="box-none" style={[styles.tipTitle, styles.clubHeadTitle]} numberOfLines={1}>
-                          {player != null && onTee && !onGreen ? <Text style={styles.teeKickerPlate}>TEE SHOT </Text> : null}
                           {`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}
                         </Text>
                         <Text pointerEvents="box-none" style={styles.clubMeta}>{updatedLabel}</Text>
@@ -1894,7 +1898,7 @@ const styles = StyleSheet.create({
   hero: { position: 'absolute', left: 12, zIndex: 4, alignItems: 'flex-start', maxWidth: 176 },
   heroPlate: {
     maxWidth: 176,
-    backgroundColor: 'rgba(2,6,14,0.9)',
+    backgroundColor: '#02060E',
     borderRadius: 16,
     paddingHorizontal: 10,
     paddingTop: 2,
@@ -2015,13 +2019,11 @@ const styles = StyleSheet.create({
   sightV: { position: 'absolute', width: 2, height: 22, backgroundColor: '#8AC926' },
   undoFloat: { position: 'absolute', left: 12, right: 84, zIndex: 7 },
   teeKicker: { color: '#8AC926', fontFamily: font.family, fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
-  teeKickerPlate: {
-    color: '#8AC926',
+  teeChip: {
     backgroundColor: '#02060E',
-    fontFamily: font.family,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.6,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
   },
   statsBody: { paddingHorizontal: 6, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 48, gap: 14 },
   statGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
