@@ -8,9 +8,13 @@ export const SHEET_BALL_CREST = '#C6F135';
 export const SHEET_BALL_LINE = '#FFFFFF';
 
 /**
- * White dimple strokes. Kept inside 35–55% so the lime shows through the lines.
+ * White dimple strokes at the facing part of the cap.
+ * The limb and the cropped base fade below this. Kept inside 35–45%.
  */
-export const SHEET_BALL_LINE_OPACITY = 0.45;
+export const SHEET_BALL_LINE_OPACITY = 0.42;
+
+/** Dark olive the glow climbs through before it becomes lime. It lights the sheet. */
+export const SHEET_BALL_OLIVE = '#3F6218';
 
 /**
  * How the glow composites over the dark glass.
@@ -34,17 +38,24 @@ export const SHEET_BALL_FEATHER = 30;
 export const SHEET_BALL_STAGE = SHEET_BALL_DOME + SHEET_BALL_FEATHER;
 
 /**
- * Closed: the mic and the caddie line sit this far above the sheet bottom,
- * just over the vivid hill. Open: scrolled details stop above the dome.
- * The feather may still spill under those rows; the scrim keeps the type.
+ * Closed: gap under the Course / Coach AI / Stats row, so the club line never
+ * shares pixels with the tabs. Open: the scroll stops above the bright hill
+ * and above the short scrim, so a line is not cut in half.
  */
-export const SHEET_BALL_TEXT = { closedPx: 68, openPx: SHEET_BALL_DOME } as const;
+export const SHEET_BALL_TEXT = { closedPx: 8, openPx: 108 } as const;
 
 /** Dark scrim behind the type that shares pixels with the feather. */
 export const SHEET_BALL_SCRIM = '#040A18';
 
 /** Opaque enough that white type on the crest still clears 7:1. */
 export const SHEET_BALL_SCRIM_ALPHA = 0.9;
+
+/**
+ * Short scrim, measured from the sheet bottom up to its top edge.
+ * The open scroll stops above this (`openPx`), so a line is not cut in half.
+ */
+export const SHEET_BALL_SCRIM_TOP = 70;
+export const SHEET_BALL_SCRIM_HEIGHT = 36;
 
 /** Hairline. One viewBox unit, so a 3x screen draws a 3px stroke. */
 export const SHEET_BALL_STROKE = 1;
@@ -61,14 +72,15 @@ export const SHEET_BALL = {
 } as const;
 
 /**
- * Hill sitting on the sheet's bottom edge. The top of the ellipse is the crest.
- * The radial hot spot and the feather live above that line.
+ * Radial hill, wider than the sheet, centered low.
+ * The transparent edge of this ellipse is outside the corners, so the
+ * visible contour is a curve that feathers out instead of a vertical cut.
  */
 export const SHEET_BALL_GLOW_ELLIPSE = {
   cx: 180,
-  cy: SHEET_BALL_STAGE,
-  rx: 300,
-  ry: SHEET_BALL_DOME,
+  cy: SHEET_BALL_STAGE - 16,
+  rx: 220,
+  ry: 118,
 } as const;
 
 /**
@@ -112,6 +124,57 @@ export interface BallMark {
   fillOpacity?: number;
 }
 
+export interface ProjectedDimple {
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+  opacity: number;
+}
+
+/**
+ * Dimple outlines on the visible cap.
+ * A hex lattice on the sphere is projected toward the camera: rows shorten
+ * toward the limb, each ring squashes along the surface tilt, and the stroke
+ * fades toward the silhouette and the cropped base.
+ */
+export function projectedDimples(): ProjectedDimple[] {
+  const { viewBox, ball, spacing, dimple } = SHEET_BALL;
+  const { cx, cy, r } = ball;
+  const marks: ProjectedDimple[] = [];
+  const rowStep = (spacing * Math.sqrt(3)) / 2;
+  const vMax = r - spacing * 0.7;
+  const vMin = cy - viewBox.h + 6;
+  let row = 0;
+  for (let v = vMax; v > vMin; v -= rowStep) {
+    const shift = row % 2 === 0 ? 0 : spacing / 2;
+    const reach = Math.sqrt(Math.max(0, r * r - v * v));
+    for (let u = -reach; u <= reach + 0.01; u += spacing) {
+      const uu = u + shift;
+      const planar = uu * uu + v * v;
+      if (planar >= r * r * 0.985) continue;
+      const w = Math.sqrt(r * r - planar);
+      const nz = w / r;
+      const nx = Math.abs(uu) / r;
+      const ny = Math.abs(v) / r;
+      if (nz < 0.2) continue;
+      const screenY = cy - v;
+      if (screenY < 6 || screenY > viewBox.h - 1) continue;
+      const shrink = 0.42 + 0.58 * nz;
+      const rx = dimple * shrink * Math.max(0.34, Math.sqrt(nz * nz + ny * ny));
+      const ry = dimple * shrink * Math.max(0.28, Math.sqrt(nz * nz + nx * nx));
+      const facing = Math.min(1, nz / 0.58);
+      const base = screenY > viewBox.h - 20 ? Math.max(0, (viewBox.h - screenY) / 20) : 1;
+      const opacity = SHEET_BALL_LINE_OPACITY * facing * base;
+      if (opacity < 0.08 || rx < 0.5 || ry < 0.4) continue;
+      marks.push({ cx: cx + uu, cy: screenY, rx, ry, opacity });
+    }
+    row += 1;
+    if (row > 20) break;
+  }
+  return marks;
+}
+
 /** One dimple: a hairline circle, no fill. The lime glow is the ball's color. */
 export function dimpleMarks(cx: number, cy: number, r: number): BallMark[] {
   return [
@@ -133,28 +196,27 @@ export function dimpleMarks(cx: number, cy: number, r: number): BallMark[] {
  * The sheet draws the same shapes. A render test draws this list.
  */
 export function sheetBallMarks(): BallMark[] {
-  const { ball, spacing, dimple } = SHEET_BALL;
   const glow = SHEET_BALL_GLOW_ELLIPSE;
-  const wells = hexDimpleSeeds(spacing).flatMap((seed) => dimpleMarks(seed.x, seed.y, dimple));
+  const dimples = projectedDimples().map((dimple) => ({
+    tag: 'ellipse' as const,
+    cx: dimple.cx,
+    cy: dimple.cy,
+    rx: dimple.rx,
+    ry: dimple.ry,
+    fill: 'none',
+    stroke: SHEET_BALL_LINE,
+    strokeWidth: SHEET_BALL_STROKE,
+    strokeOpacity: dimple.opacity,
+  }));
   return [
     { tag: 'ellipse', cx: glow.cx, cy: glow.cy, rx: glow.rx, ry: glow.ry, fill: SHEET_BALL_LIME },
     {
       tag: 'ellipse',
-      cx: SHEET_BALL_SPECULAR.cx,
-      cy: SHEET_BALL_FEATHER,
-      rx: 120,
-      ry: SHEET_BALL_FEATHER,
+      cx: glow.cx,
+      cy: glow.cy - 36,
+      rx: 90,
+      ry: 28,
       fill: SHEET_BALL_CREST,
-    },
-    {
-      tag: 'circle',
-      cx: ball.cx,
-      cy: ball.cy,
-      r: ball.r,
-      fill: 'none',
-      stroke: SHEET_BALL_LINE,
-      strokeWidth: SHEET_BALL_STROKE,
-      strokeOpacity: SHEET_BALL_LINE_OPACITY,
     },
     {
       tag: 'ellipse',
@@ -163,9 +225,9 @@ export function sheetBallMarks(): BallMark[] {
       rx: SHEET_BALL_SPECULAR.rx,
       ry: SHEET_BALL_SPECULAR.ry,
       fill: SHEET_BALL_LINE,
-      fillOpacity: 0.85,
+      fillOpacity: 0.8,
     },
-    ...wells,
+    ...dimples,
   ];
 }
 

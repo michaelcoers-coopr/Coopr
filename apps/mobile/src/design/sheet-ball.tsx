@@ -1,6 +1,6 @@
 import { memo, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Circle, ClipPath, Defs, Ellipse, G, LinearGradient, Mask, Pattern, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, ClipPath, Defs, Ellipse, G, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
 import {
   SHEET_BALL,
   SHEET_BALL_CREST,
@@ -9,13 +9,15 @@ import {
   SHEET_BALL_GLOW_ELLIPSE,
   SHEET_BALL_LIME,
   SHEET_BALL_LINE,
-  SHEET_BALL_LINE_OPACITY,
+  SHEET_BALL_OLIVE,
   SHEET_BALL_SCRIM,
   SHEET_BALL_SCRIM_ALPHA,
+  SHEET_BALL_SCRIM_HEIGHT,
+  SHEET_BALL_SCRIM_TOP,
   SHEET_BALL_SPECULAR,
   SHEET_BALL_STAGE,
   SHEET_BALL_STROKE,
-  hexDimpleSeeds,
+  projectedDimples,
 } from './sheet-ball-geometry';
 
 const stageStyle = {
@@ -33,84 +35,68 @@ const stageStyle = {
  * A short scrim sits where the lowest type crosses the feather. It does not cover the hill.
  */
 export const SheetBallArt = memo(function SheetBallArt({ id = 'sheetball' }: { id?: string }) {
-  const { viewBox, ball, spacing, dimple } = SHEET_BALL;
-  const tileH = spacing * Math.sqrt(3);
-  const seeds = hexDimpleSeeds(spacing);
-  const crestY = SHEET_BALL_FEATHER;
+  const { viewBox, ball } = SHEET_BALL;
+  const glow = SHEET_BALL_GLOW_ELLIPSE;
+  const dimples = projectedDimples();
   return (
     <View pointerEvents="none" style={stageStyle} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.glowBlend]}>
         <Svg pointerEvents="none" width="100%" height="100%" viewBox={`0 0 ${viewBox.w} ${viewBox.h}`} preserveAspectRatio="none">
           <Defs>
-            <LinearGradient id={`${id}-feather`} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={SHEET_BALL_LIME} stopOpacity="0" />
-              <Stop offset="0.45" stopColor={SHEET_BALL_LIME} stopOpacity="0.28" />
-              <Stop offset="1" stopColor={SHEET_BALL_LIME} stopOpacity="0.7" />
-            </LinearGradient>
-            <LinearGradient id={`${id}-sides`} x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
-              <Stop offset="0.12" stopColor="#FFFFFF" stopOpacity="1" />
-              <Stop offset="0.88" stopColor="#FFFFFF" stopOpacity="1" />
-              <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
-            </LinearGradient>
-            <Mask id={`${id}-sidemask`} maskUnits="userSpaceOnUse" x="0" y="0" width={viewBox.w} height={viewBox.h}>
-              <Rect width={viewBox.w} height={viewBox.h} fill={`url(#${id}-sides)`} />
-            </Mask>
-            <ClipPath id={`${id}-featherclip`}>
-              <Rect x="0" y="0" width={viewBox.w} height={crestY} />
-            </ClipPath>
+            <RadialGradient
+              id={`${id}-dome`}
+              gradientUnits="userSpaceOnUse"
+              cx={glow.cx}
+              cy={glow.cy}
+              rx={glow.rx}
+              ry={glow.ry}
+              fx={glow.cx}
+              fy={glow.cy + 14}
+            >
+              <Stop offset="0" stopColor={SHEET_BALL_CREST} stopOpacity="1" />
+              <Stop offset="0.34" stopColor={SHEET_BALL_CREST} stopOpacity="1" />
+              <Stop offset="0.48" stopColor={SHEET_BALL_LIME} stopOpacity="1" />
+              <Stop offset="0.64" stopColor={SHEET_BALL_LIME} stopOpacity="0.82" />
+              <Stop offset="0.78" stopColor={SHEET_BALL_OLIVE} stopOpacity="0.48" />
+              <Stop offset="0.9" stopColor={SHEET_BALL_OLIVE} stopOpacity="0.1" />
+              <Stop offset="1" stopColor={SHEET_BALL_OLIVE} stopOpacity="0" />
+            </RadialGradient>
+            <RadialGradient id={`${id}-lobe`} cx="50%" cy="68%" r="52%">
+              <Stop offset="0" stopColor={SHEET_BALL_LIME} stopOpacity="0.42" />
+              <Stop offset="0.55" stopColor={SHEET_BALL_OLIVE} stopOpacity="0.2" />
+              <Stop offset="1" stopColor={SHEET_BALL_OLIVE} stopOpacity="0" />
+            </RadialGradient>
           </Defs>
-          <G mask={`url(#${id}-sidemask)`}>
-            <Ellipse
-              cx={SHEET_BALL_GLOW_ELLIPSE.cx}
-              cy={SHEET_BALL_GLOW_ELLIPSE.cy}
-              rx={SHEET_BALL_GLOW_ELLIPSE.rx}
-              ry={SHEET_BALL_GLOW_ELLIPSE.ry}
-              fill={SHEET_BALL_LIME}
-            />
-            <G clipPath={`url(#${id}-featherclip)`}>
-              <Ellipse cx={ball.cx} cy={crestY} rx="220" ry={SHEET_BALL_FEATHER} fill={`url(#${id}-feather)`} />
-            </G>
-          </G>
+          <Ellipse cx={glow.cx - 108} cy={viewBox.h - 2} rx="108" ry="76" fill={`url(#${id}-lobe)`} />
+          <Ellipse cx={glow.cx + 108} cy={viewBox.h - 2} rx="108" ry="76" fill={`url(#${id}-lobe)`} />
+          <Rect x="0" y="0" width={viewBox.w} height={viewBox.h} fill={`url(#${id}-dome)`} />
         </Svg>
       </View>
-      <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%" viewBox={`0 0 ${viewBox.w} ${viewBox.h}`} preserveAspectRatio="none">
-        <Defs>
-          <RadialGradient id={`${id}-hot`} cx="50%" cy="45%" r="55%">
-            <Stop offset="0" stopColor={SHEET_BALL_CREST} stopOpacity="1" />
-            <Stop offset="0.55" stopColor={SHEET_BALL_CREST} stopOpacity="0.55" />
-            <Stop offset="1" stopColor={SHEET_BALL_CREST} stopOpacity="0" />
-          </RadialGradient>
-        </Defs>
-        <Ellipse cx={ball.cx} cy={crestY + 32} rx="100" ry="20" fill={`url(#${id}-hot)`} />
-      </Svg>
       <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%" viewBox={`0 0 ${viewBox.w} ${viewBox.h}`} preserveAspectRatio="xMidYMax meet">
         <Defs>
           <ClipPath id={`${id}-cap`}>
             <Circle cx={ball.cx} cy={ball.cy} r={ball.r} />
           </ClipPath>
-          <Pattern id={`${id}-dimples`} width={spacing} height={tileH} patternUnits="userSpaceOnUse">
-            {seeds.map((seed) => (
-              <Circle
-                key={`${seed.x}-${seed.y}`}
-                cx={seed.x}
-                cy={seed.y}
-                r={dimple}
-                fill="none"
-                stroke={SHEET_BALL_LINE}
-                strokeOpacity={SHEET_BALL_LINE_OPACITY}
-                strokeWidth={SHEET_BALL_STROKE}
-              />
-            ))}
-          </Pattern>
-          <RadialGradient id={`${id}-spec`} cx="50%" cy="50%" r="50%">
-            <Stop offset="0" stopColor={SHEET_BALL_LINE} stopOpacity="0.9" />
-            <Stop offset="0.35" stopColor={SHEET_BALL_CREST} stopOpacity="0.35" />
+          <RadialGradient id={`${id}-spec`} cx="50%" cy="42%" r="50%">
+            <Stop offset="0" stopColor={SHEET_BALL_LINE} stopOpacity="0.85" />
+            <Stop offset="0.4" stopColor={SHEET_BALL_CREST} stopOpacity="0.2" />
             <Stop offset="1" stopColor={SHEET_BALL_LINE} stopOpacity="0" />
           </RadialGradient>
         </Defs>
         <G clipPath={`url(#${id}-cap)`}>
-          <Rect x="0" y="0" width={viewBox.w} height={viewBox.h} fill={`url(#${id}-dimples)`} />
+          {dimples.map((dimple) => (
+            <Ellipse
+              key={`${dimple.cx.toFixed(2)}-${dimple.cy.toFixed(2)}`}
+              cx={dimple.cx}
+              cy={dimple.cy}
+              rx={dimple.rx}
+              ry={dimple.ry}
+              fill="none"
+              stroke={SHEET_BALL_LINE}
+              strokeOpacity={dimple.opacity}
+              strokeWidth={SHEET_BALL_STROKE}
+            />
+          ))}
           <Ellipse
             cx={SHEET_BALL_SPECULAR.cx}
             cy={SHEET_BALL_SPECULAR.cy}
@@ -119,15 +105,6 @@ export const SheetBallArt = memo(function SheetBallArt({ id = 'sheetball' }: { i
             fill={`url(#${id}-spec)`}
           />
         </G>
-        <Circle
-          cx={ball.cx}
-          cy={ball.cy}
-          r={ball.r - SHEET_BALL_STROKE / 2}
-          fill="none"
-          stroke={SHEET_BALL_LINE}
-          strokeOpacity={0.55}
-          strokeWidth={SHEET_BALL_STROKE}
-        />
       </Svg>
     </View>
   );
@@ -141,12 +118,12 @@ function BallScrim() {
       <Defs>
         <LinearGradient id="sheetball-scrim" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor={SHEET_BALL_SCRIM} stopOpacity="0" />
-          <Stop offset="0.18" stopColor={SHEET_BALL_SCRIM} stopOpacity={SHEET_BALL_SCRIM_ALPHA} />
-          <Stop offset="0.78" stopColor={SHEET_BALL_SCRIM} stopOpacity={SHEET_BALL_SCRIM_ALPHA} />
+          <Stop offset="0.38" stopColor={SHEET_BALL_SCRIM} stopOpacity={SHEET_BALL_SCRIM_ALPHA} />
+          <Stop offset="0.62" stopColor={SHEET_BALL_SCRIM} stopOpacity={SHEET_BALL_SCRIM_ALPHA} />
           <Stop offset="1" stopColor={SHEET_BALL_SCRIM} stopOpacity="0" />
         </LinearGradient>
       </Defs>
-      <Rect x="0" y="6" width={viewBox.w} height="46" fill="url(#sheetball-scrim)" />
+      <Rect x="0" y={viewBox.h - SHEET_BALL_SCRIM_TOP} width={viewBox.w} height={SHEET_BALL_SCRIM_HEIGHT} fill="url(#sheetball-scrim)" />
     </Svg>
   );
 }
