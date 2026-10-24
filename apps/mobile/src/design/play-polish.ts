@@ -259,3 +259,28 @@ export function sheetSnap(open: boolean, dy: number, vy: number): boolean {
   if (vy > 0.65 || dy > 48) return false;
   return open;
 }
+
+/**
+ * How far to raise an open-sheet edge so it does not cut a text block.
+ * `blocks` and `edge` share one axis (content y, or screen y). A block that
+ * crosses the edge pulls the edge to `gap` above that block. The result is
+ * capped so the viewport still has room to scroll the hidden copy into view.
+ */
+export function foldInset(blocks: readonly { top: number; bottom: number }[], edge: number, gap = 6): number {
+  if (!Number.isFinite(edge) || !Number.isFinite(gap)) return 0;
+  let cursor = edge;
+  for (let pass = 0; pass < 6; pass += 1) {
+    let hit: { top: number; bottom: number } | null = null;
+    for (const block of blocks) {
+      if (!Number.isFinite(block.top) || !Number.isFinite(block.bottom)) continue;
+      if (block.top < cursor - 0.5 && block.bottom > cursor + 0.5 && (hit == null || block.top < hit.top)) hit = block;
+    }
+    if (hit == null) break;
+    const next = hit.top - gap;
+    if (next >= cursor) break;
+    cursor = next;
+  }
+  const inset = Math.round(edge - cursor);
+  if (inset <= 0) return 0;
+  return Math.min(inset, 96);
+}

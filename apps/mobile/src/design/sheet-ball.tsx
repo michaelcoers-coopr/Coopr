@@ -39,9 +39,11 @@ export function SheetBall({ reduceMotion }: { reduceMotion: boolean }) {
         <Defs>
           <LinearGradient id="sheetball-olive" x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0" stopColor="#0A0E04" stopOpacity="0" />
-            <Stop offset="0.42" stopColor="#243008" stopOpacity="0.50" />
-            <Stop offset="0.58" stopColor="#3C4E0C" stopOpacity="0.34" />
-            <Stop offset="0.74" stopColor="#6A8A22" stopOpacity="0.20" />
+            <Stop offset="0.28" stopColor="#243008" stopOpacity="0.50" />
+            <Stop offset="0.40" stopColor="#6A8A22" stopOpacity="0.46" />
+            <Stop offset="0.50" stopColor="#3C4E0C" stopOpacity="0.34" />
+            <Stop offset="0.66" stopColor="#A4CC3A" stopOpacity="0.22" />
+            <Stop offset="0.82" stopColor="#6A8A22" stopOpacity="0.12" />
             <Stop offset="1" stopColor="#A4CC3A" stopOpacity="0.08" />
           </LinearGradient>
           <RadialGradient id="sheetball-halo" cx="50%" cy="50%" r="50%">

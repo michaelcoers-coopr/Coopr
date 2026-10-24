@@ -41,8 +41,7 @@ describe('sheet ball', () => {
 
   it('keeps the mic, the tab gap, and the open-sheet fades', () => {
     expect(SHEET_BALL_SCROLL_FADE).toBe(48);
-    expect(SHEET_BALL_SCROLL_FADE_BOTTOM).toBe(8);
-    expect(SHEET_BALL_SCROLL_FADE_BOTTOM).toBeLessThan(12);
+    expect(SHEET_BALL_SCROLL_FADE_BOTTOM).toBe(0);
     const play = readFileSync(join(here, '../app/play.tsx'), 'utf8');
     expect(play).toContain('marginTop: SHEET_BALL_TEXT.closedPx');
     expect(play).not.toContain('!sheetOpen ? { marginTop: SHEET_BALL_TEXT.closedPx }');

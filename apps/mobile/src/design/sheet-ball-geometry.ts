@@ -16,8 +16,8 @@ export const SHEET_BALL_OLIVE_FULL_UNTIL = 220;
 /** Top of the open scroll. Glyphs dissolve here instead of being cut. */
 export const SHEET_BALL_SCROLL_FADE = 48;
 
-/** Bottom of the open scroll. A short feather, so a line at rest is not dissolved in half. */
-export const SHEET_BALL_SCROLL_FADE_BOTTOM = 8;
+/** Bottom of the open scroll. A hard clip, so a glyph row at rest is not left as a sliver. */
+export const SHEET_BALL_SCROLL_FADE_BOTTOM = 0;
 
 /**
  * Closed: gap under the Course / Coach AI / Stats row.

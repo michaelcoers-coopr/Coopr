@@ -62,7 +62,7 @@ import { HoleMap } from '../src/hole-map';
 import { boom, celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { acceptHoleGesture, shouldAutoAdvance } from '../src/design/hole-nav';
 import { holeSwipe, rollSteps } from '../src/design/motion';
-import { clubDetail, clubFigure, closedPlaySheet, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreCommit, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { clubDetail, clubFigure, closedPlaySheet, foldInset, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreCommit, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { SheetBall } from '../src/design/sheet-ball';
 import { SHEET_BALL_SCROLL_FADE, SHEET_BALL_SCROLL_FADE_BOTTOM, SHEET_BALL_TEXT } from '../src/design/sheet-ball-geometry';
 import { caddieVoiceLine } from '../src/design/caddie-voice';
@@ -91,6 +91,56 @@ const pilot = loadHighCedarsPilot();
 /** Tall enough for a wrapped caddie sentence and the mic. The locked HUD constant stays shorter. */
 const SHEET_CLOSED = 176;
 const SHEET_OPEN = 540;
+
+function sheetScrollElement(view: ScrollViewInstance | null): HTMLElement | null {
+  if (view == null || typeof HTMLElement === 'undefined') return null;
+  const node = view.getScrollableNode() as unknown;
+  return node instanceof HTMLElement ? node : null;
+}
+
+/** Text blocks in content-y, so a scroll offset does not move the rest edge. */
+function foldBlocks(scroll: HTMLElement): { top: number; bottom: number }[] {
+  const content = scroll.firstElementChild;
+  if (!(content instanceof HTMLElement) || typeof document === 'undefined') return [];
+  const origin = content.getBoundingClientRect().top;
+  const blocks: { top: number; bottom: number }[] = [];
+  const seen = new Set<HTMLElement>();
+  const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  while (node) {
+    const parent = node.parentElement;
+    const value = node.textContent ?? '';
+    if (parent && value.trim().length > 0) {
+      let box = parent.getBoundingClientRect();
+      const ranged = box.height > 120 || box.height < 8;
+      if (ranged) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        box = range.getBoundingClientRect();
+      }
+      if (!ranged && seen.has(parent)) {
+        node = walker.nextNode();
+        continue;
+      }
+      if (!ranged) seen.add(parent);
+      if (box.height >= 8 && box.height <= 120 && box.width >= 8) {
+        blocks.push({ top: box.top - origin, bottom: box.bottom - origin });
+      }
+    }
+    node = walker.nextNode();
+  }
+  return blocks;
+}
+
+/** Content-y of the scroll edge as if the extra fold pad were not applied. */
+function restFoldEdge(scroll: HTMLElement, pad: number): number {
+  const content = scroll.firstElementChild;
+  if (!(content instanceof HTMLElement)) return scroll.clientHeight + pad;
+  const scrollRect = scroll.getBoundingClientRect();
+  const contentRect = content.getBoundingClientRect();
+  return scrollRect.bottom - contentRect.top - scroll.scrollTop + pad;
+}
+
 /** The score bar is hidden while the sheet is open, so the camera does not reserve its clearance. */
 const OPEN_DOCK_CLEAR = 68;
 const VOICE_DWELL_MS = 8000;
@@ -226,6 +276,9 @@ export default function PlayScreen() {
   const rollHole = useRef<number | null>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detailsRef = useRef<ScrollViewInstance>(null);
+  const [foldPad, setFoldPad] = useState(0);
+  const foldPadRef = useRef(0);
+  foldPadRef.current = foldPad;
   const leaveRef = useRef<() => void>(() => {});
   const backRef = useRef<() => void>(() => {});
   const holeNo = useRef(1);
@@ -658,6 +711,37 @@ export default function PlayScreen() {
     if (!sheetOpen) return;
     detailsRef.current?.scrollTo({ y: 0, animated: false });
   }, [sheetOpen, talk.transcript, talk.reply, talk.voiceHint]);
+
+  useLayoutEffect(() => {
+    if (!sheetOpen || sheetTab !== 'coach' || Platform.OS !== 'web') {
+      setFoldPad(0);
+      return;
+    }
+    let stopped = false;
+    const measure = () => {
+      if (stopped) return;
+      const scroll = sheetScrollElement(detailsRef.current);
+      if (!scroll || scroll.clientHeight < 40) return;
+      const blocks = foldBlocks(scroll);
+      if (blocks.length === 0) return;
+      const next = foldInset(blocks, restFoldEdge(scroll, foldPadRef.current));
+      setFoldPad((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    const scroll = sheetScrollElement(detailsRef.current);
+    if (observer && scroll) {
+      observer.observe(scroll);
+      if (scroll.firstElementChild) observer.observe(scroll.firstElementChild);
+      if (scroll.parentElement) observer.observe(scroll.parentElement);
+    }
+    const timer = setTimeout(measure, 60);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      observer?.disconnect();
+    };
+  }, [sheetOpen, sheetTab, talk.reply, talk.transcript, talk.typed, talk.voiceHint, talk.draft, currentHole, scrubIndex, player, manual, keyboard]);
 
   useEffect(() => {
     if (!sheetOpen || talk.voiceHint == null || Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -1261,7 +1345,7 @@ export default function PlayScreen() {
           </View>
           ) : null}
           {sheetOpen && sheetTab === 'coach' ? (
-          <ScrollView ref={detailsRef} style={[styles.details, styles.scrollMask, { marginBottom: SHEET_BALL_TEXT.openPx }]} contentContainerStyle={styles.detailsBody} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+          <ScrollView ref={detailsRef} style={[styles.details, styles.scrollMask, { marginBottom: SHEET_BALL_TEXT.openPx + foldPad }]} contentContainerStyle={styles.detailsBody} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
             {talk.typed ? (
               <View style={styles.typeRow}>
                 <TextInput
@@ -1643,7 +1727,7 @@ const styles = StyleSheet.create({
   kicker: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
   details: { flex: 1, minHeight: 0, zIndex: 1 },
   scrollMask: {
-    maskImage: `linear-gradient(to bottom, transparent, #000 ${SHEET_BALL_SCROLL_FADE}px, #000 calc(100% - ${SHEET_BALL_SCROLL_FADE_BOTTOM}px), transparent)`,
+    maskImage: `linear-gradient(to bottom, transparent, #000 ${SHEET_BALL_SCROLL_FADE}px, #000 calc(100% - ${SHEET_BALL_SCROLL_FADE_BOTTOM}px))`,
   } as unknown as ViewStyle,
   heard: { paddingHorizontal: 16, paddingBottom: 4, gap: 4, zIndex: 1 },
   detailsBody: { paddingHorizontal: 16, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 48, gap: 12 },
