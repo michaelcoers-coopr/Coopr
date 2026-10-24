@@ -127,6 +127,51 @@ describe('talk tools', () => {
     const chill = await sampleTalkReply({ ...tee, persona: 'chill' }, 'What should I hit?');
     expect(chill.line).toBe('Par 5. Driver will not reach the green.');
   });
+
+  it('answers wind, elevation, temperature, and distance from the readings, or says they are missing', async () => {
+    const quiet = buildTalkContext({ hole: 3, par: 4, atTee: false, gpsYards: 158, profiles: [seven] });
+    expect((await sampleTalkReply(quiet, "What's the wind doing?")).line).toBe('No wind reading yet.');
+    expect((await sampleTalkReply(quiet, "What's the elevation?")).line).toBe('No elevation reading yet.');
+    expect((await sampleTalkReply(quiet, 'How hot is it?')).line).toBe('No temperature reading yet.');
+    expect((await sampleTalkReply(quiet, 'How far is it?')).line).toBe('158 yards.');
+    const live = buildTalkContext({
+      hole: 3,
+      par: 4,
+      atTee: false,
+      gpsYards: 158,
+      windMph: 6,
+      headwindMph: -4,
+      elevationFeet: 18,
+      temperatureF: 72,
+      profiles: [seven],
+    });
+    const wind = await sampleTalkReply(live, "What's the wind doing?");
+    expect(wind.line).toMatch(/Wind 6 miles per hour/);
+    expect(wind.line).toMatch(/Helping/);
+    expect(wind.line).not.toMatch(/7-iron|Grip it/);
+    expect((await sampleTalkReply(live, "What's the elevation?")).line).toMatch(/18 feet up/);
+    expect((await sampleTalkReply(live, 'How hot is it?')).line).toBe('72 degrees.');
+    const blank = buildTalkContext({ hole: 3, par: 4, atTee: false, gpsYards: null, profiles: [seven] });
+    expect((await sampleTalkReply(blank, 'How far is it?')).line).toBe('No distance yet.');
+  });
+
+  it('calls an easy swing in whole yards when the shot is shorter than every club', async () => {
+    const context = buildTalkContext({
+      hole: 7,
+      par: 3,
+      atTee: false,
+      gpsYards: 40,
+      headwindMph: 0,
+      elevationFeet: 0,
+      temperatureF: 70,
+      profiles: [driver, profile({ clubId: 'pw', clubLabel: 'Pitching wedge', metric: 'carry', stockYards: 90.4 })],
+    });
+    const reply = await sampleTalkReply(context, 'What should I hit?');
+    expect(reply.line).toMatch(/Pitching wedge/);
+    expect(reply.line).toMatch(/90/);
+    expect(reply.line).not.toMatch(/No club/);
+    expect(reply.line).not.toMatch(/\d+\.\d/);
+  });
 });
 
 describe('barge-in', () => {

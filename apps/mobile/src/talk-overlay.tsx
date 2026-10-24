@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   buildTalkContext,
@@ -12,7 +12,7 @@ import {
 } from '@coopr/engine';
 import { font, type } from '@coopr/tokens';
 import { useDisplayFace } from './design/display-font';
-import { GLASS_OVERLAY } from './design/glass';
+import { BlurView } from 'expo-blur';
 import { tick } from './haptics';
 import { deviceSpeechAvailable, listenForSpeech, type HeardSpeech } from './speech/recognize';
 import { caddieSpeaker, speakSentences } from './speech/tts';
@@ -184,7 +184,12 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers): { overlay
   const live = phase === 'listening' || phase === 'speaking';
   const overlay = open ? (
     <View style={styles.bleed} accessibilityViewIsModal>
-      <View style={[styles.panel, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
+      <View pointerEvents="none" style={styles.shade} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.panel, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}
+      >
         <View style={styles.top}>
           <Pressable
             accessibilityRole="button"
@@ -220,7 +225,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers): { overlay
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder="Type the question. Speech recognition is not on this build."
+              placeholder="Ask your caddie…"
               placeholderTextColor="rgba(255,255,255,0.55)"
               style={styles.input}
               accessibilityLabel="Typed ask"
@@ -257,7 +262,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers): { overlay
             <Text style={styles.micText}>Talk</Text>
           </Pressable>
         )}
-      </View>
+      </KeyboardAvoidingView>
     </View>
   ) : null;
 
@@ -272,7 +277,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     zIndex: 30,
-    backgroundColor: GLASS_OVERLAY,
+  },
+  shade: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(4,10,24,0.97)',
   },
   panel: { flex: 1, paddingHorizontal: 22, gap: 12 },
   top: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },

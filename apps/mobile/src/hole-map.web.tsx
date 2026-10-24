@@ -406,6 +406,21 @@ export function HoleMap(props: HoleMapProps) {
                   <Polygon points={ellipseDraw.glow} fill={ink} fillOpacity={0.22} stroke="none" />
                   <Polygon points={ellipseDraw.solid} fill={`url(#${uid}-ovalfill)`} stroke={ink} strokeWidth={1.75} />
                   <Polygon points={ellipseDraw.solid} fill={ink} fillOpacity={0.16} stroke="none" />
+                  {props.ellipseCaption ? (
+                    <MapText
+                      x={ellipseDraw.cx}
+                      y={ellipseDraw.cy - Math.max(10, ellipseDraw.halfH) - 4}
+                      fill="#FFFFFF"
+                      fontSize={11}
+                      fontWeight="700"
+                      fontFamily={font.family}
+                      fontFeatureSettings='"tnum"'
+                      textAnchor="middle"
+                      style={mapLabelStyle}
+                    >
+                      {props.ellipseCaption}
+                    </MapText>
+                  ) : null}
                 </G>
               );
             })()

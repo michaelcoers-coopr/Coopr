@@ -287,10 +287,12 @@ function attachPill(
   visible: LabelBox,
   extra: readonly LabelBox[] = [],
   side: 1 | -1 | null = null,
+  minPerp = 0,
 ): { box: LabelBox; leader: boolean } | null {
   const halfW = Math.floor(size.w / 2);
   const halfH = Math.floor(size.h / 2);
-  for (let perp = 0; perp <= halfW; perp += 1) {
+  const floor = Math.max(0, Math.ceil(minPerp));
+  for (let perp = 0; perp <= halfW && floor === 0; perp += 1) {
     for (let along = 0; along <= halfH; along += 1) {
       const perpShifts = perp === 0 ? [0] : [perp, -perp];
       const alongShifts = along === 0 ? [0] : [-along, along];
@@ -305,7 +307,7 @@ function attachPill(
   const maxShift = Math.ceil(LEADER_MAX + size.w / 2 + size.h / 2);
   const alongNudge = [0, -4, -8, -12, -16, -20, -24, 4, 8, 12];
   const signs: Array<1 | -1> = side == null ? [1, -1] : [side];
-  for (let step = 1; step <= maxShift; step += 1) {
+  for (let step = Math.max(1, floor); step <= maxShift; step += 1) {
     for (const sign of signs) {
       for (const alongShift of alongNudge) {
         const placed = placeAt(anchor, size, axis, step * sign, alongShift, green, taken, visible, extra);
@@ -342,7 +344,8 @@ export function layoutHoleLabels(input: HoleLabelLayoutInput): HoleLabelLayout {
 
   for (const label of yards) {
     const size = pillSize(label.text);
-    const placed = attachPill(label.at, size, axis, green, taken, visible);
+    const side = roomierSide(label.at, axis, visible);
+    const placed = attachPill(label.at, size, axis, green, taken, visible, [], side, size.w / 2 + 8);
     if (!placed) continue;
     taken.push(placed.box);
     labels.push({

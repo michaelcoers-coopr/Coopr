@@ -189,8 +189,9 @@ describe('round calls', () => {
     });
     expect(card.posture).toBe('decline');
     expect(card.clubId).toBeNull();
-    expect(card.lines.reason).toMatch(/No club/);
+    expect(card.lines.reason).not.toMatch(/No club/);
     expect(card.lines.reason).toMatch(/213/);
+    expect(card.lines.club).toBe('—');
     const close = recommend({
       targetDistanceYards: 210,
       targetMetric: 'total',
@@ -202,6 +203,22 @@ describe('round calls', () => {
     expect(close.clubLabel).toBe('Driver');
     expect(close.posture).not.toBe('decline');
     expect(close.passedCloser).toBeNull();
+    const easy = recommend({
+      targetDistanceYards: 40,
+      targetMetric: 'total',
+      hazards: [],
+      intent: 'neutral',
+      riskPreference: 'neutral',
+      profiles: [stock({}), stock({ clubId: 'pw', clubLabel: 'Pitching wedge', stockYards: 90, p20: 82, p50: 90, p80: 98, longestYards: 104 })],
+    });
+    expect(easy.posture).toBe('conservative');
+    expect(easy.clubId).toBe('pw');
+    expect(easy.swingMode).toBe('partial');
+    expect(easy.lines.reason).toMatch(/Pitching wedge/);
+    expect(easy.lines.reason).toMatch(/90/);
+    expect(easy.lines.reason).toMatch(/40/);
+    expect(easy.lines.reason).not.toMatch(/No club/);
+    expect(easy.lines.reason).not.toMatch(/\d+\.\d/);
   });
 
   it('names a closer club that lost on scatter and still calls the tighter stock', () => {

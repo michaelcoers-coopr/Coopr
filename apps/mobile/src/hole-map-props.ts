@@ -8,6 +8,8 @@ export interface HoleMapProps {
   bunkers: readonly (readonly LatLon[])[];
   hazards: readonly (readonly LatLon[])[];
   ellipse: readonly LatLon[] | null;
+  /** Short mark drawn on a sample oval, so it is not read as a measured pattern. */
+  ellipseCaption?: string | null;
   /** Semantic fill for the dispersion oval. Omitted when there is no oval. */
   ellipseColor?: string | null;
   /** Aim curve between two real points. A drawing, not a measured flight. */

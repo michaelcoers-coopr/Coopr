@@ -105,7 +105,7 @@ export function holeShift(from: number, to: number): 'forward' | 'back' | 'none'
  * The flag is drawn above the green point, and the tee mark hangs below the line.
  * The score bar floats on the map, so it does not stack under the sheet.
  */
-const PIN_CLEAR = 30;
+const PIN_CLEAR = 36;
 const TEE_CLEAR = 16;
 /** Room so the tee mark sits above the floating Score / Mark / Ask chips. */
 const SCORE_CLEAR = 68;
@@ -114,7 +114,7 @@ const SCORE_CLEAR = 68;
  * Room the map keeps for the compact yardage HUD.
  * The panel's measured height is not an input, so opening the breakdown does not move the hole.
  */
-export const MAP_PANEL_CLEAR = 92;
+export const MAP_PANEL_CLEAR = 118;
 
 export function mapHudInset(safeTop: number): number {
   const safe = Number.isFinite(safeTop) ? Math.max(0, safeTop) : 0;

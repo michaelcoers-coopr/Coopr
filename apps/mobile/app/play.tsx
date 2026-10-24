@@ -626,7 +626,22 @@ export default function PlayScreen() {
   const teePoint = overlay.line[0] ?? null;
   const onTee = teePoint == null || player == null || distanceYards(player, teePoint) <= NEXT_TEE_YARDS;
   const teeCarry = carryProfile(profiles, shownId)?.stockYards ?? null;
-  const reachYards = teeWindowYards(teeCarry, lineLengthYards(overlay.line));
+  const longestCarry = profiles.reduce((best, profile) => {
+    if (profile.metric !== 'carry' || profile.sampleSize < 5 || !(profile.stockYards > 0)) return best;
+    return Math.max(best, profile.stockYards);
+  }, 0);
+  const windowStock = teeCarry ?? (longestCarry > 0 ? longestCarry : null);
+  const grassPoints = overlay.fairways.flatMap((feature) => feature.rings.flat());
+  let grassStart: number | null = null;
+  if (teePoint) {
+    let nearest = Number.POSITIVE_INFINITY;
+    for (const point of grassPoints) {
+      const yards = distanceYards(teePoint, point);
+      if (yards < nearest) nearest = yards;
+    }
+    if (nearest < Number.POSITIVE_INFINITY) grassStart = nearest;
+  }
+  const reachYards = teeWindowYards(windowStock, lineLengthYards(overlay.line), grassStart);
   const cameraKind = onTee && fullHole && reachYards != null ? 'tee' : onTee || fullHole || !player ? 'hole' : 'green';
   const oval: DispersionOval | null = sampleOn && !noShots ? dispersionOval([...SAMPLE_PATTERN]) : null;
   const landingYards = focusedPlays ?? focusedRaw;
@@ -718,21 +733,12 @@ export default function PlayScreen() {
   );
   const longTotal = !onGreen && !short && totalStock ? longestWords(totalStock, unit) : null;
   const answered = debriefs.some((item) => item.hole === hole.holeNumber);
-  const commitScore = () => {
-    if (strokes == null && par != null) setStrokes(hole.holeNumber, par);
-    if (puttCount == null) setPutts(hole.holeNumber, face.putts);
-  };
-
   const advance = () => {
     if (hole.holeNumber >= 18) return;
     setCurrentHole(hole.holeNumber + 1);
   };
 
   const leaveHole = () => {
-    const keeping = strokes ?? par;
-    const already = strokes != null;
-    commitScore();
-    if (!already && keeping != null && par != null && keeping <= par) void celebrate();
     advance();
   };
 
@@ -850,6 +856,7 @@ export default function PlayScreen() {
           bunkers={ringsOf(overlay.bunkers)}
           hazards={ringsOf(overlay.hazards)}
           ellipse={ellipse}
+          ellipseCaption={sampleOn && ellipse ? 'Sample' : null}
           ellipseColor={safety ? patternColor(safety) : null}
           flight={flight}
           reduceMotion={reduceMotion}
@@ -883,7 +890,7 @@ export default function PlayScreen() {
           setFullHole((open) => !open);
           void tick();
         }}
-        style={[styles.fullHole, { top: mapHudInset(insets.top) + 6 }]}
+        style={[styles.fullHole, { top: mapHudInset(insets.top) + 8 }]}
       >
         <Glass radius={16} contentStyle={styles.fullHoleFill}>
           <Text style={styles.fullHoleText}>{onTee ? (fullHole ? 'Full hole' : 'Tee shot') : fullHole ? 'To the green' : 'Full hole'}</Text>
@@ -910,10 +917,11 @@ export default function PlayScreen() {
               <View style={styles.chevron} />
             </Pressable>
             <Text style={[styles.headerTitle, { fontFamily: display }]} numberOfLines={1}>{`Hole ${hole.holeNumber} · Par ${par ?? '—'}`}</Text>
-            <View style={styles.thruSlot}>
-              <ThruBar label={thru.label} pips={thru.pips} />
-            </View>
+            <View style={styles.titleGap} />
             <Text style={styles.headerSi}>{`SI ${hole.strokeIndex ?? '—'}`}</Text>
+          </View>
+          <View style={styles.thruRow}>
+            <ThruBar label={thru.label} pips={thru.pips} />
           </View>
           {!player && manual == null && !overrideOpen ? (
             <Pressable
@@ -983,7 +991,7 @@ export default function PlayScreen() {
         </Glass>
       </View>
       {hazardYards != null ? (
-        <View pointerEvents="box-none" style={[styles.hazardFloat, { top: mapHudInset(insets.top) + 4 }]}>
+        <View pointerEvents="box-none" style={[styles.hazardFloat, { top: mapHudInset(insets.top) + 52 }]}>
           <Glass radius={18} contentStyle={styles.hazardFill}>
             <Text style={styles.hint}>{`Hazard ${formatDistance(hazardYards, unit)}`}</Text>
           </Glass>
@@ -1054,7 +1062,7 @@ export default function PlayScreen() {
             {longTotal ? <Text style={styles.body}>{longTotal}</Text> : null}
             {missLine ? <Text style={styles.body}>{missLine}</Text> : null}
             <Text style={styles.body}>Putts stay off the score.</Text>
-            <CountChip value={face.putts} confirmed={face.puttsConfirmed} par={null} floor={0} idleLabel="Putts" onWrite={writePutts} />
+            <CountChip value={puttCount} confirmed={face.puttsConfirmed} par={null} floor={0} idleLabel="Putts" onWrite={writePutts} />
             {face.suggestion != null && face.suggestion !== face.strokes ? (
               <Pressable
                 accessibilityRole="button"
@@ -1166,7 +1174,8 @@ const styles = StyleSheet.create({
   hud: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 10 },
   hudFill: { paddingHorizontal: 6, paddingTop: 2, paddingBottom: 4 },
   hudTop: { minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  thruSlot: { flex: 1, height: 8, justifyContent: 'center' },
+  titleGap: { flex: 1 },
+  thruRow: { minHeight: 20, justifyContent: 'center', paddingHorizontal: 4 },
   pressed: { transform: [{ scale: 0.96 }] },
   backHit: { width: 32, height: 28, alignItems: 'center', justifyContent: 'center' },
   chevron: {
@@ -1278,7 +1287,7 @@ const styles = StyleSheet.create({
   dock: { position: 'absolute', left: 12, right: 112, zIndex: 6, gap: 4 },
   dockRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
   askFloat: { position: 'absolute', right: 8, zIndex: 7 },
-  fullHole: { position: 'absolute', right: 12, zIndex: 5 },
+  fullHole: { position: 'absolute', left: 12, zIndex: 5 },
   fullHoleFill: { minHeight: 36, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
   fullHoleText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, fontWeight: font.semibold },
   markHit: { flex: 1, minHeight: 56 },

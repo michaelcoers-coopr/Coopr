@@ -110,6 +110,18 @@ export function HoleMap(props: HoleMapProps) {
         {props.ellipse && props.ellipse.length > 2 ? (
           <Polygon coordinates={coords(props.ellipse)} fillColor={props.ellipseColor ?? '#8AC926'} strokeColor={props.ellipseColor ?? '#8AC926'} strokeWidth={2} />
         ) : null}
+        {props.ellipse && props.ellipse.length > 2 && props.ellipseCaption ? (
+          <Marker
+            coordinate={{
+              latitude: props.ellipse.reduce((sum, point) => sum + point.lat, 0) / props.ellipse.length,
+              longitude: props.ellipse.reduce((sum, point) => sum + point.lon, 0) / props.ellipse.length,
+            }}
+            anchor={{ x: 0.5, y: 1.4 }}
+            tracksViewChanges={false}
+          >
+            <Text style={styles.sampleMark}>{props.ellipseCaption}</Text>
+          </Marker>
+        ) : null}
         {props.flight && props.flight.length > 1 ? <Polyline coordinates={coords(props.flight)} strokeColor="#FFFFFF" strokeWidth={3} /> : null}
         {props.dispersionLine.length > 1 ? <Polyline coordinates={coords(props.dispersionLine)} strokeColor={colors.white} strokeWidth={4} /> : null}
         {props.measure.length > 1 ? <Polyline coordinates={coords(props.measure)} strokeColor={colors.red} strokeWidth={3} /> : null}
@@ -140,6 +152,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#0B1F3A',
+  },
+  sampleMark: {
+    color: '#FFFFFF',
+    backgroundColor: 'rgba(11,31,58,0.92)',
+    overflow: 'hidden',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    fontFamily: font.family,
+    fontSize: 11,
+    fontWeight: '700',
   },
   readout: {
     position: 'absolute',

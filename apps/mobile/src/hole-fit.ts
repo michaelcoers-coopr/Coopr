@@ -203,13 +203,18 @@ export function lineLengthYards(line: readonly LatLon[]): number {
  * The far end is the stock carry plus 40 yards. A 150, 200, or 250 mark
  * just past that still gets into the frame. A short hole stops at the green.
  */
-export function teeWindowYards(stockCarry: number | null, holeYards: number): number | null {
-  if (stockCarry == null || !Number.isFinite(stockCarry) || stockCarry <= 0) return null;
+export function teeWindowYards(stockCarry: number | null, holeYards: number, fairwayStartYards: number | null = null): number | null {
   if (!Number.isFinite(holeYards) || holeYards <= 0) return null;
-  const reach = stockCarry + PAST_STOCK_YARDS;
-  const marks = TEE_SHOT_MARKS.filter((yards) => yards <= reach + PAST_STOCK_YARDS && yards < holeYards);
-  const far = Math.max(reach, ...marks);
-  return Math.min(holeYards, far + 16);
+  const fromStock = stockCarry != null && Number.isFinite(stockCarry) && stockCarry > 0 ? stockCarry + PAST_STOCK_YARDS : null;
+  const fromGrass =
+    fairwayStartYards != null && Number.isFinite(fairwayStartYards) && fairwayStartYards > 0 ? fairwayStartYards + PAST_STOCK_YARDS : null;
+  // A missing stock is a camera crop from the grass, or the 250 mark on a long hole. It is not a carry.
+  const base = fromStock ?? fromGrass ?? (holeYards > 266 ? 250 : null);
+  if (base == null) return null;
+  const marks = TEE_SHOT_MARKS.filter((yards) => yards <= base + PAST_STOCK_YARDS && yards < holeYards);
+  const far = Math.max(base, ...marks);
+  const window = Math.min(holeYards, far + 16);
+  return window >= holeYards - 8 ? null : window;
 }
 
 export interface PlayView {

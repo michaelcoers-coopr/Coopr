@@ -44,10 +44,10 @@ describe('map inset', () => {
     const floating = holeFrame({ hudHeight: inset, dockHeight: 0, sheetClosed: CLOSED_CARD });
     const measured = holeFrame({ hudHeight: mapHudInset(0), dockHeight: 96, sheetClosed: CLOSED_CARD });
     expect(measured).toEqual(floating);
-    expect(mapHudInset(0)).toBe(92);
-    expect(mapHudInset(47)).toBe(139);
-    expect(mapHudInset(Number.NaN)).toBe(92);
-    expect(floating.top).toBeLessThanOrEqual(140);
+    expect(mapHudInset(0)).toBe(118);
+    expect(mapHudInset(47)).toBe(165);
+    expect(mapHudInset(Number.NaN)).toBe(118);
+    expect(floating.top).toBeLessThanOrEqual(170);
     const open = 844 - floating.top - floating.bottom;
     expect(open).toBeGreaterThan(844 * 0.55);
   });

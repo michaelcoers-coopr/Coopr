@@ -123,7 +123,8 @@ describe('hole 1 map labels', () => {
     for (const yards of ['150', '300', '450']) {
       const pill = placed.labels.find((item) => item.text === yards);
       expect(pill, yards).toBeTruthy();
-      expect(leaderLength(pill!.anchor, pill!.box), yards).toBe(0);
+      expect(leaderLength(pill!.anchor, pill!.box), yards).toBeGreaterThan(0);
+      expect(leaderLength(pill!.anchor, pill!.box), yards).toBeLessThanOrEqual(LEADER_MAX);
     }
 
     for (const label of placed.labels) {

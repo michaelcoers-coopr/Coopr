@@ -1,7 +1,7 @@
 import type { DistanceProfile } from './profile';
 import { recommend } from './caddie';
 import { playsLike } from './phase2';
-import { parseAsk, type AskMiss } from './voice';
+import { conditionAnswer, parseAsk, type AskMiss } from './voice';
 
 /** Chill is short. Chirpy is the default. Neither may invent a number. */
 export type TalkPersona = 'chirpy' | 'chill';
@@ -234,7 +234,7 @@ function playsLikeLine(context: TalkContext, playsLikeYards: number | null, raw:
 }
 
 function clubLine(persona: TalkPersona, club: string | null, yards: number | null): string {
-  if (!club || yards == null || !Number.isFinite(yards)) return 'No club. A number is missing, so nothing was called.';
+  if (!club || yards == null || !Number.isFinite(yards)) return 'A number is missing, so nothing was called.';
   const card = roundYards(yards);
   if (persona === 'chill') return `${club}. ${card}.`;
   return `Grip it and rip it. ${club}, ${card}.`;
@@ -300,6 +300,7 @@ export function runTalkTool(name: string, args: unknown, context: TalkContext): 
       personality: 'direct_analytical',
     });
     const called = card.posture === 'decline' ? null : card.clubLabel ? clubHead(card.clubLabel) : null;
+    const partial = card.swingMode === 'partial' && called != null;
     const known = called ? context.clubs.find((club) => club.clubLabel === called || club.clubId === card.clubId) : null;
     return {
       name,
@@ -308,10 +309,10 @@ export function runTalkTool(name: string, args: unknown, context: TalkContext): 
       data: {
         clubId: called ? card.clubId : null,
         clubLabel: called,
-        yards: called ? target : null,
+        yards: called && !partial ? target : null,
         dispersionYards: known?.dispersionYards ?? null,
       },
-      line: called ? clubLine(context.persona, called, target) : card.lines.reason.replace(/^Declining\.\s*/, ''),
+      line: partial || !called ? card.lines.reason.replace(/^Declining\.\s*/, '') : clubLine(context.persona, called, target),
     };
   }
 
@@ -417,8 +418,19 @@ export async function sampleTalkReply(context: TalkContext, transcript: string):
       heard: false,
     };
   }
-  if (intent.question === 'plays_like' || /\bplay/.test(spoken.toLowerCase()) && /like/.test(spoken.toLowerCase())) {
+  if (intent.question === 'plays_like' || (/\bplay/.test(spoken.toLowerCase()) && /like/.test(spoken.toLowerCase()))) {
     const line = say(runTalkTool('get_plays_like', {}, context));
+    return { mode: 'sample', line, sentences: talkSentences(line), tools, heard: false };
+  }
+  if (intent.question === 'wind' || intent.question === 'elevation' || intent.question === 'temperature' || intent.question === 'distance') {
+    const line = conditionAnswer(intent.question, {
+      windMph: context.windMph,
+      headwindMph: context.headwindMph,
+      windYards: context.windYards,
+      elevationFeet: context.elevationFeet,
+      temperatureF: context.temperatureF,
+      distanceYards: intent.distanceYards ?? context.gpsYards,
+    });
     return { mode: 'sample', line, sentences: talkSentences(line), tools, heard: false };
   }
   const named = mentionedClub(spoken, context.clubs);
