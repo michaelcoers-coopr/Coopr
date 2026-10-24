@@ -1,5 +1,6 @@
 import type { LatLon } from '@coopr/domain';
 import type { MapPad } from '@coopr/engine';
+import type { MapTileSource } from './tile-source';
 
 export interface HoleMapProps {
   line: readonly LatLon[];
@@ -44,4 +45,11 @@ export interface HoleMapProps {
     reachYards: number | null;
     from: LatLon | null;
   } | null;
+  /**
+   * Play-only grade. Home leaves this off so the shared map stays as it is.
+   * Deeper greens, tree shadow, teal water, and brighter sand.
+   */
+  aerial?: boolean;
+  /** Swappable imagery. A null provider keeps the vector drawing. */
+  imagery?: MapTileSource | null;
 }

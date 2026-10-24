@@ -29,7 +29,7 @@ export interface TalkHandlers {
   onNext: () => void;
 }
 
-function YardageLine({ text }: { text: string }) {
+export function YardageLine({ text }: { text: string }) {
   const face = useDisplayFace();
   const parts = text.split(/(\d+(?:\.\d+)?)/);
   return (
@@ -47,17 +47,29 @@ function YardageLine({ text }: { text: string }) {
   );
 }
 
-function Waveform({ live }: { live: boolean }) {
+export function Waveform({ live, compact = false }: { live: boolean; compact?: boolean }) {
   return (
     <View style={styles.wave} accessibilityLabel={live ? 'Live waveform' : 'Waveform'}>
       {BARS.map((height, index) => (
-        <View key={index} style={[styles.bar, { height: 16 + height * 52, opacity: live ? 0.95 : 0.35 }]} />
+        <View key={index} style={[styles.bar, { height: (compact ? 6 : 16) + height * (compact ? 18 : 52), opacity: live ? 0.95 : 0.35 }]} />
       ))}
     </View>
   );
 }
 
-export function useTalkCaddie(input: TalkContextInput & TalkHandlers): { overlay: ReactNode; open: () => void; phase: TalkMachine['phase'] } {
+export function useTalkCaddie(input: TalkContextInput & TalkHandlers & { surface?: 'overlay' | 'sheet' }): {
+  overlay: ReactNode;
+  open: () => void;
+  close: () => void;
+  phase: TalkMachine['phase'];
+  transcript: string;
+  reply: string;
+  sample: boolean;
+  typed: boolean;
+  draft: string;
+  setDraft: (value: string) => void;
+  ask: (text: string) => Promise<void>;
+} {
   const latest = useRef(input);
   latest.current = input;
   const prefs = useTalkPrefs();
@@ -151,6 +163,14 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers): { overlay
     if (heard == null) setPhase(machine.current.phase);
   };
 
+  const closeTalk = () => {
+    move('close');
+    gate.current.stopped = true;
+    speaker.current.stop();
+    stopEar();
+    setOpen(false);
+  };
+
   const openTalk = () => {
     const next = move(machine.current.phase === 'speaking' ? 'barge' : 'listen');
     if (next.stopSpeech) gate.current.stopped = true;
@@ -182,7 +202,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers): { overlay
 
   const insets = useSafeAreaInsets();
   const live = phase === 'listening' || phase === 'speaking';
-  const overlay = open ? (
+  const overlay = input.surface === 'sheet' || !open ? null : (
     <View style={styles.bleed} accessibilityViewIsModal>
       <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
       <View pointerEvents="none" style={styles.shade} />
@@ -194,13 +214,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers): { overlay
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close caddie"
-            onPress={() => {
-              move('close');
-              gate.current.stopped = true;
-              speaker.current.stop();
-              stopEar();
-              setOpen(false);
-            }}
+            onPress={closeTalk}
             style={styles.close}
           >
             <Text style={styles.closeText}>Close</Text>
@@ -264,9 +278,9 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers): { overlay
         )}
       </KeyboardAvoidingView>
     </View>
-  ) : null;
+  );
 
-  return { overlay, open: openTalk, phase };
+  return { overlay, open: openTalk, close: closeTalk, phase, transcript, reply, sample, typed, draft, setDraft, ask };
 }
 
 const styles = StyleSheet.create({

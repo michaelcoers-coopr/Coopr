@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
@@ -66,7 +66,7 @@ import { useDisplayFace } from '../src/design/display-font';
 import { MomentOverlay } from '../src/design/moments';
 import { fieldNavy } from '../src/design/theme';
 import { Glass, Vignette } from '../src/design/glass';
-import { ClubStrip, ConfidenceRing, ThruBar } from '../src/design/signature-ui';
+import { ClubStrip, ThruBar } from '../src/design/signature-ui';
 import { useReduceMotion } from '../src/design/reduce-motion';
 import { CountChip } from '../src/design/count-chip';
 import { lineLengthYards, PAST_STOCK_YARDS, pointAtYards, TEE_SHOT_MARKS, teeWindowYards } from '../src/hole-fit';
@@ -76,7 +76,9 @@ import { readWeather, type WeatherRead } from '../src/weather';
 import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
 import { caddieSpeaker, speakSentences } from '../src/speech/tts';
-import { useTalkCaddie } from '../src/talk-overlay';
+import { useTalkCaddie, Waveform, YardageLine } from '../src/talk-overlay';
+import { courseCall, holeSubline } from '../src/design/home-copy';
+import { VECTOR_TILE_SOURCE } from '../src/tile-source';
 import { useTalkPrefs } from '../src/talk-prefs';
 
 const pilot = loadHighCedarsPilot();
@@ -180,8 +182,10 @@ export default function PlayScreen() {
   const [roll, setRoll] = useState<number | null>(null);
   const [mapH, setMapH] = useState(844);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetTab, setSheetTab] = useState<'course' | 'coach' | 'stats'>('coach');
+  const [clock, setClock] = useState(() => Date.now());
+  const lineClock = useRef({ key: '', at: Date.now() });
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
-  const [breakdown, setBreakdown] = useState(false);
   const [sampleOn, setSampleOn] = useState(false);
   const [fullHole, setFullHole] = useState(false);
   const reduceMotion = useReduceMotion();
@@ -208,7 +212,6 @@ export default function PlayScreen() {
   useEffect(() => {
     if (typeof localStorage === 'undefined') return;
     setSampleOn(localStorage.getItem('coopr.sample.signature') === '1');
-    setBreakdown(localStorage.getItem('coopr.ui.breakdown') === '1');
     const scrub = localStorage.getItem('coopr.ui.scrub');
     if (scrub != null && /^\d+$/.test(scrub)) setScrubIndex(Number(scrub));
   }, []);
@@ -505,6 +508,7 @@ export default function PlayScreen() {
       });
     },
     onNext: () => leaveRef.current(),
+    surface: 'sheet',
   });
   openTalk.current = talk.open;
   const spokenCallout = useRef<string | null>(null);
@@ -541,6 +545,15 @@ export default function PlayScreen() {
       calloutLive.current = false;
     });
   }, [atTeeNow, currentHole, hole?.par, lastMark?.id, player, talk.phase, talkPrefs.callouts, voice, yardsFromLast, ground?.centerYards]);
+
+  useEffect(() => {
+    if (talk.phase !== 'idle') applySheet.current(true);
+  }, [talk.phase]);
+
+  useEffect(() => {
+    const id = setInterval(() => setClock(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   if (!hole || !overlay) {
     return (
@@ -711,6 +724,11 @@ export default function PlayScreen() {
   const closedSheet = closedPlaySheet(SHEET_CLOSED);
   closedSheetRef.current = closedSheet;
   if (!sheetOpenRef.current) sheetH.value = closedSheet;
+  const frameSheet = sheetOpen || talk.phase !== 'idle' ? SHEET_OPEN : closedSheet;
+  const lineKey = `${shownId ?? ''}:${oneLiner ?? ''}:${band ?? ''}`;
+  if (lineClock.current.key !== lineKey) lineClock.current = { key: lineKey, at: Date.now() };
+  const updatedAgo = Math.max(0, Math.round((clock - lineClock.current.at) / 1000));
+  const carryYards = shownProfile?.stockYards != null && Number.isFinite(shownProfile.stockYards) ? Math.round(shownProfile.stockYards) : null;
   const windMph = sky?.current?.windMph;
   const windKnown = windMph != null && Number.isFinite(windMph);
   const windText = windKnown ? String(Math.round(windMph)) : '?';
@@ -834,7 +852,7 @@ export default function PlayScreen() {
         <HoleMap
           bleed
           height={mapH}
-          pad={holeFrame({ hudHeight: mapHudInset(insets.top), dockHeight: 0, sheetClosed: closedSheet })}
+          pad={holeFrame({ hudHeight: mapHudInset(insets.top), dockHeight: 0, sheetClosed: frameSheet })}
           orient={bearing != null && overlay.line[0] ? { bearing, origin: overlay.line[0] } : null}
           camera={{ kind: cameraKind, reachYards, from: player }}
           labels={
@@ -880,8 +898,10 @@ export default function PlayScreen() {
           onTap={() => undefined}
           rawLabel=""
           playsLabel=""
+          aerial
+          imagery={VECTOR_TILE_SOURCE}
         />
-        <Vignette />
+        <Vignette deep />
       </Animated.View>
       <Pressable
         accessibilityRole="button"
@@ -913,15 +933,29 @@ export default function PlayScreen() {
             }}
             style={styles.hudTop}
           >
-            <Pressable accessibilityRole="button" accessibilityLabel="Home" onPress={() => router.push('/')} style={({ pressed }) => [styles.backHit, pressed && !reduceMotion && styles.pressed]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Previous hole" onPress={goBack} style={({ pressed }) => [styles.backHit, pressed && !reduceMotion && styles.pressed]}>
               <View style={styles.chevron} />
             </Pressable>
-            <Text style={[styles.headerTitle, { fontFamily: display }]} numberOfLines={1}>{`Hole ${hole.holeNumber} · Par ${par ?? '—'}`}</Text>
-            <View style={styles.titleGap} />
-            <Text style={styles.headerSi}>{`SI ${hole.strokeIndex ?? '—'}`}</Text>
+            <Text style={styles.pillMeta}>PAR</Text>
+            <Text style={[styles.pillNum, { fontFamily: display }]}>{par ?? '—'}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Home" onPress={() => router.push('/')} style={styles.ballHit}>
+              <View style={styles.ball}>
+                <View style={[styles.dimple, styles.dimpleA]} />
+                <View style={[styles.dimple, styles.dimpleB]} />
+                <View style={[styles.dimple, styles.dimpleC]} />
+                <Text style={[styles.ballNum, { fontFamily: display }]}>{hole.holeNumber}</Text>
+              </View>
+            </Pressable>
+            <Text style={styles.pillMeta}>HCP</Text>
+            <Text style={[styles.pillNum, { fontFamily: display }]}>{hole.strokeIndex ?? '—'}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Next hole" onPress={leaveHole} style={({ pressed }) => [styles.nextHit, pressed && !reduceMotion && styles.pressed]}>
+              <View style={styles.chevronNext} />
+            </Pressable>
           </View>
-          <View style={styles.thruRow}>
-            <ThruBar label={thru.label} pips={thru.pips} />
+          <View style={styles.chipRow}>
+            <Text style={styles.chip}>{focusedChips?.wind ?? 'Wind ?'}</Text>
+            <Text style={styles.chip}>{focusedChips?.elevation ?? 'Elev ?'}</Text>
+            <Text style={styles.chip}>{focusedChips?.temperature ?? 'Temp ?'}</Text>
           </View>
           {!player && manual == null && !overrideOpen ? (
             <Pressable
@@ -971,7 +1005,7 @@ export default function PlayScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={windKnown ? `Wind ${windText} miles per hour` : 'Wind unknown'}
-                onPress={() => setBreakdown((open) => !open)}
+                onPress={() => undefined}
                 style={({ pressed }) => [styles.windHit, pressed && !reduceMotion && styles.pressed]}
               >
                 <Glass radius={18} style={styles.windPill} contentStyle={styles.windFill} overlay={windKnown ? 'rgba(138,201,38,0.94)' : undefined}>
@@ -981,13 +1015,6 @@ export default function PlayScreen() {
               </Pressable>
             </View>
           )}
-          {breakdown ? (
-            <View style={styles.chips}>
-              <Text style={styles.chip}>{focusedChips?.wind ?? 'Wind ?'}</Text>
-              <Text style={styles.chip}>{focusedChips?.elevation ?? 'Elev ?'}</Text>
-              <Text style={styles.chip}>{focusedChips?.temperature ?? 'Temp ?'}</Text>
-            </View>
-          ) : null}
         </Glass>
       </View>
       {hazardYards != null ? (
@@ -1003,56 +1030,98 @@ export default function PlayScreen() {
             <View {...sheetPan.panHandlers} style={styles.handleHit}>
               <View style={styles.handle} />
             </View>
-            <View
-              style={[styles.clubRow, lowConfidence && !noShots && styles.dim]}
-              accessibilityLabel={noShots ? `${shownLabel ?? 'Club'}, No shots yet` : shownLabel ? confidenceLabel(shownLabel, percent) : 'Club'}
-            >
-              <ConfidenceRing percent={percent} size={sheetOpen ? 44 : 34} label={noShots ? 'No shots yet' : undefined} />
-              <View style={styles.clubCopy}>
-                <Text style={[styles.clubName, { fontFamily: display }]} numberOfLines={1}>
-                  {shownLabel ?? ''}
-                </Text>
-                {sheetOpen && noShots ? <Text style={styles.clubMeta}>No shots yet</Text> : null}
-                {sheetOpen && !noShots && percent != null ? <Text style={styles.clubMeta}>{`${percent}%`}</Text> : null}
-                {sheetOpen && !noShots && band ? <Text style={styles.clubMeta}>{band}</Text> : null}
-              </View>
+            <View style={styles.tabs}>
+              {(['course', 'coach', 'stats'] as const).map((tab) => (
+                <Pressable key={tab} accessibilityRole="button" accessibilityLabel={tab === 'coach' ? 'Coach AI' : tab === 'course' ? 'Course' : 'Stats'} onPress={() => setSheetTab(tab)}>
+                  <Text style={[styles.tab, sheetTab === tab && styles.tabOn]}>{tab === 'coach' ? 'Coach AI' : tab === 'course' ? 'Course' : 'Stats'}</Text>
+                </Pressable>
+              ))}
             </View>
-            {noShots ? (
-              <Text style={styles.line} numberOfLines={sheetOpen ? 3 : 2}>
-                No shots yet
-              </Text>
-            ) : oneLiner ? (
-              <Text style={styles.line} numberOfLines={sheetOpen ? 4 : 2}>
-                {oneLiner}
-              </Text>
+            {sheetTab === 'course' ? (
+              <Text style={styles.line} numberOfLines={2}>{`${courseCall(pilot.record.name)}. ${holeSubline({ hole: hole.holeNumber, par })}`}</Text>
+            ) : sheetTab === 'stats' ? (
+              <View style={styles.thruRow}>
+                <ThruBar label={thru.label} pips={thru.pips} />
+              </View>
+            ) : (
+              <View style={styles.tipCard}>
+                <Text style={styles.spark}>✦</Text>
+                <View style={styles.clubCopy}>
+                  <Text style={styles.tipTitle} numberOfLines={1}>{`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}</Text>
+                  <Text style={styles.clubMeta}>{`Updated ${updatedAgo}s ago`}</Text>
+                  {sheetOpen && oneLiner ? <Text style={styles.line} numberOfLines={3}>{oneLiner}</Text> : null}
+                  <Text style={[styles.carryLine, { fontFamily: display }]} numberOfLines={1}>
+                    {carryYards == null ? 'Carry not measured' : `${carryYards} carry`}
+                    {band ? `  ${band}` : `  ${PATTERN_INVITE}`}
+                  </Text>
+                </View>
+              </View>
+            )}
+            {sheetTab === 'coach' ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="Talk to the caddie" onPress={() => talk.open()} style={styles.micRow}>
+                <View style={styles.micDot} />
+                <Text style={styles.micLabel}>{talk.phase === 'listening' ? 'Listening' : talk.phase === 'speaking' ? 'Caddie' : 'Mic'}</Text>
+              </Pressable>
             ) : null}
-            {sheetOpen && risk ? <Text style={styles.line}>{risk.line}</Text> : null}
+          </View>
+          {sheetOpen && sheetTab === 'coach' ? (
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.talkGrow}>
+          <ScrollView style={styles.details} contentContainerStyle={styles.detailsBody} keyboardShouldPersistTaps="handled">
+            <Waveform live={talk.phase === 'listening' || talk.phase === 'speaking'} compact />
+            {talk.sample ? <Text style={styles.clubMeta}>Sample mode. No live model on this server.</Text> : null}
+            <Text style={styles.clubMeta}>You</Text>
+            <Text style={styles.line}>{talk.transcript || 'Hold the mic, or type it.'}</Text>
+            <Text style={styles.clubMeta}>Caddie</Text>
+            {talk.reply ? <YardageLine text={talk.reply} /> : <Text style={styles.line}> </Text>}
+            {talk.typed ? (
+              <View style={styles.typeRow}>
+                <TextInput
+                  value={talk.draft}
+                  onChangeText={talk.setDraft}
+                  placeholder="Ask your caddie…"
+                  placeholderTextColor="rgba(255,255,255,0.55)"
+                  style={styles.askInput}
+                  accessibilityLabel="Typed ask"
+                  onSubmitEditing={() => {
+                    const text = talk.draft;
+                    talk.setDraft('');
+                    void talk.ask(text);
+                  }}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Send question"
+                  onPress={() => {
+                    const text = talk.draft;
+                    talk.setDraft('');
+                    void talk.ask(text);
+                  }}
+                >
+                  <Text style={styles.micLabel}>Send</Text>
+                </Pressable>
+              </View>
+            ) : null}
             <ClubStrip
               clubs={stripClubs.map((club) => ({ id: club.id, label: club.label }))}
               index={stripClubs.findIndex((club) => club.id === shownId)}
               band={null}
-              peek={!sheetOpen}
+              peek={false}
               onIndex={setScrubIndex}
-              onOpen={() => applySheet.current(!sheetOpenRef.current)}
+              onOpen={() => applySheet.current(false)}
             />
-            {sheetOpen && noShots ? (
-              <View style={styles.tipHit}>
-                <Text style={styles.tip}>
-                  <Text accessibilityRole="button" accessibilityLabel="Log a shot after each swing" onPress={markHere} style={styles.tipLink}>
-                    {SHOT_LOG_TIP.split(', or ')[0]}
-                  </Text>
-                  <Text style={styles.tip}>, or </Text>
-                  <Text accessibilityRole="button" accessibilityLabel="Upload a TrackMan photo" onPress={() => router.push('/import')} style={styles.tipLink}>
-                    {SHOT_LOG_TIP.split(', or ')[1]}
-                  </Text>
+            {noShots ? (
+              <Text style={styles.tip}>
+                <Text accessibilityRole="button" accessibilityLabel="Log a shot after each swing" onPress={markHere} style={styles.tipLink}>
+                  {SHOT_LOG_TIP.split(', or ')[0]}
                 </Text>
-              </View>
-            ) : sheetOpen && patternLine ? (
+                <Text style={styles.tip}>, or </Text>
+                <Text accessibilityRole="button" accessibilityLabel="Upload a TrackMan photo" onPress={() => router.push('/import')} style={styles.tipLink}>
+                  {SHOT_LOG_TIP.split(', or ')[1]}
+                </Text>
+              </Text>
+            ) : patternLine ? (
               <Text style={styles.sample}>{patternLine}</Text>
             ) : null}
-          </View>
-          {sheetOpen ? (
-          <ScrollView style={styles.details} contentContainerStyle={styles.detailsBody} keyboardShouldPersistTaps="handled">
             {figure ? <Text style={styles.body}>{`${figure.label} ${formatDistance(figure.yards, unit)}`}</Text> : null}
             {whyLine ? <Text style={styles.body}>{whyLine}</Text> : null}
             {ask.banner ? <View>{ask.banner}</View> : null}
@@ -1097,7 +1166,16 @@ export default function PlayScreen() {
               <Text style={styles.body}>{score.holesEntered === 0 ? 'Round is in.' : `Round is in. Gross ${score.gross}.`}</Text>
             ) : null}
           </ScrollView>
+          </KeyboardAvoidingView>
           ) : null}
+          <View pointerEvents="none" style={styles.footerArt}>
+            <View style={styles.limeGlow} />
+            <View style={styles.dimpleRow}>
+              {Array.from({ length: 8 }, (_, index) => (
+                <View key={index} style={styles.footerDimple} />
+              ))}
+            </View>
+          </View>
         </Glass>
       </Animated.View>
       <View
@@ -1176,6 +1254,59 @@ const styles = StyleSheet.create({
   hudTop: { minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 4 },
   titleGap: { flex: 1 },
   thruRow: { minHeight: 20, justifyContent: 'center', paddingHorizontal: 4 },
+  pillMeta: { color: 'rgba(255,255,255,0.72)', fontFamily: font.family, fontSize: 10, fontWeight: '700', letterSpacing: 0.6 },
+  pillNum: { color: '#FFFFFF', fontSize: 18, lineHeight: 20, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  ballHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  ball: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F4F1EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  ballNum: { color: '#0B1F3A', fontSize: 20, lineHeight: 22, fontWeight: '700' },
+  dimple: { position: 'absolute', width: 7, height: 7, borderRadius: 4, backgroundColor: 'rgba(11,31,58,0.16)' },
+  dimpleA: { top: 7, left: 8 },
+  dimpleB: { top: 16, right: 7 },
+  dimpleC: { bottom: 6, left: 14 },
+  nextHit: { width: 32, height: 28, alignItems: 'center', justifyContent: 'center' },
+  chevronNext: {
+    width: 12,
+    height: 12,
+    borderRightWidth: 3,
+    borderTopWidth: 3,
+    borderColor: '#FFFFFF',
+    transform: [{ rotate: '45deg' }],
+    marginRight: 4,
+  },
+  chipRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 8, paddingBottom: 4 },
+  tabs: { flexDirection: 'row', gap: 12, minHeight: 18, alignItems: 'center' },
+  tab: { color: 'rgba(255,255,255,0.55)', fontFamily: font.family, fontSize: 11, fontWeight: '700' },
+  tabOn: { color: '#FFFFFF' },
+  tipCard: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+  spark: { color: '#8AC926', fontSize: 16, lineHeight: 18 },
+  tipTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 16, fontWeight: '700' },
+  carryLine: { color: '#FFFFFF', fontSize: 16, lineHeight: 18, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  micRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 28 },
+  micDot: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#8AC926' },
+  micLabel: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, fontWeight: '700' },
+  talkGrow: { flex: 1 },
+  typeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  askInput: {
+    flex: 1,
+    minHeight: 40,
+    color: '#FFFFFF',
+    fontFamily: font.family,
+    fontSize: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.35)',
+  },
+  footerArt: { height: 16, alignItems: 'center', justifyContent: 'flex-end' },
+  limeGlow: { position: 'absolute', left: 24, right: 24, bottom: 0, height: 10, borderRadius: 8, backgroundColor: 'rgba(138,201,38,0.55)' },
+  dimpleRow: { flexDirection: 'row', gap: 10, marginBottom: 2 },
+  footerDimple: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.28)' },
   pressed: { transform: [{ scale: 0.96 }] },
   backHit: { width: 32, height: 28, alignItems: 'center', justifyContent: 'center' },
   chevron: {

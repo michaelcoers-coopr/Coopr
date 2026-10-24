@@ -6,7 +6,9 @@ import { colors, font, signal } from '@coopr/tokens';
 import { projectAlongHole, projectPoints } from '@coopr/engine';
 import { Muted } from './ui';
 import type { HoleMapProps } from './hole-map-props';
+import { useDisplayFace } from './design/display-font';
 import { HOLE_BLEED_PAD, holeFitPoints, playingWidthMeters, projectHoleFill, projectPlayFrame } from './hole-fit';
+import { tileSourceDrawsVectors } from './tile-source';
 import { clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark } from './map-label-layout';
 
 const SURROUND = '#143524';
@@ -90,6 +92,9 @@ function drawEllipse(xy: readonly { x: number; y: number }[]) {
 
 /** Open geometry only. Apple satellite is the phone map. This drawing is the same shapes, stood tee-to-green. */
 export function HoleMap(props: HoleMapProps) {
+  const displayFace = useDisplayFace();
+  const aerial = props.aerial === true && tileSourceDrawsVectors(props.imagery);
+  const pillFace = aerial ? displayFace : font.family;
   const [width, setWidth] = useState(390);
   const [flightT, setFlightT] = useState(props.reduceMotion ? 1 : 0);
   const [breath, setBreath] = useState(1);
@@ -298,6 +303,20 @@ export function HoleMap(props: HoleMapProps) {
               <Circle cx={7} cy={7} r={0.55} fill="#F3E0B0" />
               <Circle cx={5} cy={2} r={0.4} fill={SAND_GRAIN} />
             </Pattern>
+            {aerial ? (
+              <LinearGradient id={`${uid}-ground`} x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#07140E" />
+                <Stop offset="0.42" stopColor="#123222" />
+                <Stop offset="1" stopColor="#06110C" />
+              </LinearGradient>
+            ) : null}
+            {aerial ? (
+              <LinearGradient id={`${uid}-water`} x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor="#7ED0D6" stopOpacity="0.55" />
+                <Stop offset="0.35" stopColor="#146068" />
+                <Stop offset="1" stopColor="#06282C" />
+              </LinearGradient>
+            ) : null}
             <RadialGradient id={`${uid}-shine`} cx="50%" cy="42%" r="58%">
               <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.72" />
               <Stop offset="0.55" stopColor={GREEN} stopOpacity="0.2" />
@@ -317,8 +336,13 @@ export function HoleMap(props: HoleMapProps) {
             ) : null}
           </Defs>
         ) : null}
-        {bleed ? <Rect x={0} y={0} width={width} height={height} fill={SURROUND} /> : null}
+        {bleed ? <Rect x={0} y={0} width={width} height={height} fill={aerial ? `url(#${uid}-ground)` : SURROUND} /> : null}
         {bleed ? <Rect x={0} y={0} width={width} height={height} fill={`url(#${uid}-trees)`} /> : null}
+        {aerial ? (
+          <G opacity={0.4} transform="translate(5 7)">
+            <Rect x={0} y={0} width={width} height={height} fill={`url(#${uid}-trees)`} />
+          </G>
+        ) : null}
         {bleed && lineXY.length > 1
           ? (() => {
               const playing = props.orient ? playingWidthMeters(props.fairways.flat(), props.orient.bearing, props.orient.origin) : null;
@@ -343,11 +367,18 @@ export function HoleMap(props: HoleMapProps) {
         {bleed && props.fairways.length > 0 ? <Rect x={0} y={0} width={width} height={height} fill={`url(#${uid}-mow)`} clipPath={`url(#${uid}-fair)`} /> : null}
         {bleed && props.fairways.length > 0 ? <Rect x={0} y={0} width={width} height={height} fill={`url(#${uid}-fairgrad)`} fillOpacity={0.28} clipPath={`url(#${uid}-fair)`} /> : null}
         {props.bunkers.map((ring, index) => (
-          <Polygon key={`bunker-${index}`} points={pointsOf(ring, projection)} fill={bleed ? SAND : colors.white} stroke={bleed ? '#F8E7C0' : ink} strokeWidth={1.5} />
+          <Polygon key={`bunker-${index}`} points={pointsOf(ring, projection)} fill={bleed ? (aerial ? '#F3D48A' : SAND) : colors.white} stroke={bleed ? '#FFF6DE' : ink} strokeWidth={aerial ? 2 : 1.5} />
         ))}
         {bleed && props.bunkers.length > 0 ? <Rect x={0} y={0} width={width} height={height} fill={`url(#${uid}-grain)`} clipPath={`url(#${uid}-sand)`} /> : null}
         {props.hazards.map((ring, index) => (
-          <Polygon key={`hazard-${index}`} points={pointsOf(ring, projection)} fill={colors.red} fillOpacity={bleed ? 0.92 : 0.72} stroke={bleed ? '#FFD5DC' : colors.red} strokeWidth={bleed ? 2 : 3} />
+          <Polygon
+            key={`hazard-${index}`}
+            points={pointsOf(ring, projection)}
+            fill={aerial ? `url(#${uid}-water)` : colors.red}
+            fillOpacity={bleed ? 0.92 : 0.72}
+            stroke={aerial ? '#D7F4F6' : bleed ? '#FFD5DC' : colors.red}
+            strokeWidth={bleed ? 2 : 3}
+          />
         ))}
         {props.green.map((ring, index) => (
           <Polygon key={`green-${index}`} points={pointsOf(ring, projection)} fill={bleed ? GREEN : colors.white} stroke={bleed ? '#FFFFFF' : ink} strokeWidth={2} />
@@ -453,8 +484,8 @@ export function HoleMap(props: HoleMapProps) {
           return (
             <G key={label.id}>
               {label.leader ? <Line x1={label.anchor.x} y1={label.anchor.y} x2={end.x} y2={end.y} stroke="#FFFFFF" strokeOpacity={0.9} strokeWidth={1.5} /> : null}
-              <Rect x={label.box.x} y={label.box.y} width={label.box.w} height={label.box.h} rx={10} fill="rgba(11,31,58,0.88)" />
-              <MapText x={label.at.x} y={label.at.y} fill="#FFFFFF" fontSize={17} fontWeight="700" fontFamily={font.family} fontFeatureSettings='"tnum"' textAnchor="middle" style={mapLabelStyle}>
+              <Rect x={label.box.x} y={label.box.y} width={label.box.w} height={label.box.h} rx={10} fill={aerial ? 'rgba(4,10,24,0.92)' : 'rgba(11,31,58,0.88)'} />
+              <MapText x={label.at.x} y={label.at.y} fill="#FFFFFF" fontSize={17} fontWeight="700" fontFamily={pillFace} fontFeatureSettings='"tnum"' textAnchor="middle" style={mapLabelStyle}>
                 {label.text}
               </MapText>
             </G>
