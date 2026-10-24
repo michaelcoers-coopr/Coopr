@@ -233,8 +233,10 @@ export default function PlayScreen() {
       },
     }),
   ).current;
-  const applySheet = useRef<(open: boolean) => void>(() => {});
-  applySheet.current = (open: boolean) => {
+  const heldOpen = useRef(false);
+  const applySheet = useRef<(open: boolean, fromGesture?: boolean) => void>(() => {});
+  applySheet.current = (open: boolean, fromGesture = false) => {
+    if (fromGesture) heldOpen.current = open;
     sheetOpenRef.current = open;
     setSheetOpen(open);
     sheetDrag.value = 0;
@@ -262,10 +264,10 @@ export default function PlayScreen() {
           return;
         }
         if (Math.abs(gesture.dy) < 16 && Math.abs(gesture.dx) < 16) {
-          applySheet.current(!sheetOpenRef.current);
+          applySheet.current(!sheetOpenRef.current, true);
           return;
         }
-        applySheet.current(sheetSnap(sheetOpenRef.current, gesture.dy, gesture.vy));
+        applySheet.current(sheetSnap(sheetOpenRef.current, gesture.dy, gesture.vy), true);
       },
       onPanResponderTerminate: () => {
         sheetDrag.value = 0;
@@ -547,7 +549,11 @@ export default function PlayScreen() {
   }, [atTeeNow, currentHole, hole?.par, lastMark?.id, player, talk.phase, talkPrefs.callouts, voice, yardsFromLast, ground?.centerYards]);
 
   useEffect(() => {
-    if (talk.phase !== 'idle') applySheet.current(true);
+    if (talk.phase !== 'idle') {
+      applySheet.current(true);
+      return;
+    }
+    if (!heldOpen.current && sheetOpenRef.current) applySheet.current(false);
   }, [talk.phase]);
 
   useEffect(() => {
@@ -711,7 +717,6 @@ export default function PlayScreen() {
       : lowConfidence && !noShots && shotYards == null
         ? thinCopy
         : spoken;
-  const band = carryBand(shownProfile, unit);
   const patternLine = patternCaption({
     onGreen,
     noShots,
@@ -725,10 +730,12 @@ export default function PlayScreen() {
   closedSheetRef.current = closedSheet;
   if (!sheetOpenRef.current) sheetH.value = closedSheet;
   const frameSheet = sheetOpen || talk.phase !== 'idle' ? SHEET_OPEN : closedSheet;
-  const lineKey = `${shownId ?? ''}:${oneLiner ?? ''}:${band ?? ''}`;
+  const tipCarry = carryProfile(profiles, shownId);
+  const carryYards = tipCarry != null && Number.isFinite(tipCarry.stockYards) ? Math.round(tipCarry.stockYards) : null;
+  const carrySpread = carryBand(tipCarry, unit);
+  const lineKey = `${shownId ?? ''}:${oneLiner ?? ''}:${carryYards ?? ''}:${carrySpread ?? ''}`;
   if (lineClock.current.key !== lineKey) lineClock.current = { key: lineKey, at: Date.now() };
   const updatedAgo = Math.max(0, Math.round((clock - lineClock.current.at) / 1000));
-  const carryYards = shownProfile?.stockYards != null && Number.isFinite(shownProfile.stockYards) ? Math.round(shownProfile.stockYards) : null;
   const windMph = sky?.current?.windMph;
   const windKnown = windMph != null && Number.isFinite(windMph);
   const windText = windKnown ? String(Math.round(windMph)) : '?';
@@ -1052,7 +1059,7 @@ export default function PlayScreen() {
                   {oneLiner ? <Text style={styles.line} numberOfLines={sheetOpen ? 3 : 1}>{oneLiner}</Text> : null}
                   <Text style={[styles.carryLine, { fontFamily: display }]} numberOfLines={1}>
                     {carryYards == null ? 'Carry not measured' : `${carryYards} carry`}
-                    {band ? `  ${band}` : `  ${PATTERN_INVITE}`}
+                    {carrySpread ? `  ${carrySpread}` : `  ${PATTERN_INVITE}`}
                   </Text>
                 </View>
               </View>
@@ -1281,7 +1288,7 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '45deg' }],
     marginRight: 4,
   },
-  chipRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 8, paddingBottom: 4 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 8, paddingBottom: 4 },
   tabs: { flexDirection: 'row', gap: 12, minHeight: 18, alignItems: 'center' },
   tab: { color: 'rgba(255,255,255,0.55)', fontFamily: font.family, fontSize: 11, fontWeight: '700' },
   tabOn: { color: '#FFFFFF' },
