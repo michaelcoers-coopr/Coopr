@@ -63,6 +63,7 @@ import { HoleMap } from '../src/hole-map';
 import { boom, celebrate, holeFeel, pulse, tick } from '../src/haptics';
 import { holeSwipe, rollSteps } from '../src/design/motion';
 import { clubDetail, clubFigure, closedPlaySheet, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreGlance, scoreMoment, scoreStamp, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
+import { SheetBall } from '../src/design/sheet-ball';
 import { caddieVoiceLine } from '../src/design/caddie-voice';
 import { useDisplayFace } from '../src/design/display-font';
 import { MomentOverlay } from '../src/design/moments';
@@ -1126,6 +1127,7 @@ export default function PlayScreen() {
       ) : null}
       <Animated.View style={[styles.sheet, sheetStyle, { bottom: Math.max(insets.bottom, 8) + (sheetOpen ? keyboard : 0), zIndex: sheetOpen ? 8 : 2 }]}>
         <Glass radius={28} style={styles.sheetGlass} contentStyle={styles.sheetFill}>
+          <SheetBall reduceMotion={reduceMotion} />
           <View style={styles.grab}>
             <View {...sheetPan.panHandlers} style={styles.handleHit}>
               <View style={styles.handle} />
@@ -1288,14 +1290,6 @@ export default function PlayScreen() {
             ) : null}
           </ScrollView>
           ) : null}
-          <View pointerEvents="none" style={styles.footerArt}>
-            <View style={styles.limeGlow} />
-            <View style={styles.dimpleRow}>
-              {Array.from({ length: 8 }, (_, index) => (
-                <View key={index} style={styles.footerDimple} />
-              ))}
-            </View>
-          </View>
         </Glass>
       </Animated.View>
       {sheetOpen ? null : (
@@ -1428,10 +1422,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.35)',
   },
-  footerArt: { height: 16, alignItems: 'center', justifyContent: 'flex-end' },
-  limeGlow: { position: 'absolute', left: 24, right: 24, bottom: 0, height: 10, borderRadius: 8, backgroundColor: 'rgba(138,201,38,0.55)' },
-  dimpleRow: { flexDirection: 'row', gap: 10, marginBottom: 2 },
-  footerDimple: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.28)' },
   pressed: { transform: [{ scale: 0.96 }] },
   backHit: { width: 32, height: 28, alignItems: 'center', justifyContent: 'center' },
   chevron: {
@@ -1521,7 +1511,7 @@ const styles = StyleSheet.create({
   sheet: { position: 'absolute', left: 12, right: 12, overflow: 'hidden' },
   sheetGlass: { flex: 1 },
   sheetFill: { flex: 1, minHeight: 0 },
-  grab: { paddingTop: 0, paddingHorizontal: 12, paddingBottom: 2 },
+  grab: { paddingTop: 0, paddingHorizontal: 12, paddingBottom: 2, zIndex: 1 },
   tipHit: { marginTop: 2 },
   tip: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold },
   tipLink: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, textDecorationLine: 'underline' },
@@ -1536,8 +1526,8 @@ const styles = StyleSheet.create({
   sample: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, lineHeight: 18, fontWeight: font.semibold, fontVariant: ['tabular-nums'] },
   dim: { opacity: 0.55 },
   kicker: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, fontWeight: '700' },
-  details: { flex: 1, minHeight: 0 },
-  heard: { paddingHorizontal: 16, paddingBottom: 4, gap: 4 },
+  details: { flex: 1, minHeight: 0, zIndex: 1 },
+  heard: { paddingHorizontal: 16, paddingBottom: 4, gap: 4, zIndex: 1 },
   detailsBody: { paddingHorizontal: 16, paddingBottom: 36, gap: 12 },
   body: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.body, lineHeight: 24 },
   textHit: { minHeight: 56, justifyContent: 'center' },
