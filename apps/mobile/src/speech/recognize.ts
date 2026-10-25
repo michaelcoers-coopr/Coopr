@@ -15,7 +15,7 @@ export async function deviceSpeechAvailable(): Promise<boolean> {
   }
 }
 
-export async function listenForSpeech(onText: (text: string, final: boolean) => void): Promise<HeardSpeech | null> {
+export async function listenForSpeech(onText: (text: string, final: boolean) => void, hints: string[] = []): Promise<HeardSpeech | null> {
   try {
     const mod = await import('expo-speech-recognition');
     const speech = mod.ExpoSpeechRecognitionModule;
@@ -35,7 +35,13 @@ export async function listenForSpeech(onText: (text: string, final: boolean) => 
     const failed = speech.addListener('error', () => {
       onText('', true);
     });
-    speech.start({ lang: 'en-US', interimResults: true, continuous: false, requiresOnDeviceRecognition: true });
+    speech.start({
+      lang: 'en-US',
+      interimResults: true,
+      continuous: false,
+      requiresOnDeviceRecognition: true,
+      contextualStrings: hints,
+    });
     return {
       stop: () => {
         result.remove();

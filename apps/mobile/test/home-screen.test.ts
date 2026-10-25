@@ -13,7 +13,8 @@ describe('home tee sheet', () => {
     expect(home).toContain('RESUME ROUND');
     expect(home).toContain('Waiting on the sky');
     expect(home).toContain('Foursome games');
-    expect(home).toContain('Voice scorecard, Stableford, Skins, Nassau, Wolf. Coming to the TestFlight build.');
+    expect(home).toContain("router.push('/games')");
+    expect(home).not.toContain('Coming to the TestFlight build.');
     expect(home).toContain('No rounds yet. Your first one lands here.');
     expect(home).toContain("router.push('/more')");
     expect(home).toContain("router.push('/play')");

@@ -66,6 +66,7 @@ export default function RootLayout() {
           >
             <Stack.Screen name="bag" options={{ headerShown: false, contentStyle: { backgroundColor: '#0B1F3A' } }} />
             <Stack.Screen name="analysis" options={{ headerShown: false, contentStyle: { backgroundColor: '#0B1F3A' } }} />
+            <Stack.Screen name="games" options={{ headerShown: false, contentStyle: { backgroundColor: '#0B1F3A' } }} />
           </Stack>
           <FloatingAsk />
           </BagScanProvider>
