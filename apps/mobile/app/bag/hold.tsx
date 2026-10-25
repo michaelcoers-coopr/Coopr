@@ -9,7 +9,7 @@ import {
   STARTING_POINT,
   VERDICT_LABEL,
 } from '../../src/bag-scan/copy';
-import { holdBody, sameFlexIrons, shaftNudge } from '../../src/bag-scan/logic';
+import { asideOnReview, holdBody, sameFlexIrons, shaftNudge } from '../../src/bag-scan/logic';
 import { ClubPicture } from '../../src/bag-scan/picture';
 import { shownForFocus } from '../../src/bag-scan/resolve';
 import { Body, Panel, ScanButton, ScanScreen, scan } from '../../src/bag-scan/chrome';
@@ -42,11 +42,12 @@ export default function HoldScreen() {
   });
   const shaft = shaftNudge(shown.club.flex, speed);
   const sample = shown.club.sample;
+  const ahead = asideOnReview(state.clubs, state.draft.existingId, sample);
   return (
     <ScanScreen title="Hold up">
       <ClubPicture photoUri={shown.club.photoUri} type={shown.club.type} size={96} />
       <Text style={styles.headline}>{HOLD_HEADLINE}</Text>
-      {state.notice ? <Body>{state.notice}</Body> : null}
+      {ahead ? <Body>{ahead}</Body> : state.notice ? <Body>{state.notice}</Body> : null}
       <Body>{body}</Body>
       <Body>{`Verdict stays ${VERDICT_LABEL.PROBABLY_NOT}.`}</Body>
       <Panel>

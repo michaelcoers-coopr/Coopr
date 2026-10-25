@@ -352,6 +352,7 @@ export default function GamesScreen() {
                 : <Text style={styles.amber}>{score.note}</Text>}
             </View>
           </Pressable>
+          <Text accessibilityLabel="Birdie Bucks" style={styles.disclosure}>{DISCLOSURE}</Text>
           {stripOpen ? (
             <>
               {score.games.some((game) => game.kind === 'skins') ? (
@@ -381,7 +382,6 @@ export default function GamesScreen() {
                   </Text>
                 );
               })()}
-              <Text style={styles.disclosure}>{DISCLOSURE}</Text>
             </>
           ) : null}
         </View>
@@ -548,7 +548,7 @@ export default function GamesScreen() {
               <Text style={styles.chipText}>{grossOnly ? 'Gross only' : 'Net scores'}</Text>
             </Pressable>
             {notices.map((line) => <Text key={line} style={styles.amber}>{line}</Text>)}
-            <Pressable accessibilityRole="button" accessibilityLabel="Start round" disabled={!!block} onPress={start} style={[styles.go, !!block && styles.disabled]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Start round" accessibilityHint={block ?? undefined} disabled={!!block} onPress={start} style={[styles.go, !!block && styles.goOff]}>
               <Text style={[styles.goText, { fontFamily: display }]}>START ROUND</Text>
             </Pressable>
           </View>
@@ -727,7 +727,7 @@ export default function GamesScreen() {
                 </Pressable>
               ) : null}
             </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Log hole" disabled={!logReady(rows, marks, wolfRequired(save))} onPress={logHole} style={[styles.go, !logReady(rows, marks, wolfRequired(save)) && styles.disabled]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Log hole" disabled={!logReady(rows, marks, wolfRequired(save))} onPress={logHole} style={[styles.go, !logReady(rows, marks, wolfRequired(save)) && styles.goOff]}>
               <Text style={[styles.goText, { fontFamily: display }]}>LOG HOLE</Text>
             </Pressable>
             {playedCount === 0 ? <Text style={styles.meta}>Log a hole before finishing.</Text> : null}
@@ -742,7 +742,7 @@ export default function GamesScreen() {
                 </Pressable>
               </View>
             ) : (
-              <Pressable accessibilityRole="button" accessibilityLabel="Finish round" disabled={playedCount === 0} onPress={() => setAskFinish(true)} style={[styles.chip, playedCount === 0 && styles.disabled]}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Finish round" accessibilityHint={playedCount === 0 ? 'Log a hole before finishing.' : undefined} disabled={playedCount === 0} onPress={() => setAskFinish(true)} style={[styles.chip, playedCount === 0 && styles.chipOff]}>
                 <Text style={styles.chipText}>Finish round</Text>
               </Pressable>
             )}
@@ -923,8 +923,9 @@ const styles = StyleSheet.create({
   confirmChip: { minWidth: 44, minHeight: 44, paddingHorizontal: 14, borderRadius: 999, backgroundColor: '#14301F', borderWidth: 2, borderColor: signal.go, alignItems: 'center', justifyContent: 'center' },
   chipText: { color: colors.white, fontFamily: font.family, fontSize: 14, fontWeight: '700' },
   go: { minHeight: 56, borderRadius: 16, backgroundColor: signal.go, alignItems: 'center', justifyContent: 'center' },
+  goOff: { backgroundColor: '#B7C4A4' },
   goText: { color: colors.navy, fontSize: 28, letterSpacing: 0.6 },
-  disabled: { opacity: 0.4 },
+  chipOff: { backgroundColor: '#0E1A2C' },
   disclosure: { color: colors.white, fontFamily: font.family, fontSize: 13, lineHeight: 18 },
   amber: { color: signal.caution, fontFamily: font.family, fontSize: 14, lineHeight: 20 },
   holeNo: { color: colors.white, fontSize: 92, lineHeight: 92, fontVariant: ['tabular-nums'] },

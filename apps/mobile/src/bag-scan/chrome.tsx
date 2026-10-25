@@ -61,22 +61,29 @@ export function ScanButton({
   onPress,
   tone = 'lime',
   disabled = false,
+  reason = null,
 }: {
   label: string;
   onPress: () => void;
   tone?: 'lime' | 'red' | 'ghost';
   disabled?: boolean;
+  /** Why the control is off. Shown under a disabled button, in full contrast. */
+  reason?: string | null;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={[styles.button, tone === 'red' && styles.red, tone === 'ghost' && styles.ghost, disabled && styles.disabled]}
-    >
-      <Text style={[styles.buttonText, tone === 'ghost' && styles.ghostText, tone === 'lime' && styles.limeText]}>{label}</Text>
-    </Pressable>
+    <View style={styles.buttonWrap}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        accessibilityHint={disabled && reason ? reason : undefined}
+        disabled={disabled}
+        onPress={onPress}
+        style={[styles.button, tone === 'red' && styles.red, tone === 'ghost' && styles.ghost, disabled && tone === 'lime' && styles.disabledFill]}
+      >
+        <Text style={[styles.buttonText, tone === 'ghost' && styles.ghostText, tone === 'lime' && styles.limeText]}>{label}</Text>
+      </Pressable>
+      {disabled && reason ? <Text style={styles.reason}>{reason}</Text> : null}
+    </View>
   );
 }
 
@@ -144,7 +151,9 @@ const styles = StyleSheet.create({
   },
   red: { backgroundColor: scan.red },
   ghost: { backgroundColor: 'transparent', borderWidth: 2, borderColor: scan.white },
-  disabled: { opacity: 0.45 },
+  buttonWrap: { gap: 8 },
+  disabledFill: { backgroundColor: '#B7C4A4' },
+  reason: { color: scan.white, fontSize: 16, lineHeight: 22 },
   buttonText: { color: scan.white, fontWeight: '800', fontSize: 16, letterSpacing: 0.4, textAlign: 'center' },
   limeText: { color: scan.navy },
   ghostText: { color: scan.white },

@@ -445,9 +445,9 @@ export function afterCorrection<T>(input: {
   return { hole: input.openHole, rows: input.draftRows, marks: input.draftMarks }
 }
 
-/** Collapsed row is the nets. Open adds the pot, the wolf, the game line, and the disclosure. */
+/** Nets plus the Birdie Bucks line, which stays up when the strip is closed. Open adds the pot, the wolf, and the game line. */
 export function liveStripHeight(open: boolean): number {
-  const collapsed = 52
+  const collapsed = 96
   if (!open) return collapsed
   return 168
 }

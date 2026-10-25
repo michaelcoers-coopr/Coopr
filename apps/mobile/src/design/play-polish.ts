@@ -189,8 +189,10 @@ export function patternCaption(input: {
   invite: string;
   /** The caddie already said the sample is thin. The invite would repeat it. */
   thinLine?: boolean;
+  /** No in-play club, so a shot-count invite would name a club that is not there. */
+  emptyBag?: boolean;
 }): string | null {
-  if (input.onGreen || input.noShots) return null;
+  if (input.onGreen || input.noShots || input.emptyBag) return null;
   if (input.oval) return `${input.sample ? 'Sample pattern · ' : ''}±${input.oval.carryStdYards} × ±${input.oval.lateralStdYards} yd`;
   if (input.lowConfidence || input.thinLine) return null;
   return input.invite;

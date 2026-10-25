@@ -14,6 +14,25 @@ export function setAsideNotice(before: readonly ScanClub[], clubId: string): str
   return others >= IN_PLAY_CAP ? SET_ASIDE : null;
 }
 
+/** The same sentence on the card or hold screen, before the club is saved. */
+export function asideOnReview(clubs: readonly ScanClub[], existingId: string | null, sample = false): string | null {
+  if (sample) return null;
+  return setAsideNotice(clubs, existingId ?? 'pending');
+}
+
+export const CONFIRM_HOLD = 'Pick a type, and a loft or a club number, before this can continue.';
+export const DETAILS_HOLD = 'Pick a type, and a loft or a club number, before this can save.';
+export const SAMPLE_HOLD = 'This is Sample. Editing it does not copy it into your bag.';
+
+export function confirmReason(ready: boolean): string | null {
+  return ready ? null : CONFIRM_HOLD;
+}
+
+export function detailsReason(sample: boolean, ready: boolean): string | null {
+  if (sample) return SAMPLE_HOLD;
+  return ready ? null : DETAILS_HOLD;
+}
+
 const CLUB_TYPES = ['driver', 'fairway wood', 'hybrid', 'iron', 'wedge', 'putter', 'utility iron'] as const;
 const BUILDS = ['game-improvement', 'players-distance', 'players-cb', 'blade', 'super-game-improvement'] as const;
 const FLEXES = ['L', 'A', 'R', 'S', 'X'] as const;

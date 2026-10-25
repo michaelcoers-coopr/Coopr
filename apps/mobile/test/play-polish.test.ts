@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { cardGravity, carryChipLine, CLOSED_CARD, clubDetail, clubFigure, closedPlaySheet, clubWhy, foldInset, foldSnap, greenMarkLabel, holeEnter, holeFrame, holeShift, hudChips, mapHudInset, patternCaption, samplePatternVisible, scoreCommit, scoreDrag, scoreGlance, scoreGlow, sheetSnap, shotReadout, SHOT_LOG_TIP } from '../src/design/play-polish';
 import { dispersionOval, PATTERN_INVITE, SAMPLE_PATTERN } from '@coopr/engine';
@@ -106,6 +107,12 @@ describe('club card without shots', () => {
     expect(greenMarkLabel('Center', '150.5', 'm')).toBe('Center, 150.5 meters');
     expect(greenMarkLabel('Back', null, 'yd')).toBe('Back');
     expect(greenMarkLabel('Back', '—', 'yd')).toBe('Back');
+    expect(
+      patternCaption({ onGreen: false, noShots: false, lowConfidence: false, sample: false, oval: null, invite: PATTERN_INVITE, emptyBag: true }),
+    ).toBeNull();
+    const play = readFileSync(new URL('../app/play.tsx', import.meta.url), 'utf8');
+    expect(play).toContain('emptyBag: bagEmpty');
+    expect(play).toContain('!bagEmpty && patternLine');
     expect(cardGravity(true)).toBe('center');
     expect(cardGravity(false)).toBe('flex-start');
     const sheet = closedPlaySheet(200);

@@ -17,6 +17,9 @@ import {
   rangedNumber,
   sanitizeClub,
   sanitizeFit,
+  asideOnReview,
+  confirmReason,
+  detailsReason,
   setAsideNotice,
   SPEED_MAX,
   SPEED_MIN,
@@ -128,6 +131,19 @@ describe('bag scan', () => {
     expect(setAsideNotice(next, 'extra')).toBeNull();
     expect(read('../app/bag/card.tsx')).toContain('scanState.notice');
     expect(read('../src/bag-scan/session.tsx')).toContain('setAsideNotice');
+    expect(asideOnReview(existing, null)).toBe('Your bag holds 14 clubs, this one is set aside');
+    expect(asideOnReview(existing, null, true)).toBeNull();
+    expect(asideOnReview(existing.slice(0, 13), null)).toBeNull();
+    const card = read('../app/bag/card.tsx');
+    expect(card).toContain('asideOnReview(scanState.clubs, scanState.draft.existingId)');
+    expect(card.indexOf('asideOnReview(scanState.clubs')).toBeLessThan(card.indexOf('ADD TO MY BAG'));
+    const hold = read('../app/bag/hold.tsx');
+    expect(hold).toContain('asideOnReview(state.clubs, state.draft.existingId, sample)');
+    expect(hold.indexOf('asideOnReview(state.clubs')).toBeLessThan(hold.indexOf('KEEP IT ANYWAY'));
+    expect(confirmReason(false)).toMatch(/before this can continue/);
+    expect(confirmReason(true)).toBeNull();
+    expect(detailsReason(true, true)).toMatch(/This is Sample/);
+    expect(detailsReason(false, false)).toMatch(/before this can save/);
     writeScanClubs(next);
     expect(readScanClubs()).toHaveLength(15);
     expect(JSON.stringify(readScanClubs())).not.toContain('Steelhead');

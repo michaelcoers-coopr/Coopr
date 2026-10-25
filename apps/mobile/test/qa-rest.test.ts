@@ -13,6 +13,7 @@ import { NEEDS_MORE_LINE, presentAnalysis, shareText, showsNeedsMore, type Analy
 import { sampleBundle } from '../src/analysis/sample-season';
 import { reduceBagStack, type BagStackOp } from '../src/bag-scan/bag-nav';
 import { EXTRACT_READS } from '../src/bag-scan/copy';
+import { confirmReason, detailsReason } from '../src/bag-scan/logic';
 import { bagSubscriptionUpdate } from '../src/device/bag-sync';
 import { clearHeldDraft, dismissPlayNote, leaveDraftForShots, openAddDraft, readHeldDraft, readPlayNote, SHOTS_FIRST_NOTE } from '../src/bag-scan/play-note';
 import { blankDraft } from '../src/bag-scan/types';
@@ -232,6 +233,21 @@ describe('rest of PR 5', () => {
     expect(games).toContain('backgroundColor: signal.go');
     expect(contrast(colors.navy, signal.go)).toBeGreaterThanOrEqual(4.5);
     expect(contrast('#FFFFFF', signal.go)).toBeLessThan(4.5);
+    expect(contrast(colors.navy, '#B7C4A4')).toBeGreaterThanOrEqual(4.5);
+    expect(contrast('#FFFFFF', '#0E1A2C')).toBeGreaterThanOrEqual(4.5);
+    expect(games).toContain("goOff: { backgroundColor: '#B7C4A4' }");
+    expect(games).toContain('accessibilityHint={block ?? undefined}');
+    expect(games).not.toContain('opacity: 0.4');
+    const chrome = read('../src/bag-scan/chrome.tsx');
+    expect(chrome).toContain("disabledFill: { backgroundColor: '#B7C4A4' }");
+    expect(chrome).toContain('color: scan.navy');
+    expect(chrome).not.toContain('opacity: 0.45');
+    expect(chrome).toContain('accessibilityHint={disabled && reason ? reason : undefined}');
+    expect(read('../app/bag/confirm.tsx')).toContain('reason={reason}');
+    expect(read('../app/bag/details.tsx')).toContain('reason={reason}');
+    expect(confirmReason(false)).toMatch(/loft or a club number/);
+    expect(detailsReason(false, false)).toMatch(/before this can save/);
+    expect(detailsReason(true, true)).toMatch(/does not copy it into your bag/);
   });
 
   it('shows one bucket once, a concrete ledger action, and a share of computed facts', () => {

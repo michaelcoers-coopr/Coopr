@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { forwardBag, returnToBag } from '../../src/bag-scan/bag-nav';
 import { VERDICT_LABEL } from '../../src/bag-scan/copy';
-import { canConfirmDraft } from '../../src/bag-scan/logic';
+import { asideOnReview, canConfirmDraft } from '../../src/bag-scan/logic';
 import { ClubPicture } from '../../src/bag-scan/picture';
 import { shownForFocus } from '../../src/bag-scan/resolve';
 import { Body, Numeral, Panel, SampleChip, ScanButton, ScanScreen, scan } from '../../src/bag-scan/chrome';
@@ -24,10 +24,12 @@ export default function ClubCardScreen() {
   const verdictColor = verdict.verdict === 'PROBABLY_NOT' ? scan.warn : verdict.verdict === 'CANT_TELL' ? scan.muted : verdict.verdict === 'OKAY' ? scan.white : scan.lime;
   const needs = verdict.needs.filter((need, index) => !verdict.needs.some((other, otherIndex) => otherIndex !== index && other.toLowerCase().includes(need.toLowerCase()) && other.length > need.length));
   const ready = scanState.focus.kind === 'draft' && canConfirmDraft(scanState.draft);
+  const ahead = scanState.focus.kind === 'draft' ? asideOnReview(scanState.clubs, scanState.draft.existingId) : null;
+  const aside = ahead ?? scanState.notice;
   const name = [club.brand, club.model].filter(Boolean).join(' ');
   return (
     <ScanScreen title="Club card" backTo="/bag">
-      {scanState.notice ? <Body>{scanState.notice}</Body> : null}
+      {aside ? <Body>{aside}</Body> : null}
       <View style={styles.top}>
         <ClubPicture
           photoUri={club.photoUri}

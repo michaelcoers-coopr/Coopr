@@ -965,6 +965,7 @@ export default function PlayScreen() {
     oval,
     invite: PATTERN_INVITE,
     thinLine: Boolean(oneLiner && /sample is thin|Thin sample/i.test(oneLiner)),
+    emptyBag: bagEmpty,
   });
   const closedSheet = closedPlaySheet(SHEET_CLOSED);
   closedSheetRef.current = closedSheet;
@@ -1489,7 +1490,7 @@ export default function PlayScreen() {
                   {SHOT_LOG_TIP.split(', or ')[1]}
                 </Text>
               </Text>
-            ) : patternLine ? (
+            ) : !bagEmpty && patternLine ? (
               <Text style={styles.sample}>{patternLine}</Text>
             ) : null}
             {figure ? <Text style={styles.body}>{`${figure.label} ${formatDistance(figure.yards, unit)}`}</Text> : null}

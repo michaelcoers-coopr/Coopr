@@ -682,6 +682,15 @@ describe('foursome QA', () => {
     expect(screen).not.toMatch(/stripLine: \{[^}]*fontSize: 40/);
   });
 
+  it('keeps the Birdie Bucks line visible while the live strip is collapsed', () => {
+    const live = screen.slice(screen.indexOf('accessibilityLabel="Live strip"'), screen.indexOf("step === 'setup'"));
+    const disclosure = live.indexOf('accessibilityLabel="Birdie Bucks"');
+    const gate = live.indexOf('{stripOpen ? (');
+    expect(disclosure).toBeGreaterThan(-1);
+    expect(gate).toBeGreaterThan(disclosure);
+    expect(live.slice(disclosure, gate)).toContain('{DISCLOSURE}');
+  });
+
   it('names the corrected hole instead of this hole', () => {
     let save = buildSave({
       id: 'hole-name',

@@ -124,7 +124,8 @@ export function selectOneFix(inp: FixInputs, cfg: Config): Insight<OneFixValue> 
   const second = cand[1] ?? null;
   const rotated = inp.lastFix && cand.find((c) => c.id === inp.lastFix!.id) && top.id !== inp.lastFix.id ? inp.lastFix.id : null;
   const rx = prescribe(top.id, inp, f);
-  const why = `${top.label}: ${f(top.strokesPer18)} strokes a round on your last ${f(base.n / 18, 0)} rounds' worth of holes.`;
+  const rounds = Number((base.n / 18).toFixed(0));
+  const why = `${top.label} cost you ${f(top.strokesPer18)} strokes a round over your last ${f(rounds, 0)} ${rounds === 1 ? 'round' : 'rounds'}.`;
   return ready(args, {
     fix: { id: top.id, label: top.label, shortLabel: SHORT[top.id], strokesPer18: top.strokesPer18, confidence: top.confidence, prescription: rx, why },
     runnerUp: second ? { id: second.id, label: second.label, strokesPer18: second.strokesPer18 } : null,

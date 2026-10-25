@@ -437,6 +437,16 @@ describe('where you lose strokes + one fix', () => {
     assert.equal(a.oneFix.value!.fix, null);
     assert.match(a.oneFix.take!, /No single leak/);
   });
+  test('a fix says what it costs over the last rounds, and the share card stays on holes', () => {
+    const fix = full.oneFix;
+    assert.equal(fix.nUnit, 'holes');
+    assert.match(fix.value!.fix!.why, /^.* cost you \d+(?:\.\d+)? strokes a round over your last \d+ rounds?\.$/);
+    assert.doesNotMatch(fix.take ?? '', /worth of holes/);
+    const card = buildCards(full).find((item) => item.kind === 'one_fix');
+    assert.ok(card);
+    assert.equal(card!.basis, `Based on ${fix.n} holes`);
+    assert.match(card!.take, /cost you \d+(?:\.\d+)? strokes a round over your last \d+ rounds?\./);
+  });
   test('fix prescription is attached and names a drill', () => {
     const p = full.oneFix.value!.fix!.prescription;
     assert.ok(p.drill.steps.length >= 2 && p.headline.length > 10 && p.strategy.length > 10);

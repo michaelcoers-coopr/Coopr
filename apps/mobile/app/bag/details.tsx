@@ -3,7 +3,7 @@ import { StyleSheet, Text } from 'react-native';
 import { router } from 'expo-router';
 import { forwardBag, returnToBag } from '../../src/bag-scan/bag-nav';
 import { ClubFields } from '../../src/bag-scan/fields';
-import { canConfirmDraft, loftProblem } from '../../src/bag-scan/logic';
+import { canConfirmDraft, detailsReason, loftProblem } from '../../src/bag-scan/logic';
 import { Body, ScanButton, ScanScreen, scan } from '../../src/bag-scan/chrome';
 import { useBagScan } from '../../src/bag-scan/session';
 
@@ -11,16 +11,18 @@ export default function DetailsScreen() {
   const { draft, patch, focus, saveDraft } = useBagScan();
   const [error, setError] = useState<string | null>(null);
   const ready = canConfirmDraft(draft);
+  const reason = detailsReason(focus.kind === 'sample', ready);
   return (
     <ScanScreen title="Add details">
       <Text style={styles.kicker}>ADD DETAILS</Text>
       <Body>Unknown stays blank. Nothing here is filled in for you.</Body>
-      {focus.kind === 'sample' ? <Body>This is Sample. Editing it does not copy it into your bag.</Body> : null}
+      {focus.kind === 'sample' ? <Body>{reason}</Body> : null}
       <ClubFields draft={draft} patch={patch} />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <ScanButton
         label="SAVE · YOU ENTERED THIS"
         disabled={focus.kind === 'sample' || !ready}
+        reason={reason}
         onPress={() => {
           const problem = loftProblem(draft.loftText, draft.type);
           if (problem) {
