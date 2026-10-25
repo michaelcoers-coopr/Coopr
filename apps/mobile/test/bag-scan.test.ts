@@ -13,7 +13,8 @@ import {
   sanitizeClub,
   toFitClub,
 } from '../src/bag-scan/logic';
-import { SCAN_BAG_KEY, readScanClubs, writeScanClubs } from '../src/bag-scan/persist';
+import { readScanClubs, writeScanClubs } from '../src/bag-scan/persist';
+import { hydrateDevice, resetDeviceForTests, resetDeviceFromStorage } from '../src/device-store';
 import { clubPictureKind } from '../src/bag-scan/picture-kind';
 import { stubVision } from '../src/bag-scan/vision';
 import { blankDraft, type ScanClub } from '../src/bag-scan/types';
@@ -104,13 +105,18 @@ describe('bag scan', () => {
 
   it('sends the 15th club out of play and does not store a sample bag', () => {
     memoryStorage();
+    resetDeviceForTests();
+    hydrateDevice();
     const existing = Array.from({ length: 14 }, (_, index) => club({ id: `c${index}`, loft: 20 + index }));
     const next = placeClub(existing, club({ id: 'extra', loft: 60 }));
     expect(next.filter((item) => item.inPlay)).toHaveLength(14);
     expect(next.find((item) => item.id === 'extra')?.inPlay).toBe(false);
     writeScanClubs(next);
     expect(readScanClubs()).toHaveLength(15);
-    expect(localStorage.getItem(SCAN_BAG_KEY)).not.toContain('Steelhead');
+    expect(JSON.stringify(readScanClubs())).not.toContain('Steelhead');
+    resetDeviceFromStorage();
+    expect(readScanClubs()).toHaveLength(15);
+    expect(JSON.stringify(readScanClubs())).not.toContain('Steelhead');
     const kept = placeClub(next, { ...next[0]!, brand: 'Kept' });
     expect(kept.find((item) => item.id === 'c0')?.inPlay).toBe(true);
   });

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { analyze } from '@coopr/analysis';
 import { archiveRound, readArchive } from '../src/analysis/archive';
+import { hydrateDevice, resetDeviceForTests } from '../src/device-store';
 import { openRound, storedShots, toEngine, type StoredRound } from '../src/analysis/from-round';
 import { presentAnalysis } from '../src/analysis/present';
 import { sampleBundle } from '../src/analysis/sample-season';
@@ -108,6 +109,8 @@ describe('analysis states', () => {
 
   it('archives a finished round and leaves a blank penalty null', () => {
     memoryStorage();
+    resetDeviceForTests();
+    hydrateDevice();
     const open = openRound({
       holes: [5, ...Array<number | null>(17).fill(null)],
       putts: [2, ...Array<number | null>(17).fill(null)],

@@ -1,4 +1,4 @@
-import type { RoundInput, ShotInput } from '@coopr/analysis';
+import type { FairwayResult, RoundInput, ShotInput } from '@coopr/analysis';
 
 export interface CardHole {
   holeNumber: number;
@@ -29,6 +29,8 @@ export interface StoredRound {
     strokes: number | null;
     putts: number | null;
     penalties: number | null;
+    fairway?: FairwayResult | null;
+    gir?: boolean | null;
   }[];
 }
 
@@ -73,6 +75,8 @@ export function openRound(input: OpenRoundInput): StoredRound | null {
       strokes,
       putts: input.putts[index] ?? null,
       penalties: input.penalties[index] ?? null,
+      fairway: null,
+      gir: null,
     };
   });
   return { id: 'open', playedOn: input.playedOn, courseName: input.courseName, holes };
@@ -99,8 +103,8 @@ export function toEngine(rounds: readonly StoredRound[], shots: readonly StoredS
         strokes: hole.strokes,
         putts: hole.putts,
         penalties: hole.penalties,
-        fairway: null,
-        gir: null,
+        fairway: hole.fairway ?? null,
+        gir: hole.gir ?? null,
         firstPuttFeet: null,
         teeClub: null,
         pressure: [],

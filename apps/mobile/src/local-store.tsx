@@ -22,6 +22,8 @@ import { loadFounderDataset, profilesFromFounder } from '@coopr/seed';
 import { archiveRound, readArchive, readLastFix, writeLastFix } from './analysis/archive';
 import { openRound, storedShots, toEngine } from './analysis/from-round';
 import { DEFAULT_VOICE, parseVoice, VOICE_LABELS, type CaddieVoice } from './design/caddie-voice';
+import { hydrateDevice, readDevice, readPlayerFit, subscribeDevice, writePlayerBag, writePlayerFit, writePlayerSettings } from './device-store';
+import { playingFromBag, type PlayingClubView } from './device/snapshot';
 import { FOUNDER_TOOLS_ENABLED } from './founder-flag';
 import { hasWebStorage, readRound, readRoundSync, writeRound } from './round-save-io';
 import { EMPTY_PUTTS, FRESH_CONDITIONS, type RoundConditions, type RoundSave, type SavedLie, type SavedMark } from './round-save';
@@ -196,6 +198,8 @@ interface LocalStore {
   conditions: RoundConditions;
   setConditions: (patch: Partial<RoundConditions>) => void;
   startNewRound: () => void;
+  onboarded: boolean;
+  finishOnboarding: (entry: { name: string; handicap: number | null; driverSpeed: number | null }) => void;
 }
 
 const Ctx = createContext<LocalStore | null>(null);
@@ -323,6 +327,13 @@ function applyConfirmed(
   };
 }
 
+function samePlaying(current: readonly PlayingClub[], next: readonly PlayingClubView[]): boolean {
+  return current.length === next.length && current.every((club, index) => {
+    const other = next[index];
+    return !!other && club.id === other.id && club.label === other.label && club.slot === other.slot && club.note === other.note;
+  });
+}
+
 function placeClub(current: PlayingClub[], club: PlayingClub): PlayingClub[] {
   if (current.some((item) => item.id === club.id)) return current;
   const inPlay = current.filter((item) => item.slot === 'in_play').length;
@@ -387,6 +398,8 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
   const [knownClubs, setKnownClubs] = useState<ExistingPhotoRecords['clubs']>([]);
   const [holes, setHoles] = useState<Array<number | null>>(EMPTY_HOLES);
   const [clubs, setClubs] = useState<PlayingClub[]>(SHELL?.clubs ?? []);
+  const [displayName, setDisplayName] = useState(SHELL?.displayName ?? '');
+  const [onboarded, setOnboarded] = useState(false);
   const [bagMessage, setBagMessage] = useState('');
   const [courseReviews, setCourseReviews] = useState<Record<number, 'verified' | 'rejected'>>({});
   const [unit, setUnit] = useState<DistanceUnit>('yd');
@@ -422,7 +435,7 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
     const entered = holes.flatMap((strokes, index) => (strokes == null ? [] : [{ hole: index + 1, strokes }]));
     return {
       founderTools: FOUNDER_TOOLS_ENABLED,
-      displayName: SHELL?.displayName ?? '',
+      displayName,
       caddieName,
       personality,
       personalityLabel: PERSONALITY_LABELS[personality],
@@ -431,11 +444,7 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
       setVoice: (next) => {
         const parsed = parseVoice(next);
         setVoiceState(parsed);
-        try {
-          if (typeof localStorage !== 'undefined') localStorage.setItem('coopr.voice', parsed);
-        } catch {
-          // A private browser can refuse the write. The choice still holds for this visit.
-        }
+        writePlayerSettings({ voice: parsed });
       },
       bagStatus: SHELL?.bagStatus ?? null,
       bagNote: SHELL?.bagNote ?? null,
@@ -450,22 +459,24 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
           return;
         }
         setBagMessage('');
-        setClubs((current) => current.map((club) => (club.id === id ? { ...club, slot } : club)));
+        const next = clubs.map((club) => (club.id === id ? { ...club, slot } : club));
+        setClubs(next);
+        writePlayerBag(next);
       },
       addClub: (label) => {
         const trimmed = label.trim();
         if (!trimmed) return;
-        setClubs((current) => {
-          if (current.some((club) => club.label.toLowerCase() === trimmed.toLowerCase())) {
-            setBagMessage(`${trimmed} is already in the bag.`);
-            return current;
-          }
-          const inPlay = current.filter((club) => club.slot === 'in_play').length;
-          if (inPlay >= 14) {
-            setBagMessage('In-play bag is limited to 14 clubs. The new club was set aside for testing.');
-          } else setBagMessage('');
-          return placeClub(current, { id: trimmed, label: trimmed, slot: 'in_play', note: 'Added on this device' });
-        });
+        if (clubs.some((club) => club.label.toLowerCase() === trimmed.toLowerCase())) {
+          setBagMessage(`${trimmed} is already in the bag.`);
+          return;
+        }
+        const inPlay = clubs.filter((club) => club.slot === 'in_play').length;
+        if (inPlay >= 14) {
+          setBagMessage('In-play bag is limited to 14 clubs. The new club was set aside for testing.');
+        } else setBagMessage('');
+        const next = placeClub(clubs, { id: trimmed, label: trimmed, slot: 'in_play', note: 'Added on this device' });
+        setClubs(next);
+        writePlayerBag(next);
       },
       shots,
       addShot: (shot) =>
@@ -498,13 +509,12 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
             capturedOn: null,
           })),
         ]);
-        setClubs((current) => {
-          let next = current;
-          for (const shot of result.shots) {
-            next = placeClub(next, { id: shot.clubLabel, label: shot.clubLabel, slot: 'in_play', note: 'CSV import on this device' });
-          }
-          return next;
-        });
+        const nextClubs = result.shots.reduce(
+          (next, shot) => placeClub(next, { id: shot.clubLabel, label: shot.clubLabel, slot: 'in_play', note: 'CSV import on this device' }),
+          clubs,
+        );
+        setClubs(nextClubs);
+        writePlayerBag(nextClubs);
         const imported = `${result.shots.length} shot${result.shots.length === 1 ? '' : 's'} imported.`;
         return [imported, ...result.warnings].join(' ');
       },
@@ -538,7 +548,9 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
         setPhotoScorecards((current) => [...current, ...saved.scorecards]);
         setKeptPhotos((current) => [...current, ...saved.photos]);
         setKnownClubs((current) => [...current, ...saved.clubKeys]);
-        setClubs((current) => saved.clubs.reduce((next, club) => placeClub(next, club), current));
+        const nextClubs = saved.clubs.reduce((next, club) => placeClub(next, club), clubs);
+        setClubs(nextClubs);
+        writePlayerBag(nextClubs);
         if (saved.strokes) setHoles(saved.strokes);
         if (saved.bagMessage) setBagMessage(saved.bagMessage);
         return { saved: true, message: saved.message };
@@ -659,6 +671,22 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
       },
       conditions,
       setConditions: (patch) => setConditionsState((current) => ({ ...current, ...patch })),
+      onboarded,
+      finishOnboarding: (entry) => {
+        const name = entry.name.trim();
+        writePlayerSettings({ onboarded: true, ...(name ? { displayName: name } : {}) });
+        setOnboarded(true);
+        if (name) setDisplayName(name);
+        if (entry.handicap == null && entry.driverSpeed == null) return;
+        const fit = readPlayerFit();
+        writePlayerFit({
+          ...fit,
+          handicapIndex: entry.handicap ?? fit.handicapIndex,
+          handicapQuality: entry.handicap == null ? fit.handicapQuality : 'user_confirmed',
+          driverSpeedMph: entry.driverSpeed ?? fit.driverSpeedMph,
+          speedQuality: entry.driverSpeed == null ? fit.speedQuality : 'user_confirmed',
+        });
+      },
       startNewRound: () => {
         const open = openRound({
           holes,
@@ -694,7 +722,7 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
         setConditionsState({ ...FRESH_CONDITIONS });
       },
     };
-  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, voice, plans, debriefs, wedges, putts, penalties, conditions, marks]);
+  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, voice, plans, debriefs, wedges, putts, penalties, conditions, marks, displayName, onboarded]);
 
   useEffect(() => {
     let cancel = false;
@@ -716,24 +744,36 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
         setConditionsState,
       });
     };
-    const finish = () => {
-      if (!cancel) setHydrated(true);
+    const applyDevice = () => {
+      if (cancel) return;
+      const snap = readDevice();
+      setVoiceState(snap.settings.voice || DEFAULT_VOICE);
+      setOnboarded(snap.settings.onboarded);
+      if (snap.settings.displayName) setDisplayName(snap.settings.displayName);
+      if (snap.bag.length > 0) setClubs(playingFromBag(snap.bag));
+      else if (!FOUNDER_TOOLS_ENABLED) setClubs([]);
     };
-    if (hasWebStorage()) {
-      apply(readRoundSync());
+    const unsub = subscribeDevice(() => {
+      if (cancel) return;
+      const snap = readDevice();
+      if (snap.bag.length === 0) return;
+      const playing = playingFromBag(snap.bag);
+      setClubs((current) => (samePlaying(current, playing) ? current : playing));
+    });
+    void (async () => {
+      await hydrateDevice();
+      if (cancel) return;
       try {
-        setVoiceState(parseVoice(localStorage.getItem('coopr.voice')));
+        apply(hasWebStorage() ? readRoundSync() : await readRound());
       } catch {
-        setVoiceState(DEFAULT_VOICE);
+        apply(null);
       }
-      finish();
-      return () => {
-        cancel = true;
-      };
-    }
-    readRound().then(apply).catch(() => undefined).finally(finish);
+      applyDevice();
+      if (!cancel) setHydrated(true);
+    })();
     return () => {
       cancel = true;
+      unsub();
     };
   }, []);
 

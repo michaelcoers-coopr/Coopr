@@ -186,7 +186,9 @@ describe('feedback, privacy, and a founder-off first run', () => {
   it('labels an empty bag and does not load founder history when tools are off', () => {
     const store = read('../src/local-store.tsx');
     expect(store).toContain('if (!FOUNDER_TOOLS_ENABLED) return null');
-    expect(store).toContain("displayName: SHELL?.displayName ?? ''");
+    expect(store).toContain("useState(SHELL?.displayName ?? '')");
+    expect(store).toContain('if (snap.bag.length > 0) setClubs(playingFromBag(snap.bag));');
+    expect(store).toContain('else if (!FOUNDER_TOOLS_ENABLED) setClubs([]);');
     const bag = read('../app/bag/index.tsx');
     const setup = read('../app/setup.tsx');
     expect(bag).toContain('No clubs in the bag yet. Add one in Setup. Nothing was filled in for you.');
