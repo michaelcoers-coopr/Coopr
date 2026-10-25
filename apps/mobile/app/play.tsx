@@ -80,6 +80,8 @@ import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
 import { caddieSpeaker, speakSentences } from '../src/speech/tts';
 import { SAMPLE_ANSWER_LABEL } from '../src/talk-client';
+import { readPlayNote, subscribePlayNote } from '../src/bag-scan/play-note';
+import { readPlayWebFlags } from '../src/play-web-flags';
 import { useTalkCaddie, Waveform, YardageLine } from '../src/talk-overlay';
 import { courseCall, holeSubline } from '../src/design/home-copy';
 import { aerialPlate } from '../src/aerial/registry';
@@ -273,6 +275,7 @@ export default function PlayScreen() {
   const lineClock = useRef({ key: '', at: Date.now() });
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
   const [sampleOn, setSampleOn] = useState(false);
+  const [draftNote, setDraftNote] = useState<string | null>(() => readPlayNote());
   const fullHole = false;
   const scrimId = useId().replace(/:/g, '');
   const reduceMotion = useReduceMotion();
@@ -301,11 +304,17 @@ export default function PlayScreen() {
   const backRef = useRef<() => void>(() => {});
   const holeNo = useRef(1);
   useEffect(() => {
-    if (typeof localStorage === 'undefined') return;
-    setSampleOn(localStorage.getItem('coopr.sample.signature') === '1');
-    const scrub = localStorage.getItem('coopr.ui.scrub');
-    if (scrub != null && /^\d+$/.test(scrub)) setScrubIndex(Number(scrub));
+    let storage: { getItem(key: string): string | null } | undefined;
+    try {
+      storage = typeof localStorage === 'undefined' ? undefined : localStorage;
+    } catch {
+      storage = undefined;
+    }
+    const flags = readPlayWebFlags(storage);
+    setSampleOn(flags.sample);
+    if (flags.scrub != null) setScrubIndex(flags.scrub);
   }, []);
+  useEffect(() => subscribePlayNote(() => setDraftNote(readPlayNote())), []);
   const advanced = useRef(0);
   const manualNav = useRef(false);
   const lastButtonNav = useRef<{ dir: 'next' | 'prev'; at: number } | null>(null);
@@ -807,7 +816,7 @@ export default function PlayScreen() {
           intent: 'neutral',
           riskPreference: 'neutral',
           profiles,
-          candidateClubIds: inPlay.length > 0 ? inPlay.map((club) => club.id) : undefined,
+          candidateClubIds: inPlay.map((club) => club.id),
           personality: 'direct_analytical',
         });
   const calledId = onGreen ? putter?.id ?? null : short?.clubId ?? (card && card.posture !== 'decline' ? card.clubId : null);
@@ -1233,6 +1242,11 @@ export default function PlayScreen() {
           </Pressable>
         </Glass>
       </View>
+      {draftNote ? (
+        <View pointerEvents="none" style={[styles.draftBanner, { top: insets.top + 168 }]}>
+          <Text style={styles.draftBannerText}>{draftNote}</Text>
+        </View>
+      ) : null}
       <View pointerEvents="box-none" style={[styles.hero, { top: insets.top + 58 }]}>
         <View style={[styles.heroPlate, hole.holeNumber === 2 && styles.heroPlateClear]}>
         {player == null ? (
@@ -1690,7 +1704,7 @@ const styles = StyleSheet.create({
   dimpleA: { top: 7, left: 8 },
   dimpleB: { top: 16, right: 7 },
   dimpleC: { bottom: 6, left: 14 },
-  nextHit: { width: 32, height: 28, alignItems: 'center', justifyContent: 'center' },
+  nextHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   chevronNext: {
     width: 12,
     height: 12,
@@ -1751,7 +1765,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.35)',
   },
   pressed: { transform: [{ scale: 0.96 }] },
-  backHit: { width: 32, height: 28, alignItems: 'center', justifyContent: 'center' },
+  backHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   chevron: {
     width: 12,
     height: 12,
@@ -1877,20 +1891,21 @@ const styles = StyleSheet.create({
   saved: { minWidth: 200 },
   savedFill: { paddingVertical: 28, paddingHorizontal: 32, alignItems: 'center', gap: 4 },
   savedTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 40, lineHeight: 46, fontWeight: '700' },
+  draftBanner: { position: 'absolute', left: 12, right: 12, zIndex: 8, backgroundColor: '#041018', borderRadius: 12, padding: 12 },
+  draftBannerText: { color: '#FFFFFF', fontFamily: font.family, fontSize: 15, lineHeight: 20, fontWeight: '700' },
   heroScrim: { position: 'absolute', left: 0, width: 220, height: 250, zIndex: 3 },
   holePill: { position: 'absolute', left: 12, zIndex: 6 },
-  holePillGlass: { width: 214, height: 38 },
+  holePillGlass: { minHeight: 44 },
   holePillFill: {
-    width: 214,
-    height: 38,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
   },
-  pillArrow: { width: 28, height: 38, alignItems: 'center', justifyContent: 'center' },
+  pillArrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   pillArrowText: { color: 'rgba(255,255,255,0.9)', fontSize: 18, lineHeight: 20, fontWeight: '700' },
-  pillBallHit: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  pillBallHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   pillBall: {
     width: 30,
     height: 30,

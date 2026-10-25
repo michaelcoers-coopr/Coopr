@@ -12,7 +12,7 @@ export default function ClubCardScreen() {
   const shown = shownForFocus(scanState);
   if (!shown) {
     return (
-      <ScanScreen title="Club card">
+      <ScanScreen title="Club card" backTo="/bag">
         <Body>That club is not on this phone.</Body>
         <ScanButton label="BACK TO BAG" tone="ghost" onPress={() => router.replace('/bag')} />
       </ScanScreen>
@@ -25,7 +25,7 @@ export default function ClubCardScreen() {
   const ready = scanState.focus.kind === 'draft' && canConfirmDraft(scanState.draft);
   const name = [club.brand, club.model].filter(Boolean).join(' ');
   return (
-    <ScanScreen title="Club card">
+    <ScanScreen title="Club card" backTo="/bag">
       <View style={styles.top}>
         <ClubPicture
           photoUri={club.photoUri}

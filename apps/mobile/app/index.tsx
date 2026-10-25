@@ -6,8 +6,12 @@ import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSpring, wit
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
-import { buildTalkContext, holeOverlay, ringCentroid, roundProgress, sampleTalkReply, shotBearing } from '@coopr/engine';
-import { SAMPLE_ANSWER_LABEL } from '../src/talk-client';
+import { buildTalkContext, holeOverlay, ringCentroid, roundProgress, shotBearing } from '@coopr/engine';
+import { requestTalk, SAMPLE_ANSWER_LABEL } from '../src/talk-client';
+import { readArchive } from '../src/analysis/archive';
+import { homeRoundSummary } from '../src/analysis/home-rounds';
+import type { StoredRound } from '../src/analysis/from-round';
+import { subscribeDevice } from '../src/device-store';
 import { loadHighCedarsPilot } from '@coopr/course';
 import { colors, font, signal, type } from '@coopr/tokens';
 import { useReduceMotion } from '../src/design/reduce-motion';
@@ -96,14 +100,17 @@ function foldBlocks(scroll: HTMLElement): { top: number; bottom: number }[] {
 }
 
 export default function HomeScreen() {
-  const { currentHole, score, clubs, holes, displayName, onboarded } = useLocalStore();
+  const { currentHole, score, clubs, displayName, onboarded, founderTools } = useLocalStore();
   const display = useDisplayFace();
   const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
   const scrimId = useId().replace(/:/g, '');
   const hero = hypeHero({ name: displayName.trim(), course: pilot.record.name });
-  const roundsKept = holes.length >= 18 && holes.every((strokes) => strokes != null) ? 1 : 0;
-  const progress = roundProgress(roundsKept);
+  const [archive, setArchive] = useState<StoredRound[]>([]);
+  const summary = homeRoundSummary(archive);
+  const progress = roundProgress(summary.kept);
+  const handicapLine = summary.handicap;
+  const grossShown = summary.kept >= 3 && summary.lastKept?.gross != null ? String(summary.lastKept.gross) : '—';
   const inPlay = clubs.filter((club) => club.slot === 'in_play').length;
   const cardHole = pilot.record.scorecard.find((item) => item.holeNumber === currentHole);
   const resume = resumeLine({
@@ -126,6 +133,7 @@ export default function HomeScreen() {
   const [askOn, setAskOn] = useState(false);
   const [askDraft, setAskDraft] = useState('');
   const [askReply, setAskReply] = useState<string | null>(null);
+  const [askSample, setAskSample] = useState(false);
   const sheetOpenRef = useRef(false);
   const sheetScrollRef = useRef<ScrollViewInstance>(null);
   const sheetH = useSharedValue(HOME_CLOSED);
@@ -141,6 +149,12 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!onboarded) router.replace('/onboard');
   }, [onboarded]);
+
+  useEffect(() => {
+    const pull = () => setArchive(readArchive());
+    pull();
+    return subscribeDevice(pull);
+  }, []);
 
   useEffect(() => {
     if (reduceMotion) {
@@ -194,9 +208,11 @@ export default function HomeScreen() {
     const text = askDraft.trim();
     if (!text) return;
     setAskDraft('');
+    const holeNo = started ? currentHole : 1;
+    const par = (started ? cardHole?.par : holeOneCard?.par) ?? null;
     const context = buildTalkContext({
-      hole: started ? currentHole : 1,
-      par: (started ? cardHole?.par : holeOneCard?.par) ?? null,
+      hole: holeNo,
+      par,
       atTee: !started,
       gpsYards: null,
       headwindMph: sky?.headwindMph ?? null,
@@ -204,9 +220,12 @@ export default function HomeScreen() {
       temperatureF: sky?.current?.temperatureF ?? null,
       windMph: sky?.current?.windMph ?? null,
       profiles: [],
-      cardLine: null,
+      cardLine: par == null ? `Hole ${holeNo}` : `Hole ${holeNo}, par ${par}`,
     });
-    void sampleTalkReply(context, text).then((reply) => setAskReply(reply.line));
+    void requestTalk(text, context).then((reply) => {
+      setAskReply(reply.line);
+      setAskSample(reply.mode === 'sample' && founderTools);
+    });
   };
 
   useEffect(() => {
@@ -411,7 +430,7 @@ export default function HomeScreen() {
                       </Pressable>
                       {askReply ? (
                         <View>
-                          <Text style={styles.hello}>{SAMPLE_ANSWER_LABEL}</Text>
+                          {askSample ? <Text style={styles.hello}>{SAMPLE_ANSWER_LABEL}</Text> : null}
                           <Text style={styles.hello}>{askReply}</Text>
                         </View>
                       ) : null}
@@ -428,19 +447,23 @@ export default function HomeScreen() {
                   <View style={styles.tiles}>
                     <View style={styles.tile}>
                       <Text style={styles.tileLabel}>GROSS</Text>
-                      <Text style={[styles.tileValue, { fontFamily: display }]}>{progress.filled >= 3 ? String(score.gross) : '—'}</Text>
+                      <Text style={[styles.tileValue, { fontFamily: display }]}>{grossShown}</Text>
                       {progress.filled < 3 ? <Text style={styles.tileNote}>{progress.gross}</Text> : null}
                     </View>
                     <View style={styles.tile}>
                       <Text style={styles.tileLabel}>HANDICAP</Text>
-                      <Text style={[styles.tileValue, { fontFamily: display }]}>—</Text>
-                      <Text style={styles.tileNote}>{progress.handicap}</Text>
+                      <Text style={[styles.tileValue, { fontFamily: display }]}>{summary.trend ?? '—'}</Text>
+                      <Text style={styles.tileNote}>{handicapLine}</Text>
                     </View>
                   </View>
                   <Text style={styles.section}>RECENT ROUNDS</Text>
                   <View style={styles.empty}>
-                    {roundsKept > 0 && started ? (
-                      <Text style={styles.emptyText}>{`Gross ${score.gross}`}</Text>
+                    {summary.last ? (
+                      <Pressable accessibilityRole="button" accessibilityLabel="Rounds" onPress={() => router.push('/rounds')}>
+                        <Text style={styles.emptyText}>{`${summary.last.courseName} · ${summary.last.playedOn}`}</Text>
+                        <Text style={styles.emptyText}>{summary.last.gross == null ? 'Gross not finished' : `Gross ${summary.last.gross}`}</Text>
+                        <Text style={styles.emptyText}>{`${summary.rows.length} on this phone`}</Text>
+                      </Pressable>
                     ) : (
                       <Text style={styles.emptyText}>No rounds yet. Your first one lands here.</Text>
                     )}
@@ -473,7 +496,7 @@ export default function HomeScreen() {
               <View style={styles.peekPips}>
                 <Pips filled={progress.filled} total={progress.total} />
                 <Text style={styles.peekNote} numberOfLines={2}>
-                  {progress.handicap}
+                  {handicapLine}
                 </Text>
               </View>
             </View>

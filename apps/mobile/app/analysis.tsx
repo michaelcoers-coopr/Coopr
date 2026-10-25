@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, Share, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { analyze } from '@coopr/analysis';
@@ -9,7 +9,7 @@ import { useDisplayFace } from '../src/design/display-font';
 import { useLocalStore } from '../src/local-store';
 import { readArchive, readLastFix } from '../src/analysis/archive';
 import { openRound, storedShots, toEngine, type StoredRound } from '../src/analysis/from-round';
-import { presentAnalysis, type AnalysisPanel } from '../src/analysis/present';
+import { NEEDS_MORE_LINE, presentAnalysis, shareText, showsNeedsMore, type AnalysisPanel } from '../src/analysis/present';
 import { sampleBundle } from '../src/analysis/sample-season';
 
 const pilot = loadHighCedarsPilot();
@@ -96,34 +96,46 @@ export default function AnalysisScreen() {
 }
 
 function Panel({ panel, display }: { panel: AnalysisPanel; display: string }) {
+  const needsMore = showsNeedsMore(panel);
+  const facts = shareText(panel);
   return (
     <View>
       <Text style={styles.eyebrow}>{panel.eyebrow}</Text>
       <View style={styles.chips}>
         {panel.sample ? <Text style={styles.sample}>SAMPLE</Text> : null}
-        {panel.confidence ? <Text style={styles.confidence}>{panel.confidence}</Text> : null}
+        {panel.confidence && !needsMore ? <Text style={styles.confidence}>{panel.confidence}</Text> : null}
       </View>
       <Text style={[styles.title, { fontFamily: display }]}>{panel.title}</Text>
-      {panel.figure == null ? (
-        <Text style={styles.invite}>{panel.invitation ?? 'Needs more rounds before this number exists.'}</Text>
-      ) : (
+      {needsMore ? (
+        <Text style={styles.invite}>{panel.invitation ?? NEEDS_MORE_LINE}</Text>
+      ) : panel.figure != null ? (
         <View style={panel.id === 'share' ? styles.shareCard : undefined}>
           <Text style={[styles.figure, { fontFamily: display, color: panel.id === 'one_fix' || panel.id === 'share' ? LIME : '#FFFFFF' }]}>{panel.figure}</Text>
           {panel.unit ? <Text style={styles.unit}>{panel.unit}</Text> : null}
           {panel.headline ? <Text style={[styles.headline, { fontFamily: display }]}>{panel.headline}</Text> : null}
         </View>
-      )}
+      ) : null}
       {panel.caveat ? <Text style={styles.body}>{panel.caveat}</Text> : null}
       {panel.take ? <Text style={styles.body}>{panel.take}</Text> : null}
       {panel.action ? <Text style={styles.action}>{panel.action}</Text> : null}
       {panel.rows.map((row) => (
         <View key={`${row.label}-${row.detail}`} style={styles.row}>
-          <Text style={styles.rowLabel}>{row.label}</Text>
+          <Text style={styles.rowLabel} numberOfLines={1}>{row.label}</Text>
           <Text style={[styles.rowDetail, { fontFamily: display, color: row.tone === 'loss' ? '#C8102E' : row.tone === 'gain' ? LIME : '#FFFFFF' }]}>
             {row.detail}
           </Text>
         </View>
       ))}
+      {facts ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Share these facts"
+          onPress={() => void Share.share({ message: facts })}
+          style={styles.shareHit}
+        >
+          <Text style={styles.shareText}>SHARE</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -149,7 +161,9 @@ const styles = StyleSheet.create({
   body: { color: 'rgba(255,255,255,0.88)', fontSize: 16, lineHeight: 22, marginTop: 14 },
   action: { color: '#FFFFFF', fontSize: 16, lineHeight: 22, marginTop: 14 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.16)' },
-  rowLabel: { color: '#FFFFFF', fontSize: 15, flex: 1 },
+  rowLabel: { color: '#FFFFFF', fontSize: 15, flex: 1, flexShrink: 1 },
+  shareHit: { minHeight: 44, marginTop: 16, borderRadius: 14, backgroundColor: LIME, alignItems: 'center', justifyContent: 'center' },
+  shareText: { color: NAVY, fontSize: 16, fontWeight: '800', letterSpacing: 0.6 },
   rowDetail: { fontSize: 22 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.28)' },

@@ -21,7 +21,7 @@ export default function DetailsScreen() {
         label="SAVE · YOU ENTERED THIS"
         disabled={focus.kind === 'sample' || !ready}
         onPress={() => {
-          const problem = loftProblem(draft.loftText);
+          const problem = loftProblem(draft.loftText, draft.type);
           if (problem) {
             setError(problem);
             return;

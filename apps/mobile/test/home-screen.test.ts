@@ -22,7 +22,8 @@ describe('home tee sheet', () => {
     expect(home).toContain('labels={[]}');
     expect(home).toContain('coursePill(');
     expect(home).toContain("started ? 'NEXT HOLE' : 'FIRST HOLE'");
-    expect(home).toContain('progress.filled >= 3 ? String(score.gross) : ');
+    expect(home).toContain('summary.kept >= 3 && summary.lastKept?.gross != null');
+    expect(home).toContain("router.push('/rounds')");
     expect(home).toContain('foldSnap(');
     expect(home).toContain("backgroundColor: '#02060E'");
     expect(home).toContain('displayName.trim()');

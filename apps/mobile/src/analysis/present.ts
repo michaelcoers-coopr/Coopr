@@ -67,7 +67,9 @@ export function presentAnalysis(analysis: Analysis): AnalysisPanel[] {
     home.headline = fix.value.fix.shortLabel;
     home.figure = figureOf('ready', fix.value.fix.strokesPer18);
     home.unit = 'STROKES / ROUND';
-    home.action = `${fix.value.fix.prescription.headline} ${fix.value.fix.prescription.drill.title}: ${fix.value.fix.prescription.drill.steps[0] ?? ''}`;
+    const headline = fix.value.fix.prescription.headline;
+    const drill = `${fix.value.fix.prescription.drill.title}: ${fix.value.fix.prescription.drill.steps[0] ?? ''}`.trim();
+    home.action = home.take?.includes(headline) ? drill : `${headline} ${drill}`.trim();
     if (fix.value.runnerUp) home.rows = [{ label: 'Also on the radar', detail: fix.value.runnerUp.label, tone: 'neutral' }];
   } else if (fix.status === 'ready') {
     home.action = fix.take;
@@ -85,6 +87,7 @@ export function presentAnalysis(analysis: Analysis): AnalysisPanel[] {
       detail: String(item.strokesPer18),
       tone: item.strokesPer18 > 0 ? 'loss' : item.strokesPer18 < 0 ? 'gain' : 'neutral',
     }));
+    if (top && top.strokesPer18 > 0) loss.action = `Next round, start with ${top.label}.`;
   }
 
   const gap = analysis.gapping;
@@ -105,6 +108,8 @@ export function presentAnalysis(analysis: Analysis): AnalysisPanel[] {
   } else if (analysis.dispersion.status !== 'ready' && gap.status !== 'ready') {
     bag.invitation = gap.invitation ?? analysis.dispersion.invitation;
   }
+  if (bag.take) bag.take = bag.take.replace(/ Tap the gap to see what fills it\./g, '');
+  if (bag.invitation) bag.invitation = bag.invitation.replace(/ Tap the gap to see what fills it\./g, '');
   if (analysis.dispersion.status === 'ready' && analysis.dispersion.value?.clubs[0]) {
     const club = analysis.dispersion.value.clubs[0];
     bag.rows.push({
@@ -170,4 +175,25 @@ export function presentAnalysis(analysis: Analysis): AnalysisPanel[] {
   };
 
   return [home, loss, bag, holes, day, share];
+}
+
+/** The generic line is only for a panel that is actually short of data. */
+export function showsNeedsMore(panel: AnalysisPanel): boolean {
+  return panel.figure == null && panel.status !== 'ready';
+}
+
+export const NEEDS_MORE_LINE = 'Needs more rounds before this number exists.';
+
+/** Share text is the panel's own computed lines. No extra number is added. */
+export function shareText(panel: AnalysisPanel): string | null {
+  if (panel.id !== 'share') return null;
+  if (panel.figure == null && !panel.take && panel.rows.length === 0) return null;
+  const lines = [panel.title];
+  if (panel.sample) lines.push('SAMPLE');
+  if (panel.headline) lines.push(panel.headline);
+  if (panel.figure != null) lines.push([panel.figure, panel.unit].filter(Boolean).join(' '));
+  if (panel.take) lines.push(panel.take);
+  if (panel.caveat) lines.push(panel.caveat);
+  for (const row of panel.rows) lines.push(row.detail ? `${row.label}: ${row.detail}` : row.label);
+  return lines.join('\n');
 }

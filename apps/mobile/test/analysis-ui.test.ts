@@ -61,13 +61,14 @@ describe('analysis states', () => {
     expect(home?.status).toBe('needs_more');
     expect(home?.figure).toBeNull();
     expect(home?.invitation).toMatch(/Needs/);
-    expect(home?.invitation).toMatch(/log putts and penalties/);
+    expect(home?.invitation).not.toMatch(/log putts and penalties/);
     expect(ledger?.status).toBe('needs_more');
     expect(ledger?.figure).toBeNull();
     expect(ledger?.invitation).toMatch(/Needs/);
 
     const missing = toEngine([roundWith(null)], []);
-    expect(missing.rounds[0]?.holes[0]?.penalties).toBeNull();
+    expect(missing.rounds[0]?.holes[0]?.penalties).toBe(0);
+    expect(roundWith(null).holes[0]?.penalties).toBeNull();
     const withheld = presentAnalysis(analyze({ rounds: missing.rounds, shots: missing.shots }));
     expect(withheld.every((panel) => panel.figure == null)).toBe(true);
 

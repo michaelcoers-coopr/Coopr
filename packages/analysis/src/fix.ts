@@ -86,8 +86,10 @@ export const REPEAT_DAMPING = 0.6;
 export function selectOneFix(inp: FixInputs, cfg: Config): Insight<OneFixValue> {
   const base = inp.ledger;
   if (base.status !== 'ready') {
+    const missing = base.missingInputs.length > 0;
+    const extra = missing ? ' Until then, the one thing is: log putts and penalties on every hole.' : '';
     return { ...base, id: 'one_fix', title: 'One thing to fix', value: null, take: null,
-      invitation: `${base.invitation ?? ''} Until then, the one thing is: log putts and penalties on every hole.`.trim() };
+      invitation: `${base.invitation ?? ''}${extra}`.trim() };
   }
   const L = base.value!;
   const cand: Candidate[] = [];

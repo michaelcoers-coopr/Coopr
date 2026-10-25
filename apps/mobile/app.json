@@ -52,8 +52,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "COOPR reads a photo you choose on this iPhone. Club photos stay on this phone. Nothing is uploaded.",
-          "cameraPermission": "COOPR uses the camera on this iPhone for a club or a scorecard. The photo stays on this phone. Nothing is uploaded."
+          "photosPermission": "COOPR reads a photo you choose. A bag photo stays on this phone. Add from photos sends that picture to the COOPR extract server, only to read the club details, when a server is set.",
+          "cameraPermission": "COOPR uses the camera for a club or a scorecard. A bag photo stays on this phone. A scorecard photo is sent to the COOPR extract server, only to read the club details, when a server is set."
         }
       ],
       [
@@ -63,19 +63,11 @@
           "image": "./assets/brand/splash.png",
           "resizeMode": "contain",
           "enableFullScreenImage_legacy": true,
-          "dark": {
-            "backgroundColor": "#0A1020",
-            "image": "./assets/brand/splash.png"
-          },
           "android": {
             "backgroundColor": "#0A1020",
             "image": "./assets/brand/splash-mark.png",
             "resizeMode": "contain",
-            "imageWidth": 152,
-            "dark": {
-              "backgroundColor": "#0A1020",
-              "image": "./assets/brand/splash-mark.png"
-            }
+            "imageWidth": 152
           }
         }
       ]

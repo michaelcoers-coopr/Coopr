@@ -5,6 +5,7 @@ import { copyClubPhoto } from './photos';
 import { readScanClubs, readStoredFit, writeScanClubs, writeStoredFit } from './persist';
 import { clubToDraft, draftToClub, placeClub, withInPlay, withoutClub } from './logic';
 import { stubVision, type ClubVisionRead } from './vision';
+import { clearHeldDraft, readHeldDraft } from './play-note';
 import { blankDraft, type CaptureStep, type Focus, type ScanClub, type ScanDraft, type StoredFit } from './types';
 
 interface BagScanValue {
@@ -39,7 +40,7 @@ const BagScanContext = createContext<BagScanValue | null>(null);
 export function BagScanProvider({ children }: { children: ReactNode }) {
   const [clubs, setClubs] = useState<ScanClub[]>(() => readScanClubs());
   const [fit, setFit] = useState<StoredFit>(() => readStoredFit());
-  const [draft, setDraft] = useState<ScanDraft>(() => blankDraft());
+  const [draft, setDraft] = useState<ScanDraft>(() => readHeldDraft() ?? blankDraft());
   const [focus, setFocus] = useState<Focus>({ kind: 'draft' });
   const [sampleProfile, setSampleProfile] = useState<'A' | 'B'>('A');
   const [read, setRead] = useState<ClubVisionRead>(() => stubVision.read(null));
@@ -65,6 +66,7 @@ export function BagScanProvider({ children }: { children: ReactNode }) {
       setClubs(next);
       writeScanClubs(next);
       setFocus({ kind: 'saved', id: club.id });
+      clearHeldDraft();
       return club;
     };
     return {
@@ -82,6 +84,7 @@ export function BagScanProvider({ children }: { children: ReactNode }) {
       setStep: (step) => setDraft((current) => ({ ...current, step })),
       patch: (partial) => setDraft((current) => ({ ...current, ...partial })),
       startNew: () => {
+        clearHeldDraft();
         setDraft(blankDraft());
         setFocus({ kind: 'draft' });
         setRead(stubVision.read(null));

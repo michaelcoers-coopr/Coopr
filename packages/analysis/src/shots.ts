@@ -112,7 +112,7 @@ export function clubGapping(shots: readonly ShotInput[], bagClubs: readonly stri
   const parts: string[] = [];
   const yd = (x: number) => `${f(x, 0)} ${Math.round(x) === 1 ? 'yard' : 'yards'}`;
   const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
-  if (big) parts.push(`${cap(clubName(big.longer))} to ${clubName(big.shorter)} is a ${f(big.gapYds, 0)}-yard hole in your bag. You have no club for that number. Tap the gap to see what fills it.`);
+  if (big) parts.push(`${cap(clubName(big.longer))} to ${clubName(big.shorter)} is a ${f(big.gapYds, 0)}-yard hole in your bag. You have no club for that number.`);
   if (over) parts.push(`${cap(clubName(over.longer))} and ${clubName(over.shorter)} carry only ${yd(over.gapYds)} apart. One of them is a spare.`);
   if (dm && Math.abs(dm.deltaVsDefault!) >= 5) parts.push(`Your ${clubName(dm.club)} actually carries ${yd(Math.abs(dm.deltaVsDefault!))} ${dm.deltaVsDefault! < 0 ? 'shorter' : 'longer'} than the chart says. Play your number, not the chart.`);
   const take = parts.length ? parts.join(' ') : `Your gaps are tidy: no big holes and no doubled-up clubs among what's measured. Keep logging the rest of the bag.`;

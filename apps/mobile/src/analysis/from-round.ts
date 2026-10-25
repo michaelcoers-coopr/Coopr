@@ -102,7 +102,8 @@ export function toEngine(rounds: readonly StoredRound[], shots: readonly StoredS
         strokeIndex: hole.strokeIndex,
         strokes: hole.strokes,
         putts: hole.putts,
-        penalties: hole.penalties,
+        // A blank penalty is not a logged zero on the card. Once strokes are in, analysis treats it as none.
+        penalties: hole.strokes != null && hole.penalties == null ? 0 : hole.penalties,
         fairway: hole.fairway ?? null,
         gir: hole.gir ?? null,
         firstPuttFeet: null,

@@ -17,7 +17,7 @@ export const scan = {
   card: '#102844',
 } as const;
 
-export function ScanScreen({ title, children }: { title: string; children: ReactNode }) {
+export function ScanScreen({ title, children, backTo }: { title: string; children: ReactNode; backTo?: string }) {
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>
       <Stack.Screen
@@ -28,7 +28,7 @@ export function ScanScreen({ title, children }: { title: string; children: React
           headerTitleStyle: { fontWeight: '800', color: scan.white },
           contentStyle: { backgroundColor: scan.navy },
           headerLeft: () => (
-            <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => (backTo ? router.replace(backTo) : router.back())} style={styles.back}>
               <Text style={styles.backMark}>‹</Text>
             </Pressable>
           ),
@@ -120,7 +120,7 @@ export function SampleChip() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: scan.navy },
-  content: { padding: 20, paddingTop: 28, paddingRight: 88, paddingBottom: 108, gap: 14 },
+  content: { padding: 20, paddingTop: 28, paddingRight: 20, paddingBottom: 108, gap: 14 },
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   backMark: { color: scan.white, fontSize: 32, lineHeight: 36, fontWeight: '700' },
   numeral: { color: scan.white, fontVariant: ['tabular-nums'], letterSpacing: 0.5 },

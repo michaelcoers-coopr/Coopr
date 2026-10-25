@@ -9,10 +9,10 @@ export function ClubFields({ draft, patch }: { draft: ScanDraft; patch: (partial
   const step = (delta: number) => {
     if (loft == null) return;
     const next = Math.round((loft + delta) * 10) / 10;
-    if (loftProblem(String(next))) return;
+    if (loftProblem(String(next), draft.type)) return;
     patch({ loftText: String(next) });
   };
-  const loftError = loftProblem(draft.loftText);
+  const loftError = loftProblem(draft.loftText, draft.type);
   return (
     <View style={styles.wrap}>
       <Body>{CATALOG_LINE}</Body>

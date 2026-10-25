@@ -13,6 +13,7 @@ import { holdBody, sameFlexIrons, shaftNudge } from '../../src/bag-scan/logic';
 import { ClubPicture } from '../../src/bag-scan/picture';
 import { shownForFocus } from '../../src/bag-scan/resolve';
 import { Body, Panel, ScanButton, ScanScreen, scan } from '../../src/bag-scan/chrome';
+import { leaveDraftForShots } from '../../src/bag-scan/play-note';
 import { useBagScan } from '../../src/bag-scan/session';
 
 export default function HoldScreen() {
@@ -80,7 +81,8 @@ export default function HoldScreen() {
         label="LOG SHOTS FIRST"
         tone="ghost"
         onPress={() => {
-          state.setNotice(sample ? 'Sample stays off your bag. Log shots from the hole.' : 'Shots are logged on the hole. This club is not added until you keep it.');
+          if (!sample) leaveDraftForShots(state.draft);
+          state.setNotice(sample ? 'Sample stays off your bag. Log shots from the hole.' : 'Shots are logged on the hole. This club stays in Add club until you keep it.');
           router.push('/play');
         }}
       />

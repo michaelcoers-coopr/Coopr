@@ -202,6 +202,10 @@ describe('bag scan', () => {
     expect(rangedNumber('Infinity', SPEED_MIN, SPEED_MAX).problem).toBeTruthy();
     expect(canConfirmDraft({ type: 'driver', loftText: '4', clubNumber: '' })).toBe(false);
     expect(canConfirmDraft({ type: 'driver', loftText: '10.5', clubNumber: '' })).toBe(true);
+    expect(canConfirmDraft({ type: 'putter', loftText: '3', clubNumber: '' })).toBe(true);
+    expect(canConfirmDraft({ type: 'putter', loftText: '11', clubNumber: '' })).toBe(false);
+    expect(sanitizeClub({ id: 'blade', type: 'putter', loft: 3 })?.loft).toBe(3);
+    expect(sanitizeClub({ id: 'iron', type: 'iron', loft: 3 })?.loft).toBeNull();
     expect(sanitizeFit({ handicapIndex: 99, driverSpeedMph: Number.POSITIVE_INFINITY, handicapQuality: 'user_confirmed', speedQuality: 'user_confirmed' })).toMatchObject({
       handicapIndex: null,
       driverSpeedMph: null,
@@ -235,7 +239,7 @@ describe('bag scan', () => {
     expect(hold).toContain('color: scan.white');
     expect(card).toContain("router.push('/bag/hold')");
     expect(read('../app/bag/index.tsx')).toContain('No clubs in the bag yet. Nothing was filled in for you.');
-    expect(read('../app.json')).toContain('Nothing is uploaded.');
-    expect(read('../app.json')).not.toContain('a server can extract');
+    expect(read('../app.json')).toContain('extract server, only to read the club details');
+    expect(read('../app.json')).not.toContain('Nothing is uploaded.');
   });
 });

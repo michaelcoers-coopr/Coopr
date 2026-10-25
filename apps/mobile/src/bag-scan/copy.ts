@@ -1,6 +1,6 @@
 export const CROP_LINE = 'Cropping to the clubhead';
-export const ON_PHONE = 'On this phone. Nothing is uploaded.';
-export const PHOTOS_STAY = 'Photos stay on this phone.';
+export const ON_PHONE = 'A bag photo stays on this phone. Add from photos sends the picture to the extract server, only to read the club details, when that server is set.';
+export const PHOTOS_STAY = 'A bag photo stays on this phone. It is not sent.';
 export const CATALOG_LINE = 'Catalog is not on this phone yet. Type the club.';
 export const STARTING_POINT = 'A starting point, not a fitting. Handicap is never the whole story.';
 export const NO_SIGNALS = 'NO SIGNALS YET. 0 independent sources for this club. We show nothing before we show a guess.';

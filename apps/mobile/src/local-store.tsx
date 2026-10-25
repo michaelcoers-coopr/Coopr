@@ -22,6 +22,7 @@ import { loadFounderDataset, profilesFromFounder } from '@coopr/seed';
 import { archiveRound, readArchive, readLastFix, writeLastFix } from './analysis/archive';
 import { openRound, storedShots, toEngine } from './analysis/from-round';
 import { DEFAULT_VOICE, parseVoice, VOICE_LABELS, type CaddieVoice } from './design/caddie-voice';
+import { bagSubscriptionUpdate } from './device/bag-sync';
 import { hydrateDevice, readDevice, readPlayerFit, subscribeDevice, writePlayerBag, writePlayerFit, writePlayerSettings } from './device-store';
 import { playingFromBag, type PlayingClubView } from './device/snapshot';
 import { FOUNDER_TOOLS_ENABLED } from './founder-flag';
@@ -753,12 +754,33 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
       if (snap.bag.length > 0) setClubs(playingFromBag(snap.bag));
       else if (!FOUNDER_TOOLS_ENABLED) setClubs([]);
     };
+    let sawBag = readDevice().bag.length > 0;
     const unsub = subscribeDevice(() => {
       if (cancel) return;
       const snap = readDevice();
-      if (snap.bag.length === 0) return;
+      const next = bagSubscriptionUpdate({ bagLength: snap.bag.length, founderTools: FOUNDER_TOOLS_ENABLED, sawBag });
+      sawBag = next.sawBag;
+      if (next.clear) {
+        setClubs([]);
+        setWedges({});
+        return;
+      }
+      if (!next.clear && snap.bag.length === 0) return;
       const playing = playingFromBag(snap.bag);
       setClubs((current) => (samePlaying(current, playing) ? current : playing));
+      setWedges((current) => {
+        const ids = new Set(playing.map((club) => club.id));
+        let changed = false;
+        const kept: typeof current = {};
+        for (const [id, cells] of Object.entries(current)) {
+          if (!ids.has(id)) {
+            changed = true;
+            continue;
+          }
+          kept[id] = cells;
+        }
+        return changed ? kept : current;
+      });
     });
     void (async () => {
       await hydrateDevice();

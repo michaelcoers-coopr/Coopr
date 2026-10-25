@@ -20,6 +20,13 @@ export const SPEED_MIN = 40;
 export const SPEED_MAX = 140;
 export const LOFT_MIN = 5;
 export const LOFT_MAX = 75;
+export const PUTTER_LOFT_MIN = 0;
+export const PUTTER_LOFT_MAX = 10;
+
+export function loftRange(type: string | null | undefined): { min: number; max: number } {
+  if (type === 'putter') return { min: PUTTER_LOFT_MIN, max: PUTTER_LOFT_MAX };
+  return { min: LOFT_MIN, max: LOFT_MAX };
+}
 
 export function parseOptionalNumber(text: string): number | null {
   const trimmed = text.trim();
@@ -38,12 +45,13 @@ export function rangedNumber(text: string, min: number, max: number): { blank: b
   return { blank: false, value, problem: null };
 }
 
-export function loftProblem(text: string): string | null {
-  return rangedNumber(text, LOFT_MIN, LOFT_MAX).problem;
+export function loftProblem(text: string, type?: string | null): string | null {
+  const range = loftRange(type);
+  return rangedNumber(text, range.min, range.max).problem;
 }
 
 export function canConfirmDraft(draft: Pick<ScanDraft, 'type' | 'loftText' | 'clubNumber'>): boolean {
-  if (draft.type == null || loftProblem(draft.loftText)) return false;
+  if (draft.type == null || loftProblem(draft.loftText, draft.type)) return false;
   return parseOptionalNumber(draft.loftText) != null || Boolean(draft.clubNumber.trim());
 }
 
@@ -170,14 +178,16 @@ export function sanitizeClub(value: unknown): ScanClub | null {
   if (!value || typeof value !== 'object') return null;
   const raw = value as Record<string, unknown>;
   if (typeof raw.id !== 'string' || !raw.id) return null;
-  const loft = typeof raw.loft === 'number' && raw.loft >= LOFT_MIN && raw.loft <= LOFT_MAX ? raw.loft : null;
+  const type = asType(raw.type);
+  const range = loftRange(type);
+  const loft = typeof raw.loft === 'number' && raw.loft >= range.min && raw.loft <= range.max ? raw.loft : null;
   return {
     id: raw.id,
     slot: typeof raw.slot === 'string' && raw.slot.trim() ? raw.slot : 'CLUB',
     inPlay: raw.inPlay !== false,
     brand: typeof raw.brand === 'string' && raw.brand.trim() ? raw.brand.trim() : null,
     model: typeof raw.model === 'string' && raw.model.trim() ? raw.model.trim() : null,
-    type: asType(raw.type),
+    type,
     loft,
     flex: asFlex(raw.flex),
     ironBuild: asBuild(raw.ironBuild),

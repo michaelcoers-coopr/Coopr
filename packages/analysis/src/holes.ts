@@ -268,7 +268,9 @@ export function scoringByHoleType(rounds: readonly RoundInput[], cfg: Config): I
   const best = [...rankable].sort((a, b) => a.avgToPar! - b.avgToPar! || a.key.localeCompare(b.key))[0]!;
   const { numbers, f } = numFmt();
   for (const m of `${worst.label} ${best.label}`.match(/\d+/g) ?? []) numbers.push(Number(m)); // thresholds printed in bucket labels
-  const take = `Worst spot: ${worst.label} at ${f(worst.avgToPar!, 2)} over par a hole. Best: ${best.label} at ${f(best.avgToPar!, 2)}. Play the first like it hates you and the second like you own it.`;
+  const take = worst.key === best.key
+    ? `One bucket so far: ${worst.label} at ${f(worst.avgToPar!, 2)} over par a hole.`
+    : `Worst spot: ${worst.label} at ${f(worst.avgToPar!, 2)} over par a hole. Best: ${best.label} at ${f(best.avgToPar!, 2)}. Play the first like it hates you and the second like you own it.`;
   const order: Confidence[] = ['insufficient', 'limited', 'moderate', 'solid'];
   // The headline names two buckets, so it is only as confident as the weaker of the two.
   const conf = order[Math.min(order.indexOf(worst.confidence), order.indexOf(best.confidence))]!;
