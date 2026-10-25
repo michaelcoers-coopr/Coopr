@@ -8,6 +8,8 @@ import { readScanClubs, writeScanClubs } from '../src/bag-scan/persist';
 import type { ScanClub } from '../src/bag-scan/types';
 import { hydrateDevice, readDevice, resetDeviceForTests, resetDeviceFromStorage, writePlayerBag, writePlayerSettings } from '../src/device-store';
 import { parseSnapshot, playingFromBag } from '../src/device/snapshot';
+import { finishOpenFoursome, readFoursomeHistory, readOpenFoursome, writeOpenFoursome } from '../src/games/store';
+import type { FoursomeSave } from '@coopr/games';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -135,6 +137,41 @@ describe('device store', () => {
     expect(kept?.loft).toBe(30);
     expect(kept?.photoUri).toBe('file://face.jpg');
     expect(kept?.inPlay).toBe(false);
+  });
+
+  it('keeps a foursome through a restart and a bag write, and feeds round history once', () => {
+    fresh();
+    const save: FoursomeSave = {
+      id: 'game-1',
+      courseName: 'High Cedars',
+      players: [
+        { id: 'ada', name: 'Ada', courseHandicap: 10, isDeviceOwner: true },
+        { id: 'bea', name: 'Bea', courseHandicap: 12, isDeviceOwner: false },
+      ],
+      games: [{ kind: 'skins', stake: 100 }],
+      holes: [{ number: 1, par: 4, strokeIndex: 7, scores: [
+        { playerId: 'ada', gross: 5, pickup: false },
+        { playerId: 'bea', gross: 4, pickup: false },
+      ] }],
+      grossOnly: false,
+      wholeUnits: false,
+      finishedOn: null,
+    };
+    writeOpenFoursome(save);
+    writePlayerBag([{ id: '7i', label: '7 iron', slot: 'in_play', note: null }]);
+    resetDeviceForTests();
+    hydrateDevice();
+    expect(readOpenFoursome()?.id).toBe('game-1');
+    expect(readOpenFoursome()?.holes[0]?.scores[0]?.gross).toBe(5);
+    expect(readDevice().bag[0]?.id).toBe('7i');
+    finishOpenFoursome(save, [380]);
+    expect(readOpenFoursome()).toBeNull();
+    expect(readFoursomeHistory()).toHaveLength(1);
+    expect(readArchive().find((item) => item.id === 'game-1')?.holes[0]).toMatchObject({ strokes: 5, putts: null, fairway: null, gir: null, yards: 380 });
+    finishOpenFoursome({ ...save, players: save.players.map((player) => ({ ...player, courseHandicap: 0 })) }, [380]);
+    expect(readFoursomeHistory()[0]?.players[0]?.courseHandicap).toBe(10);
+    expect(readArchive().filter((item) => item.id === 'game-1')).toHaveLength(1);
+    expect(readArchive().find((item) => item.id === 'game-1')?.holes[0]?.strokes).toBe(5);
   });
 
   it('keeps the native bag in SQLite', () => {

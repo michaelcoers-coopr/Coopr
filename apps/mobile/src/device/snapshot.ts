@@ -1,4 +1,5 @@
 import type { FairwayResult, FixId } from '@coopr/analysis';
+import { parseFoursomeSave, type FoursomeSave } from '@coopr/games';
 import type { StoredRound } from '../analysis/from-round';
 import { sanitizeClub, sanitizeFit } from '../bag-scan/logic';
 import { EMPTY_FIT, type ScanClub, type StoredFit } from '../bag-scan/types';
@@ -27,6 +28,8 @@ export interface DeviceSnapshot {
   settings: DeviceSettings;
   rounds: StoredRound[];
   lastFix: { id: FixId; strokesPer18: number } | null;
+  foursome: FoursomeSave | null;
+  foursomeHistory: FoursomeSave[];
 }
 
 export const MAX_ROUNDS = 40;
@@ -38,7 +41,7 @@ export function emptySettings(): DeviceSettings {
 }
 
 export function emptySnapshot(): DeviceSnapshot {
-  return { version: 1, bag: [], fit: { ...EMPTY_FIT }, settings: emptySettings(), rounds: [], lastFix: null };
+  return { version: 1, bag: [], fit: { ...EMPTY_FIT }, settings: emptySettings(), rounds: [], lastFix: null, foursome: null, foursomeHistory: [] };
 }
 
 function fairwayOf(value: unknown): FairwayResult | null {
@@ -67,6 +70,14 @@ function roundOf(value: unknown): StoredRound | null {
     });
   }
   return { id: row.id, playedOn: row.playedOn, courseName: row.courseName, holes };
+}
+
+function foursomesOf(value: unknown): FoursomeSave[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const save = parseFoursomeSave(item);
+    return save ? [save] : [];
+  });
 }
 
 function roundsOf(value: unknown): StoredRound[] {
@@ -116,6 +127,8 @@ export function parseSnapshot(raw: string | null): DeviceSnapshot {
       settings: settingsOf(row.settings),
       rounds: roundsOf(row.rounds).slice(-MAX_ROUNDS),
       lastFix: fixOf(row.lastFix),
+      foursome: parseFoursomeSave(row.foursome),
+      foursomeHistory: foursomesOf(row.foursomeHistory).slice(-MAX_ROUNDS),
     };
   } catch {
     return emptySnapshot();
@@ -130,6 +143,25 @@ export function serializeSnapshot(snapshot: DeviceSnapshot): string {
  * A finished round is appended. An id that is already saved is left as it was.
  * The open round is renamed so the in-progress row can be cleared afterwards.
  */
+/** A finished foursome is appended. An id that is already saved is left as it was. */
+export function appendFoursome(snapshot: DeviceSnapshot, save: FoursomeSave): DeviceSnapshot {
+  if (snapshot.foursomeHistory.some((item) => item.id === save.id)) return snapshot;
+  const finished = { ...save, finishedOn: save.finishedOn ?? new Date().toISOString() };
+  return { ...snapshot, foursomeHistory: [...snapshot.foursomeHistory, finished].slice(-MAX_ROUNDS) };
+}
+
+/**
+ * History is written first. The open game is cleared only when it is the round that just finished.
+ * The owner's gross is appended to round history and is not overwritten if that id is already there.
+ */
+export function finishFoursome(snapshot: DeviceSnapshot, finished: FoursomeSave, owner: StoredRound | null): DeviceSnapshot {
+  if (snapshot.foursome?.id !== finished.id) return snapshot;
+  let next = appendFoursome(snapshot, finished);
+  if (owner) next = appendCompletedRound(next, owner);
+  if (next.foursome?.id !== finished.id) return next;
+  return { ...next, foursome: null };
+}
+
 export function appendCompletedRound(snapshot: DeviceSnapshot, round: StoredRound): DeviceSnapshot {
   const id = round.id === 'open' ? `round-${Date.now()}` : round.id;
   if (snapshot.rounds.some((item) => item.id === id)) return snapshot;
