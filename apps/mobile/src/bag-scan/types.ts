@@ -26,6 +26,8 @@ export interface ScanDraft {
   facePhotoUri: string | null;
   /** Latest capture, including sole or shaft. Only a face shot is kept as the club picture. */
   captureUri: string | null;
+  /** True only after the face shot was cropped to the clubhead and copied into app storage. */
+  faceCropped: boolean;
   brand: string;
   model: string;
   type: ClubType | null;
@@ -55,6 +57,7 @@ export function blankDraft(): ScanDraft {
     step: 'face',
     facePhotoUri: null,
     captureUri: null,
+    faceCropped: false,
     brand: '',
     model: '',
     type: null,

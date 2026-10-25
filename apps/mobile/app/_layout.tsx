@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colors } from '@coopr/tokens';
 import { DisplayFontProvider } from '../src/design/display-font';
 import { FloatingAsk } from '../src/design/floating-ask';
+import { BagScanProvider } from '../src/bag-scan/session';
 import { LocalStoreProvider } from '../src/local-store';
 import { rememberScreen } from '../src/screen-name';
 
@@ -49,6 +50,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <DisplayFontProvider>
         <LocalStoreProvider fallback={<LaunchScreen />}>
+          <BagScanProvider>
           <HideSplash />
           <RememberScreen />
           <StatusBar style="dark" />
@@ -66,6 +68,7 @@ export default function RootLayout() {
             <Stack.Screen name="analysis" options={{ headerShown: false, contentStyle: { backgroundColor: '#0B1F3A' } }} />
           </Stack>
           <FloatingAsk />
+          </BagScanProvider>
         </LocalStoreProvider>
       </DisplayFontProvider>
     </SafeAreaProvider>

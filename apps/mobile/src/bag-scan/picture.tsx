@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ImageSourcePropType } from 'react-native';
 import { AI_RENDER, PHOTO_CLUBFACE } from './copy';
@@ -24,9 +25,17 @@ export function ClubPicture({
   size?: number;
   onPhoto?: () => void;
 }) {
-  const kind = clubPictureKind(photoUri, type);
+  const [missing, setMissing] = useState(false);
+  const kind = missing ? clubPictureKind(null, type) : clubPictureKind(photoUri, type);
   if (kind === 'photo' && photoUri) {
-    return <Image accessibilityLabel="Your clubface photo" source={{ uri: photoUri }} style={{ width: size, height: size, borderRadius: 16 }} />;
+    return (
+      <Image
+        accessibilityLabel="Your clubface photo"
+        source={{ uri: photoUri }}
+        onError={() => setMissing(true)}
+        style={{ width: size, height: size, borderRadius: 16 }}
+      />
+    );
   }
   if (kind === 'render' && type && RENDERS[type]) {
     return (
@@ -56,7 +65,7 @@ const styles = StyleSheet.create({
     bottom: 4,
     backgroundColor: '#0B1F3A',
     color: '#FFFFFF',
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.4,
     paddingHorizontal: 4,

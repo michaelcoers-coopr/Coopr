@@ -1,4 +1,5 @@
 import { expectedFlexes, FLEX, type ClubVerdict, type FitClub, type FitProfile, type FlexLetter } from '@coopr/engine';
+import { durablePhoto } from './photos';
 import type { IronBuild, ScanClub, ScanDraft, StoredFit } from './types';
 import { EMPTY_FIT } from './types';
 
@@ -13,6 +14,13 @@ export function emptyToNull(value: string): string | null {
   return trimmed ? trimmed : null;
 }
 
+export const HANDICAP_MIN = -10;
+export const HANDICAP_MAX = 54;
+export const SPEED_MIN = 40;
+export const SPEED_MAX = 140;
+export const LOFT_MIN = 5;
+export const LOFT_MAX = 75;
+
 export function parseOptionalNumber(text: string): number | null {
   const trimmed = text.trim();
   if (!trimmed) return null;
@@ -20,8 +28,23 @@ export function parseOptionalNumber(text: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+export function rangedNumber(text: string, min: number, max: number): { blank: boolean; value: number | null; problem: string | null } {
+  const trimmed = text.trim();
+  if (!trimmed) return { blank: true, value: null, problem: null };
+  const value = Number(trimmed);
+  if (!Number.isFinite(value) || value < min || value > max) {
+    return { blank: false, value: null, problem: `Enter a number from ${min} to ${max}.` };
+  }
+  return { blank: false, value, problem: null };
+}
+
+export function loftProblem(text: string): string | null {
+  return rangedNumber(text, LOFT_MIN, LOFT_MAX).problem;
+}
+
 export function canConfirmDraft(draft: Pick<ScanDraft, 'type' | 'loftText' | 'clubNumber'>): boolean {
-  return draft.type != null && (parseOptionalNumber(draft.loftText) != null || Boolean(draft.clubNumber.trim()));
+  if (draft.type == null || loftProblem(draft.loftText)) return false;
+  return parseOptionalNumber(draft.loftText) != null || Boolean(draft.clubNumber.trim());
 }
 
 export function slotFor(draft: Pick<ScanDraft, 'clubNumber' | 'loftText' | 'type'>): string {
@@ -44,7 +67,7 @@ export function draftToClub(draft: ScanDraft, ack: 'kept_anyway' | null, now = n
     loft,
     flex: draft.flex,
     ironBuild: draft.type === 'iron' ? draft.ironBuild : null,
-    photoUri: draft.facePhotoUri,
+    photoUri: durablePhoto(draft.facePhotoUri),
     fitAck: ack,
     fitAckOn: ack ? now : null,
     clubNumber: emptyToNull(draft.clubNumber),
@@ -57,6 +80,7 @@ export function clubToDraft(club: ScanClub): ScanDraft {
     step: 'face',
     facePhotoUri: club.photoUri,
     captureUri: club.photoUri,
+    faceCropped: Boolean(club.photoUri),
     brand: club.brand ?? '',
     model: club.model ?? '',
     type: club.type,
@@ -72,7 +96,18 @@ export function placeClub(existing: readonly ScanClub[], club: ScanClub): ScanCl
   const previous = existing.find((item) => item.id === club.id);
   const others = existing.filter((item) => item.id !== club.id);
   const inPlay = previous ? previous.inPlay : others.filter((item) => item.inPlay).length < IN_PLAY_CAP;
-  return [...others, { ...club, inPlay }];
+  return [...others, { ...club, inPlay, fitAck: club.fitAck ?? previous?.fitAck ?? null, fitAckOn: club.fitAck ? club.fitAckOn : previous?.fitAckOn ?? null }];
+}
+
+export function withoutClub(existing: readonly ScanClub[], id: string): ScanClub[] {
+  return existing.filter((club) => club.id !== id);
+}
+
+export function withInPlay(existing: readonly ScanClub[], id: string, inPlay: boolean): { clubs: ScanClub[]; refused: string | null } {
+  if (inPlay && existing.filter((club) => club.inPlay && club.id !== id).length >= IN_PLAY_CAP) {
+    return { clubs: [...existing], refused: 'In-play bag is limited to 14 clubs. Move one out before adding another.' };
+  }
+  return { clubs: existing.map((club) => (club.id === id ? { ...club, inPlay } : club)), refused: null };
 }
 
 export function toFitClub(club: ScanClub): FitClub {
@@ -107,8 +142,8 @@ export function profileFromFit(fit: StoredFit): FitProfile {
 export function sanitizeFit(value: unknown): StoredFit {
   if (!value || typeof value !== 'object') return { ...EMPTY_FIT };
   const raw = value as Record<string, unknown>;
-  const handicap = typeof raw.handicapIndex === 'number' && Number.isFinite(raw.handicapIndex) ? raw.handicapIndex : null;
-  const speed = typeof raw.driverSpeedMph === 'number' && Number.isFinite(raw.driverSpeedMph) ? raw.driverSpeedMph : null;
+  const handicap = typeof raw.handicapIndex === 'number' && raw.handicapIndex >= HANDICAP_MIN && raw.handicapIndex <= HANDICAP_MAX ? raw.handicapIndex : null;
+  const speed = typeof raw.driverSpeedMph === 'number' && raw.driverSpeedMph >= SPEED_MIN && raw.driverSpeedMph <= SPEED_MAX ? raw.driverSpeedMph : null;
   const handicapQuality = raw.handicapQuality === 'measured' || raw.handicapQuality === 'user_confirmed' ? raw.handicapQuality : null;
   const speedQuality = raw.speedQuality === 'measured' || raw.speedQuality === 'user_confirmed' ? raw.speedQuality : null;
   return {
@@ -135,7 +170,7 @@ export function sanitizeClub(value: unknown): ScanClub | null {
   if (!value || typeof value !== 'object') return null;
   const raw = value as Record<string, unknown>;
   if (typeof raw.id !== 'string' || !raw.id) return null;
-  const loft = typeof raw.loft === 'number' && Number.isFinite(raw.loft) ? raw.loft : null;
+  const loft = typeof raw.loft === 'number' && raw.loft >= LOFT_MIN && raw.loft <= LOFT_MAX ? raw.loft : null;
   return {
     id: raw.id,
     slot: typeof raw.slot === 'string' && raw.slot.trim() ? raw.slot : 'CLUB',
