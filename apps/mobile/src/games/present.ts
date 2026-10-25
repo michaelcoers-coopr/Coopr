@@ -86,6 +86,8 @@ export const DOWN_TEXT = '#FF8A9B'
 export const MISSED = "I didn't catch that."
 /** Shown when Blind is off because a score or a pickup is already on the card. */
 export const BLIND_HOLD = 'Blind wolf has to come before the scores'
+export const LOG_SCORES = 'Enter a score for each player'
+export const LOG_WOLF = 'Call a partner, lone wolf, or no wolf'
 export const HANDICAP_MIN = -10
 export const HANDICAP_MAX = 54
 
@@ -384,6 +386,14 @@ export function logReady(rows: EntryRow[], marks?: HoleMarks, wolfOn = false): b
   return true
 }
 
+/** Why LOG HOLE is off. Finish uses its own sentence. */
+export function logHoleReason(rows: EntryRow[], marks: HoleMarks | undefined, wolfOn: boolean): string | null {
+  if (logReady(rows, marks, wolfOn)) return null
+  const scores = rows.length >= 2 && rows.every((row) => (row.gross != null || row.pickup) && !row.amber && !row.question)
+  if (!scores) return LOG_SCORES
+  return LOG_WOLF
+}
+
 export function speechHints(players: Array<{ name: string }>): string[] {
   return [
     ...players.map((player) => player.name),
@@ -450,11 +460,11 @@ export function afterCorrection<T>(input: {
   return { hole: input.openHole, rows: input.draftRows, marks: input.draftMarks }
 }
 
-/** A 44px toggle, the Birdie Bucks line, and the strip padding. Open adds the pot, the wolf, and the game line. */
+/** A 44px toggle with one net line, two lines of the smaller disclosure, and the strip padding. Open adds the pot, the wolf, and the game line. */
 export function liveStripHeight(open: boolean): number {
-  const collapsed = 112
+  const collapsed = 86
   if (!open) return collapsed
-  return 184
+  return 158
 }
 
 export function potHero(pending: number, stake: number | null = null, players = 2, carry = true): string {
@@ -463,6 +473,34 @@ export function potHero(pending: number, stake: number | null = null, players = 
   const line = pot == null ? count : `${count}, ${fmt(pot)}`
   const note = carry ? 'Carry-over is on.' : 'No carry-over.'
   return `${line}. ${note}`
+}
+
+/** A refused blind call is not read back. "Blind wolf. This hole." leaves nothing to confirm. */
+export function refusedBlindReadback(readback: string | null): string | null {
+  if (!readback) return null
+  const stripped = readback.replace(/\bBlind wolf\b\.?\s*/g, ' ').replace(/\s+/g, ' ').replace(/\s+\./g, '.').trim()
+  if (!stripped || /^this hole\.?$/i.test(stripped)) return null
+  return stripped
+}
+
+/**
+ * One refusal, and no read-back of the call that was refused.
+ * When the Blind button already shows the reason, this does not repeat it.
+ */
+export function blindRefusalLines(input: {
+  readback: string | null
+  question: string | null
+  note: string | null
+  holdVisible: boolean
+}): { readback: string | null; question: string | null; note: string | null } {
+  const readback = refusedBlindReadback(input.readback)
+  const question = input.question && input.question !== BLIND_HOLD && input.question !== input.readback ? input.question : null
+  const extra = input.note && input.note !== BLIND_HOLD ? input.note : null
+  return {
+    readback,
+    question: question && question !== readback ? question : null,
+    note: input.holdVisible ? extra : BLIND_HOLD,
+  }
 }
 
 /** Read-back, then the question, then the note. The same sentence is kept once. */
@@ -815,7 +853,14 @@ export function winnerText(game: Pick<GameScore, 'points' | 'winners'> & { line?
   return game.winners.join(' and ')
 }
 
-export function skinsLine(names: string[], points: number[], nets: number[] | null, pending: number, finished: boolean): string {
+export function skinsLine(
+  names: string[],
+  points: number[],
+  nets: number[] | null,
+  pending: number,
+  finished: boolean,
+  carry = true,
+): string {
   const bits = names.flatMap((name, index) => {
     const won = points[index] ?? 0
     const net = nets ? nets[index] ?? 0 : null
@@ -825,12 +870,13 @@ export function skinsLine(names: string[], points: number[], nets: number[] | nu
     return [`${pointsLabel}, ${fmt(net, undefined, true)}`]
   })
   const who = bits.length ? bits.join(', ') : 'No skins won'
+  if (finished && !carry) return who
   const tail = finished ? (pending > 0 ? `${pending} left unplayed` : 'Played out') : `${pending} on the line`
   return `${who}. ${tail}`
 }
 
-export function gameLine(game: GameScore, ctx: { names: string[]; pending: number; finished: boolean; roster: string | null }): string {
-  if (game.kind === 'skins') return skinsLine(ctx.names, game.points ?? [], game.nets, ctx.pending, ctx.finished)
+export function gameLine(game: GameScore, ctx: { names: string[]; pending: number; finished: boolean; roster: string | null; carry?: boolean }): string {
+  if (game.kind === 'skins') return skinsLine(ctx.names, game.points ?? [], game.nets, ctx.pending, ctx.finished, ctx.carry !== false)
   if ((game.kind === 'bbb' || game.kind === 'coins' || game.kind === 'wolf') && game.points && game.points.every((point) => point === 0)) {
     return 'No points on the card'
   }

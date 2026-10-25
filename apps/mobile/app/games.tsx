@@ -19,6 +19,7 @@ import {
   afterCorrection,
   applyPhrase,
   assignSide,
+  blindRefusalLines,
   blankPlayer,
   buildSave,
   commitHole,
@@ -35,6 +36,7 @@ import {
   isCorrection,
   liveScore,
   localPlayedOn,
+  logHoleReason,
   logReady,
   marksFromHole,
   dayAmount,
@@ -284,9 +286,23 @@ export default function GamesScreen() {
     const blindAfterScores = applied.marks.wolf?.mode === 'blind'
       && marks.wolf?.mode !== 'blind'
       && rows.some((row) => row.gross != null || row.pickup);
+    if (blindAfterScores) {
+      const view = blindRefusalLines({
+        readback: applied.readback,
+        question: applied.question,
+        note: applied.note,
+        holdVisible: Boolean(wolfPlayer),
+      });
+      setRows(applied.rows);
+      setMarks({ ...applied.marks, wolf: marks.wolf });
+      setNote(view.note);
+      if (view.readback || view.question) setHeard({ transcript: text, readback: view.readback ?? 'This hole.', question: view.question });
+      else setHeard(null);
+      return;
+    }
     setRows(applied.rows);
-    setMarks(blindAfterScores ? { ...applied.marks, wolf: marks.wolf } : applied.marks);
-    setNote(blindAfterScores ? BLIND_HOLD : applied.note);
+    setMarks(applied.marks);
+    setNote(applied.note);
     setHeard({ transcript: text, readback: applied.readback ?? 'This hole.', question: applied.question });
   };
 
@@ -328,6 +344,7 @@ export default function GamesScreen() {
 
   const playedCount = save ? holesPlayed(save) : 0;
   const blindHeld = rows.some((row) => row.gross != null || row.pickup);
+  const holeReason = save ? logHoleReason(rows, marks, wolfRequired(save)) : null;
   const cardLines = heard ? visiblePhraseLines({ note: null, readback: heard.readback, question: heard.question ?? null }) : [];
   const noteLine = note && !cardLines.includes(note) ? note : null;
 
@@ -347,22 +364,24 @@ export default function GamesScreen() {
       {info ? <Text style={styles.disclosure}>{DISCLOSURE}</Text> : null}
       {step === 'play' && save && score ? (
         <View accessibilityLabel="Live strip" style={styles.strip}>
-          <Pressable accessibilityRole="button" accessibilityLabel={stripOpen ? 'Hide live detail' : 'Show live detail'} onPress={() => setStripOpen((open) => !open)} style={styles.stripToggle}>
-            <View style={[styles.row, styles.stripNets]}>
+          <View style={styles.stripHead}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stripNets} contentContainerStyle={styles.stripNetRow}>
               {score.zeroSumOk
-                ? save.players.map((player, index) => (
-                    <View key={player.id} style={styles.netCell}>
-                      <Text style={styles.meta}>{player.name}</Text>
-                      <Text style={[styles.stripNet, { fontFamily: display, color: (score.nets[index] ?? 0) < 0 ? DOWN_TEXT : colors.white }]}>
-                        {fmt(score.nets[index] ?? 0, undefined, true)}
+                ? save.players.map((player, index) => {
+                    const net = score.nets[index] ?? 0;
+                    return (
+                      <Text key={player.id} numberOfLines={1} style={[styles.stripNet, { fontFamily: display, color: net < 0 ? DOWN_TEXT : colors.white }]}>
+                        {`${player.name} ${fmt(net, undefined, true)}`}
                       </Text>
-                    </View>
-                  ))
+                    );
+                  })
                 : <Text style={styles.amber}>{score.note}</Text>}
-            </View>
-            <Text style={styles.chevron}>{stripOpen ? '▴' : '▾'}</Text>
-          </Pressable>
-          <Text accessibilityLabel="Birdie Bucks" style={styles.disclosure}>{DISCLOSURE}</Text>
+            </ScrollView>
+            <Pressable accessibilityRole="button" accessibilityLabel={stripOpen ? 'Hide live detail' : 'Show live detail'} onPress={() => setStripOpen((open) => !open)} style={styles.stripToggle}>
+              <Text style={styles.chevron}>{stripOpen ? '▴' : '▾'}</Text>
+            </Pressable>
+          </View>
+          <Text accessibilityLabel="Birdie Bucks" style={styles.stripDisclosure}>{DISCLOSURE}</Text>
           {stripOpen ? (
             <>
               {score.games.some((game) => game.kind === 'skins') ? (
@@ -746,10 +765,10 @@ export default function GamesScreen() {
                 </Pressable>
               ) : null}
             </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Log hole" disabled={!logReady(rows, marks, wolfRequired(save))} onPress={logHole} style={[styles.go, !logReady(rows, marks, wolfRequired(save)) && styles.goOff]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Log hole" accessibilityHint={holeReason ?? undefined} disabled={holeReason != null} onPress={logHole} style={[styles.go, holeReason != null && styles.goOff]}>
               <Text style={[styles.goText, { fontFamily: display }]}>LOG HOLE</Text>
             </Pressable>
-            {playedCount === 0 ? <Text style={styles.meta}>Log a hole before finishing.</Text> : null}
+            {holeReason ? <Text accessibilityLabel="Log hole reason" style={styles.meta}>{holeReason}</Text> : null}
             {askFinish ? (
               <View style={styles.card}>
                 <Text style={styles.copy}>{finishPrompt(playedCount)}</Text>
@@ -761,9 +780,12 @@ export default function GamesScreen() {
                 </Pressable>
               </View>
             ) : (
-              <Pressable accessibilityRole="button" accessibilityLabel="Finish round" accessibilityHint={playedCount === 0 ? 'Log a hole before finishing.' : undefined} disabled={playedCount === 0} onPress={() => setAskFinish(true)} style={[styles.chip, playedCount === 0 && styles.chipOff]}>
-                <Text style={styles.chipText}>Finish round</Text>
-              </Pressable>
+              <>
+                <Pressable accessibilityRole="button" accessibilityLabel="Finish round" accessibilityHint={playedCount === 0 ? 'Log a hole before finishing.' : undefined} disabled={playedCount === 0} onPress={() => setAskFinish(true)} style={[styles.chip, playedCount === 0 && styles.chipOff]}>
+                  <Text style={styles.chipText}>Finish round</Text>
+                </Pressable>
+                {playedCount === 0 ? <Text accessibilityLabel="Finish hold" style={styles.meta}>Log a hole before finishing.</Text> : null}
+              </>
             )}
           </View>
         ) : null}
@@ -788,7 +810,7 @@ export default function GamesScreen() {
               const roster = report.games.find((item) => item.kind === game.kind);
               const rosterText = roster ? rosterLine(report, roster) : null;
               const names = report.players.map((player) => player.name);
-              const line = gameLine(game, { names, pending: score.skinsPending, finished: true, roster: rosterText });
+              const line = gameLine(game, { names, pending: score.skinsPending, finished: true, roster: rosterText, carry: roster?.carry !== false });
               const who = winnerText(game);
               const wolfRows = game.kind === 'wolf' && game.points ? wolfPointsTable(names, game.points) : [];
               const owes = oweCombinations(names, game.nets);
@@ -914,10 +936,13 @@ const styles = StyleSheet.create({
   infoText: { color: signal.go, fontFamily: font.family, fontWeight: '800' },
   body: { paddingBottom: 108, gap: 12 },
   stack: { gap: 12 },
-  strip: { backgroundColor: '#102848', borderRadius: 16, padding: 8, gap: 4, marginBottom: 8 },
-  stripToggle: { minHeight: 44, flexDirection: 'row', alignItems: 'center' },
-  stripNets: { flex: 1 },
+  strip: { backgroundColor: '#102848', borderRadius: 16, paddingVertical: 6, paddingHorizontal: 8, gap: 2, marginBottom: 8 },
+  stripHead: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
+  stripToggle: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  stripNets: { flexGrow: 1, flexShrink: 1, maxHeight: 44 },
+  stripNetRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   chevron: { color: signal.go, fontSize: 22, width: 44, textAlign: 'center' },
+  stripDisclosure: { color: colors.white, fontFamily: font.family, fontSize: 11, lineHeight: 14 },
   card: { backgroundColor: '#102848', borderRadius: 16, padding: 12, gap: 8 },
   sheet: { position: 'absolute', left: 16, right: 16, bottom: 24, zIndex: 30, backgroundColor: '#102848', borderRadius: 16, padding: 16, gap: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
   hero: { color: colors.white, fontSize: 40, lineHeight: 44 },
@@ -937,9 +962,8 @@ const styles = StyleSheet.create({
   amber: { color: signal.caution, fontFamily: font.family, fontSize: 14, lineHeight: 20 },
   holeNo: { color: colors.white, fontSize: 92, lineHeight: 92, fontVariant: ['tabular-nums'] },
   meta: { color: play.muted, fontFamily: font.family, fontSize: 13 },
-  netCell: { minWidth: 72 },
   net: { fontSize: 28, fontVariant: ['tabular-nums'] },
-  stripNet: { fontSize: 20, lineHeight: 22, fontVariant: ['tabular-nums'] },
+  stripNet: { fontSize: 16, lineHeight: 20, fontVariant: ['tabular-nums'] },
   stripLine: { color: colors.white, fontSize: 22, lineHeight: 24 },
   gross: { color: colors.white, fontSize: 48, lineHeight: 48, fontVariant: ['tabular-nums'] },
   holeChip: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#173154', alignItems: 'center', justifyContent: 'center' },

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { inflateSync } from 'node:zlib';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -12,6 +13,7 @@ import {
   afterCorrection,
   applyPhrase,
   assignSide,
+  blindRefusalLines,
   blankPlayer,
   buildSave,
   commitHole,
@@ -28,6 +30,9 @@ import {
   dayAmount,
   liveScore,
   liveStripHeight,
+  LOG_SCORES,
+  LOG_WOLF,
+  logHoleReason,
   logReady,
   oweCombinations,
   partialLabel,
@@ -48,6 +53,7 @@ import {
   tapGross,
   undoLastHole,
   visiblePhraseLines,
+  refusedBlindReadback,
   visibleSetupLines,
   winnerText,
   wolfHero,
@@ -66,6 +72,67 @@ const ask = readFileSync(join(here, '../src/design/floating-ask.tsx'), 'utf8');
 const speech = readFileSync(join(here, '../src/speech/recognize.ts'), 'utf8');
 
 const CARD = Array.from({ length: 18 }, (_, index) => ({ par: index === 0 ? 5 : 4, strokeIndex: index + 1 }));
+
+/** True when the crest PNG has a clear corner and an opaque mark, so it does not paint a white square. */
+function pngCornerClear(bytes: Buffer): boolean {
+  if (bytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') return false;
+  let offset = 8;
+  let width = 0;
+  let height = 0;
+  let colorType = 0;
+  const idat: Buffer[] = [];
+  while (offset + 8 <= bytes.length) {
+    const length = bytes.readUInt32BE(offset);
+    const type = bytes.subarray(offset + 4, offset + 8).toString('ascii');
+    const data = bytes.subarray(offset + 8, offset + 8 + length);
+    if (type === 'IHDR') {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      colorType = data[9] ?? 0;
+    } else if (type === 'IDAT') idat.push(data);
+    else if (type === 'IEND') break;
+    offset += 12 + length;
+  }
+  if (colorType !== 6 || width < 8 || height < 8) return false;
+  const raw = inflateSync(Buffer.concat(idat));
+  const stride = width * 4;
+  const out = Buffer.alloc(height * stride);
+  let src = 0;
+  for (let y = 0; y < height; y += 1) {
+    const filter = raw[src] ?? 0;
+    src += 1;
+    const row = y * stride;
+    for (let x = 0; x < stride; x += 1) {
+      const left = x >= 4 ? out[row + x - 4]! : 0;
+      const up = y > 0 ? out[row - stride + x]! : 0;
+      const ul = y > 0 && x >= 4 ? out[row - stride + x - 4]! : 0;
+      const value = raw[src] ?? 0;
+      src += 1;
+      let next = value;
+      if (filter === 1) next = (value + left) & 255;
+      else if (filter === 2) next = (value + up) & 255;
+      else if (filter === 3) next = (value + Math.floor((left + up) / 2)) & 255;
+      else if (filter === 4) {
+        const pa = Math.abs(left + up - ul - left);
+        const pb = Math.abs(left + up - ul - up);
+        const pc = Math.abs(left + up - ul - ul);
+        const pred = pa <= pb && pa <= pc ? left : pb <= pc ? up : ul;
+        next = (value + pred) & 255;
+      }
+      out[row + x] = next;
+    }
+  }
+  const alpha = (x: number, y: number) => out[y * stride + x * 4 + 3] ?? 255;
+  if (alpha(0, 0) !== 0 || alpha(width - 1, 0) !== 0) return false;
+  let opaque = false;
+  for (let i = 3; i < out.length; i += 4) {
+    if ((out[i] ?? 0) > 200) {
+      opaque = true;
+      break;
+    }
+  }
+  return opaque;
+}
 
 function twoPlayers(): SetupPlayer[] {
   return [
@@ -670,8 +737,11 @@ describe('foursome QA', () => {
     expect(liveStripHeight(true) / 640).toBeLessThan(0.3);
     expect(screen).toContain('Show live detail');
     expect(screen).toContain('useState(false)');
-    expect(screen).toMatch(/strip: \{[^}]*padding: 8/);
-    expect(screen).toContain('stripNet: { fontSize: 20, lineHeight: 22');
+    expect(screen).toContain('paddingVertical: 6');
+    expect(screen).toContain('stripNet: { fontSize: 16, lineHeight: 20');
+    expect(screen).toContain('stripDisclosure: { color: colors.white, fontFamily: font.family, fontSize: 11, lineHeight: 14 }');
+    expect(screen).toContain('horizontal');
+    expect(screen).toContain('numberOfLines={1}');
     expect(screen).not.toMatch(/stripLine: \{[^}]*fontSize: 40/);
     expect(screen).toContain('stripToggle: { minHeight: 44');
     expect(screen).toContain("'▾'");
@@ -748,7 +818,7 @@ describe('foursome QA', () => {
   });
 
   it('gives the live-detail toggle a 44px row and a chevron', () => {
-    expect(screen).toContain('stripToggle: { minHeight: 44, flexDirection: \'row\', alignItems: \'center\' }');
+    expect(screen).toContain('stripToggle: { minHeight: 44, minWidth: 44, alignItems: \'center\', justifyContent: \'center\' }');
     expect(screen).toContain("{stripOpen ? '▴' : '▾'}");
     expect(liveStripHeight(false)).toBeGreaterThanOrEqual(44);
   });
@@ -759,8 +829,10 @@ describe('foursome QA', () => {
     const bitmap = readFileSync(join(here, '../src/games/recap-bitmap.ts'), 'utf8');
     expect(bitmap).not.toContain('function recapPng');
     expect(bitmap).not.toContain('01110');
-    expect(card).toContain('coopr-crest-navy-fill.jpg');
-    expect(card).toContain('Navy Fill crest');
+    expect(card).toContain('coopr-crest.png');
+    expect(card).not.toContain('coopr-crest-navy-fill.jpg');
+    expect(card).toContain('accessibilityLabel="Crest"');
+    expect(pngCornerClear(readFileSync(join(here, '../assets/coopr-crest.png')))).toBe(true);
     expect(card).toContain("backgroundColor: '#0B1F3A'");
     expect(card).toContain("backgroundColor: '#8AC926'");
     expect(card).toContain('fontFamily: display');
@@ -816,7 +888,8 @@ describe('foursome QA', () => {
     expect(screen).toContain('accessibilityLabel="Blind wolf hold"');
     expect(screen).toContain('accessibilityHint={blindHeld ? BLIND_HOLD : undefined}');
     expect(screen).toContain('blindHeld && styles.chipOff');
-    expect(screen).toContain('setNote(blindAfterScores ? BLIND_HOLD : applied.note)');
+    expect(screen).toContain('blindRefusalLines');
+    expect(screen).not.toContain('setNote(blindAfterScores ? BLIND_HOLD : applied.note)');
     expect(screen).not.toContain('opacity: 0.4');
     expect(screen).not.toContain('opacity: 0.45');
   });
@@ -851,5 +924,76 @@ describe('foursome QA', () => {
     expect(screen).toContain('accessibilityLabel="Carry-over"');
     expect(screen).toContain("kind === 'skins'");
     expect(screen).toContain("draft.carry ? 'Carry-over on' : 'Carry-over off'");
+  });
+
+  it('shows a refused blind wolf once and does not read the call back', () => {
+    const save = buildSave({
+      id: 'blind-phrase',
+      players: fourPlayers(),
+      ownerId: 'mike',
+      kinds: ['wolf'],
+      stakes: {},
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+    })!;
+    const mike = save.players.find((player) => player.name === 'Mike')!;
+    const rows = scored(save, [4, 5, 5, 5]);
+    const applied = applyPhrase(rows, 'blind wolf', save, { par: 4, strokeIndex: 1 }, { wolfId: mike.id, marks: emptyMarks() });
+    expect(applied.readback).toBe('Blind wolf. This hole.');
+    const shown = blindRefusalLines({
+      readback: applied.readback,
+      question: applied.question,
+      note: applied.note,
+      holdVisible: true,
+    });
+    expect(shown.readback).toBeNull();
+    expect(shown.question).toBeNull();
+    expect(shown.note).toBeNull();
+    expect(visiblePhraseLines(shown)).toEqual([]);
+    const alone = blindRefusalLines({ ...shown, readback: applied.readback, question: applied.question, note: applied.note, holdVisible: false });
+    expect(alone.note).toBe(BLIND_HOLD);
+    expect(visiblePhraseLines({ note: null, readback: alone.readback, question: alone.question })).toEqual([]);
+    expect(refusedBlindReadback('Mike 5. Blind wolf. This hole.')).toBe('Mike 5. This hole.');
+    expect(screen).toContain('else setHeard(null)');
+    expect(screen).toContain('holdVisible: Boolean(wolfPlayer)');
+  });
+
+  it('drops left unplayed on a finished skins round when carry is off', () => {
+    let save = buildSave({
+      id: 'carry-off-18',
+      players: twoPlayers(),
+      ownerId: 'ada',
+      kinds: ['skins'],
+      stakes: { skins: { ...emptyStake(), amount: '1', carry: false } },
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+    })!;
+    for (let hole = 1; hole <= 18; hole += 1) save = commitHole(save, hole, scored(save, [4, 4]), emptyMarks());
+    const score = liveScore(save);
+    expect(score.skinsPending).toBe(1);
+    const skins = score.games.find((game) => game.kind === 'skins')!;
+    const line = gameLine(skins, { names: ['Ada', 'Bea'], pending: score.skinsPending, finished: true, roster: null, carry: false });
+    expect(line).toBe('No skins won');
+    expect(line).not.toContain('left unplayed');
+    expect(skinsLine(['Ada', 'Bea'], [0, 0], [0, 0], 1, true, true)).toBe('No skins won. 1 left unplayed');
+    const results = screen.slice(screen.indexOf("step === 'results'"), screen.indexOf('function RivalryHero'));
+    expect(results).toContain('carry: roster?.carry !== false');
+  });
+
+  it('gives LOG HOLE its own reason and keeps Finish on the finish control', () => {
+    const rows = scored({ players: [{ id: 'a', name: 'Ada' }, { id: 'b', name: 'Bea' }] }, [4, 5]).map((row) => ({ ...row, gross: null }));
+    expect(logHoleReason(rows, emptyMarks(), false)).toBe(LOG_SCORES);
+    const ready = scored({ players: [{ id: 'a', name: 'Ada' }, { id: 'b', name: 'Bea' }, { id: 'c', name: 'Cy' }, { id: 'd', name: 'Di' }] }, [4, 4, 4, 4]);
+    expect(logHoleReason(ready, emptyMarks(), true)).toBe(LOG_WOLF);
+    expect(logHoleReason(ready, { ...emptyMarks(), wolfSkipped: true }, true)).toBeNull();
+    const log = screen.slice(screen.indexOf('accessibilityLabel="Log hole"'), screen.indexOf('accessibilityLabel="Finish round"'));
+    expect(log).toContain('accessibilityLabel="Log hole reason"');
+    expect(log).toContain('holeReason');
+    expect(log).not.toContain('Log a hole before finishing.');
+    const finish = screen.slice(screen.indexOf('accessibilityLabel="Finish round"'), screen.indexOf("step === 'results'"));
+    expect(finish).toContain('Log a hole before finishing.');
+    expect(finish).toContain('accessibilityLabel="Finish hold"');
   });
 });

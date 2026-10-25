@@ -4,7 +4,7 @@ import { dayLine, DISCLOSURE, fmt, type FoursomeSave, type RoundScore } from '@c
 import { font } from '@coopr/tokens';
 import { dayAmount, DOWN_TEXT, stablefordLine, wolfPointsTable } from './present';
 
-/** Navy ground, lime bar, Bebas numerals, and the supplied Navy Fill crest. */
+/** Navy ground, lime bar, Bebas numerals, and the transparent crest. */
 export function RecapCard({
   save,
   score,
@@ -32,8 +32,8 @@ export function RecapCard({
     <View ref={cardRef} collapsable={false} accessibilityLabel={accessibilityLabel} style={styles.card}>
       <View style={styles.bar} />
       <Image
-        accessibilityLabel="Navy Fill crest"
-        source={require('../../assets/coopr-crest-navy-fill.jpg')}
+        accessibilityLabel="Crest"
+        source={require('../../assets/coopr-crest.png')}
         style={styles.crest}
         resizeMode="contain"
       />

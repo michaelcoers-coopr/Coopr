@@ -142,6 +142,10 @@ describe('bag scan', () => {
     expect(hold.indexOf('asideOnReview(state.clubs')).toBeLessThan(hold.indexOf('KEEP IT ANYWAY'));
     expect(confirmReason(false)).toMatch(/before this can continue/);
     expect(confirmReason(true)).toBeNull();
+    const confirm = read('../app/bag/confirm.tsx');
+    const body = confirm.slice(confirm.indexOf('return ('), confirm.indexOf('YES, ADD IT'));
+    expect(body).not.toContain('reason');
+    expect(confirm.split('reason={reason}').length - 1).toBe(1);
     expect(detailsReason(true, true)).toMatch(/This is Sample/);
     expect(detailsReason(false, false)).toMatch(/before this can save/);
     writeScanClubs(next);

@@ -24,7 +24,7 @@ export default function ConfirmScreen() {
         </Text>
       ))}
       <ClubFields draft={draft} patch={patch} />
-      <Body>{ready ? 'Type and a loft or club number are set. Brand, model, and flex can stay blank.' : reason}</Body>
+      {ready ? <Body>Type and a loft or club number are set. Brand, model, and flex can stay blank.</Body> : null}
       <ScanButton label="YES, ADD IT" disabled={!ready} reason={reason} onPress={() => forwardBag(router, '/bag/card')} />
       <ScanButton
         label="NOT THIS ONE"
