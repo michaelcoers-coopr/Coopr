@@ -144,8 +144,8 @@
      {
       "status": "unknown",
       "label": "Shaft flex",
-      "why": "Flex not set.",
-      "needs": "shaft flex (shaft band photo or type it)",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
       "basis": null
      },
      {
@@ -157,7 +157,6 @@
      }
     ],
     "needs": [
-     "shaft flex (shaft band photo or type it)",
      "loft"
     ],
     "sample": true
@@ -176,8 +175,8 @@
      {
       "status": "unknown",
       "label": "Shaft flex",
-      "why": "Flex not set.",
-      "needs": "shaft flex (shaft band photo or type it)",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
       "basis": null
      },
      {
@@ -189,7 +188,6 @@
      }
     ],
     "needs": [
-     "shaft flex (shaft band photo or type it)",
      "loft"
     ],
     "sample": true
@@ -208,8 +206,8 @@
      {
       "status": "unknown",
       "label": "Shaft flex",
-      "why": "Flex not set.",
-      "needs": "shaft flex (shaft band photo or type it)",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
       "basis": null
      },
      {
@@ -221,7 +219,6 @@
      }
     ],
     "needs": [
-     "shaft flex (shaft band photo or type it)",
      "loft"
     ],
     "sample": true
@@ -414,8 +411,8 @@
      {
       "status": "unknown",
       "label": "Shaft flex",
-      "why": "Flex not set.",
-      "needs": "shaft flex (shaft band photo or type it)",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
       "basis": null
      },
      {
@@ -426,9 +423,7 @@
       "basis": null
      }
     ],
-    "needs": [
-     "shaft flex (shaft band photo or type it)"
-    ],
+    "needs": [],
     "sample": true
    },
    "w54": {
@@ -445,21 +440,19 @@
      {
       "status": "unknown",
       "label": "Shaft flex",
-      "why": "Flex not set.",
-      "needs": "shaft flex (shaft band photo or type it)",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
       "basis": null
      },
      {
       "status": "stretch",
       "label": "Loft in your bag",
-      "why": "2\u00b0 from the 56\u00b0 club (overlap)",
+      "why": "2° from the 56° club (overlap)",
       "needs": null,
       "basis": null
      }
     ],
-    "needs": [
-     "shaft flex (shaft band photo or type it)"
-    ],
+    "needs": [],
     "sample": true
    },
    "w56": {
@@ -476,21 +469,19 @@
      {
       "status": "unknown",
       "label": "Shaft flex",
-      "why": "Flex not set.",
-      "needs": "shaft flex (shaft band photo or type it)",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
       "basis": null
      },
      {
       "status": "stretch",
       "label": "Loft in your bag",
-      "why": "2\u00b0 from the 54\u00b0 club (overlap)",
+      "why": "2° from the 54° club (overlap)",
       "needs": null,
       "basis": null
      }
     ],
-    "needs": [
-     "shaft flex (shaft band photo or type it)"
-    ],
+    "needs": [],
     "sample": true
    },
    "pt": {
@@ -507,8 +498,8 @@
      {
       "status": "unknown",
       "label": "Shaft flex",
-      "why": "Flex not set.",
-      "needs": "shaft flex (shaft band photo or type it)",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
       "basis": null
      },
      {
@@ -520,7 +511,6 @@
      }
     ],
     "needs": [
-     "shaft flex (shaft band photo or type it)",
      "loft"
     ],
     "sample": true
@@ -580,8 +570,8 @@
      {
       "status": "unknown",
       "label": "Shaft flex",
-      "why": "Flex not set.",
-      "needs": "shaft flex (shaft band photo or type it)",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
       "basis": null
      },
      {
@@ -593,7 +583,6 @@
      }
     ],
     "needs": [
-     "shaft flex (shaft band photo or type it)",
      "loft"
     ],
     "sample": true
@@ -612,8 +601,8 @@
      {
       "status": "unknown",
       "label": "Shaft flex",
-      "why": "Flex not set.",
-      "needs": "shaft flex (shaft band photo or type it)",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
       "basis": null
      },
      {
@@ -625,7 +614,6 @@
      }
     ],
     "needs": [
-     "shaft flex (shaft band photo or type it)",
      "loft"
     ],
     "sample": true
@@ -644,8 +632,8 @@
      {
       "status": "unknown",
       "label": "Shaft flex",
-      "why": "Flex not set.",
-      "needs": "shaft flex (shaft band photo or type it)",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
       "basis": null
      },
      {
@@ -657,7 +645,6 @@
      }
     ],
     "needs": [
-     "shaft flex (shaft band photo or type it)",
      "loft"
     ],
     "sample": true
@@ -850,8 +837,8 @@
      {
       "status": "unknown",
       "label": "Shaft flex",
-      "why": "Flex not set.",
-      "needs": "shaft flex (shaft band photo or type it)",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
       "basis": null
      },
      {
@@ -862,9 +849,7 @@
       "basis": null
      }
     ],
-    "needs": [
-     "shaft flex (shaft band photo or type it)"
-    ],
+    "needs": [],
     "sample": true
    },
    "w54": {
@@ -881,21 +866,19 @@
      {
       "status": "unknown",
       "label": "Shaft flex",
-      "why": "Flex not set.",
-      "needs": "shaft flex (shaft band photo or type it)",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
       "basis": null
      },
      {
       "status": "stretch",
       "label": "Loft in your bag",
-      "why": "2\u00b0 from the 56\u00b0 club (overlap)",
+      "why": "2° from the 56° club (overlap)",
       "needs": null,
       "basis": null
      }
     ],
-    "needs": [
-     "shaft flex (shaft band photo or type it)"
-    ],
+    "needs": [],
     "sample": true
    },
    "w56": {
@@ -912,21 +895,19 @@
      {
       "status": "unknown",
       "label": "Shaft flex",
-      "why": "Flex not set.",
-      "needs": "shaft flex (shaft band photo or type it)",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
       "basis": null
      },
      {
       "status": "stretch",
       "label": "Loft in your bag",
-      "why": "2\u00b0 from the 54\u00b0 club (overlap)",
+      "why": "2° from the 54° club (overlap)",
       "needs": null,
       "basis": null
      }
     ],
-    "needs": [
-     "shaft flex (shaft band photo or type it)"
-    ],
+    "needs": [],
     "sample": true
    },
    "pt": {
@@ -943,8 +924,8 @@
      {
       "status": "unknown",
       "label": "Shaft flex",
-      "why": "Flex not set.",
-      "needs": "shaft flex (shaft band photo or type it)",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
       "basis": null
      },
      {
@@ -956,7 +937,6 @@
      }
     ],
     "needs": [
-     "shaft flex (shaft band photo or type it)",
      "loft"
     ],
     "sample": true

@@ -172,9 +172,25 @@ export function headCheck(club: FitClub, profile: FitProfile, pickedTypes: Reado
   );
 }
 
+/**
+ * BAG_SCAN_SPEC §6c. Flex versus driver speed applies to irons, utility irons, and the driver
+ * (the worked example scores the XR driver). Fairway woods, hybrids, wedges, and putters have
+ * no player-fit rule, so the card stays CAN'T TELL YET.
+ * The Python reference `flex_check` scored every club that had a flex letter, including those four types.
+ */
+const FLEX_RULE_TYPES = new Set(['iron', 'utility iron', 'driver']);
+
+export function flexApplies(type: string): boolean {
+  return FLEX_RULE_TYPES.has(type);
+}
+
 export function flexCheck(club: FitClub, profile: FitProfile): FitCheck {
+  if (!flexApplies(club.type)) {
+    return chk('unknown', 'Shaft flex', "CAN'T TELL YET: no fit rule for this club type.");
+  }
   if (!club.flex) return chk('unknown', 'Shaft flex', 'Flex not set.', 'shaft flex (shaft band photo or type it)');
-  if (profile.driver_speed_mph == null) {
+  const speed = profile.driver_speed_mph;
+  if (speed == null || !Number.isFinite(speed)) {
     return chk(
       'unknown',
       'Shaft flex',
@@ -185,14 +201,20 @@ export function flexCheck(club: FitClub, profile: FitProfile): FitCheck {
   if (!(FLEX as readonly string[]).includes(club.flex)) {
     return chk('unknown', 'Shaft flex', `Flex ${club.flex} is not a starting letter we can place.`, 'shaft flex (shaft band photo or type it)');
   }
-  const expected = expectedFlexes(profile.driver_speed_mph);
+  const expected = expectedFlexes(speed);
+  if (expected.length === 0) {
+    return chk('unknown', 'Shaft flex', `Flex ${club.flex}, but that driver speed is outside the starting ranges.`, 'driver speed from a monitor (or 5 logged driver shots)');
+  }
   const index = FLEX.indexOf(club.flex as FlexLetter);
   const steps = Math.min(...expected.map((flex) => Math.abs(index - FLEX.indexOf(flex))));
+  if (!Number.isFinite(steps)) {
+    return chk('unknown', 'Shaft flex', `Flex ${club.flex}, but that driver speed is outside the starting ranges.`, 'driver speed from a monitor (or 5 logged driver shots)');
+  }
   const status = steps === 0 ? 'pass' : steps === 1 ? 'stretch' : 'mismatch';
   return chk(
     status,
     'Shaft flex vs speed',
-    `Flex ${club.flex} vs driver speed ${profile.driver_speed_mph} mph; starting flex ${expected.join('/')}; ${steps} step(s) off.`,
+    `Flex ${club.flex} vs driver speed ${speed} mph; starting flex ${expected.join('/')}; ${steps} step(s) off.`,
     null,
     profile.speed_quality,
   );
