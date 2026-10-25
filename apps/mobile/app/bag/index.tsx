@@ -46,7 +46,7 @@ export default function BagScreen() {
         }}
       />
       <Title>Bag</Title>
-      <Muted>{`${inPlay.length} of 14. Carry and total stay apart.`}</Muted>
+      {inPlay.length > 0 || nothing ? <Muted>{`${inPlay.length} of 14. Carry and total stay apart.`}</Muted> : null}
       {nothing ? <Muted>No clubs in the bag yet. Add one in Setup. Nothing was filled in for you.</Muted> : null}
       {bag.notice ? <Muted>{bag.notice}</Muted> : null}
       <Button
@@ -62,6 +62,7 @@ export default function BagScreen() {
           <Text style={styles.heading}>{`${scanInPlay.length} of 14 in play`}</Text>
           <GapPanel
             median={userGaps.median_gap}
+            known={userGaps.known_lofts.length}
             flags={userGaps.flags}
             unknown={userGaps.unknown_loft_in_play}
             benched={userGaps.benched}
@@ -121,6 +122,7 @@ export default function BagScreen() {
           </View>
           <GapPanel
             median={sample.gaps.median_gap}
+            known={sample.gaps.known_lofts.length}
             flags={sample.gaps.flags}
             unknown={sample.gaps.unknown_loft_in_play}
             benched={sample.gaps.benched}
@@ -192,11 +194,13 @@ function YourNumbers({ fit, onSave }: { fit: StoredFit; onSave: (fit: StoredFit)
 
 function GapPanel({
   median,
+  known,
   flags,
   unknown,
   benched,
 }: {
   median: number | null;
+  known: number;
   flags: { kind: string; between: string[]; gap: number }[];
   unknown: string[];
   benched: [string, number | null][];
@@ -204,7 +208,7 @@ function GapPanel({
   return (
     <Panel>
       {median == null ? (
-        <Body>Not enough known lofts to check a gap.</Body>
+        <Body>{known === 0 ? 'No loft is set, so a gap is not checked.' : 'One known loft. A gap check needs a second loft.'}</Body>
       ) : (
         <View style={styles.gapRow}>
           <Numeral size={42} color={scan.white}>{median}</Numeral>
