@@ -172,6 +172,29 @@ describe('device store', () => {
     expect(readFoursomeHistory()[0]?.players[0]?.courseHandicap).toBe(10);
     expect(readArchive().filter((item) => item.id === 'game-1')).toHaveLength(1);
     expect(readArchive().find((item) => item.id === 'game-1')?.holes[0]?.strokes).toBe(5);
+    expect(readArchive().find((item) => item.id === 'game-1')?.holes.every((hole) => hole.strokes != null)).toBe(true);
+  });
+
+  it('does not save a foursome that has no logged holes', () => {
+    fresh();
+    const save: FoursomeSave = {
+      id: 'empty-round',
+      courseName: 'High Cedars',
+      players: [
+        { id: 'ada', name: 'Ada', courseHandicap: 10, isDeviceOwner: true },
+        { id: 'bea', name: 'Bea', courseHandicap: 12, isDeviceOwner: false },
+      ],
+      games: [{ kind: 'skins', stake: 100 }],
+      holes: [{ number: 1, par: 4, strokeIndex: 7, scores: [] }],
+      grossOnly: false,
+      wholeUnits: false,
+      finishedOn: null,
+    };
+    writeOpenFoursome(save);
+    finishOpenFoursome(save, [380]);
+    expect(readOpenFoursome()?.id).toBe('empty-round');
+    expect(readFoursomeHistory()).toHaveLength(0);
+    expect(readArchive().find((item) => item.id === 'empty-round')).toBeUndefined();
   });
 
   it('keeps the native bag in SQLite', () => {

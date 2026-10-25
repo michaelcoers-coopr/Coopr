@@ -2,18 +2,42 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { BANNED_WORD, DISCLOSURE } from '@coopr/games';
+import { BANNED_WORD, DISCLOSURE, headToHead, seasonTable, type GameKind } from '@coopr/games';
 import {
+  DOWN_TEXT,
+  MISSED,
   acceptRow,
+  activeKinds,
   applyPhrase,
+  assignSide,
   blankPlayer,
   buildSave,
+  commitHole,
+  correctLastHole,
+  defaultSides,
+  emptyMarks,
   emptyStake,
+  finishPrompt,
+  gameLine,
+  handicapError,
+  holesPlayed,
+  liveScore,
   logReady,
+  partialLabel,
+  phoneRounds,
   playerHandicap,
   recapFor,
+  resumeHole,
+  rosterLine,
   setupBlock,
+  skinsLine,
+  stablePlayerId,
+  stakeError,
   tapGross,
+  undoLastHole,
+  winnerText,
+  zeroSumLine,
+  type EntryRow,
   type SetupPlayer,
 } from '../src/games/present';
 import type { FoursomeSave } from '@coopr/games';
@@ -83,8 +107,8 @@ describe('foursome screens', () => {
     expect(josh?.amber).toBe(true);
     expect(josh?.gross).toBe(7);
     expect(logReady(heard.rows)).toBe(false);
-    const accepted = acceptRow(heard.rows, 'p_josh');
-    const tapped = tapGross(accepted, 'p_mike', 5);
+    const accepted = acceptRow(heard.rows, save.players.find((player) => player.name === 'Josh')!.id);
+    const tapped = tapGross(accepted, save.players.find((player) => player.name === 'Mike')!.id, 5);
     expect(logReady(tapped)).toBe(true);
     expect(heard.rows.every((row) => row.confirmed || row.amber)).toBe(true);
   });
@@ -108,8 +132,8 @@ describe('foursome screens', () => {
           ? {
               ...hole,
               scores: [
-                { playerId: 'ada', gross: 4, pickup: false },
-                { playerId: 'bea', gross: 5, pickup: false },
+                { playerId: save.players[0]!.id, gross: 4, pickup: false },
+                { playerId: save.players[1]!.id, gross: 5, pickup: false },
               ],
             }
           : hole,
@@ -138,5 +162,340 @@ describe('foursome screens', () => {
     expect(speech).toContain('contextualStrings: hints');
     expect(speech).toContain('requiresOnDeviceRecognition: true');
     expect(speech).toMatch(/deviceSpeechAvailable[\s\S]*supportsOnDeviceRecognition\(\)/);
+  });
+});
+
+function contrast(front: string, back: string): number {
+  const lum = (hex: string) => {
+    const n = Number.parseInt(hex.slice(1), 16);
+    const channel = (value: number) => {
+      const s = value / 255;
+      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    };
+    const r = channel((n >> 16) & 255);
+    const g = channel((n >> 8) & 255);
+    const b = channel(n & 255);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const lighter = Math.max(lum(front), lum(back));
+  const darker = Math.min(lum(front), lum(back));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function fourPlayers(): SetupPlayer[] {
+  return [
+    { ...blankPlayer('mike'), name: 'Mike', scratch: true },
+    { ...blankPlayer('dave'), name: 'Dave', handicapText: '9' },
+    { ...blankPlayer('tony'), name: 'Tony', handicapText: '18' },
+    { ...blankPlayer('josh'), name: 'Josh', handicapText: '12' },
+  ];
+}
+
+function scored(save: { players: { id: string; name: string }[] }, grosses: number[]): EntryRow[] {
+  return save.players.map((player, index) => ({
+    playerId: player.id,
+    name: player.name,
+    gross: grosses[index] ?? 4,
+    pickup: false,
+    confirmed: true,
+    amber: false,
+    question: null,
+  }));
+}
+
+describe('foursome QA', () => {
+  it('D1 turns bingo, a greenie, a wolf take, and lone wolf into a read-back, and misses out loud', () => {
+    const save = buildSave({
+      id: 'd1',
+      players: fourPlayers(),
+      ownerId: 'mike',
+      kinds: ['bbb', 'coins', 'wolf'],
+      stakes: {},
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+    })!;
+    const rows = scored(save, [4, 4, 4, 4]).map((row) => ({ ...row, gross: null, confirmed: false }));
+    const hole = { par: 4, strokeIndex: 1 };
+    const josh = save.players.find((player) => player.name === 'Josh')!;
+    const bingo = applyPhrase(rows, 'bingo Dave, bango Tony, bongo Dave', save, hole);
+    expect(bingo.caught).toBe(true);
+    expect(bingo.readback).toContain('Bingo Dave');
+    expect(bingo.readback).toContain('This hole.');
+    expect(bingo.marks.bbb).toEqual({ bingo: stablePlayerId('Dave'), bango: stablePlayerId('Tony'), bongo: stablePlayerId('Dave') });
+    expect(bingo.note).not.toBe(MISSED);
+    const green = applyPhrase(rows, 'greenie Tony', save, hole);
+    expect(green.caught).toBe(true);
+    expect(green.marks.coins).toContainEqual({ playerId: stablePlayerId('Tony'), coin: 'greenie' });
+    expect(green.readback).toContain('Greenie Tony');
+    const take = applyPhrase(rows, 'Josh takes Mike', save, hole, { wolfId: josh.id });
+    expect(take.marks.wolf).toEqual({ mode: 'partner', wolfId: josh.id, partnerId: stablePlayerId('Mike') });
+    expect(take.readback).toContain('Josh takes Mike');
+    const lone = applyPhrase(rows, 'lone wolf', save, hole, { wolfId: josh.id });
+    expect(lone.marks.wolf).toMatchObject({ mode: 'lone', wolfId: josh.id });
+    expect(lone.readback).toContain('Lone wolf');
+    const missed = applyPhrase(rows, 'asdf qwerty', save, hole);
+    expect(missed.caught).toBe(false);
+    expect(missed.note).toBe(MISSED);
+    expect(missed.rows).toEqual(rows);
+    expect(missed.readback).toBeNull();
+  });
+
+  it('D2 scores a tapped bingo and a coin, and a zero card has no winner', () => {
+    const save = buildSave({
+      id: 'd2',
+      players: fourPlayers(),
+      ownerId: 'mike',
+      kinds: ['bbb', 'coins'],
+      stakes: { bbb: { ...emptyStake(), amount: '1' }, coins: { ...emptyStake(), amount: '1' } },
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+    })!;
+    const marks = {
+      ...emptyMarks(),
+      bbb: { bingo: stablePlayerId('Dave'), bango: stablePlayerId('Tony'), bongo: stablePlayerId('Dave') },
+      coins: [{ playerId: stablePlayerId('Tony'), coin: 'greenie' as const }],
+    };
+    const logged = commitHole(save, 1, scored(save, [4, 5, 5, 5]), marks);
+    const score = liveScore(logged);
+    const bbb = score.games.find((game) => game.kind === 'bbb')!;
+    const coins = score.games.find((game) => game.kind === 'coins')!;
+    expect(bbb.points).toEqual([0, 2, 1, 0]);
+    expect(coins.points?.[2]).toBe(1);
+    expect(winnerText(bbb)).toBe('Dave');
+    expect(winnerText({ points: [0, 0, 0, 0], winners: ['Mike', 'Dave', 'Tony', 'Josh'] })).toBe('No winner');
+    expect(screen).toContain("['bingo', 'bango', 'bongo']");
+    expect(screen).toContain("'greenie'");
+  });
+
+  it('D3 will not log a wolf hole until there is a call, a skip, and Clear puts it back', () => {
+    const save = buildSave({
+      id: 'd3',
+      players: fourPlayers(),
+      ownerId: 'mike',
+      kinds: ['wolf'],
+      stakes: {},
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+    })!;
+    const rows = scored(save, [4, 5, 5, 5]);
+    expect(logReady(rows, emptyMarks(), true)).toBe(false);
+    const called = { ...emptyMarks(), wolf: { mode: 'lone' as const, wolfId: stablePlayerId('Mike'), partnerId: null } };
+    expect(logReady(rows, called, true)).toBe(true);
+    expect(logReady(rows, { ...emptyMarks(), wolfSkipped: true }, true)).toBe(true);
+    expect(logReady(rows, { ...called, wolf: null, wolfSkipped: false }, true)).toBe(false);
+    expect(screen).toContain('Clear wolf call');
+    expect(screen).toContain('No wolf');
+  });
+
+  it('D4 writes a correction onto the last logged hole and undo walks back through entries', () => {
+    let save = buildSave({
+      id: 'd4',
+      players: fourPlayers(),
+      ownerId: 'mike',
+      kinds: ['skins'],
+      stakes: { skins: { ...emptyStake(), amount: '1' } },
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+    })!;
+    save = commitHole(save, 1, scored(save, [4, 5, 6, 5]), emptyMarks());
+    const fixed = correctLastHole(save, 'actually Tony had a 7');
+    expect(fixed.caught).toBe(true);
+    expect(fixed.hole).toBe(1);
+    expect(fixed.save.holes.find((hole) => hole.number === 1)?.scores.find((row) => row.playerId === stablePlayerId('Tony'))?.gross).toBe(7);
+    expect(fixed.save.holes.find((hole) => hole.number === 2)?.scores).toEqual([]);
+    expect(fixed.readback).toContain('Tony 7');
+    expect(fixed.readback).toContain('This hole.');
+    const both = commitHole(fixed.save, 2, scored(fixed.save, [4, 4, 4, 4]), emptyMarks());
+    const once = undoLastHole(both);
+    const twice = once ? undoLastHole(once.save) : null;
+    expect(once?.hole).toBe(2);
+    expect(twice?.hole).toBe(1);
+    expect(twice ? holesPlayed(twice.save) : 1).toBe(0);
+    expect(twice ? undoLastHole(twice.save) : null).toBeNull();
+    expect(screen).toContain('correctLastHole');
+    expect(screen).toContain('undoLastHole');
+  });
+
+  it('D5 shows an error for a stake that is not a plain number', () => {
+    for (const bad of ['$5', '5 BB', '1,5', '5.555', '-2', 'abc']) {
+      expect(stakeError(bad)).toBe('Enter the stake as a number, like 1 or 2.50.');
+      const blocked = setupBlock(twoPlayers(), ['skins'], true, false, { skins: { ...emptyStake(), amount: bad } });
+      expect(blocked).toBe(stakeError(bad));
+      expect(buildSave({
+        id: 'bad-stake',
+        players: twoPlayers(),
+        ownerId: 'ada',
+        kinds: ['skins'],
+        stakes: { skins: { ...emptyStake(), amount: bad } },
+        grossOnly: true,
+        siOk: true,
+        card: CARD,
+      })).toBeNull();
+    }
+    expect(stakeError('')).toBeNull();
+    expect(stakeError('2.50')).toBeNull();
+  });
+
+  it('D6 adds the same names from separate rounds into one row', () => {
+    const make = (id: string) => {
+      const players = [
+        { ...blankPlayer(`${id}-m`), name: 'Mike', scratch: true },
+        { ...blankPlayer(`${id}-d`), name: 'Dave', handicapText: '8' },
+      ];
+      let round = buildSave({
+        id,
+        players,
+        ownerId: players[0]!.id,
+        kinds: ['skins'],
+        stakes: { skins: { ...emptyStake(), amount: '1' } },
+        grossOnly: true,
+        siOk: true,
+        card: CARD,
+      })!;
+      round = { ...round, players: round.players.map((player) => ({ ...player, id: `${id}-${player.name}` })) };
+      return commitHole(round, 1, scored(round, [4, 5]), emptyMarks());
+    };
+    const rounds = phoneRounds([make('a'), make('b')]);
+    const table = seasonTable(rounds);
+    expect(table.filter((row) => row.name === 'Mike')).toHaveLength(1);
+    expect(table.find((row) => row.name === 'Mike')?.net).toBe(200);
+    const rivalry = headToHead(rounds, stablePlayerId('Mike'), stablePlayerId('Dave'));
+    expect(rivalry.winsA).toBe(2);
+    expect(rivalry.winsB).toBe(0);
+  });
+
+  it('D7 shows sides and keeps a change on the saved game', () => {
+    const players = fourPlayers();
+    const sides = defaultSides(players.map((player) => ({ id: player.id, courseHandicap: playerHandicap(player) })));
+    expect(sides.teamA).toHaveLength(2);
+    expect(sides.teamB).toHaveLength(2);
+    const moved = assignSide(sides, sides.teamA[0]!, 'B');
+    expect(setupBlock(players, ['vegas'], true, true, { vegas: emptyStake() }, moved)).toBe('Each side needs two players.');
+    const save = buildSave({
+      id: 'd7',
+      players,
+      ownerId: 'mike',
+      kinds: ['nassau', 'vegas'],
+      stakes: { nassau: { ...emptyStake(), front: '1', back: '1', total: '1' } },
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+      sides,
+    })!;
+    const nassau = save.games.find((game) => game.kind === 'nassau')!;
+    expect(rosterLine(save, nassau)).toContain(' vs ');
+    expect(nassau.teamA).toEqual(sides.teamA.map((id) => stablePlayerId(players.find((player) => player.id === id)!.name)));
+    expect(screen).toContain('Side A');
+    expect(screen).toContain('on side B');
+  });
+
+  it('D8 asks before finishing, labels a partial round, and refuses zero holes', () => {
+    expect(finishPrompt(0)).toBeNull();
+    expect(finishPrompt(3)).toBe('Finish this partial round (3 holes)?');
+    expect(finishPrompt(18)).toBe('Finish this round?');
+    expect(partialLabel(3)).toBe('Partial round (3 holes)');
+    expect(screen).toContain('Confirm finish');
+    expect(screen).toContain('Log a hole before finishing.');
+    expect(screen).not.toContain('toISOString');
+    expect(screen).toContain('partialLabel');
+  });
+
+  it('D9 uses a lighter red on navy and 44 point targets', () => {
+    expect(contrast(DOWN_TEXT, '#0B1F3A')).toBeGreaterThanOrEqual(4.5);
+    expect(screen).toContain('DOWN_TEXT');
+    expect(screen).not.toContain('colors.red');
+    expect(screen).toMatch(/holeChip: \{[^}]*width: 44, height: 44/);
+    expect(screen).toMatch(/chip: \{[^}]*minWidth: 44, minHeight: 44/);
+    expect(screen).not.toMatch(/width: 36/);
+    expect(screen).not.toMatch(/height: 32/);
+  });
+
+  it('D10 shows the confirm card, the zero-sum line, and a recap card', () => {
+    expect(screen).toContain('accessibilityLabel="Live strip"');
+    expect(screen).toContain('accessibilityLabel="Games"');
+    expect(screen).toContain('accessibilityLabel="Confirm card"');
+    expect(screen).toContain('accessibilityLabel="Recap card"');
+    expect(screen).toContain('Zero-sum check');
+    expect(zeroSumLine({ nets: [100, -100], zeroSumOk: true, note: null })).toBe('Zero-sum check: 0 BB across the group.');
+    expect(screen).toContain('This hole.');
+  });
+
+  it('D11 does not keep a finished skins line in the future tense or crown a zero', () => {
+    const finished = skinsLine(['Mike', 'Dave', 'Tony', 'Josh'], [0, 0, 0, 0], [0, 0, 0, 0], 1, true);
+    expect(finished).toBe('No skins won. 1 left unplayed');
+    expect(finished).not.toContain('if it ends now');
+    expect(finished).not.toContain('Mike 0');
+    const live = gameLine(
+      { kind: 'skins', label: 'Skins', points: [0, 0], nets: [0, 0], winners: ['Mike', 'Dave'], line: 'Mike 0 0 BB. 1 on the line, 15 BB if it ends now' },
+      { names: ['Mike', 'Dave'], pending: 1, finished: true, roster: null },
+    );
+    expect(live).not.toContain('if it ends now');
+    expect(screen).toContain('gameLine');
+  });
+
+  it('D12 keeps stake labels, drops games the group can no longer play, and resumes on the next hole', () => {
+    expect(screen).toContain("'Front'");
+    expect(screen).toContain("'Press stake'");
+    expect(activeKinds(['wolf', 'vegas', 'skins'] satisfies GameKind[], 3)).toEqual(['skins']);
+    const high = { ...blankPlayer('x'), handicapText: '999' };
+    expect(playerHandicap(high)).toBeNull();
+    expect(handicapError(high)).toContain('-10');
+    expect(handicapError({ ...blankPlayer('y'), handicapText: '54' })).toBeNull();
+    expect(playerHandicap({ ...blankPlayer('z'), handicapText: '-10' })).toBe(-10);
+    expect(screen).toContain('confirmChip');
+    let save = buildSave({
+      id: 'd12',
+      players: twoPlayers(),
+      ownerId: 'ada',
+      kinds: ['skins'],
+      stakes: {},
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+    })!;
+    save = commitHole(save, 1, scored(save, [4, 5]), emptyMarks());
+    expect(resumeHole(save)).toBe(2);
+    expect(screen).toContain('resumeHole');
+  });
+
+  it('D13 keeps the lawyer questions and the deferred list out of the app source', () => {
+    const copy = readFileSync(join(here, '../../../packages/games/src/copy.ts'), 'utf8');
+    const present = readFileSync(join(here, '../src/games/present.ts'), 'utf8');
+    const notes = readFileSync(join(here, '../../../docs/GAMES_DEFERRED.md'), 'utf8');
+    expect(copy.includes('LAWYER_OPEN')).toBe(false);
+    expect(copy.includes('DEFERRED_ONLINE')).toBe(false);
+    expect(copy.includes('money-transmission')).toBe(false);
+    expect(present.includes('leaderboard-sync')).toBe(false);
+    expect(screen.includes('leaderboard-sync')).toBe(false);
+    expect(screen.includes('sudden')).toBe(false);
+    expect(notes.includes('money-transmission')).toBe(true);
+    expect(notes.includes('leaderboard-sync')).toBe(true);
+    expect(screen).toContain('Press this hole');
+    expect(screen).toContain('Auto-press stays at 2.');
+  });
+
+  it('records a manual press on the hole the button toggles', () => {
+    const players = twoPlayers();
+    const base = buildSave({
+      id: 'press',
+      players,
+      ownerId: 'ada',
+      kinds: ['nassau'],
+      stakes: { nassau: { ...emptyStake(), front: '1', press: '1' } },
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+      sides: { teamA: ['ada'], teamB: ['bea'] },
+    })!;
+    const pressed = commitHole(commitHole(base, 1, scored(base, [4, 5]), { ...emptyMarks(), press: true }), 2, scored(base, [4, 5]), emptyMarks());
+    const plain = commitHole(commitHole(base, 1, scored(base, [4, 5]), emptyMarks()), 2, scored(base, [4, 5]), emptyMarks());
+    const withPress = liveScore(pressed).games.find((game) => game.kind === 'nassau')!.nets;
+    const without = liveScore(plain).games.find((game) => game.kind === 'nassau')!.nets;
+    expect(withPress).not.toEqual(without);
+    expect(withPress!.reduce((sum, net) => sum + net, 0)).toBe(0);
   });
 });

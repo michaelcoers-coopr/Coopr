@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'vitest'
+import { readFileSync } from 'node:fs'
 import {
   BANNED_WORD,
   DISCLOSURE,
-  LAWYER_OPEN,
   headToHead,
+  ownerRound,
+  playedOnDate,
   recapText,
   scoreFoursome,
   scoreSkins,
@@ -87,7 +89,26 @@ describe('round, recap, and local season', () => {
 
   test('user-facing copy keeps the banned words out', () => {
     for (const line of userFacingCopy()) assert.equal(BANNED_WORD.test(line), false, line)
-    assert.equal(LAWYER_OPEN.length, 5)
+    const copy = readFileSync(new URL('../src/copy.ts', import.meta.url), 'utf8')
+    assert.equal(copy.includes('LAWYER_OPEN'), false)
+    assert.equal(copy.includes('DEFERRED_ONLINE'), false)
+    const notes = readFileSync(new URL('../../../docs/GAMES_DEFERRED.md', import.meta.url), 'utf8')
+    assert.equal(notes.includes('money-transmission'), true)
+    assert.equal(notes.includes('leaderboard-sync'), true)
+  })
+
+  test('an evening round keeps the local date and drops unplayed holes', () => {
+    assert.equal(playedOnDate('2026-10-25T04:41:00.000Z', 'America/Los_Angeles'), '2026-10-24')
+    assert.equal(playedOnDate('2026-10-24'), '2026-10-24')
+    const save = sampleSave()
+    save.holes = save.holes.map((hole) => (hole.number === 1 ? hole : { ...hole, scores: [] }))
+    save.finishedOn = '2026-10-25T04:41:00.000Z'
+    const owner = ownerRound(save, { timeZone: 'America/Los_Angeles' })
+    assert.equal(owner?.playedOn, '2026-10-24')
+    assert.equal(owner?.holes.length, 1)
+    assert.equal(owner?.holes.every((hole) => hole.strokes != null), true)
+    save.holes = save.holes.map((hole) => ({ ...hole, scores: [] }))
+    assert.equal(ownerRound(save), null)
   })
 
   test('a pickup cannot win a skin and scores 0 in Stableford', () => {

@@ -53,6 +53,8 @@ export interface FoursomeHole {
   strokeIndex: number
   scores: HoleScore[]
   wolf?: { mode: 'partner' | 'lone' | 'blind'; wolfId: string; partnerId: string | null } | null
+  /** An explicit skip. A hole with no call and no skip is not logged. */
+  wolfSkipped?: boolean
   coins?: { playerId: string; coin: 'greenie' | 'sandie' | 'arnie' | 'barkie' }[]
   bbb?: { bingo: string | null; bango: string | null; bongo: string | null }
   press?: boolean
@@ -181,7 +183,12 @@ function teamIndexes(save: FoursomeSave, ids: string[] | undefined, fallback: nu
 
 function nassauTeams(save: FoursomeSave, game: FoursomeGame): { teamA: number[]; teamB: number[] } {
   const n = save.players.length
-  if (n === 2) return { teamA: [0], teamB: [1] }
+  if (n === 2) {
+    const teamA = teamIndexes(save, game.teamA, [0])
+    const teamB = teamIndexes(save, game.teamB, [1])
+    if (teamA.length === 1 && teamB.length === 1 && teamA[0] !== teamB[0]) return { teamA, teamB }
+    return { teamA: [0], teamB: [1] }
+  }
   if (n === 4) {
     const suggested = suggestTeams(save.players.map((p) => p.courseHandicap ?? 0))
     return {

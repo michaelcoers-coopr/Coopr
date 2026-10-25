@@ -63,6 +63,7 @@ export function parseFoursomeSave(value: unknown): FoursomeSave | null {
         partnerId: typeof wolf.partnerId === 'string' ? wolf.partnerId : null,
       }
     }
+    if (hole.wolfSkipped === true) next.wolfSkipped = true
     if (Array.isArray(hole.coins)) {
       next.coins = hole.coins.flatMap((coin) => {
         const cell = record(coin)
@@ -110,8 +111,30 @@ export interface OwnerRound {
   holes: OwnerHole[]
 }
 
-/** The device owner's gross, for round history. Putts and misses stay null. */
-export function ownerRound(save: FoursomeSave, opts?: { yards?: Array<number | null>; playedOn?: string; courseName?: string }): OwnerRound | null {
+/** Calendar date in `timeZone` (the device zone when omitted). */
+export function calendarDate(date: Date, timeZone?: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '00'
+  return `${get('year')}-${get('month')}-${get('day')}`
+}
+
+/** A stored `YYYY-MM-DD` stays. A UTC timestamp becomes the local calendar date. */
+export function playedOnDate(finishedOn: string | null, timeZone?: string): string {
+  if (finishedOn && /^\d{4}-\d{2}-\d{2}$/.test(finishedOn)) return finishedOn
+  if (finishedOn) {
+    const date = new Date(finishedOn)
+    if (!Number.isNaN(date.getTime())) return calendarDate(date, timeZone)
+  }
+  return calendarDate(new Date(), timeZone)
+}
+
+/** The device owner's gross, for round history. Unplayed holes are left out. */
+export function ownerRound(save: FoursomeSave, opts?: { yards?: Array<number | null>; playedOn?: string; courseName?: string; timeZone?: string }): OwnerRound | null {
   const owner = save.players.find((player) => player.isDeviceOwner) ?? save.players[0]
   if (!owner) return null
   const holes: OwnerHole[] = Array.from({ length: 18 }, (_, index) => {
@@ -130,12 +153,12 @@ export function ownerRound(save: FoursomeSave, opts?: { yards?: Array<number | n
       gir: null,
     }
   })
-  if (!holes.some((hole) => hole.strokes != null)) return null
-  const playedOn = (save.finishedOn ?? opts?.playedOn ?? '').slice(0, 10)
+  const played = holes.filter((hole) => hole.strokes != null)
+  if (played.length === 0) return null
   return {
     id: save.id,
-    playedOn: playedOn || '1970-01-01',
+    playedOn: opts?.playedOn ?? playedOnDate(save.finishedOn, opts?.timeZone),
     courseName: opts?.courseName ?? 'High Cedars',
-    holes,
+    holes: played,
   }
 }

@@ -1,4 +1,4 @@
-/** On-phone season totals. Online crews and the hustler badge are deferred. */
+/** On-phone season totals. */
 
 export interface SeasonRound {
   id: string
