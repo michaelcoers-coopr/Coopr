@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
-import { inflateSync } from 'node:zlib';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { BANNED_WORD, DISCLOSURE, headToHead, seasonTable, type GameKind } from '@coopr/games';
 import {
+  BLIND_HOLD,
   DOWN_TEXT,
   MISSED,
   acceptRow,
@@ -47,6 +47,7 @@ import {
   stakeError,
   tapGross,
   undoLastHole,
+  visiblePhraseLines,
   visibleSetupLines,
   winnerText,
   wolfHero,
@@ -55,7 +56,7 @@ import {
   type HoleMarks,
   type SetupPlayer,
 } from '../src/games/present';
-import { recapCardLines, recapPng } from '../src/games/recap-bitmap';
+import { recapCardLines } from '../src/games/recap-bitmap';
 import type { FoursomeSave } from '@coopr/games';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -607,7 +608,8 @@ describe('foursome QA', () => {
     expect(screen).toContain('accessibilityLabel="Pot on the line"');
     expect(screen).toContain('accessibilityLabel="Games sheet"');
     expect(screen).toContain("position: 'absolute'");
-    expect(potHero(3, 500, 4, true)).toBe('3 skins on the line (45 BB). Carry-over is on.');
+    expect(potHero(3, 500, 4, true)).toBe('3 skins on the line, 45 BB. Carry-over is on.');
+    expect(potHero(3, 500, 4, true)).not.toMatch(/[()]/);
     expect(wolfHero('Dave')).toBe('Dave is the wolf');
     expect(rivalryHero('Mike', 'Dave', 2, 0)).toBe('Mike 2\u20130 Dave');
     const save = buildSave({
@@ -628,23 +630,14 @@ describe('foursome QA', () => {
     expect(nets.some((line) => line.includes('handicap'))).toBe(false);
     expect(nets[nets.length - 1]).toBe(DISCLOSURE);
     expect(handicaps.some((line) => line.includes('handicap'))).toBe(true);
-    const image = recapPng(nets);
-    expect(image[0]).toBe(137);
-    expect(String.fromCharCode(image[1]!, image[2]!, image[3]!)).toBe('PNG');
-    const idatAt = image.findIndex((_, index) => image[index] === 73 && image[index + 1] === 68 && image[index + 2] === 65 && image[index + 3] === 84);
-    const length = new DataView(image.buffer, image.byteOffset + idatAt - 4, 4).getUint32(0);
-    expect(inflateSync(Buffer.from(image.subarray(idatAt + 4, idatAt + 4 + length))).length).toBeGreaterThan(0);
-    expect(Array.from(recapPng(handicaps))).not.toEqual(Array.from(image));
+    expect(nets).not.toEqual(handicaps);
+    expect(nets.join('\n')).not.toContain('on the line');
     expect(screen.split('{DISCLOSURE}').length - 1).toBeGreaterThanOrEqual(5);
     expect(nets.some((line) => /takes the day|share the day|All square/.test(line))).toBe(true);
     expect(nets.join('\n')).not.toMatch(/[$€£¥]|\b(money|cash|dollars)\b/i);
-    const inflated = inflateSync(Buffer.from(image.subarray(idatAt + 4, idatAt + 4 + length)));
-    expect(inflated.includes(0x8a)).toBe(true);
-    expect(inflated.includes(0xc9)).toBe(true);
     expect(screen).toContain('accessibilityLabel="Day amount"');
     expect(screen).toContain('accessibilityLabel="Stableford"');
     expect(screen).toContain('accessibilityLabel="Wolf points"');
-    expect(screen).toContain('accessibilityLabel="Skins breakdown"');
     expect(screen).toContain('accessibilityLabel="Who owes who"');
     expect(screen).toContain('accessibilityLabel={`${game.kind} state`}');
   });
@@ -680,6 +673,9 @@ describe('foursome QA', () => {
     expect(screen).toMatch(/strip: \{[^}]*padding: 8/);
     expect(screen).toContain('stripNet: { fontSize: 20, lineHeight: 22');
     expect(screen).not.toMatch(/stripLine: \{[^}]*fontSize: 40/);
+    expect(screen).toContain('stripToggle: { minHeight: 44');
+    expect(screen).toContain("'▾'");
+    expect(screen).toContain("'▴'");
   });
 
   it('keeps the Birdie Bucks line visible while the live strip is collapsed', () => {
@@ -741,12 +737,119 @@ describe('foursome QA', () => {
   });
 
   it('shows the pot, the skins count, wolf points, and who owes who', () => {
-    expect(potHero(1, 100, 4, false)).toBe('1 skin on the line (3 BB). No carry-over.');
+    expect(potHero(1, 100, 4, false)).toBe('1 skin on the line, 3 BB. No carry-over.');
+    expect(potHero(1, null, 4, true)).toBe('1 skin on the line. Carry-over is on.');
     expect(skinsLine(['Mike'], [4], [-1000], 2, false)).toBe('Mike 4 skins, \u221210 BB. 2 on the line');
     expect(wolfPointsTable(['Mike', 'Dave'], [3, 1])).toEqual(['Mike 3', 'Dave 1']);
     expect(stablefordLine(['Mike', 'Dave'], [36, 32])).toBe('Stableford Mike 36');
     expect(oweCombinations(['Mike', 'Dave'], [500, -500])).toEqual(['Dave owes Mike 5 BB']);
     expect(dayAmount([500, -500])).toBe('+5 BB');
     expect(dayAmount([0, 0])).toBeNull();
+  });
+
+  it('gives the live-detail toggle a 44px row and a chevron', () => {
+    expect(screen).toContain('stripToggle: { minHeight: 44, flexDirection: \'row\', alignItems: \'center\' }');
+    expect(screen).toContain("{stripOpen ? '▴' : '▾'}");
+    expect(liveStripHeight(false)).toBeGreaterThanOrEqual(44);
+  });
+
+  it('captures a branded recap card instead of a pixel dump', () => {
+    const card = readFileSync(join(here, '../src/games/recap-card.tsx'), 'utf8');
+    const shot = readFileSync(join(here, '../src/games/recap-shot.ts'), 'utf8');
+    const bitmap = readFileSync(join(here, '../src/games/recap-bitmap.ts'), 'utf8');
+    expect(bitmap).not.toContain('function recapPng');
+    expect(bitmap).not.toContain('01110');
+    expect(card).toContain('coopr-crest-navy-fill.jpg');
+    expect(card).toContain('Navy Fill crest');
+    expect(card).toContain("backgroundColor: '#0B1F3A'");
+    expect(card).toContain("backgroundColor: '#8AC926'");
+    expect(card).toContain('fontFamily: display');
+    expect(card).toContain('accessibilityLabel="Round winner"');
+    expect(card).toContain('{DISCLOSURE}');
+    expect(card).not.toContain('potHero');
+    expect(card.replace(/\$\{[^}]*\}/g, '')).not.toMatch(/[$€£¥]/);
+    expect(shot).toContain("await import('react-native-view-shot')");
+    expect(shot).toContain("await import('html-to-image')");
+    expect(shot).not.toContain('founder');
+    expect(screen).toContain('captureRecap(recapRef)');
+    expect(screen).not.toContain('recapPng');
+    expect(card).toContain('collapsable={false}');
+  });
+
+  it('shows a rejected take and a did-you-mean prompt once', () => {
+    const prompt = "Josh can't take Josh. Pick someone else.";
+    expect(visiblePhraseLines({ note: prompt, readback: prompt, question: prompt })).toEqual([prompt]);
+    const hint = 'Dave is the wolf, did you mean Dave takes Mike?';
+    const readback = 'Dave takes Mike. This hole.';
+    expect(visiblePhraseLines({ note: hint, readback, question: hint })).toEqual([readback, hint]);
+    expect(screen).toContain('visiblePhraseLines');
+    expect(screen).toContain('noteLine');
+    expect(screen).not.toContain('{heard.question ?');
+    const confirm = screen.slice(screen.indexOf('accessibilityLabel="Confirm card"'), screen.indexOf('accessibilityLabel="Check phrase"'));
+    expect(confirm.split('cardLines.map').length - 1).toBe(1);
+  });
+
+  it('hides the skins pot line once the round is finished', () => {
+    const results = screen.slice(screen.indexOf("step === 'results'"), screen.indexOf('function RivalryHero'));
+    expect(results).not.toContain('potHero');
+    expect(results).not.toContain('Skins breakdown');
+    expect(results).not.toContain('Carry-over is on');
+    expect(screen).toContain('accessibilityLabel="Pot on the line"');
+    const save = buildSave({
+      id: 'finished-pot',
+      players: twoPlayers(),
+      ownerId: 'ada',
+      kinds: ['skins'],
+      stakes: { skins: { ...emptyStake(), amount: '5' } },
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+    })!;
+    const logged = commitHole(save, 1, scored(save, [3, 5]), emptyMarks());
+    const lines = recapCardLines(logged, liveScore(logged), { nets: true, handicaps: false });
+    expect(lines.join('\n')).not.toContain('on the line');
+    expect(lines.join('\n')).not.toContain('Carry-over');
+  });
+
+  it('explains a disabled Blind wolf button when scores are entered', () => {
+    expect(BLIND_HOLD).toBe('Blind wolf has to come before the scores');
+    expect(screen).toContain('accessibilityLabel="Blind wolf hold"');
+    expect(screen).toContain('accessibilityHint={blindHeld ? BLIND_HOLD : undefined}');
+    expect(screen).toContain('blindHeld && styles.chipOff');
+    expect(screen).toContain('setNote(blindAfterScores ? BLIND_HOLD : applied.note)');
+    expect(screen).not.toContain('opacity: 0.4');
+    expect(screen).not.toContain('opacity: 0.45');
+  });
+
+  it('toggles skins carry-over in setup and saves it on the game', () => {
+    const on = buildSave({
+      id: 'carry-on',
+      players: twoPlayers(),
+      ownerId: 'ada',
+      kinds: ['skins'],
+      stakes: { skins: { ...emptyStake(), amount: '1', carry: true } },
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+    })!;
+    const off = buildSave({
+      id: 'carry-off',
+      players: twoPlayers(),
+      ownerId: 'ada',
+      kinds: ['skins'],
+      stakes: { skins: { ...emptyStake(), amount: '1', carry: false } },
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+    })!;
+    expect(on.games.find((game) => game.kind === 'skins')?.carry).toBe(true);
+    expect(off.games.find((game) => game.kind === 'skins')?.carry).toBe(false);
+    const tiedOn = commitHole(on, 1, scored(on, [4, 4]), emptyMarks());
+    const tiedOff = commitHole(off, 1, scored(off, [4, 4]), emptyMarks());
+    expect(liveScore(tiedOn).skinsPending).toBe(2);
+    expect(liveScore(tiedOff).skinsPending).toBe(1);
+    expect(screen).toContain('accessibilityLabel="Carry-over"');
+    expect(screen).toContain("kind === 'skins'");
+    expect(screen).toContain("draft.carry ? 'Carry-over on' : 'Carry-over off'");
   });
 });

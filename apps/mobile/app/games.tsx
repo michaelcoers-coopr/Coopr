@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -8,6 +8,7 @@ import { colors, font, play, signal } from '@coopr/tokens';
 import { useDisplayFace } from '../src/design/display-font';
 import { highCedarsHoles } from '../src/games/card';
 import {
+  BLIND_HOLD,
   DISCLOSURE,
   DOWN_TEXT,
   FOOTER,
@@ -57,6 +58,7 @@ import {
   toggleCoin,
   undoLastHole,
   visibleSetupLines,
+  visiblePhraseLines,
   winnerText,
   wolfHero,
   wolfRequired,
@@ -68,7 +70,9 @@ import {
   type Sides,
   type StakeDraft,
 } from '../src/games/present';
-import { downloadPng, recapCardLines, recapPng } from '../src/games/recap-bitmap';
+import { RecapCard } from '../src/games/recap-card';
+import { downloadPng } from '../src/games/recap-bitmap';
+import { captureRecap } from '../src/games/recap-shot';
 import { finishOpenFoursome, readFoursomeHistory, readOpenFoursome, writeOpenFoursome } from '../src/games/store';
 import type { FoursomeSave } from '@coopr/games';
 
@@ -99,6 +103,7 @@ function freshPlayers(): SetupPlayer[] {
 
 export default function GamesScreen() {
   const display = useDisplayFace();
+  const recapRef = useRef<ComponentRef<typeof View>>(null);
   const insets = useSafeAreaInsets();
   const course = useMemo(() => highCedarsHoles(), []);
   const [step, setStep] = useState<'setup' | 'play' | 'results'>(() => (readOpenFoursome() ? 'play' : 'setup'));
@@ -281,15 +286,16 @@ export default function GamesScreen() {
       && rows.some((row) => row.gross != null || row.pickup);
     setRows(applied.rows);
     setMarks(blindAfterScores ? { ...applied.marks, wolf: marks.wolf } : applied.marks);
-    setNote(blindAfterScores ? 'Blind wolf has to come before the scores.' : applied.note);
+    setNote(blindAfterScores ? BLIND_HOLD : applied.note);
     setHeard({ transcript: text, readback: applied.readback ?? 'This hole.', question: applied.question });
   };
 
   const saveImage = async () => {
     if (!report || !score) return;
-    const bytes = recapPng(recapCardLines(report, score, { nets: showNets, handicaps: showHandicaps }));
-    if (downloadPng(bytes, 'coopr-recap.png')) return;
     try {
+      const bytes = await captureRecap(recapRef);
+      if (!bytes) return;
+      if (downloadPng(bytes, 'coopr-recap.png')) return;
       const fileSystem = await import('expo-file-system/legacy');
       if (!fileSystem.cacheDirectory) return;
       let binary = '';
@@ -298,7 +304,7 @@ export default function GamesScreen() {
       await fileSystem.writeAsStringAsync(path, btoa(binary), { encoding: fileSystem.EncodingType.Base64 });
       await Share.share({ url: path, message: recapFor(report) });
     } catch {
-      // This browser has no download and no file cache.
+      // Capture, download, or the share sheet failed.
     }
   };
 
@@ -321,6 +327,9 @@ export default function GamesScreen() {
   };
 
   const playedCount = save ? holesPlayed(save) : 0;
+  const blindHeld = rows.some((row) => row.gross != null || row.pickup);
+  const cardLines = heard ? visiblePhraseLines({ note: null, readback: heard.readback, question: heard.question ?? null }) : [];
+  const noteLine = note && !cardLines.includes(note) ? note : null;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 }]}>
@@ -338,8 +347,8 @@ export default function GamesScreen() {
       {info ? <Text style={styles.disclosure}>{DISCLOSURE}</Text> : null}
       {step === 'play' && save && score ? (
         <View accessibilityLabel="Live strip" style={styles.strip}>
-          <Pressable accessibilityRole="button" accessibilityLabel={stripOpen ? 'Hide live detail' : 'Show live detail'} onPress={() => setStripOpen((open) => !open)}>
-            <View style={styles.row}>
+          <Pressable accessibilityRole="button" accessibilityLabel={stripOpen ? 'Hide live detail' : 'Show live detail'} onPress={() => setStripOpen((open) => !open)} style={styles.stripToggle}>
+            <View style={[styles.row, styles.stripNets]}>
               {score.zeroSumOk
                 ? save.players.map((player, index) => (
                     <View key={player.id} style={styles.netCell}>
@@ -351,6 +360,7 @@ export default function GamesScreen() {
                   ))
                 : <Text style={styles.amber}>{score.note}</Text>}
             </View>
+            <Text style={styles.chevron}>{stripOpen ? '▴' : '▾'}</Text>
           </Pressable>
           <Text accessibilityLabel="Birdie Bucks" style={styles.disclosure}>{DISCLOSURE}</Text>
           {stripOpen ? (
@@ -507,6 +517,11 @@ export default function GamesScreen() {
                       <Text style={styles.chipText}>{draft.pot ? 'Pot' : 'Per point'}</Text>
                     </Pressable>
                   ) : null}
+                  {kind === 'skins' ? (
+                    <Pressable accessibilityRole="button" accessibilityLabel="Carry-over" onPress={() => set({ carry: !draft.carry })} style={[styles.chip, draft.carry && styles.chipOn]}>
+                      <Text style={styles.chipText}>{draft.carry ? 'Carry-over on' : 'Carry-over off'}</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               );
             })}
@@ -627,12 +642,14 @@ export default function GamesScreen() {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Blind wolf"
-                    disabled={rows.some((row) => row.gross != null || row.pickup)}
+                    accessibilityHint={blindHeld ? BLIND_HOLD : undefined}
+                    disabled={blindHeld}
                     onPress={() => setMarks((current) => ({ ...current, wolfSkipped: false, wolf: { mode: 'blind', wolfId: wolfPlayer.id, partnerId: null } }))}
-                    style={[styles.chip, marks.wolf?.mode === 'blind' && styles.chipOn]}
+                    style={[styles.chip, !blindHeld && marks.wolf?.mode === 'blind' && styles.chipOn, blindHeld && styles.chipOff]}
                   >
                     <Text style={styles.chipText}>Blind</Text>
                   </Pressable>
+                  {blindHeld ? <Text accessibilityLabel="Blind wolf hold" style={styles.amber}>{BLIND_HOLD}</Text> : null}
                   <Pressable accessibilityRole="button" accessibilityLabel="No wolf" onPress={() => setMarks((current) => ({ ...current, wolf: null, wolfSkipped: true }))} style={[styles.chip, marks.wolfSkipped && styles.chipOn]}>
                     <Text style={styles.chipText}>No wolf</Text>
                   </Pressable>
@@ -711,12 +728,14 @@ export default function GamesScreen() {
               <View accessibilityLabel="Confirm card" style={styles.card}>
                 <Text style={styles.label}>Heard</Text>
                 <Text style={styles.copy}>{heard.transcript}</Text>
-                <Text style={styles.label}>Read-back</Text>
-                <Text accessibilityLabel="Read-back" style={styles.copy}>{heard.readback}</Text>
-                {heard.question ? <Text style={styles.copy}>{heard.question}</Text> : null}
+                {cardLines.map((line) => (
+                  line === heard.readback
+                    ? <Text key={line} accessibilityLabel="Read-back" style={styles.copy}>{line}</Text>
+                    : <Text key={line} style={styles.copy}>{line}</Text>
+                ))}
               </View>
             ) : null}
-            {note ? <Text style={styles.amber}>{note}</Text> : null}
+            {noteLine ? <Text style={styles.amber}>{noteLine}</Text> : null}
             <View style={styles.row}>
               <Pressable accessibilityRole="button" accessibilityLabel="Check phrase" onPress={checkPhrase} style={styles.chip}>
                 <Text style={styles.chipText}>Check phrase</Text>
@@ -772,7 +791,6 @@ export default function GamesScreen() {
               const line = gameLine(game, { names, pending: score.skinsPending, finished: true, roster: rosterText });
               const who = winnerText(game);
               const wolfRows = game.kind === 'wolf' && game.points ? wolfPointsTable(names, game.points) : [];
-              const skinsGame = game.kind === 'skins' ? report.games.find((item) => item.kind === 'skins') : null;
               const owes = oweCombinations(names, game.nets);
               return (
                 <View key={game.kind} style={styles.card}>
@@ -784,11 +802,6 @@ export default function GamesScreen() {
                     <View accessibilityLabel="Wolf points">
                       {wolfRows.map((row) => <Text key={row} style={styles.copy}>{row}</Text>)}
                     </View>
-                  ) : null}
-                  {game.kind === 'skins' ? (
-                    <Text accessibilityLabel="Skins breakdown" style={styles.copy}>
-                      {potHero(score.skinsPending, skinsGame?.stake ?? null, report.players.length, skinsGame?.carry !== false)}
-                    </Text>
                   ) : null}
                   {owes.map((row) => <Text key={row} style={styles.copy}>{row}</Text>)}
                 </View>
@@ -807,23 +820,15 @@ export default function GamesScreen() {
                 <Text style={styles.chipText}>Show handicaps</Text>
               </Pressable>
             </View>
-            <View accessibilityLabel="Recap card" style={styles.recap}>
-              <Text style={[styles.kicker, { fontFamily: display }]}>RECAP</Text>
-              {showNets ? report.players.map((player, index) => (
-                <Text key={player.id} style={[styles.settle, { fontFamily: display, color: (score.nets[index] ?? 0) < 0 ? DOWN_TEXT : colors.white }]}>
-                  {`${player.name} ${fmt(score.nets[index] ?? 0, undefined, true)}`}
-                </Text>
-              )) : null}
-              {showHandicaps ? report.players.map((player) => (
-                player.courseHandicap == null ? null : (
-                  <Text key={`${player.id}-hcp`} style={styles.copy}>{`${player.name} handicap ${player.courseHandicap}`}</Text>
-                )
-              )) : null}
-              {score.settle.map((line) => (
-                <Text key={line.line} style={styles.copy}>{line.line}</Text>
-              ))}
-              <Text style={styles.disclosure}>{DISCLOSURE}</Text>
-            </View>
+            <RecapCard
+              save={report}
+              score={score}
+              showNets={showNets}
+              showHandicaps={showHandicaps}
+              display={display}
+              cardRef={recapRef}
+              accessibilityLabel="Recap card"
+            />
             <Text style={styles.copy}>{FOOTER}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Save image" onPress={() => void saveImage()} style={styles.go}>
               <Text style={[styles.goText, { fontFamily: display }]}>SAVE IMAGE</Text>
@@ -910,8 +915,10 @@ const styles = StyleSheet.create({
   body: { paddingBottom: 108, gap: 12 },
   stack: { gap: 12 },
   strip: { backgroundColor: '#102848', borderRadius: 16, padding: 8, gap: 4, marginBottom: 8 },
+  stripToggle: { minHeight: 44, flexDirection: 'row', alignItems: 'center' },
+  stripNets: { flex: 1 },
+  chevron: { color: signal.go, fontSize: 22, width: 44, textAlign: 'center' },
   card: { backgroundColor: '#102848', borderRadius: 16, padding: 12, gap: 8 },
-  recap: { backgroundColor: '#102848', borderRadius: 16, padding: 16, gap: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   sheet: { position: 'absolute', left: 16, right: 16, bottom: 24, zIndex: 30, backgroundColor: '#102848', borderRadius: 16, padding: 16, gap: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
   hero: { color: colors.white, fontSize: 40, lineHeight: 44 },
   amberCard: { borderWidth: 1, borderColor: signal.caution },

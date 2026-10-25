@@ -42,6 +42,8 @@ export interface StakeDraft {
   total: string
   press: string
   pot: boolean
+  /** Skins only. The engine treats a missing flag as on. */
+  carry: boolean
 }
 
 export interface EntryRow {
@@ -82,6 +84,8 @@ export interface Sides {
 /** #C8102E on #0B1F3A is 2.81:1. This rose is for negative totals on navy. Fills stay brand red. */
 export const DOWN_TEXT = '#FF8A9B'
 export const MISSED = "I didn't catch that."
+/** Shown when Blind is off because a score or a pickup is already on the card. */
+export const BLIND_HOLD = 'Blind wolf has to come before the scores'
 export const HANDICAP_MIN = -10
 export const HANDICAP_MAX = 54
 
@@ -93,7 +97,7 @@ export function blankPlayer(id: string): SetupPlayer {
 }
 
 export function emptyStake(): StakeDraft {
-  return { amount: '', front: '', back: '', total: '', press: '', pot: true }
+  return { amount: '', front: '', back: '', total: '', press: '', pot: true, carry: true }
 }
 
 export function emptyMarks(): HoleMarks {
@@ -280,6 +284,7 @@ export function buildSave(input: {
     const draft = input.stakes[kind] ?? emptyStake()
     const amount = parseStake(draft.amount)
     const game: FoursomeGame = { kind, stake: amount, pot: draft.pot }
+    if (kind === 'skins') game.carry = draft.carry
     if (kind === 'nassau') {
       game.stake = null
       game.front = parseStake(draft.front)
@@ -445,19 +450,34 @@ export function afterCorrection<T>(input: {
   return { hole: input.openHole, rows: input.draftRows, marks: input.draftMarks }
 }
 
-/** Nets plus the Birdie Bucks line, which stays up when the strip is closed. Open adds the pot, the wolf, and the game line. */
+/** A 44px toggle, the Birdie Bucks line, and the strip padding. Open adds the pot, the wolf, and the game line. */
 export function liveStripHeight(open: boolean): number {
-  const collapsed = 96
+  const collapsed = 112
   if (!open) return collapsed
-  return 168
+  return 184
 }
 
 export function potHero(pending: number, stake: number | null = null, players = 2, carry = true): string {
   const count = `${pending} ${pending === 1 ? 'skin' : 'skins'} on the line`
   const pot = stake == null ? null : pending * stake * Math.max(players - 1, 1)
-  const line = pot == null ? count : `${count} (${fmt(pot)})`
+  const line = pot == null ? count : `${count}, ${fmt(pot)}`
   const note = carry ? 'Carry-over is on.' : 'No carry-over.'
   return `${line}. ${note}`
+}
+
+/** Read-back, then the question, then the note. The same sentence is kept once. */
+export function visiblePhraseLines(input: {
+  note: string | null
+  readback: string | null
+  question: string | null
+}): string[] {
+  const lines: string[] = []
+  for (const line of [input.readback, input.question, input.note]) {
+    const text = line?.trim()
+    if (!text || lines.includes(text)) continue
+    lines.push(text)
+  }
+  return lines
 }
 
 export function wolfPointsTable(names: string[], points: number[]): string[] {
