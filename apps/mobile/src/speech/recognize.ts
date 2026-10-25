@@ -9,7 +9,9 @@ export interface HeardSpeech {
 export async function deviceSpeechAvailable(): Promise<boolean> {
   try {
     const mod = await import('expo-speech-recognition');
-    return mod.ExpoSpeechRecognitionModule.isRecognitionAvailable();
+    const speech = mod.ExpoSpeechRecognitionModule;
+    // Chrome reports a recognizer that sends audio off the device. Listen stays hidden unless the on-device model is there.
+    return speech.isRecognitionAvailable() && speech.supportsOnDeviceRecognition();
   } catch {
     return false;
   }

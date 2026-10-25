@@ -137,5 +137,6 @@ describe('foursome screens', () => {
     expect(ask).toContain("root === 'games'");
     expect(speech).toContain('contextualStrings: hints');
     expect(speech).toContain('requiresOnDeviceRecognition: true');
+    expect(speech).toMatch(/deviceSpeechAvailable[\s\S]*supportsOnDeviceRecognition\(\)/);
   });
 });
