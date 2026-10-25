@@ -12,6 +12,7 @@ import {
   playedOnDate,
   playingHandicaps,
   recapText,
+  savedWolfCall,
   scoreFoursome,
   strokesOn,
   suggestTeams,
@@ -66,6 +67,7 @@ export interface PhraseApply {
   command: 'skip_hole' | 'undo' | null
   note: string | null
   readback: string | null
+  question: string | null
   caught: boolean
 }
 
@@ -182,17 +184,54 @@ export function setupBlock(
   if (legal.length === 0) return 'Pick a game.'
   const needsIndex = legal.some((kind) => kind !== 'bbb' && kind !== 'coins')
   if (needsIndex && !siOk && !grossOnly) return SI_AMBER
-  if (stakes) {
-    for (const kind of legal) {
-      const draft = stakes[kind] ?? emptyStake()
-      const fields = kind === 'nassau' ? [draft.front, draft.back, draft.total, draft.press] : [draft.amount]
-      for (const field of fields) {
-        const error = stakeError(field)
-        if (error) return error
-      }
+  const stake = stakes ? firstStakeError(legal, stakes) : null
+  if (stake) return stake
+  return sideProblem(named, legal, sides)
+}
+
+/** One sentence for every bad stake field. The setup screen shows it once. */
+export function firstStakeError(kinds: GameKind[], stakes: Record<string, StakeDraft>): string | null {
+  for (const kind of kinds) {
+    const draft = stakes[kind] ?? emptyStake()
+    const fields = kind === 'nassau' ? [draft.front, draft.back, draft.total, draft.press] : [draft.amount]
+    for (const field of fields) {
+      const error = stakeError(field)
+      if (error) return error
     }
   }
-  return sideProblem(named, legal, sides)
+  return null
+}
+
+export function visibleSetupLines(block: string | null, stake: string | null, dropped: string | null): string[] {
+  const lines: string[] = []
+  if (stake) lines.push(stake)
+  if (block && block !== stake) lines.push(block)
+  if (dropped) lines.push(dropped)
+  return lines
+}
+
+const DROP_LABEL: Record<GameKind, string> = {
+  stableford: 'Stableford',
+  modified: 'Modified',
+  skins: 'Skins',
+  nassau: 'Nassau',
+  match: 'Match',
+  wolf: 'Wolf',
+  vegas: 'Vegas',
+  bbb: 'Bingo Bango Bongo',
+  coins: 'Coins',
+}
+
+const DROP_ORDER: GameKind[] = ['wolf', 'vegas', 'match', 'nassau', 'stableford', 'modified', 'skins', 'bbb', 'coins']
+
+export function droppedGamesNote(selected: readonly GameKind[], count: number): string | null {
+  if (count < 2) return null
+  const legal = new Set(gamesForCount(count))
+  const dropped = DROP_ORDER.filter((kind) => selected.includes(kind) && !legal.has(kind))
+  if (dropped.length === 0) return null
+  const labels = dropped.map((kind) => DROP_LABEL[kind])
+  const list = labels.length === 1 ? labels[0]! : `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`
+  return `${list} ${labels.length === 1 ? 'is' : 'are'} off this round.`
 }
 
 function stableIds(players: SetupPlayer[]): Map<string, string> {
@@ -373,15 +412,46 @@ export function resumeHole(save: FoursomeSave): number {
   return Math.min(18, last + 1)
 }
 
+function holeCount(holes: number): string {
+  return `${holes} ${holes === 1 ? 'hole' : 'holes'}`
+}
+
 export function finishPrompt(holes: number): string | null {
   if (holes <= 0) return null
   if (holes >= 18) return 'Finish this round?'
-  return `Finish this partial round (${holes} holes)?`
+  return `Finish this partial round (${holeCount(holes)})?`
 }
 
 export function partialLabel(holes: number): string | null {
   if (holes <= 0 || holes >= 18) return null
-  return `Partial round (${holes} holes)`
+  return `Partial round (${holeCount(holes)})`
+}
+
+/** A correction of an earlier hole leaves the open hole's half-entered card alone. */
+export function afterCorrection<T>(input: {
+  openHole: number
+  draftRows: T
+  draftMarks: HoleMarks
+  correctedHole: number
+  correctedRows: T
+  correctedMarks: HoleMarks
+}): { hole: number; rows: T; marks: HoleMarks } {
+  if (input.openHole === input.correctedHole) {
+    return { hole: input.correctedHole, rows: input.correctedRows, marks: input.correctedMarks }
+  }
+  return { hole: input.openHole, rows: input.draftRows, marks: input.draftMarks }
+}
+
+export function potHero(pending: number): string {
+  return `${pending} pot on the line`
+}
+
+export function wolfHero(name: string): string {
+  return `${name} is the wolf`
+}
+
+export function rivalryHero(a: string, b: string, winsA: number, winsB: number): string {
+  return `${a} ${winsA}\u2013${winsB} ${b}`
 }
 
 export function isCorrection(transcript: string): boolean {
@@ -446,6 +516,32 @@ function inactiveNote(save: FoursomeSave, events: Array<Record<string, unknown>>
   return null
 }
 
+function bindWolfEvents(
+  save: FoursomeSave,
+  events: Array<Record<string, unknown>>,
+  holeWolfId: string | null,
+): { events: Array<Record<string, unknown>>; question: string | null } {
+  const names: Record<string, string> = {}
+  for (const player of save.players) names[player.id] = player.name
+  let question: string | null = null
+  const next = events.map((event) => {
+    if (event.type !== 'wolf_pick') return event
+    const mode = event.wolfMode === 'blind' || event.wolfMode === 'lone' || event.wolfMode === 'partner' ? event.wolfMode : null
+    if (!mode) return event
+    const saved = savedWolfCall({
+      mode,
+      namedWolfId: typeof event.playerId === 'string' ? event.playerId : null,
+      partnerId: typeof event.partnerId === 'string' ? event.partnerId : null,
+      holeWolfId,
+      names,
+    })
+    if (!saved) return event
+    if (saved.question) question = saved.question
+    return { ...event, playerId: saved.wolfId, partnerId: saved.partnerId, wolfMode: saved.mode }
+  })
+  return { events: next, question }
+}
+
 export function applyPhrase(
   rows: EntryRow[],
   transcript: string,
@@ -455,23 +551,26 @@ export function applyPhrase(
 ): PhraseApply {
   const marks = ctx?.marks ?? emptyMarks()
   const text = transcript.trim()
-  if (!text) return { rows, marks, command: null, note: MISSED, readback: null, caught: false }
+  const missed = { rows, marks, command: null, note: MISSED, readback: null, question: null, caught: false } as const
+  if (!text) return missed
   const parsed = parsePhrase(text, {
     players: save.players.map((player) => ({ id: player.id, name: player.name, isDeviceOwner: player.isDeviceOwner })),
     par: hole.par,
     strokes: strokeMap(save, hole.strokeIndex),
     wolfId: ctx?.wolfId ?? null,
   })
+  const bound = bindWolfEvents(save, parsed.events, ctx?.wolfId ?? null)
   if (parsed.intent === 'command') {
     const type = parsed.commands[0]?.type
     const command = type === 'skip_hole' || type === 'undo' ? type : null
-    if (!command) return { rows, marks, command: null, note: MISSED, readback: null, caught: false }
+    if (!command) return missed
     return {
       rows,
       marks,
       command,
       note: null,
       readback: command === 'undo' ? 'Undo the last hole.' : 'Skip this hole.',
+      question: null,
       caught: true,
     }
   }
@@ -498,7 +597,7 @@ export function applyPhrase(
           },
     )
   }
-  for (const event of parsed.events) {
+  for (const event of bound.events) {
     const who = nameOf(save, event.playerId)
     if (event.type === 'bingo' || event.type === 'bango' || event.type === 'bongo') parts.push(`${title(String(event.type))} ${who}`.trim())
     else if (event.type === 'coin') parts.push(`${title(String(event.coin))} ${who}`.trim())
@@ -507,11 +606,9 @@ export function applyPhrase(
     else if (event.type === 'wolf_pick') parts.push(`${nameOf(save, event.playerId)} takes ${nameOf(save, event.partnerId)}`.trim())
     else if (event.type === 'press') parts.push('Press')
   }
-  if (parsed.scores.length === 0 && parsed.events.length === 0) {
-    return { rows, marks, command: null, note: MISSED, readback: null, caught: false }
-  }
-  const patched = patchMarks(marks, parsed.events)
-  const aside = inactiveNote(save, parsed.events)
+  if (parsed.scores.length === 0 && bound.events.length === 0) return missed
+  const patched = patchMarks(marks, bound.events)
+  const aside = inactiveNote(save, bound.events)
   const question = parsed.questions.find((line) => !line.toLowerCase().includes("didn't catch")) ?? null
   return {
     rows: next,
@@ -519,6 +616,7 @@ export function applyPhrase(
     command: null,
     note: aside ?? question,
     readback: parts.length ? `${parts.join('. ')}. This hole.` : null,
+    question: bound.question,
     caught: true,
   }
 }
@@ -607,7 +705,8 @@ export function rosterLine(save: FoursomeSave, game: FoursomeGame): string | nul
   return `${left} vs ${right}`
 }
 
-export function winnerText(game: Pick<GameScore, 'points' | 'winners'>): string {
+export function winnerText(game: Pick<GameScore, 'points' | 'winners'> & { line?: string }): string {
+  if (game.line === 'All square') return 'All square'
   if (game.points && game.points.length > 0 && game.points.every((point) => point === 0)) return 'No winner'
   if (game.winners.length === 0) return 'No winner'
   return game.winners.join(' and ')
@@ -616,9 +715,11 @@ export function winnerText(game: Pick<GameScore, 'points' | 'winners'>): string 
 export function skinsLine(names: string[], points: number[], nets: number[] | null, pending: number, finished: boolean): string {
   const bits = names.flatMap((name, index) => {
     const won = points[index] ?? 0
-    const net = nets?.[index] ?? 0
-    if (won === 0 && net === 0) return []
-    return [`${name} ${won}${nets ? ` ${fmt(net, undefined, true)}` : ''}`]
+    const net = nets ? nets[index] ?? 0 : null
+    if (won === 0 && (net == null || net === 0)) return []
+    const pointsLabel = `${name} ${won} skins-points`
+    if (net == null || net === 0) return [pointsLabel]
+    return [`${pointsLabel}, ${fmt(net, undefined, true)}`]
   })
   const who = bits.length ? bits.join(', ') : 'No skins won'
   const tail = finished ? (pending > 0 ? `${pending} left unplayed` : 'Played out') : `${pending} on the line`

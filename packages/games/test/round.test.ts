@@ -4,12 +4,16 @@ import { readFileSync } from 'node:fs'
 import {
   BANNED_WORD,
   DISCLOSURE,
+  dayLine,
+  fmt,
   headToHead,
   ownerRound,
   playedOnDate,
   recapText,
+  savedWolfCall,
   scoreFoursome,
   scoreSkins,
+  scoreWolf,
   seasonTable,
   stablefordPoints,
   userFacingCopy,
@@ -109,6 +113,108 @@ describe('round, recap, and local season', () => {
     assert.equal(owner?.holes.every((hole) => hole.strokes != null), true)
     save.holes = save.holes.map((hole) => ({ ...hole, scores: [] }))
     assert.equal(ownerRound(save), null)
+  })
+
+  test('a saved wolf call uses the hole wolf when the phrase names someone else', () => {
+    const names = { mike: 'Mike', dave: 'Dave', tony: 'Tony', josh: 'Josh' }
+    const call = savedWolfCall({
+      mode: 'partner',
+      namedWolfId: 'josh',
+      partnerId: 'mike',
+      holeWolfId: 'dave',
+      names,
+    })
+    assert.equal(call?.wolfId, 'dave')
+    assert.equal(call?.partnerId, 'mike')
+    assert.equal(call?.question, 'Dave is the wolf, did you mean Dave takes Mike?')
+    const players = [
+      { id: 'mike', name: 'Mike', courseHandicap: 0, isDeviceOwner: true },
+      { id: 'dave', name: 'Dave', courseHandicap: 0, isDeviceOwner: false },
+      { id: 'tony', name: 'Tony', courseHandicap: 0, isDeviceOwner: false },
+      { id: 'josh', name: 'Josh', courseHandicap: 0, isDeviceOwner: false },
+    ]
+    const hole = (wolfId: string, partnerId: string) => ({
+      number: 1,
+      par: 4,
+      strokeIndex: 1,
+      scores: [
+        { playerId: 'mike', gross: 4, pickup: false },
+        { playerId: 'dave', gross: 3, pickup: false },
+        { playerId: 'tony', gross: 5, pickup: false },
+        { playerId: 'josh', gross: 5, pickup: false },
+      ],
+      wolf: { mode: 'partner' as const, wolfId, partnerId },
+    })
+    const round = (wolfId: string, partnerId: string): FoursomeSave => ({
+      id: 'wolf-call',
+      courseName: 'Card',
+      players,
+      grossOnly: true,
+      wholeUnits: false,
+      finishedOn: null,
+      games: [{ kind: 'wolf', stake: 100 }],
+      holes: [hole(wolfId, partnerId)],
+    })
+    const saved = round(call!.wolfId, call!.partnerId)
+    assert.equal(saved.holes[0]?.wolf?.wolfId, 'dave')
+    const scored = scoreFoursome(saved).games.find((game) => game.kind === 'wolf')?.points
+    const dave = scoreWolf([[4, 3, 5, 5]], [{ mode: 'partner', wolf: 1, partner: 0 }], [0, 0, 0, 0], [1])
+    const josh = scoreWolf([[4, 3, 5, 5]], [{ mode: 'partner', wolf: 3, partner: 0 }], [0, 0, 0, 0], [1])
+    assert.deepEqual(scored, dave)
+    assert.notDeepEqual(dave, josh)
+    assert.notDeepEqual(scored, scoreFoursome(round('josh', 'mike')).games.find((game) => game.kind === 'wolf')?.points)
+  })
+
+  test('an all-square Nassau names nobody, and the share line is not repeated', () => {
+    const players = [
+      { id: 'mike', name: 'Mike', courseHandicap: 0, isDeviceOwner: true },
+      { id: 'dave', name: 'Dave', courseHandicap: 0, isDeviceOwner: false },
+      { id: 'tony', name: 'Tony', courseHandicap: 0, isDeviceOwner: false },
+      { id: 'josh', name: 'Josh', courseHandicap: 0, isDeviceOwner: false },
+    ]
+    const tied: FoursomeSave = {
+      id: 'tied',
+      courseName: 'Card',
+      players,
+      grossOnly: true,
+      wholeUnits: false,
+      finishedOn: null,
+      games: [{ kind: 'nassau', stake: null, front: 100, back: null, total: null, press: null, teamA: ['mike', 'dave'], teamB: ['tony', 'josh'] }],
+      holes: [{
+        number: 1,
+        par: 4,
+        strokeIndex: 1,
+        scores: players.map((player) => ({ playerId: player.id, gross: 4, pickup: false })),
+      }],
+    }
+    const nassau = scoreFoursome(tied).games.find((game) => game.kind === 'nassau')
+    assert.deepEqual(nassau?.winners, [])
+    assert.equal(nassau?.line, 'All square')
+    assert.equal(dayLine(players.map((player) => player.name), [0, 0, 0, 0]), 'All square')
+    const skins: FoursomeSave = {
+      id: 'skins',
+      courseName: 'Card',
+      players: players.slice(0, 2),
+      grossOnly: true,
+      wholeUnits: false,
+      finishedOn: null,
+      games: [{ kind: 'skins', stake: 100 }],
+      holes: [{
+        number: 1,
+        par: 4,
+        strokeIndex: 1,
+        scores: [
+          { playerId: 'mike', gross: 3, pickup: false },
+          { playerId: 'dave', gross: 5, pickup: false },
+        ],
+      }],
+    }
+    const score = scoreFoursome(skins)
+    const text = recapText(skins, score)
+    const leader = `Mike ${fmt(score.nets[0] ?? 0, undefined, true)}`
+    assert.match(text, /Mike takes the day/)
+    assert.equal(text.split(leader).length - 1, 1)
+    assert.equal(text.split('\n').filter((line) => line === leader).length, 0)
   })
 
   test('a pickup cannot win a skin and scores 0 in Stableford', () => {

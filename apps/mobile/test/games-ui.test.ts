@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { inflateSync } from 'node:zlib';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -8,6 +9,7 @@ import {
   MISSED,
   acceptRow,
   activeKinds,
+  afterCorrection,
   applyPhrase,
   assignSide,
   blankPlayer,
@@ -15,9 +17,11 @@ import {
   commitHole,
   correctLastHole,
   defaultSides,
+  droppedGamesNote,
   emptyMarks,
   emptyStake,
   finishPrompt,
+  firstStakeError,
   gameLine,
   handicapError,
   holesPlayed,
@@ -26,8 +30,10 @@ import {
   partialLabel,
   phoneRounds,
   playerHandicap,
+  potHero,
   recapFor,
   resumeHole,
+  rivalryHero,
   rosterLine,
   setupBlock,
   skinsLine,
@@ -35,11 +41,15 @@ import {
   stakeError,
   tapGross,
   undoLastHole,
+  visibleSetupLines,
   winnerText,
+  wolfHero,
   zeroSumLine,
   type EntryRow,
+  type HoleMarks,
   type SetupPlayer,
 } from '../src/games/present';
+import { recapCardLines, recapPng } from '../src/games/recap-bitmap';
 import type { FoursomeSave } from '@coopr/games';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -497,5 +507,127 @@ describe('foursome QA', () => {
     const without = liveScore(plain).games.find((game) => game.kind === 'nassau')!.nets;
     expect(withPress).not.toEqual(without);
     expect(withPress!.reduce((sum, net) => sum + net, 0)).toBe(0);
+  });
+
+  it('N1 saves the hole wolf when the phrase names a different picker', () => {
+    const save = buildSave({
+      id: 'n1',
+      players: fourPlayers(),
+      ownerId: 'mike',
+      kinds: ['wolf'],
+      stakes: {},
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+    })!;
+    const dave = save.players.find((player) => player.name === 'Dave')!;
+    const rows = scored(save, [4, 4, 4, 4]).map((row) => ({ ...row, gross: null, confirmed: false }));
+    const take = applyPhrase(rows, 'Josh takes Mike', save, { par: 4, strokeIndex: 1 }, { wolfId: dave.id });
+    expect(take.marks.wolf).toEqual({ mode: 'partner', wolfId: dave.id, partnerId: stablePlayerId('Mike') });
+    expect(take.readback).toContain('Dave takes Mike');
+    expect(take.question).toBe('Dave is the wolf, did you mean Dave takes Mike?');
+    const logged = commitHole(save, 1, scored(save, [4, 3, 5, 5]), take.marks);
+    expect(logged.holes[0]?.wolf?.wolfId).toBe(dave.id);
+    expect(logged.holes[0]?.wolf?.wolfId).not.toBe(stablePlayerId('Josh'));
+  });
+
+  it('N2 keeps the open hole draft when a correction patches an earlier hole', () => {
+    const draft: EntryRow[] = [
+      { playerId: 'mike', name: 'Mike', gross: 5, pickup: false, confirmed: true, amber: false, question: null },
+      { playerId: 'tony', name: 'Tony', gross: null, pickup: false, confirmed: false, amber: false, question: null },
+    ];
+    const marks: HoleMarks = emptyMarks();
+    const kept = afterCorrection({
+      openHole: 4,
+      draftRows: draft,
+      draftMarks: marks,
+      correctedHole: 3,
+      correctedRows: [],
+      correctedMarks: emptyMarks(),
+    });
+    expect(kept.hole).toBe(4);
+    expect(kept.rows).toBe(draft);
+    expect(kept.rows[0]?.gross).toBe(5);
+    expect(kept.rows[1]?.gross).toBeNull();
+    const sameHole = afterCorrection({
+      openHole: 3,
+      draftRows: draft,
+      draftMarks: marks,
+      correctedHole: 3,
+      correctedRows: [{ ...draft[0]!, gross: 7 }],
+      correctedMarks: marks,
+    });
+    expect(sameHole.hole).toBe(3);
+    expect(sameHole.rows[0]?.gross).toBe(7);
+    expect(screen).toContain('afterCorrection');
+  });
+
+  it('N3 says one hole, all square, and skins points without a bare zero', () => {
+    expect(partialLabel(1)).toBe('Partial round (1 hole)');
+    expect(finishPrompt(1)).toBe('Finish this partial round (1 hole)?');
+    expect(partialLabel(3)).toBe('Partial round (3 holes)');
+    const skins = skinsLine(['Mike', 'Dave'], [9, 9], [0, 0], 0, true);
+    expect(skins).toBe('Mike 9 skins-points, Dave 9 skins-points. Played out');
+    expect(skins).not.toContain('0 BB');
+    const paid = skinsLine(['Mike'], [2], [9000], 0, true);
+    expect(paid).toContain('2 skins-points');
+    expect(paid).toContain('BB');
+    expect(winnerText({ points: null, winners: [], line: 'All square' })).toBe('All square');
+  });
+
+  it('N5 shows one stake error and names the games a shorter group drops', () => {
+    const bad = { ...emptyStake(), front: '$5', back: 'abc', total: '-2', press: '1,5' };
+    const error = firstStakeError(['nassau'], { nassau: bad });
+    expect(error).toBe('Enter the stake as a number, like 1 or 2.50.');
+    expect(visibleSetupLines(error, error, null)).toEqual([error]);
+    expect(droppedGamesNote(['wolf', 'vegas', 'match'], 3)).toBe('Wolf, Vegas and Match are off this round.');
+    expect(droppedGamesNote(['skins'], 3)).toBeNull();
+    expect(screen).toContain('visibleSetupLines');
+    expect(screen).toContain('droppedGamesNote');
+    expect(screen).not.toContain('stakeError(');
+  });
+
+  it('D10 shows the day hero, a recap bitmap, the confirm read-back, and a games sheet', () => {
+    expect(screen).toContain('accessibilityLabel="Takes the day"');
+    expect(screen).toContain('accessibilityLabel="Head to head"');
+    expect(screen).toContain('accessibilityLabel="Zero-sum check"');
+    expect(screen).toContain('accessibilityLabel="Save image"');
+    expect(screen).toContain('accessibilityLabel="Show BB nets"');
+    expect(screen).toContain('accessibilityLabel="Show handicaps"');
+    expect(screen).toContain('accessibilityLabel="Read-back"');
+    expect(screen).toContain('listening && mic');
+    expect(screen).toContain('accessibilityLabel="Transcript"');
+    expect(screen).toContain('accessibilityLabel="Pot on the line"');
+    expect(screen).toContain('accessibilityLabel="Games sheet"');
+    expect(screen).toContain("position: 'absolute'");
+    expect(potHero(3)).toBe('3 pot on the line');
+    expect(wolfHero('Dave')).toBe('Dave is the wolf');
+    expect(rivalryHero('Mike', 'Dave', 2, 0)).toBe('Mike 2\u20130 Dave');
+    const save = buildSave({
+      id: 'd10',
+      players: twoPlayers(),
+      ownerId: 'ada',
+      kinds: ['skins'],
+      stakes: { skins: { ...emptyStake(), amount: '1' } },
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+    })!;
+    const logged = commitHole(save, 1, scored(save, [3, 5]), emptyMarks());
+    const score = liveScore(logged);
+    const nets = recapCardLines(logged, score, { nets: true, handicaps: false });
+    const handicaps = recapCardLines(logged, score, { nets: false, handicaps: true });
+    expect(nets.some((line) => line.includes('BB'))).toBe(true);
+    expect(nets.some((line) => line.includes('handicap'))).toBe(false);
+    expect(nets[nets.length - 1]).toBe(DISCLOSURE);
+    expect(handicaps.some((line) => line.includes('handicap'))).toBe(true);
+    const image = recapPng(nets);
+    expect(image[0]).toBe(137);
+    expect(String.fromCharCode(image[1]!, image[2]!, image[3]!)).toBe('PNG');
+    const idatAt = image.findIndex((_, index) => image[index] === 73 && image[index + 1] === 68 && image[index + 2] === 65 && image[index + 3] === 84);
+    const length = new DataView(image.buffer, image.byteOffset + idatAt - 4, 4).getUint32(0);
+    expect(inflateSync(Buffer.from(image.subarray(idatAt + 4, idatAt + 4 + length))).length).toBeGreaterThan(0);
+    expect(Array.from(recapPng(handicaps))).not.toEqual(Array.from(image));
+    expect(screen.split('{DISCLOSURE}').length - 1).toBeGreaterThanOrEqual(5);
   });
 });

@@ -37,5 +37,5 @@ Manual press is on the hole. The button records a press for that hole. It does n
 ## Screen shapes left for a later pass
 
 - The live strip is the running total on the foursome screen. It is not drawn over the course aerial.
-- Games opens an in-page sheet of the games in this round. It is not a map tab.
-- The recap is a card on the results screen, shared as text. It is not a bitmap saved to photos.
+- Games opens a sheet over the hole view on the foursome screen. It is not a map tab.
+- The recap card can be saved as a PNG from the results screen. A pixel match to an external strip mock, beyond the heroes on that screen, is not in this build.

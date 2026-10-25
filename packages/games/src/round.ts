@@ -176,6 +176,48 @@ function winnerIndexes(values: number[], higher = true): number[] {
   return values.map((v, i) => (v === best ? i : -1)).filter((i) => i >= 0)
 }
 
+export interface SavedWolfCall {
+  mode: 'partner' | 'lone' | 'blind'
+  wolfId: string
+  partnerId: string | null
+  question: string | null
+}
+
+/**
+ * The hole's rotation wolf is the wolf that gets scored.
+ * A phrase that names someone else does not replace that id.
+ */
+export function savedWolfCall(input: {
+  mode: 'partner' | 'lone' | 'blind'
+  namedWolfId: string | null
+  partnerId: string | null
+  holeWolfId: string | null
+  names: Readonly<Record<string, string>>
+}): SavedWolfCall | null {
+  const wolfId = input.holeWolfId ?? input.namedWolfId
+  if (!wolfId) return null
+  if (input.mode !== 'partner') return { mode: input.mode, wolfId, partnerId: null, question: null }
+  if (!input.partnerId) return null
+  let partnerId = input.partnerId
+  if (partnerId === wolfId && input.namedWolfId && input.namedWolfId !== wolfId) partnerId = input.namedWolfId
+  if (partnerId === wolfId) return null
+  const named = input.namedWolfId
+  const wolfName = input.names[wolfId] || 'The wolf'
+  const partnerName = input.names[partnerId] || 'them'
+  const question = named && named !== wolfId ? `${wolfName} is the wolf, did you mean ${wolfName} takes ${partnerName}?` : null
+  return { mode: 'partner', wolfId, partnerId, question }
+}
+
+/** Headline for a staked round. A flat card is all square, not four winners. */
+export function dayLine(names: string[], nets: number[]): string {
+  if (nets.length === 0) return 'All square'
+  const best = Math.max(...nets)
+  if (nets.every((net) => net === best)) return 'All square'
+  const winners = names.filter((_, index) => (nets[index] ?? 0) === best)
+  if (winners.length === 1) return `${winners[0]} takes the day`
+  return `${winners.join(' and ')} share the day`
+}
+
 function teamIndexes(save: FoursomeSave, ids: string[] | undefined, fallback: number[]): number[] {
   if (!ids || ids.length === 0) return fallback
   return ids.map((id) => save.players.findIndex((p) => p.id === id)).filter((i) => i >= 0)
@@ -357,8 +399,10 @@ function scoreGame(
       return { kind: game.kind, label, points: [up], nets, winners, line: up === 0 ? 'All square' : `${winners.join(' and ')} ${Math.abs(up)} up` }
     }
     const scored = nassauValue(results, teams.teamA, teams.teamB, n, legValues(game), manualPresses(save))
-    const winners = scored.nets ? namesOf(save, winnerIndexes(scored.nets)) : []
-    return { kind: game.kind, label, points: null, nets: scored.nets, winners, line: scored.nets ? moneyLine(save, scored.nets) : 'Points only' }
+    const nets = scored.nets
+    const tied = !!nets && nets.length > 0 && nets.every((net) => net === nets[0])
+    const winners = nets && !tied ? namesOf(save, winnerIndexes(nets)) : []
+    return { kind: game.kind, label, points: null, nets, winners, line: nets ? (tied ? 'All square' : moneyLine(save, nets)) : 'Points only' }
   }
   if (game.kind === 'bbb' || game.kind === 'coins') {
     const pts = Array<number>(n).fill(0)
@@ -438,9 +482,7 @@ export function recapText(save: FoursomeSave, score: RoundScore = scoreFoursome(
   if (!score.zeroSumOk) lines.push(ZERO_SUM_FAIL)
   else if (!staked) lines.push('Points only. No stakes entered.')
   else {
-    const best = Math.max(...score.nets)
-    const winners = save.players.filter((_, i) => score.nets[i] === best).map((p) => p.name)
-    lines.push(winners.length === 1 ? `${winners[0]} ${fmt(best, undefined, true)}` : `${winners.join(' and ')} share it`)
+    lines.push(dayLine(save.players.map((p) => p.name), score.nets))
     lines.push(save.players.map((p, i) => `${p.name} ${fmt(score.nets[i] ?? 0, undefined, true)}`).join(', '))
   }
   for (const game of score.games) {
