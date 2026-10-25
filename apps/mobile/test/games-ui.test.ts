@@ -25,8 +25,11 @@ import {
   gameLine,
   handicapError,
   holesPlayed,
+  dayAmount,
   liveScore,
+  liveStripHeight,
   logReady,
+  oweCombinations,
   partialLabel,
   phoneRounds,
   playerHandicap,
@@ -34,6 +37,9 @@ import {
   recapFor,
   resumeHole,
   rivalryHero,
+  rivalryPick,
+  stablefordLine,
+  wolfPointsTable,
   rosterLine,
   setupBlock,
   skinsLine,
@@ -317,8 +323,8 @@ describe('foursome QA', () => {
     expect(fixed.hole).toBe(1);
     expect(fixed.save.holes.find((hole) => hole.number === 1)?.scores.find((row) => row.playerId === stablePlayerId('Tony'))?.gross).toBe(7);
     expect(fixed.save.holes.find((hole) => hole.number === 2)?.scores).toEqual([]);
-    expect(fixed.readback).toContain('Tony 7');
-    expect(fixed.readback).toContain('This hole.');
+    expect(fixed.readback).toBe('Hole 1: Tony 7');
+    expect(fixed.readback).not.toContain('This hole.');
     const both = commitHole(fixed.save, 2, scored(fixed.save, [4, 4, 4, 4]), emptyMarks());
     const once = undoLastHole(both);
     const twice = once ? undoLastHole(once.save) : null;
@@ -567,10 +573,11 @@ describe('foursome QA', () => {
     expect(finishPrompt(1)).toBe('Finish this partial round (1 hole)?');
     expect(partialLabel(3)).toBe('Partial round (3 holes)');
     const skins = skinsLine(['Mike', 'Dave'], [9, 9], [0, 0], 0, true);
-    expect(skins).toBe('Mike 9 skins-points, Dave 9 skins-points. Played out');
+    expect(skins).toBe('Mike 9 skins, Dave 9 skins. Played out');
     expect(skins).not.toContain('0 BB');
     const paid = skinsLine(['Mike'], [2], [9000], 0, true);
-    expect(paid).toContain('2 skins-points');
+    expect(paid).toContain('2 skins');
+    expect(paid).not.toContain('skins-points');
     expect(paid).toContain('BB');
     expect(winnerText({ points: null, winners: [], line: 'All square' })).toBe('All square');
   });
@@ -600,7 +607,7 @@ describe('foursome QA', () => {
     expect(screen).toContain('accessibilityLabel="Pot on the line"');
     expect(screen).toContain('accessibilityLabel="Games sheet"');
     expect(screen).toContain("position: 'absolute'");
-    expect(potHero(3)).toBe('3 pot on the line');
+    expect(potHero(3, 500, 4, true)).toBe('3 skins on the line (45 BB). Carry-over is on.');
     expect(wolfHero('Dave')).toBe('Dave is the wolf');
     expect(rivalryHero('Mike', 'Dave', 2, 0)).toBe('Mike 2\u20130 Dave');
     const save = buildSave({
@@ -629,5 +636,108 @@ describe('foursome QA', () => {
     expect(inflateSync(Buffer.from(image.subarray(idatAt + 4, idatAt + 4 + length))).length).toBeGreaterThan(0);
     expect(Array.from(recapPng(handicaps))).not.toEqual(Array.from(image));
     expect(screen.split('{DISCLOSURE}').length - 1).toBeGreaterThanOrEqual(5);
+    expect(nets.some((line) => /takes the day|share the day|All square/.test(line))).toBe(true);
+    expect(nets.join('\n')).not.toMatch(/[$€£¥]|\b(money|cash|dollars)\b/i);
+    const inflated = inflateSync(Buffer.from(image.subarray(idatAt + 4, idatAt + 4 + length)));
+    expect(inflated.includes(0x8a)).toBe(true);
+    expect(inflated.includes(0xc9)).toBe(true);
+    expect(screen).toContain('accessibilityLabel="Day amount"');
+    expect(screen).toContain('accessibilityLabel="Stableford"');
+    expect(screen).toContain('accessibilityLabel="Wolf points"');
+    expect(screen).toContain('accessibilityLabel="Skins breakdown"');
+    expect(screen).toContain('accessibilityLabel="Who owes who"');
+    expect(screen).toContain('accessibilityLabel={`${game.kind} state`}');
+  });
+
+  it('rejects a wolf who takes themself', () => {
+    const save = buildSave({
+      id: 'self-wolf',
+      players: fourPlayers(),
+      ownerId: 'mike',
+      kinds: ['wolf'],
+      stakes: {},
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+    })!;
+    const josh = save.players.find((player) => player.name === 'Josh')!;
+    const rows = scored(save, [4, 4, 4, 4]).map((row) => ({ ...row, gross: null, confirmed: false }));
+    const take = applyPhrase(rows, 'Josh takes Josh', save, { par: 4, strokeIndex: 1 }, { wolfId: josh.id });
+    expect(take.caught).toBe(true);
+    expect(take.marks.wolf).toBeNull();
+    expect(take.question).toBe("Josh can't take Josh. Pick someone else.");
+    expect(take.readback).toBe("Josh can't take Josh. Pick someone else.");
+    expect(screen).toContain('player.id !== wolfPlayer.id');
+  });
+
+  it('keeps the live strip short enough to enter a hole', () => {
+    expect(liveStripHeight(false)).toBeLessThanOrEqual(Math.round(640 * 0.2));
+    expect(liveStripHeight(false) / 844).toBeLessThan(0.15);
+    expect(liveStripHeight(true)).toBeLessThan(243);
+    expect(liveStripHeight(true) / 640).toBeLessThan(0.3);
+    expect(screen).toContain('Show live detail');
+    expect(screen).toContain('useState(false)');
+    expect(screen).toMatch(/strip: \{[^}]*padding: 8/);
+    expect(screen).toContain('stripNet: { fontSize: 20, lineHeight: 22');
+    expect(screen).not.toMatch(/stripLine: \{[^}]*fontSize: 40/);
+  });
+
+  it('names the corrected hole instead of this hole', () => {
+    let save = buildSave({
+      id: 'hole-name',
+      players: fourPlayers(),
+      ownerId: 'mike',
+      kinds: ['skins'],
+      stakes: { skins: { ...emptyStake(), amount: '1' } },
+      grossOnly: true,
+      siOk: true,
+      card: CARD,
+    })!;
+    save = commitHole(save, 1, scored(save, [4, 5, 6, 5]), emptyMarks());
+    save = commitHole(save, 2, scored(save, [4, 5, 6, 5]), emptyMarks());
+    const fixed = correctLastHole(save, 'actually Tony had a 7');
+    expect(fixed.hole).toBe(2);
+    expect(fixed.readback).toBe('Hole 2: Tony 7');
+  });
+
+  it('picks the owner biggest swing for the head-to-head hero', () => {
+    const people = [
+      { id: stablePlayerId('Mike'), name: 'Mike' },
+      { id: stablePlayerId('Dave'), name: 'Dave' },
+      { id: stablePlayerId('Tony'), name: 'Tony' },
+      { id: stablePlayerId('Josh'), name: 'Josh' },
+    ];
+    const rounds = [
+      { id: 'a', players: people, nets: [100, -100, 0, 0] },
+      { id: 'b', players: people, nets: [10, -10, 300, -300] },
+    ];
+    const owner = rivalryPick(
+      [
+        { name: 'Mike', isDeviceOwner: true },
+        { name: 'Dave' },
+        { name: 'Tony' },
+        { name: 'Josh' },
+      ],
+      rounds,
+    );
+    expect(owner).toEqual({ a: 'Mike', b: 'Josh', winsA: 2, winsB: 0 });
+    const open = rivalryPick(
+      [{ name: 'Mike' }, { name: 'Dave' }, { name: 'Tony' }, { name: 'Josh' }],
+      rounds,
+    );
+    expect(open?.a).toBe('Tony');
+    expect(open?.b).toBe('Josh');
+    expect(screen).toContain('rivalryPick');
+    expect(screen).not.toContain('const [a, b] = current.players');
+  });
+
+  it('shows the pot, the skins count, wolf points, and who owes who', () => {
+    expect(potHero(1, 100, 4, false)).toBe('1 skin on the line (3 BB). No carry-over.');
+    expect(skinsLine(['Mike'], [4], [-1000], 2, false)).toBe('Mike 4 skins, \u221210 BB. 2 on the line');
+    expect(wolfPointsTable(['Mike', 'Dave'], [3, 1])).toEqual(['Mike 3', 'Dave 1']);
+    expect(stablefordLine(['Mike', 'Dave'], [36, 32])).toBe('Stableford Mike 36');
+    expect(oweCombinations(['Mike', 'Dave'], [500, -500])).toEqual(['Dave owes Mike 5 BB']);
+    expect(dayAmount([500, -500])).toBe('+5 BB');
+    expect(dayAmount([0, 0])).toBeNull();
   });
 });

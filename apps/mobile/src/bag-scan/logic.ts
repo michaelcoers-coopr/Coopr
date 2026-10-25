@@ -4,6 +4,15 @@ import type { IronBuild, ScanClub, ScanDraft, StoredFit } from './types';
 import { EMPTY_FIT } from './types';
 
 export const IN_PLAY_CAP = 14;
+export const SET_ASIDE = 'Your bag holds 14 clubs, this one is set aside';
+
+/** The sentence shown at the moment a new club is benched because 14 are already in play. */
+export function setAsideNotice(before: readonly ScanClub[], clubId: string): string | null {
+  const previous = before.find((club) => club.id === clubId);
+  if (previous?.inPlay === false) return null;
+  const others = before.filter((club) => club.inPlay && club.id !== clubId).length;
+  return others >= IN_PLAY_CAP ? SET_ASIDE : null;
+}
 
 const CLUB_TYPES = ['driver', 'fairway wood', 'hybrid', 'iron', 'wedge', 'putter', 'utility iron'] as const;
 const BUILDS = ['game-improvement', 'players-distance', 'players-cb', 'blade', 'super-game-improvement'] as const;

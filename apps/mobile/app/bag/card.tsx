@@ -27,6 +27,7 @@ export default function ClubCardScreen() {
   const name = [club.brand, club.model].filter(Boolean).join(' ');
   return (
     <ScanScreen title="Club card" backTo="/bag">
+      {scanState.notice ? <Body>{scanState.notice}</Body> : null}
       <View style={styles.top}>
         <ClubPicture
           photoUri={club.photoUri}
@@ -85,7 +86,6 @@ export default function ClubCardScreen() {
               return;
             }
             scanState.saveDraft(club.fitAck);
-            scanState.setNotice(null);
             returnToBag(router);
           }}
         />

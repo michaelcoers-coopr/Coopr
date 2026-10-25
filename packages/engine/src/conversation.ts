@@ -118,6 +118,8 @@ export interface TalkMachine {
 const TURN_LIMIT = 6;
 const OUT_OF_REACH_YARDS = 40;
 
+export const EMPTY_BAG_ADVICE = 'Add your clubs for club advice';
+
 function finiteOrNull(value: number | null | undefined): number | null {
   return value != null && Number.isFinite(value) ? value : null;
 }
@@ -345,6 +347,15 @@ export function runTalkTool(name: string, args: unknown, context: TalkContext): 
   }
 
   if (name === 'recommend_club') {
+    if (context.clubs.length === 0) {
+      return {
+        name,
+        ok: true,
+        action: null,
+        data: { clubId: null, clubLabel: null, yards: null, dispersionYards: null },
+        line: EMPTY_BAG_ADVICE,
+      };
+    }
     const distance = context.playsLikeYards ?? context.gpsYards;
     const target = distance == null ? null : roundYards(distance);
     const selected = quotedProfile(context.profiles, context.selectedClubId);
@@ -530,6 +541,10 @@ export async function sampleTalkReply(context: TalkContext, transcript: string):
     return { mode: 'sample', line, sentences: talkSentences(line), tools, heard: false };
   }
   if (intent.question === 'club' || intent.question == null) {
+    if (context.clubs.length === 0) {
+      const line = EMPTY_BAG_ADVICE;
+      return { mode: 'sample', line, sentences: talkSentences(line), tools, heard: false };
+    }
     const target = context.playsLikeYards ?? context.gpsYards;
     if (target == null) {
       const line = 'No distance yet.';

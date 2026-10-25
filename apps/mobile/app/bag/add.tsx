@@ -15,7 +15,8 @@ const STEPS: { id: CaptureStep; label: string; hint: string }[] = [
 ];
 
 export default function AddClubScreen() {
-  const { draft, setStep, attachPhoto, cameraNote, setCameraNote } = useBagScan();
+  const bag = useBagScan();
+  const { draft, setStep, attachPhoto, cameraNote, setCameraNote } = bag;
   const step = STEPS.find((item) => item.id === draft.step) ?? STEPS[0]!;
 
   const pick = async (kind: 'camera' | 'library') => {
@@ -67,6 +68,7 @@ export default function AddClubScreen() {
         tone="ghost"
         onPress={() => forwardBag(router, '/bag/details')}
       />
+      <ScanButton label="DISCARD" tone="ghost" onPress={() => bag.discardDraft()} />
     </ScanScreen>
   );
 }

@@ -20,6 +20,11 @@ export function readHeldDraft(): ScanDraft | null {
   return held ? { ...held } : null;
 }
 
+/** Add club reopens the held draft. Saving or discarding is what clears it. */
+export function openAddDraft(): ScanDraft | null {
+  return readHeldDraft();
+}
+
 export function readPlayNote(): string | null {
   return note;
 }

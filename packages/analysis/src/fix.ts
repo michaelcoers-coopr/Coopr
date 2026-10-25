@@ -44,7 +44,7 @@ export function rankLosses(ledgerIns: Insight<LedgerValue>, sgIns: Insight<SgVal
   const strengths = items.filter((i) => i.strokesPer18 <= 0).sort((a, b) => a.strokesPer18 - b.strokesPer18 || a.id.localeCompare(b.id));
   return {
     ...ledgerIns, id: 'ranking', title: 'Where you lose strokes',
-    value: { method: 'par_allotment', baselineLabel: "par's own allowance (a 2-putt par)", losses, strengths, caveat: "Measured against par's allowance, not against Tour players or players your handicap. It adds up to your score over par." },
+    value: { method: 'par_allotment', baselineLabel: "par's own allowance (a 2-putt par)", losses, strengths, caveat: "Measured against par's allowance, not against Tour players or players at your handicap. It adds up to your score over par." },
   };
 }
 
@@ -87,7 +87,8 @@ export function selectOneFix(inp: FixInputs, cfg: Config): Insight<OneFixValue> 
   const base = inp.ledger;
   if (base.status !== 'ready') {
     const missing = base.missingInputs.length > 0;
-    const extra = missing ? ' Until then, the one thing is: log putts and penalties on every hole.' : '';
+    const puttsOnly = missing && base.missingInputs.every((item) => !/penalt/i.test(item));
+    const extra = !missing ? '' : puttsOnly ? ' Until then, the one thing is: log strokes and putts on every hole.' : ' Until then, the one thing is: log putts and penalties on every hole.';
     return { ...base, id: 'one_fix', title: 'One thing to fix', value: null, take: null,
       invitation: `${base.invitation ?? ''}${extra}`.trim() };
   }

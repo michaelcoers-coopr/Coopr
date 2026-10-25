@@ -7,6 +7,8 @@ import {
   fmt,
   gamesForCount,
   handicapPrompt,
+  headToHead,
+  owesLine,
   parsePhrase,
   parseStake,
   playedOnDate,
@@ -14,6 +16,7 @@ import {
   recapText,
   savedWolfCall,
   scoreFoursome,
+  settle,
   strokesOn,
   suggestTeams,
   type FoursomeGame,
@@ -442,8 +445,75 @@ export function afterCorrection<T>(input: {
   return { hole: input.openHole, rows: input.draftRows, marks: input.draftMarks }
 }
 
-export function potHero(pending: number): string {
-  return `${pending} pot on the line`
+/** Collapsed row is the nets. Open adds the pot, the wolf, the game line, and the disclosure. */
+export function liveStripHeight(open: boolean): number {
+  const collapsed = 52
+  if (!open) return collapsed
+  return 168
+}
+
+export function potHero(pending: number, stake: number | null = null, players = 2, carry = true): string {
+  const count = `${pending} ${pending === 1 ? 'skin' : 'skins'} on the line`
+  const pot = stake == null ? null : pending * stake * Math.max(players - 1, 1)
+  const line = pot == null ? count : `${count} (${fmt(pot)})`
+  const note = carry ? 'Carry-over is on.' : 'No carry-over.'
+  return `${line}. ${note}`
+}
+
+export function wolfPointsTable(names: string[], points: number[]): string[] {
+  return names.map((name, index) => `${name} ${points[index] ?? 0}`)
+}
+
+export function stablefordLine(names: string[], points: number[] | null): string | null {
+  if (!points || points.length === 0) return null
+  const best = Math.max(...points)
+  const leaders = names.filter((_, index) => (points[index] ?? 0) === best)
+  if (leaders.length === 0) return null
+  return `Stableford ${leaders.join(' and ')} ${best}`
+}
+
+export function dayAmount(nets: number[]): string | null {
+  if (nets.length === 0) return null
+  const best = Math.max(...nets)
+  if (nets.every((net) => net === best)) return null
+  return fmt(best, undefined, true)
+}
+
+export function oweCombinations(names: string[], nets: number[] | null): string[] {
+  if (!nets || nets.length === 0) return []
+  if (nets.reduce((sum, net) => sum + net, 0) !== 0) return []
+  return settle(nets, names).map((row) => owesLine(String(row.frm), String(row.to), row.amount))
+}
+
+export function rivalryPick(
+  players: { name: string; isDeviceOwner?: boolean }[],
+  rounds: PhoneRound[],
+): { a: string; b: string; winsA: number; winsB: number } | null {
+  const named = players.filter((player) => player.name.trim())
+  if (named.length < 2) return null
+  const owner = named.find((player) => player.isDeviceOwner) ?? null
+  const pool: Array<[typeof named[number], typeof named[number]]> = []
+  if (owner) {
+    for (const other of named) if (other.name !== owner.name) pool.push([owner, other])
+  } else {
+    for (let left = 0; left < named.length; left += 1) {
+      for (let right = left + 1; right < named.length; right += 1) pool.push([named[left]!, named[right]!])
+    }
+  }
+  let best: { a: string; b: string; winsA: number; winsB: number } | null = null
+  let bestSwing = -1
+  let bestWins = -1
+  for (const [a, b] of pool) {
+    const rivalry = headToHead(rounds, stablePlayerId(a.name), stablePlayerId(b.name))
+    const swing = Math.abs(rivalry.gap)
+    const wins = Math.abs(rivalry.winsA - rivalry.winsB)
+    if (!best || swing > bestSwing || (swing === bestSwing && wins > bestWins)) {
+      bestSwing = swing
+      bestWins = wins
+      best = { a: a.name, b: b.name, winsA: rivalry.winsA, winsB: rivalry.winsB }
+    }
+  }
+  return best
 }
 
 export function wolfHero(name: string): string {
@@ -524,10 +594,10 @@ function bindWolfEvents(
   const names: Record<string, string> = {}
   for (const player of save.players) names[player.id] = player.name
   let question: string | null = null
-  const next = events.map((event) => {
-    if (event.type !== 'wolf_pick') return event
+  const next = events.flatMap((event) => {
+    if (event.type !== 'wolf_pick') return [event]
     const mode = event.wolfMode === 'blind' || event.wolfMode === 'lone' || event.wolfMode === 'partner' ? event.wolfMode : null
-    if (!mode) return event
+    if (!mode) return [event]
     const saved = savedWolfCall({
       mode,
       namedWolfId: typeof event.playerId === 'string' ? event.playerId : null,
@@ -535,9 +605,10 @@ function bindWolfEvents(
       holeWolfId,
       names,
     })
-    if (!saved) return event
+    if (!saved) return [event]
     if (saved.question) question = saved.question
-    return { ...event, playerId: saved.wolfId, partnerId: saved.partnerId, wolfMode: saved.mode }
+    if (saved.rejected) return []
+    return [{ ...event, playerId: saved.wolfId, partnerId: saved.partnerId, wolfMode: saved.mode }]
   })
   return { events: next, question }
 }
@@ -547,7 +618,7 @@ export function applyPhrase(
   transcript: string,
   save: FoursomeSave,
   hole: { par: number; strokeIndex: number },
-  ctx?: { wolfId?: string | null; marks?: HoleMarks },
+  ctx?: { wolfId?: string | null; marks?: HoleMarks; holeNumber?: number | null },
 ): PhraseApply {
   const marks = ctx?.marks ?? emptyMarks()
   const text = transcript.trim()
@@ -606,16 +677,27 @@ export function applyPhrase(
     else if (event.type === 'wolf_pick') parts.push(`${nameOf(save, event.playerId)} takes ${nameOf(save, event.partnerId)}`.trim())
     else if (event.type === 'press') parts.push('Press')
   }
-  if (parsed.scores.length === 0 && bound.events.length === 0) return missed
+  if (parsed.scores.length === 0 && bound.events.length === 0) {
+    if (bound.question) {
+      return { rows, marks, command: null, note: bound.question, readback: bound.question, question: bound.question, caught: true }
+    }
+    return missed
+  }
   const patched = patchMarks(marks, bound.events)
   const aside = inactiveNote(save, bound.events)
   const question = parsed.questions.find((line) => !line.toLowerCase().includes("didn't catch")) ?? null
+  const body = parts.join('. ')
+  const readback = parts.length
+    ? ctx?.holeNumber != null
+      ? `Hole ${ctx.holeNumber}: ${body}`
+      : `${body}. This hole.`
+    : bound.question
   return {
     rows: next,
     marks: patched,
     command: null,
-    note: aside ?? question,
-    readback: parts.length ? `${parts.join('. ')}. This hole.` : null,
+    note: aside ?? bound.question ?? question,
+    readback,
     question: bound.question,
     caught: true,
   }
@@ -651,6 +733,7 @@ export function correctLastHole(
   const applied = applyPhrase(rowsFromHole(save, hole), transcript, save, card, {
     wolfId: card.wolf?.wolfId ?? null,
     marks: marksFromHole(card),
+    holeNumber: hole,
   })
   if (!applied.caught || applied.command) return { save, hole, readback: null, note: MISSED, caught: false }
   return {
@@ -717,7 +800,7 @@ export function skinsLine(names: string[], points: number[], nets: number[] | nu
     const won = points[index] ?? 0
     const net = nets ? nets[index] ?? 0 : null
     if (won === 0 && (net == null || net === 0)) return []
-    const pointsLabel = `${name} ${won} skins-points`
+    const pointsLabel = `${name} ${won} ${won === 1 ? 'skin' : 'skins'}`
     if (net == null || net === 0) return [pointsLabel]
     return [`${pointsLabel}, ${fmt(net, undefined, true)}`]
   })

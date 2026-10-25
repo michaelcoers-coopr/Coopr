@@ -3,7 +3,7 @@ import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { dayLine, fmt, gamesForCount, headToHead, seasonTable, wolfOnHole, type GameKind } from '@coopr/games';
+import { dayLine, fmt, gamesForCount, seasonTable, wolfOnHole, type GameKind } from '@coopr/games';
 import { colors, font, play, signal } from '@coopr/tokens';
 import { useDisplayFace } from '../src/design/display-font';
 import { highCedarsHoles } from '../src/games/card';
@@ -36,10 +36,15 @@ import {
   localPlayedOn,
   logReady,
   marksFromHole,
+  dayAmount,
+  oweCombinations,
   partialLabel,
   phoneRounds,
   playerHandicap,
   potHero,
+  rivalryPick,
+  stablefordLine,
+  wolfPointsTable,
   recapFor,
   resumeHole,
   rivalryHero,
@@ -47,7 +52,6 @@ import {
   rowsFromHole,
   setupBlock,
   speechHints,
-  stablePlayerId,
   tapGross,
   tapPickup,
   toggleCoin,
@@ -131,6 +135,7 @@ export default function GamesScreen() {
   const [mic, setMic] = useState(false);
   const [showNets, setShowNets] = useState(true);
   const [showHandicaps, setShowHandicaps] = useState(false);
+  const [stripOpen, setStripOpen] = useState(false);
   useEffect(() => {
     void import('../src/speech/recognize').then(({ deviceSpeechAvailable }) => deviceSpeechAvailable().then(setMic));
   }, []);
@@ -333,39 +338,52 @@ export default function GamesScreen() {
       {info ? <Text style={styles.disclosure}>{DISCLOSURE}</Text> : null}
       {step === 'play' && save && score ? (
         <View accessibilityLabel="Live strip" style={styles.strip}>
-          <View style={styles.row}>
-            {score.zeroSumOk
-              ? save.players.map((player, index) => (
-                  <View key={player.id} style={styles.netCell}>
-                    <Text style={styles.meta}>{player.name}</Text>
-                    <Text style={[styles.net, { fontFamily: display, color: (score.nets[index] ?? 0) < 0 ? DOWN_TEXT : colors.white }]}>
-                      {fmt(score.nets[index] ?? 0, undefined, true)}
-                    </Text>
-                  </View>
-                ))
-              : <Text style={styles.amber}>{score.note}</Text>}
-          </View>
-          {score.games.some((game) => game.kind === 'skins') ? (
-            <Text accessibilityLabel="Pot on the line" style={[styles.hero, { fontFamily: display }]}>{potHero(score.skinsPending)}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={stripOpen ? 'Hide live detail' : 'Show live detail'} onPress={() => setStripOpen((open) => !open)}>
+            <View style={styles.row}>
+              {score.zeroSumOk
+                ? save.players.map((player, index) => (
+                    <View key={player.id} style={styles.netCell}>
+                      <Text style={styles.meta}>{player.name}</Text>
+                      <Text style={[styles.stripNet, { fontFamily: display, color: (score.nets[index] ?? 0) < 0 ? DOWN_TEXT : colors.white }]}>
+                        {fmt(score.nets[index] ?? 0, undefined, true)}
+                      </Text>
+                    </View>
+                  ))
+                : <Text style={styles.amber}>{score.note}</Text>}
+            </View>
+          </Pressable>
+          {stripOpen ? (
+            <>
+              {score.games.some((game) => game.kind === 'skins') ? (
+                <Text accessibilityLabel="Pot on the line" style={[styles.stripLine, { fontFamily: display }]}>
+                  {potHero(
+                    score.skinsPending,
+                    save.games.find((game) => game.kind === 'skins')?.stake ?? null,
+                    save.players.length,
+                    save.games.find((game) => game.kind === 'skins')?.carry !== false,
+                  )}
+                </Text>
+              ) : null}
+              {wolfPlayer ? (
+                <Text accessibilityLabel="Wolf" style={[styles.stripLine, { fontFamily: display }]}>{wolfHero(wolfPlayer.name)}</Text>
+              ) : null}
+              {(() => {
+                const lead = score.games.find((game) => game.kind === 'skins') ?? score.games[0];
+                if (!lead) return null;
+                return (
+                  <Text style={styles.meta}>
+                    {gameLine(lead, {
+                      names: save.players.map((player) => player.name),
+                      pending: score.skinsPending,
+                      finished: false,
+                      roster: null,
+                    })}
+                  </Text>
+                );
+              })()}
+              <Text style={styles.disclosure}>{DISCLOSURE}</Text>
+            </>
           ) : null}
-          {wolfPlayer ? (
-            <Text accessibilityLabel="Wolf" style={[styles.hero, { fontFamily: display }]}>{wolfHero(wolfPlayer.name)}</Text>
-          ) : null}
-          {(() => {
-            const lead = score.games.find((game) => game.kind === 'skins') ?? score.games[0];
-            if (!lead) return null;
-            return (
-              <Text style={styles.meta}>
-                {gameLine(lead, {
-                  names: save.players.map((player) => player.name),
-                  pending: score.skinsPending,
-                  finished: false,
-                  roster: null,
-                })}
-              </Text>
-            );
-          })()}
-          <Text style={styles.disclosure}>{DISCLOSURE}</Text>
         </View>
       ) : null}
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
@@ -736,23 +754,47 @@ export default function GamesScreen() {
             {score.games.some((game) => game.nets) ? (
               <Text accessibilityLabel="Takes the day" style={[styles.hero, { fontFamily: display }]}>{dayLine(report.players.map((player) => player.name), score.nets)}</Text>
             ) : null}
+            {dayAmount(score.nets) ? (
+              <Text accessibilityLabel="Day amount" style={[styles.hero, { fontFamily: display, color: signal.go }]}>{dayAmount(score.nets)}</Text>
+            ) : null}
+            {(() => {
+              const points = score.games.find((game) => game.kind === 'stableford' || game.kind === 'modified');
+              const line = stablefordLine(report.players.map((player) => player.name), points?.points ?? null);
+              return line ? <Text accessibilityLabel="Stableford" style={styles.copy}>{line}</Text> : null;
+            })()}
             <Text accessibilityLabel="Zero-sum check" style={score.zeroSumOk ? styles.copy : styles.amber}>{zeroSumLine(score)}</Text>
             <RivalryHero current={report} />
             {partialLabel(holesPlayed(report)) ? <Text style={styles.copy}>{partialLabel(holesPlayed(report))}</Text> : null}
             {score.games.map((game) => {
               const roster = report.games.find((item) => item.kind === game.kind);
               const rosterText = roster ? rosterLine(report, roster) : null;
-              const line = gameLine(game, { names: report.players.map((player) => player.name), pending: score.skinsPending, finished: true, roster: rosterText });
+              const names = report.players.map((player) => player.name);
+              const line = gameLine(game, { names, pending: score.skinsPending, finished: true, roster: rosterText });
               const who = winnerText(game);
+              const wolfRows = game.kind === 'wolf' && game.points ? wolfPointsTable(names, game.points) : [];
+              const skinsGame = game.kind === 'skins' ? report.games.find((item) => item.kind === 'skins') : null;
+              const owes = oweCombinations(names, game.nets);
               return (
                 <View key={game.kind} style={styles.card}>
                   <Text style={styles.label}>{game.label}</Text>
                   {rosterText ? <Text style={styles.copy}>{rosterText}</Text> : null}
                   {who !== line ? <Text style={styles.copy}>{who}</Text> : null}
                   <Text style={styles.copy}>{line}</Text>
+                  {wolfRows.length > 0 ? (
+                    <View accessibilityLabel="Wolf points">
+                      {wolfRows.map((row) => <Text key={row} style={styles.copy}>{row}</Text>)}
+                    </View>
+                  ) : null}
+                  {game.kind === 'skins' ? (
+                    <Text accessibilityLabel="Skins breakdown" style={styles.copy}>
+                      {potHero(score.skinsPending, skinsGame?.stake ?? null, report.players.length, skinsGame?.carry !== false)}
+                    </Text>
+                  ) : null}
+                  {owes.map((row) => <Text key={row} style={styles.copy}>{row}</Text>)}
                 </View>
               );
             })}
+            <Text accessibilityLabel="Who owes who" style={styles.label}>Who owes who</Text>
             {score.settle.map((line) => (
               <Text key={line.line} style={[styles.settle, { fontFamily: display, color: colors.white }]}>{line.line}</Text>
             ))}
@@ -803,9 +845,23 @@ export default function GamesScreen() {
       {gamesOpen && save ? (
         <View accessibilityLabel="Games sheet" style={styles.sheet}>
           <Text style={styles.label}>Games in this round</Text>
-          {save.games.map((game) => (
-            <Text key={game.kind} style={styles.copy}>{`${GAME_LABEL[game.kind]}${rosterLine(save, game) ? ` · ${rosterLine(save, game)}` : ''}`}</Text>
-          ))}
+          {save.games.map((game) => {
+            const scored = score?.games.find((item) => item.kind === game.kind);
+            const roster = rosterLine(save, game);
+            const state = scored
+              ? gameLine(scored, {
+                  names: save.players.map((player) => player.name),
+                  pending: score?.skinsPending ?? 0,
+                  finished: false,
+                  roster,
+                })
+              : null;
+            return (
+              <Text key={game.kind} accessibilityLabel={`${game.kind} state`} style={styles.copy}>
+                {`${GAME_LABEL[game.kind]}${roster ? ` · ${roster}` : ''}${state ? ` · ${state}` : ''}`}
+              </Text>
+            );
+          })}
           <Text style={styles.disclosure}>{DISCLOSURE}</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Close games" onPress={() => setGamesOpen(false)} style={styles.chip}>
             <Text style={styles.chipText}>Close</Text>
@@ -820,10 +876,9 @@ function RivalryHero({ current }: { current: FoursomeSave }) {
   const history = readFoursomeHistory();
   const saves = history.some((item) => item.id === current.id) ? history : [...history, current];
   const rounds = phoneRounds(saves);
-  const [a, b] = current.players;
-  if (!a || !b) return null;
-  const rivalry = headToHead(rounds, stablePlayerId(a.name), stablePlayerId(b.name));
-  return <Text accessibilityLabel="Head to head" style={styles.hero}>{rivalryHero(a.name, b.name, rivalry.winsA, rivalry.winsB)}</Text>;
+  const pick = rivalryPick(current.players, rounds);
+  if (!pick) return null;
+  return <Text accessibilityLabel="Head to head" style={styles.hero}>{rivalryHero(pick.a, pick.b, pick.winsA, pick.winsB)}</Text>;
 }
 
 function OnThisPhone({ current }: { current: FoursomeSave }) {
@@ -832,15 +887,14 @@ function OnThisPhone({ current }: { current: FoursomeSave }) {
   const rounds = phoneRounds(saves);
   const table = seasonTable(rounds);
   if (table.length === 0) return null;
-  const [a, b] = current.players;
-  const rivalry = a && b ? headToHead(rounds, stablePlayerId(a.name), stablePlayerId(b.name)) : null;
+  const pick = rivalryPick(current.players, rounds);
   return (
     <View style={styles.card}>
       <Text style={styles.label}>On this phone</Text>
       {table.map((row) => (
         <Text key={row.id} style={styles.copy}>{`${row.name} ${fmt(row.net, undefined, true)}`}</Text>
       ))}
-      {rivalry && a && b ? <Text style={styles.copy}>{`${a.name} ${rivalry.winsA}–${rivalry.winsB} ${b.name}`}</Text> : null}
+      {pick ? <Text style={styles.copy}>{rivalryHero(pick.a, pick.b, pick.winsA, pick.winsB)}</Text> : null}
     </View>
   );
 }
@@ -855,7 +909,7 @@ const styles = StyleSheet.create({
   infoText: { color: signal.go, fontFamily: font.family, fontWeight: '800' },
   body: { paddingBottom: 108, gap: 12 },
   stack: { gap: 12 },
-  strip: { backgroundColor: '#102848', borderRadius: 16, padding: 12, gap: 8, marginBottom: 8 },
+  strip: { backgroundColor: '#102848', borderRadius: 16, padding: 8, gap: 4, marginBottom: 8 },
   card: { backgroundColor: '#102848', borderRadius: 16, padding: 12, gap: 8 },
   recap: { backgroundColor: '#102848', borderRadius: 16, padding: 16, gap: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   sheet: { position: 'absolute', left: 16, right: 16, bottom: 24, zIndex: 30, backgroundColor: '#102848', borderRadius: 16, padding: 16, gap: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
@@ -877,6 +931,8 @@ const styles = StyleSheet.create({
   meta: { color: play.muted, fontFamily: font.family, fontSize: 13 },
   netCell: { minWidth: 72 },
   net: { fontSize: 28, fontVariant: ['tabular-nums'] },
+  stripNet: { fontSize: 20, lineHeight: 22, fontVariant: ['tabular-nums'] },
+  stripLine: { color: colors.white, fontSize: 22, lineHeight: 24 },
   gross: { color: colors.white, fontSize: 48, lineHeight: 48, fontVariant: ['tabular-nums'] },
   holeChip: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#173154', alignItems: 'center', justifyContent: 'center' },
   holeChipText: { color: colors.white, fontSize: 16 },

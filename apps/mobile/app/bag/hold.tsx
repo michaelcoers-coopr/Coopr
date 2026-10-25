@@ -73,8 +73,8 @@ export default function HoldScreen() {
             state.setNotice('Sample stays off your bag.');
             return;
           }
-          state.saveDraft('kept_anyway');
-          state.setNotice('Kept anyway. The verdict stays on the card.');
+          const saved = state.saveDraft('kept_anyway');
+          if (saved?.inPlay !== false) state.setNotice('Kept anyway. The verdict stays on the card.');
           returnFromHold(router);
         }}
       />

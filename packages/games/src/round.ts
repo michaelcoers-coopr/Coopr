@@ -181,6 +181,8 @@ export interface SavedWolfCall {
   wolfId: string
   partnerId: string | null
   question: string | null
+  /** A wolf cannot take themself. The call is dropped and `question` is the prompt. */
+  rejected: boolean
 }
 
 /**
@@ -196,16 +198,18 @@ export function savedWolfCall(input: {
 }): SavedWolfCall | null {
   const wolfId = input.holeWolfId ?? input.namedWolfId
   if (!wolfId) return null
-  if (input.mode !== 'partner') return { mode: input.mode, wolfId, partnerId: null, question: null }
+  if (input.mode !== 'partner') return { mode: input.mode, wolfId, partnerId: null, question: null, rejected: false }
   if (!input.partnerId) return null
   let partnerId = input.partnerId
   if (partnerId === wolfId && input.namedWolfId && input.namedWolfId !== wolfId) partnerId = input.namedWolfId
-  if (partnerId === wolfId) return null
-  const named = input.namedWolfId
   const wolfName = input.names[wolfId] || 'The wolf'
+  if (partnerId === wolfId) {
+    return { mode: 'partner', wolfId, partnerId: null, question: `${wolfName} can't take ${wolfName}. Pick someone else.`, rejected: true }
+  }
+  const named = input.namedWolfId
   const partnerName = input.names[partnerId] || 'them'
   const question = named && named !== wolfId ? `${wolfName} is the wolf, did you mean ${wolfName} takes ${partnerName}?` : null
-  return { mode: 'partner', wolfId, partnerId, question }
+  return { mode: 'partner', wolfId, partnerId, question, rejected: false }
 }
 
 /** Headline for a staked round. A flat card is all square, not four winners. */

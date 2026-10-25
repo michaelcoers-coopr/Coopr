@@ -126,18 +126,32 @@ export interface LedgerValue {
   split: 'by_outcome' | 'by_par_type';
 }
 
+/** Strokes are in, putts are blank, and penalties are already a number (including a coerced zero). */
+function puttsOnlyGap(rounds: readonly RoundInput[]): boolean {
+  let missingPutts = false;
+  for (const { hole } of allHoles(rounds)) {
+    if (hole.par === null || hole.strokes === null || hole.par < 3) continue;
+    if (hole.putts !== null && hole.penalties !== null) continue;
+    if (hole.penalties === null) return false;
+    if (hole.putts === null) missingPutts = true;
+  }
+  return missingPutts;
+}
+
 export function ledger(rounds: readonly RoundInput[], cfg: Config): Insight<LedgerValue> {
   const ch = completeHoles(rounds);
   const total = allHoles(rounds).length;
   const gate = cfg.gate.ledger!;
+  const incomplete = ch.length < total;
+  const puttsOnly = incomplete && puttsOnlyGap(rounds);
   const args = {
     id: 'loss_ledger', title: 'Where you lose strokes', n: ch.length, nUnit: 'holes', gate, baseline: 'par_allotment' as const,
     sample: isSample(rounds), quality: qualityOf(rounds),
     invitationUnit: {
       perRound: 18,
-      text: ch.length < total ? 'rounds with strokes, putts and penalties logged on every hole' : 'rounds',
+      text: !incomplete ? 'rounds' : puttsOnly ? 'rounds with strokes and putts logged on every hole' : 'rounds with strokes, putts and penalties logged on every hole',
     },
-    missingInputs: ch.length < total ? ['putts and/or penalties on some holes'] : [],
+    missingInputs: !incomplete ? [] : puttsOnly ? ['putts on some holes'] : ['putts and/or penalties on some holes'],
   };
   const nr = notReady<LedgerValue>(args);
   if (nr) return nr;
@@ -221,7 +235,7 @@ export interface ParTypeValue {
 function yardLabel(par: 3 | 4 | 5, band: number, edges: number[]): string {
   const lo = edges[0]!;
   const hi = edges[1]!;
-  return band === 0 ? `Par ${par} under` : band === 1 ? `Par ${par} ${lo}-${hi}` : `Par ${par} over`;
+  return band === 0 ? `Par ${par} under ${lo}` : band === 1 ? `Par ${par} ${lo}-${hi}` : `Par ${par} over ${hi}`;
 }
 
 export function scoringByHoleType(rounds: readonly RoundInput[], cfg: Config): Insight<ParTypeValue> {

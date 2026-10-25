@@ -36,6 +36,7 @@ import {
   shotCardLine,
   SAMPLE_PATTERN,
   PATTERN_INVITE,
+  EMPTY_BAG_ADVICE,
   CONFIDENCE_LOW,
   confidenceLabel,
   confidencePercent,
@@ -937,7 +938,10 @@ export default function PlayScreen() {
         ? thinCopy
         : spoken;
   const noDistance = player == null && manual == null;
-  const cardSentence = noDistance
+  const bagEmpty = inPlay.length === 0;
+  const cardSentence = bagEmpty
+    ? EMPTY_BAG_ADVICE
+    : noDistance
     ? null
     : noShots
       ? shotCardLine({
@@ -1366,6 +1370,19 @@ export default function PlayScreen() {
                   {player == null && manual == null ? (
                     <View style={styles.clubHead} pointerEvents="box-none">
                       <Text pointerEvents="box-none" style={[styles.line, styles.clubHeadTitle]}>Waiting for GPS</Text>
+                      <DictateButton
+                        live={talk.phase !== 'idle'}
+                        onPress={() => {
+                          applySheet.current(true);
+                          talk.open();
+                        }}
+                      />
+                    </View>
+                  ) : bagEmpty ? (
+                    <View style={styles.clubHead} pointerEvents="box-none">
+                      <Text accessibilityLabel="Add clubs" pointerEvents="box-none" style={[styles.tipTitle, styles.clubHeadTitle]}>
+                        {EMPTY_BAG_ADVICE}
+                      </Text>
                       <DictateButton
                         live={talk.phase !== 'idle'}
                         onPress={() => {

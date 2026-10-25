@@ -14,7 +14,7 @@ import { sampleBundle } from '../src/analysis/sample-season';
 import { reduceBagStack, type BagStackOp } from '../src/bag-scan/bag-nav';
 import { EXTRACT_READS } from '../src/bag-scan/copy';
 import { bagSubscriptionUpdate } from '../src/device/bag-sync';
-import { clearHeldDraft, dismissPlayNote, leaveDraftForShots, readHeldDraft, readPlayNote, SHOTS_FIRST_NOTE } from '../src/bag-scan/play-note';
+import { clearHeldDraft, dismissPlayNote, leaveDraftForShots, openAddDraft, readHeldDraft, readPlayNote, SHOTS_FIRST_NOTE } from '../src/bag-scan/play-note';
 import { blankDraft } from '../src/bag-scan/types';
 import { readStoredFix } from '../src/gps-fix';
 import { readPlayWebFlags } from '../src/play-web-flags';
@@ -122,7 +122,10 @@ describe('rest of PR 5', () => {
     const withheld = presentAnalysis(analyze({ rounds: missingPutts.rounds, shots: [] }));
     expect(withheld.find((panel) => panel.id === 'one_fix')?.figure).toBeNull();
     expect(withheld.find((panel) => panel.id === 'loss_ledger')?.figure).toBeNull();
-    expect(withheld.find((panel) => panel.id === 'one_fix')?.invitation).toMatch(/log putts and penalties/);
+    expect(withheld.find((panel) => panel.id === 'one_fix')?.invitation).toMatch(/strokes and putts/);
+    expect(withheld.find((panel) => panel.id === 'one_fix')?.invitation).not.toMatch(/log putts and penalties/);
+    expect(withheld.find((panel) => panel.id === 'loss_ledger')?.invitation).toMatch(/strokes and putts/);
+    expect(withheld.find((panel) => panel.id === 'loss_ledger')?.invitation).not.toMatch(/penalties logged/);
     const three = toEngine([playedRound('r1', 5, 2, null), playedRound('r2', 5, 2, null), playedRound('r3', 6, 2, null)], []);
     const panels = presentAnalysis(analyze({ rounds: three.rounds, shots: [] }));
     expect(panels.find((panel) => panel.id === 'one_fix')?.status).toBe('ready');
@@ -262,9 +265,12 @@ describe('rest of PR 5', () => {
     };
     const scoring = scoringByHoleType([round], DEFAULT_CONFIG);
     const labels = scoring.value?.buckets.map((bucket) => bucket.label) ?? [];
-    expect(labels).toContain('Par 3 under');
-    expect(labels).toContain('Par 3 over');
-    expect(labels.some((label) => /Par 3 under \d/.test(label) || /Par 3 over \d/.test(label))).toBe(false);
+    expect(labels).toContain('Par 3 under 140');
+    expect(labels).toContain('Par 3 over 175');
+    expect(labels).toContain('Par 4 under 350');
+    expect(labels).toContain('Par 4 over 420');
+    expect(labels).toContain('Par 5 under 500');
+    expect(labels).toContain('Par 5 over 550');
     expect(scoring.value?.worst).toBe(scoring.value?.best);
     expect(scoring.take).toMatch(/One bucket so far/);
     expect(scoring.take).not.toMatch(/Best:/);
@@ -404,5 +410,39 @@ describe('rest of PR 5', () => {
     expect(read('../src/talk-overlay.tsx')).toContain('readTalkPreview');
     expect(read('../src/gps-fix.ts')).toContain('webStore');
     expect(read('../src/round-save-io.ts')).toContain('webStore');
+  });
+
+  it('keeps a held club when Add to bag opens again', () => {
+    clearHeldDraft();
+    const draft = { ...blankDraft(), brand: 'Titleist', type: 'wedge' as const, loftText: '56' };
+    leaveDraftForShots(draft);
+    expect(openAddDraft()?.brand).toBe('Titleist');
+    expect(readHeldDraft()?.brand).toBe('Titleist');
+    const session = read('../src/bag-scan/session.tsx');
+    const at = session.indexOf('startNew: () => {');
+    const start = session.slice(at, session.indexOf('discardDraft: () => {', at));
+    expect(start).toContain('openAddDraft');
+    expect(start).not.toContain('clearHeldDraft');
+    expect(session).toContain('discardDraft:');
+    expect(read('../app/bag/add.tsx')).toContain('DISCARD');
+    clearHeldDraft();
+    expect(openAddDraft()).toBeNull();
+  });
+
+  it('says the ranking is against players at your handicap', () => {
+    const three = toEngine([playedRound('r1', 5, 2, 0), playedRound('r2', 5, 2, 0), playedRound('r3', 6, 2, 0)], []);
+    const ranked = analyze({ rounds: three.rounds, shots: [] });
+    expect(ranked.ranking?.value?.caveat).toMatch(/players at your handicap/);
+    expect(ranked.ranking?.value?.caveat).not.toContain('players your handicap');
+    expect(read('../../../packages/analysis/src/fix.ts')).not.toContain('players your handicap');
+  });
+
+  it('splits the camera sentence so a bag photo stays and a scorecard is sent', () => {
+    const config = read('../app.json');
+    const camera = config.slice(config.indexOf('"cameraPermission"'), config.indexOf('"photosPermission"') > config.indexOf('"cameraPermission"') ? config.indexOf('"photosPermission"') : config.indexOf('"cameraPermission"') + 500);
+    expect(camera).toContain('A bag or club photo stays on this phone and is not sent.');
+    expect(camera).toContain('A scorecard photo is sent');
+    expect(camera).not.toContain('A club or scorecard photo is sent');
+    expect(config).toContain(EXTRACT_READS);
   });
 });

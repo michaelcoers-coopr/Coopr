@@ -17,6 +17,7 @@ import {
   rangedNumber,
   sanitizeClub,
   sanitizeFit,
+  setAsideNotice,
   SPEED_MAX,
   SPEED_MIN,
   toFitClub,
@@ -123,6 +124,10 @@ describe('bag scan', () => {
     const next = placeClub(existing, club({ id: 'extra', loft: 60 }));
     expect(next.filter((item) => item.inPlay)).toHaveLength(14);
     expect(next.find((item) => item.id === 'extra')?.inPlay).toBe(false);
+    expect(setAsideNotice(existing, 'extra')).toBe('Your bag holds 14 clubs, this one is set aside');
+    expect(setAsideNotice(next, 'extra')).toBeNull();
+    expect(read('../app/bag/card.tsx')).toContain('scanState.notice');
+    expect(read('../src/bag-scan/session.tsx')).toContain('setAsideNotice');
     writeScanClubs(next);
     expect(readScanClubs()).toHaveLength(15);
     expect(JSON.stringify(readScanClubs())).not.toContain('Steelhead');

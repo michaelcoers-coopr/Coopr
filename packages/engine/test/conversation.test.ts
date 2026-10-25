@@ -5,6 +5,7 @@ import {
   createTalkMachine,
   proactiveCallout,
   runTalkTool,
+  EMPTY_BAG_ADVICE,
   sampleTalkReply,
   shotCardLine,
   talkTransition,
@@ -308,6 +309,16 @@ describe('talk tools', () => {
     expect(reply.line).toMatch(/90/);
     expect(reply.line).not.toMatch(/No club/);
     expect(reply.line).not.toMatch(/\d+\.\d/);
+  });
+
+  it('asks for clubs when the bag is empty instead of a carry sample', async () => {
+    const empty = buildTalkContext({ hole: 1, par: 4, atTee: true, gpsYards: 380, profiles: [] });
+    const reply = await sampleTalkReply(empty, 'What should I hit?');
+    expect(reply.line).toBe(EMPTY_BAG_ADVICE);
+    expect(reply.line).not.toMatch(/eligible carry/);
+    expect(reply.line).not.toMatch(/Hit 10 shots/);
+    const tool = runTalkTool('recommend_club', {}, empty);
+    expect(tool.line).toBe(EMPTY_BAG_ADVICE);
   });
 });
 

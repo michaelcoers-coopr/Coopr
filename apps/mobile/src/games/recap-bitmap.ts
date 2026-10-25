@@ -1,4 +1,5 @@
-import { DISCLOSURE, fmt, type FoursomeSave, type RoundScore } from '@coopr/games';
+import { dayLine, DISCLOSURE, fmt, type FoursomeSave, type RoundScore } from '@coopr/games';
+import { dayAmount, potHero, stablefordLine, wolfPointsTable } from './present';
 
 export interface RecapCardOptions {
   nets: boolean
@@ -7,7 +8,20 @@ export interface RecapCardOptions {
 
 /** The lines drawn on the recap bitmap. Toggles add facts. They do not invent any. */
 export function recapCardLines(save: FoursomeSave, score: RoundScore, options: RecapCardOptions): string[] {
-  const lines = ['RECAP']
+  const names = save.players.map((player) => player.name)
+  const lines = ['COOPR', dayLine(names, score.nets)]
+  const amount = dayAmount(score.nets)
+  if (amount) lines.push(amount)
+  const stable = score.games.find((game) => game.kind === 'stableford' || game.kind === 'modified')
+  const stableLine = stablefordLine(names, stable?.points ?? null)
+  if (stableLine) lines.push(stableLine)
+  const wolf = score.games.find((game) => game.kind === 'wolf')
+  if (wolf?.points) {
+    for (const row of wolfPointsTable(names, wolf.points)) lines.push(`Wolf ${row}`)
+  }
+  const skins = score.games.find((game) => game.kind === 'skins')
+  const skinsGame = save.games.find((game) => game.kind === 'skins')
+  if (skins) lines.push(potHero(score.skinsPending, skinsGame?.stake ?? null, save.players.length, skinsGame?.carry !== false))
   if (options.nets) {
     save.players.forEach((player, index) => {
       lines.push(`${player.name} ${fmt(score.nets[index] ?? 0, undefined, true)}`)
@@ -163,38 +177,61 @@ function wrap(line: string, width: number): string[] {
   return rows.length ? rows : ['']
 }
 
-/** A real PNG of the recap lines. Navy ground, white type. */
+const NAVY = [0x0b, 0x1f, 0x3a] as const
+const LIME = [0x8a, 0xc9, 0x26] as const
+const CREST = ['01110', '10001', '10000', '10000', '10001', '01110']
+
+function paint(pixels: Uint8Array, width: number, height: number, x: number, y: number, rgb: readonly [number, number, number]): void {
+  if (x < 0 || y < 0 || x >= width || y >= height) return
+  const at = (y * width + x) * 4
+  pixels[at] = rgb[0]
+  pixels[at + 1] = rgb[1]
+  pixels[at + 2] = rgb[2]
+  pixels[at + 3] = 255
+}
+
+/** A real PNG of the recap lines. Navy ground, lime crest and numerals, white type. */
 export function recapPng(lines: string[]): Uint8Array {
   const scale = 3
   const rows = lines.flatMap((line) => wrap(line, 42))
   const longest = rows.reduce((max, line) => Math.max(max, line.length), 1)
   const width = 24 + longest * (5 * scale + scale)
-  const height = 24 + rows.length * (7 * scale + scale * 2)
+  const crestBand = 28
+  const height = crestBand + 16 + rows.length * (7 * scale + scale * 2)
   const pixels = new Uint8Array(width * height * 4)
   for (let i = 0; i < pixels.length; i += 4) {
-    pixels[i] = 0x0b
-    pixels[i + 1] = 0x1f
-    pixels[i + 2] = 0x3a
+    pixels[i] = NAVY[0]
+    pixels[i + 1] = NAVY[1]
+    pixels[i + 2] = NAVY[2]
     pixels[i + 3] = 255
   }
+  for (let y = 0; y < 6; y += 1) {
+    for (let x = 0; x < width; x += 1) paint(pixels, width, height, x, y, LIME)
+  }
+  CREST.forEach((row, gy) => {
+    for (let gx = 0; gx < row.length; gx += 1) {
+      if (row[gx] !== '1') continue
+      for (let sy = 0; sy < 2; sy += 1) {
+        for (let sx = 0; sx < 2; sx += 1) paint(pixels, width, height, 12 + gx * 2 + sx, 10 + gy * 2 + sy, LIME)
+      }
+    }
+  })
+  const hero = rows.findIndex((line) => /takes the day|share the day|all square/i.test(line))
   rows.forEach((line, row) => {
-    const y = 12 + row * (7 * scale + scale * 2)
+    const y = crestBand + row * (7 * scale + scale * 2)
+    const heroLine = row === hero
     for (let column = 0; column < line.length; column += 1) {
-      const bits = glyphFor(line[column]!)
+      const char = line[column]!
+      const bits = glyphFor(char)
+      const numeral = char >= '0' && char <= '9'
+      const rgb = heroLine || numeral ? LIME : ([255, 255, 255] as const)
       const x0 = 12 + column * (5 * scale + scale)
       for (let gy = 0; gy < 7; gy += 1) {
         for (let gx = 0; gx < 5; gx += 1) {
           if (bits[gy * 5 + gx] !== '1') continue
           for (let sy = 0; sy < scale; sy += 1) {
             for (let sx = 0; sx < scale; sx += 1) {
-              const x = x0 + gx * scale + sx
-              const py = y + gy * scale + sy
-              if (x >= width || py >= height) continue
-              const at = (py * width + x) * 4
-              pixels[at] = 255
-              pixels[at + 1] = 255
-              pixels[at + 2] = 255
-              pixels[at + 3] = 255
+              paint(pixels, width, height, x0 + gx * scale + sx, y + gy * scale + sy, rgb)
             }
           }
         }

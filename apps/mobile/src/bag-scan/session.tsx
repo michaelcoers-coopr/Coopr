@@ -3,9 +3,9 @@ import { subscribeDevice } from '../device-store';
 import { cropClubhead } from './crop';
 import { copyClubPhoto } from './photos';
 import { readScanClubs, readStoredFit, writeScanClubs, writeStoredFit } from './persist';
-import { clubToDraft, draftToClub, placeClub, withInPlay, withoutClub } from './logic';
+import { clubToDraft, draftToClub, placeClub, setAsideNotice, withInPlay, withoutClub } from './logic';
 import { stubVision, type ClubVisionRead } from './vision';
-import { clearHeldDraft, readHeldDraft } from './play-note';
+import { clearHeldDraft, openAddDraft, readHeldDraft } from './play-note';
 import { blankDraft, type CaptureStep, type Focus, type ScanClub, type ScanDraft, type StoredFit } from './types';
 
 interface BagScanValue {
@@ -23,6 +23,7 @@ interface BagScanValue {
   setStep: (step: CaptureStep) => void;
   patch: (partial: Partial<ScanDraft>) => void;
   startNew: () => void;
+  discardDraft: () => void;
   editClub: (club: ScanClub) => void;
   openSaved: (id: string) => void;
   openSample: (id: string) => void;
@@ -63,11 +64,13 @@ export function BagScanProvider({ children }: { children: ReactNode }) {
       if (focus.kind === 'sample') return null;
       const club = draftToClub(draft, ack);
       const next = placeClub(clubs, club);
+      const placed = next.find((item) => item.id === club.id) ?? club;
       setClubs(next);
       writeScanClubs(next);
-      setFocus({ kind: 'saved', id: club.id });
+      setFocus({ kind: 'saved', id: placed.id });
+      setNotice(setAsideNotice(clubs, placed.id));
       clearHeldDraft();
-      return club;
+      return placed;
     };
     return {
       clubs,
@@ -84,11 +87,18 @@ export function BagScanProvider({ children }: { children: ReactNode }) {
       setStep: (step) => setDraft((current) => ({ ...current, step })),
       patch: (partial) => setDraft((current) => ({ ...current, ...partial })),
       startNew: () => {
+        setDraft(openAddDraft() ?? blankDraft());
+        setFocus({ kind: 'draft' });
+        setRead(stubVision.read(null));
+        setCameraNote(null);
+      },
+      discardDraft: () => {
         clearHeldDraft();
         setDraft(blankDraft());
         setFocus({ kind: 'draft' });
         setRead(stubVision.read(null));
         setCameraNote(null);
+        setNotice(null);
       },
       editClub: (club) => {
         setDraft(clubToDraft(club));
