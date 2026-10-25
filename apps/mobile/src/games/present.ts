@@ -460,11 +460,64 @@ export function afterCorrection<T>(input: {
   return { hole: input.openHole, rows: input.draftRows, marks: input.draftMarks }
 }
 
-/** A 44px toggle with one net line, two lines of the smaller disclosure, and the strip padding. Open adds the pot, the wolf, and the game line. */
-export function liveStripHeight(open: boolean): number {
-  const collapsed = 86
+/** Screen inset, strip padding, and the 44px toggle. Two columns share what remains. */
+export const STRIP_SCREEN_PAD = 16
+export const STRIP_PAD = 8
+export const STRIP_TOGGLE = 44
+export const STRIP_COLUMNS = 2
+export const STRIP_ROW = 18
+/** 13px name, one advance per character. Wider than the body font so a long name yields first. */
+export const STRIP_NAME_ADVANCE = 7
+/** 16px Bebas amount. Wider than the measured glyphs so the number keeps a full cell. */
+export const STRIP_AMOUNT_ADVANCE = 10
+export const STRIP_CELL_GAP = 4
+
+export function stripCellWidth(screenWidth: number): number {
+  const area = screenWidth - STRIP_SCREEN_PAD * 2 - STRIP_PAD * 2 - STRIP_TOGGLE
+  return area / STRIP_COLUMNS
+}
+
+/** Shorten the name so the amount keeps every character. The amount is never edited. */
+export function fitStripName(name: string, amount: string, cellWidth: number): string {
+  const room = cellWidth - STRIP_CELL_GAP - amount.length * STRIP_AMOUNT_ADVANCE
+  if (name.length * STRIP_NAME_ADVANCE <= room) return name
+  if (room < STRIP_NAME_ADVANCE) return ''
+  const ellipsis = '\u2026'
+  let keep = name.length
+  while (keep > 0 && (keep + 1) * STRIP_NAME_ADVANCE > room) keep -= 1
+  return keep === 0 ? '' : `${name.slice(0, keep)}${ellipsis}`
+}
+
+export function layoutStripNets(input: { names: string[]; amounts: string[]; screenWidth: number }): {
+  columns: number
+  rows: number
+  cellWidth: number
+  collapsedHeight: number
+  cells: { name: string; amount: string }[]
+} {
+  const count = input.names.length
+  const rows = Math.max(1, Math.ceil(count / STRIP_COLUMNS))
+  const cellWidth = stripCellWidth(input.screenWidth)
+  return {
+    columns: STRIP_COLUMNS,
+    rows,
+    cellWidth,
+    collapsedHeight: liveStripHeight(false, count),
+    cells: input.names.map((name, index) => ({
+      name: fitStripName(name, input.amounts[index] ?? '', cellWidth),
+      amount: input.amounts[index] ?? '',
+    })),
+  }
+}
+
+/** A 44px toggle, a 2×2 net grid when four players are in, two lines of the disclosure, and the strip padding. Open adds the pot, the wolf, and the game line. */
+export function liveStripHeight(open: boolean, players = 4): number {
+  const rows = Math.max(1, Math.ceil(Math.max(players, 1) / STRIP_COLUMNS))
+  const head = Math.max(STRIP_TOGGLE, rows * STRIP_ROW)
+  const disclosure = 28
+  const collapsed = STRIP_PAD - 2 + head + 2 + disclosure + (STRIP_PAD - 2)
   if (!open) return collapsed
-  return 158
+  return collapsed + 72
 }
 
 export function potHero(pending: number, stake: number | null = null, players = 2, carry = true): string {

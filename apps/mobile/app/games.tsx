@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dayLine, fmt, gamesForCount, seasonTable, wolfOnHole, type GameKind } from '@coopr/games';
 import { colors, font, play, signal } from '@coopr/tokens';
@@ -29,6 +29,7 @@ import {
   emptyMarks,
   emptyStake,
   finishPrompt,
+  fitStripName,
   firstStakeError,
   gameLine,
   handicapError,
@@ -55,6 +56,7 @@ import {
   rowsFromHole,
   setupBlock,
   speechHints,
+  stripCellWidth,
   tapGross,
   tapPickup,
   toggleCoin,
@@ -105,6 +107,7 @@ function freshPlayers(): SetupPlayer[] {
 
 export default function GamesScreen() {
   const display = useDisplayFace();
+  const { width: windowWidth } = useWindowDimensions();
   const recapRef = useRef<ComponentRef<typeof View>>(null);
   const insets = useSafeAreaInsets();
   const course = useMemo(() => highCedarsHoles(), []);
@@ -365,18 +368,20 @@ export default function GamesScreen() {
       {step === 'play' && save && score ? (
         <View accessibilityLabel="Live strip" style={styles.strip}>
           <View style={styles.stripHead}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stripNets} contentContainerStyle={styles.stripNetRow}>
-              {score.zeroSumOk
-                ? save.players.map((player, index) => {
-                    const net = score.nets[index] ?? 0;
-                    return (
-                      <Text key={player.id} numberOfLines={1} style={[styles.stripNet, { fontFamily: display, color: net < 0 ? DOWN_TEXT : colors.white }]}>
-                        {`${player.name} ${fmt(net, undefined, true)}`}
-                      </Text>
-                    );
-                  })
-                : <Text style={styles.amber}>{score.note}</Text>}
-            </ScrollView>
+            {score.zeroSumOk ? (
+              <View style={styles.stripNets}>
+                {save.players.map((player, index) => {
+                  const net = score.nets[index] ?? 0;
+                  const amount = fmt(net, undefined, true);
+                  return (
+                    <View key={player.id} style={styles.stripCell}>
+                      <Text numberOfLines={1} ellipsizeMode="tail" style={styles.stripName}>{fitStripName(player.name, amount, stripCellWidth(windowWidth))}</Text>
+                      <Text style={[styles.stripAmount, { fontFamily: display, color: net < 0 ? DOWN_TEXT : colors.white }]}>{amount}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : <Text style={[styles.amber, styles.stripNets]}>{score.note}</Text>}
             <Pressable accessibilityRole="button" accessibilityLabel={stripOpen ? 'Hide live detail' : 'Show live detail'} onPress={() => setStripOpen((open) => !open)} style={styles.stripToggle}>
               <Text style={styles.chevron}>{stripOpen ? '▴' : '▾'}</Text>
             </Pressable>
@@ -939,8 +944,10 @@ const styles = StyleSheet.create({
   strip: { backgroundColor: '#102848', borderRadius: 16, paddingVertical: 6, paddingHorizontal: 8, gap: 2, marginBottom: 8 },
   stripHead: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
   stripToggle: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
-  stripNets: { flexGrow: 1, flexShrink: 1, maxHeight: 44 },
-  stripNetRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stripNets: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  stripCell: { width: '50%', minHeight: 18, flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 6 },
+  stripName: { flexShrink: 1, minWidth: 0, color: colors.white, fontFamily: font.family, fontSize: 13, lineHeight: 16 },
+  stripAmount: { flexShrink: 0, fontSize: 16, lineHeight: 18, fontVariant: ['tabular-nums'] },
   chevron: { color: signal.go, fontSize: 22, width: 44, textAlign: 'center' },
   stripDisclosure: { color: colors.white, fontFamily: font.family, fontSize: 11, lineHeight: 14 },
   card: { backgroundColor: '#102848', borderRadius: 16, padding: 12, gap: 8 },
@@ -963,7 +970,6 @@ const styles = StyleSheet.create({
   holeNo: { color: colors.white, fontSize: 92, lineHeight: 92, fontVariant: ['tabular-nums'] },
   meta: { color: play.muted, fontFamily: font.family, fontSize: 13 },
   net: { fontSize: 28, fontVariant: ['tabular-nums'] },
-  stripNet: { fontSize: 16, lineHeight: 20, fontVariant: ['tabular-nums'] },
   stripLine: { color: colors.white, fontSize: 22, lineHeight: 24 },
   gross: { color: colors.white, fontSize: 48, lineHeight: 48, fontVariant: ['tabular-nums'] },
   holeChip: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#173154', alignItems: 'center', justifyContent: 'center' },

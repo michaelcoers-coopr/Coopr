@@ -24,6 +24,8 @@ import {
   emptyStake,
   finishPrompt,
   firstStakeError,
+  fitStripName,
+  layoutStripNets,
   gameLine,
   handicapError,
   holesPlayed,
@@ -731,6 +733,7 @@ describe('foursome QA', () => {
   });
 
   it('keeps the live strip short enough to enter a hole', () => {
+    const live = screen.slice(screen.indexOf('accessibilityLabel="Live strip"'), screen.indexOf("step === 'setup'"));
     expect(liveStripHeight(false)).toBeLessThanOrEqual(Math.round(640 * 0.2));
     expect(liveStripHeight(false) / 844).toBeLessThan(0.15);
     expect(liveStripHeight(true)).toBeLessThan(243);
@@ -738,10 +741,14 @@ describe('foursome QA', () => {
     expect(screen).toContain('Show live detail');
     expect(screen).toContain('useState(false)');
     expect(screen).toContain('paddingVertical: 6');
-    expect(screen).toContain('stripNet: { fontSize: 16, lineHeight: 20');
+    expect(screen).toContain('stripAmount: { flexShrink: 0, fontSize: 16, lineHeight: 18');
     expect(screen).toContain('stripDisclosure: { color: colors.white, fontFamily: font.family, fontSize: 11, lineHeight: 14 }');
-    expect(screen).toContain('horizontal');
-    expect(screen).toContain('numberOfLines={1}');
+    expect(screen).toContain("width: '50%'");
+    expect(live).not.toContain('horizontal');
+    expect(live).toContain('ellipsizeMode="tail"');
+    expect(live).toContain('numberOfLines={1}');
+    expect(live).toContain('fitStripName');
+    expect(liveStripHeight(false)).toBeLessThanOrEqual(100);
     expect(screen).not.toMatch(/stripLine: \{[^}]*fontSize: 40/);
     expect(screen).toContain('stripToggle: { minHeight: 44');
     expect(screen).toContain("'▾'");
@@ -815,6 +822,32 @@ describe('foursome QA', () => {
     expect(oweCombinations(['Mike', 'Dave'], [500, -500])).toEqual(['Dave owes Mike 5 BB']);
     expect(dayAmount([500, -500])).toBe('+5 BB');
     expect(dayAmount([0, 0])).toBeNull();
+  });
+
+  it('fits four nets in a 2x2 grid and keeps every number whole', () => {
+    const amounts = ['\u221239 BB', '+12 BB', '\u221239 BB', '+4 BB'];
+    const laid = layoutStripNets({
+      names: ['Bartholomew', 'Alexandria', 'Josh', 'Mike'],
+      amounts,
+      screenWidth: 360,
+    });
+    expect(laid.columns).toBe(2);
+    expect(laid.rows).toBe(2);
+    expect(laid.collapsedHeight).toBeLessThanOrEqual(100);
+    expect(laid.collapsedHeight).toBeGreaterThanOrEqual(44);
+    expect(laid.cellWidth).toBeGreaterThan(amounts[0]!.length * 10);
+    expect(laid.cells.map((cell) => cell.amount)).toEqual(amounts);
+    expect(laid.cells[2]?.name).toBe('Josh');
+    expect(laid.cells[3]?.name).toBe('Mike');
+    for (const cell of laid.cells) {
+      expect(cell.amount.endsWith('BB')).toBe(true);
+      expect(cell.name).not.toMatch(/BB/);
+      expect(cell.name).not.toContain('\u2212');
+    }
+    const tight = fitStripName('Bartholomew', '\u22123999 BB', 90);
+    expect(tight.endsWith('\u2026') || tight === '').toBe(true);
+    expect(tight).not.toContain('999');
+    expect(fitStripName('Josh', '\u221239 BB', laid.cellWidth)).toBe('Josh');
   });
 
   it('gives the live-detail toggle a 44px row and a chevron', () => {
