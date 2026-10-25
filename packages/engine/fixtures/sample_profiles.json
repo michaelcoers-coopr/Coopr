@@ -1,0 +1,5 @@
+{
+  "_label": "SAMPLE PLAYER PROFILES. Not Michael's real numbers. Michael's flex (stiff) is real; every score and speed below is Sample.",
+  "A": {"name":"Sample player A","handicap_index":14.0,"handicap_quality":"sample","driver_speed_mph":98,"speed_quality":"sample"},
+  "B": {"name":"Sample player B","handicap_index":24.0,"handicap_quality":"sample","driver_speed_mph":78,"speed_quality":"sample"}
+}

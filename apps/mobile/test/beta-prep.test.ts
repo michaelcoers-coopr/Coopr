@@ -171,7 +171,7 @@ describe('feedback, privacy, and a founder-off first run', () => {
     const store = read('../src/local-store.tsx');
     expect(store).toContain('if (!FOUNDER_TOOLS_ENABLED) return null');
     expect(store).toContain("displayName: SHELL?.displayName ?? ''");
-    const bag = read('../app/bag.tsx');
+    const bag = read('../app/bag/index.tsx');
     const setup = read('../app/setup.tsx');
     expect(bag).toContain('No clubs in the bag yet. Add one in Setup. Nothing was filled in for you.');
     expect(setup).toContain('No clubs yet. Add a name below, or import a CSV. This build does not include a sample bag.');

@@ -61,7 +61,9 @@ export default function RootLayout() {
               contentStyle: { backgroundColor: colors.bg },
               title: 'COOPR',
             }}
-          />
+          >
+            <Stack.Screen name="bag" options={{ headerShown: false, contentStyle: { backgroundColor: '#0B1F3A' } }} />
+          </Stack>
           <FloatingAsk />
         </LocalStoreProvider>
       </DisplayFontProvider>
