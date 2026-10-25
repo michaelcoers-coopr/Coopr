@@ -98,7 +98,7 @@ function foldBlocks(scroll: HTMLElement): { top: number; bottom: number }[] {
 }
 
 export default function HomeScreen() {
-  const { currentHole, score, clubs, holes, displayName } = useLocalStore();
+  const { currentHole, score, clubs, holes, displayName, founderTools, onboarded } = useLocalStore();
   const display = useDisplayFace();
   const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
@@ -141,6 +141,10 @@ export default function HomeScreen() {
   const plate = aerialPlate(pilot.courseKey, 1);
 
   useEffect(() => {
+    if (!onboarded) router.replace('/onboard');
+  }, [onboarded]);
+
+  useEffect(() => {
     if (reduceMotion) {
       breathe.value = 1;
       return;
@@ -169,6 +173,7 @@ export default function HomeScreen() {
   };
 
   const openGames = () => {
+    if (!founderTools) return;
     setAskOn(false);
     setSheetTab('games');
     applySheet(true);
@@ -326,12 +331,14 @@ export default function HomeScreen() {
       </View>
       {sheetOpen ? null : (
         <View pointerEvents="box-none" style={[styles.rail, { bottom: railBottom }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Foursome games" onPress={openGames} style={styles.railBtn}>
-            <Glass radius={28} style={styles.railBtn} contentStyle={styles.railFill}>
-              <PeopleMark />
-              <Text style={styles.railLabel}>GAMES</Text>
-            </Glass>
-          </Pressable>
+          {founderTools ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="Foursome games" onPress={openGames} style={styles.railBtn}>
+              <Glass radius={28} style={styles.railBtn} contentStyle={styles.railFill}>
+                <PeopleMark />
+                <Text style={styles.railLabel}>GAMES</Text>
+              </Glass>
+            </Pressable>
+          ) : null}
           <Pressable accessibilityRole="button" accessibilityLabel={`Bag, ${inPlay} clubs in play`} onPress={() => router.push('/bag')} style={styles.railBtn}>
             <Glass radius={28} style={styles.railBtn} contentStyle={styles.railFill}>
               <BagMark />
@@ -371,9 +378,11 @@ export default function HomeScreen() {
               <Pressable accessibilityRole="tab" accessibilityLabel="Round" accessibilityState={{ selected: sheetTab === 'round' }} onPress={() => setSheetTab('round')} style={styles.tabHit}>
                 <Text style={[styles.tab, sheetTab === 'round' && styles.tabOn]}>Round</Text>
               </Pressable>
-              <Pressable accessibilityRole="tab" accessibilityLabel="Games" accessibilityState={{ selected: sheetTab === 'games' }} onPress={openGames} style={styles.tabHit}>
-                <Text style={[styles.tab, sheetTab === 'games' && styles.tabOn]}>Games</Text>
-              </Pressable>
+              {founderTools ? (
+                <Pressable accessibilityRole="tab" accessibilityLabel="Games" accessibilityState={{ selected: sheetTab === 'games' }} onPress={openGames} style={styles.tabHit}>
+                  <Text style={[styles.tab, sheetTab === 'games' && styles.tabOn]}>Games</Text>
+                </Pressable>
+              ) : null}
               <Pressable
                 accessibilityRole="tab"
                 accessibilityLabel="More"
@@ -459,6 +468,7 @@ export default function HomeScreen() {
                     </View>
                     <Text style={styles.foursomeChevron}>›</Text>
                   </Pressable>
+                  {founderTools ? (
                   <Pressable accessibilityRole="button" accessibilityLabel="Foursome games" onPress={openGames} style={styles.foursome}>
                     <View style={styles.foursomeIcon}>
                       <PeopleMark />
@@ -469,6 +479,7 @@ export default function HomeScreen() {
                     </View>
                     <Text style={styles.foursomeChevron}>›</Text>
                   </Pressable>
+                  ) : null}
                 </View>
               )}
             </ScrollView>

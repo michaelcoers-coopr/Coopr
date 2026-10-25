@@ -26,12 +26,16 @@ module.exports = ({ config }) => {
     ...config,
     ...(web ? { web } : {}),
     name: preview ? 'COOPR Preview' : config.name,
+    // Play paints its own navy. The rest of the app is light, so the system
+    // chrome stays light instead of following a dark system appearance.
+    userInterfaceStyle: 'light',
     ios: {
       ...config.ios,
       bundleIdentifier,
       infoPlist: {
         ...(config.ios?.infoPlist ?? {}),
         ITSAppUsesNonExemptEncryption: false,
+        UIUserInterfaceStyle: 'Light',
       },
     },
     android: {

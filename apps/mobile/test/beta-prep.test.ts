@@ -51,6 +51,7 @@ describe('beta profile and permission strings', () => {
     );
     expect(speech[1].speechRecognitionPermission).toBe('COOPR turns your question into text on this iPhone. The audio is not kept.');
     expect(plugins.some((plugin) => plugin === 'expo-audio' || (Array.isArray(plugin) && plugin[0] === 'expo-audio'))).toBe(false);
+    expect(plugins.some((plugin) => plugin === 'expo-notifications' || (Array.isArray(plugin) && plugin[0] === 'expo-notifications'))).toBe(false);
     expect(plugins).toContain('expo-updates');
     expect(location[1].locationWhenInUsePermission).toBe(
       'COOPR uses your location while the app is open to show your distance to the green. Your position is not saved as a shot.',

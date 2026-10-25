@@ -13,7 +13,8 @@ const configure = require('../app.config.js') as (ctx: { config: Record<string, 
   name?: string;
   runtimeVersion?: { policy?: string };
   web?: { output?: string };
-  ios?: { bundleIdentifier?: string; infoPlist?: { ITSAppUsesNonExemptEncryption?: boolean } };
+  userInterfaceStyle?: string;
+  ios?: { bundleIdentifier?: string; infoPlist?: { ITSAppUsesNonExemptEncryption?: boolean; UIUserInterfaceStyle?: string } };
   android?: { package?: string };
   updates?: { url?: string; enabled?: boolean };
   extra?: { eas?: { projectId?: string } };
@@ -35,6 +36,7 @@ describe('Expo Go preview and TestFlight profile', () => {
     expect(mobilePackage.dependencies['expo-router']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-image-picker']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-audio']).toBeUndefined();
+    expect(mobilePackage.dependencies['expo-notifications']).toBeUndefined();
     expect(mobilePackage.dependencies['expo-updates']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-speech']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-haptics']).toMatch(/^~58\./);
@@ -120,14 +122,7 @@ describe('Expo Go preview and TestFlight profile', () => {
       backgroundColor: '#0A1020',
       monochromeImage: './assets/brand/adaptive-monochrome.png',
     });
-    const notifications = expo.plugins?.find(
-      (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-notifications',
-    ) as [string, { icon?: string; color?: string; enableRemoteNotifications?: boolean }] | undefined;
-    expect(notifications?.[1]).toEqual({
-      icon: './assets/brand/notification-icon.png',
-      color: '#0A1020',
-      enableRemoteNotifications: false,
-    });
+    expect(expo.plugins?.some((plugin) => plugin === 'expo-notifications' || (Array.isArray(plugin) && plugin[0] === 'expo-notifications'))).toBe(false);
     const splash = expo.plugins?.find(
       (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-splash-screen',
     ) as [string, { backgroundColor?: string; image?: string; resizeMode?: string; android?: { image?: string; imageWidth?: number; resizeMode?: string; backgroundColor?: string } }] | undefined;
@@ -143,7 +138,7 @@ describe('Expo Go preview and TestFlight profile', () => {
       },
     });
     expect(mobilePackage.dependencies['expo-splash-screen']).toMatch(/^~58\./);
-    expect(mobilePackage.dependencies['expo-notifications']).toMatch(/^~58\./);
+    expect(mobilePackage.dependencies['expo-notifications']).toBeUndefined();
     expect(JSON.stringify(expo)).not.toMatch(/"notification"\s*:/);
     for (const file of [
       'assets/brand/icon.png',
@@ -162,6 +157,8 @@ describe('Expo Go preview and TestFlight profile', () => {
     delete process.env.COOPR_WEB_STATIC;
     const hosted = configure({ config: appJson.expo });
     expect(hosted.web?.output).toBe('server');
+    expect(hosted.userInterfaceStyle).toBe('light');
+    expect(hosted.ios?.infoPlist?.UIUserInterfaceStyle).toBe('Light');
     const staticApp = appJson.expo as { web?: { output?: string } };
     expect(staticApp.web?.output).toBe('server');
     process.env.COOPR_WEB_STATIC = '1';

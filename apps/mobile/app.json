@@ -57,14 +57,6 @@
         }
       ],
       [
-        "expo-notifications",
-        {
-          "icon": "./assets/brand/notification-icon.png",
-          "color": "#0A1020",
-          "enableRemoteNotifications": false
-        }
-      ],
-      [
         "expo-splash-screen",
         {
           "backgroundColor": "#0A1020",
