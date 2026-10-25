@@ -1,5 +1,6 @@
 import type { LatLon } from '@coopr/domain';
 import type { MapProjection } from '@coopr/engine';
+import { HIGH_CEDARS_AERIAL_ROWS } from './high-cedars-georef';
 
 /** Same radius as `localMeters()` in hole-fit.ts. */
 const EARTH_RADIUS_M = 6_371_000;
@@ -9,13 +10,19 @@ const ON_IMAGE_SLACK_PX = 1;
 
 export const AERIAL_TOLERANCE_PX = 0.25;
 
+/** Imagery line on an aerial hole, and on More and the course screen. */
+export const AERIAL_IMAGERY_CREDIT = 'Imagery: USDA NAIP, 2023';
+
+/** The picture is enhanced. It is not a live true-colour photo. */
+export const AERIAL_DISCLOSURE = 'Stylized and enhanced, not true-colour, not current conditions';
+
 /** Shown on More and the course screen. The picture is stylized NAIP, not current conditions. */
-export const AERIAL_CREDIT = 'Imagery: USDA NAIP, stylized. Outlines © OpenStreetMap contributors';
+export const AERIAL_CREDIT = `${AERIAL_IMAGERY_CREDIT}. ${AERIAL_DISCLOSURE}. Outlines © OpenStreetMap contributors`;
 
 /**
- * ODbL line on the map. The contributors form is used when the gap between
- * Score and Ask can hold it. Otherwise the map uses the shorter line.
- * NAIP and "stylized" stay on More and the course screen, in AERIAL_CREDIT.
+ * ODbL line on a vector map. The contributors form is used when the gap can
+ * hold it. Otherwise the map uses the shorter line. An aerial uses
+ * aerialPhotoCredit(), so NAIP and the disclosure sit on the picture.
  */
 export const AERIAL_CREDIT_SHORT = '© OpenStreetMap contributors';
 
@@ -28,10 +35,24 @@ export const AERIAL_CREDIT_TIGHT = '© OpenStreetMap';
  */
 const MAP_CREDIT_FULL_PX = 156;
 
-/** The on-map credit that fits in `availablePx` on one line. */
+/** The on-map credit that fits in `availablePx` on one line. Vector holes use this. */
 export function aerialMapCredit(availablePx: number): string {
   if (Number.isFinite(availablePx) && availablePx >= MAP_CREDIT_FULL_PX) return AERIAL_CREDIT_SHORT;
   return AERIAL_CREDIT_TIGHT;
+}
+
+/** Three lines on a hole that is showing an aerial. The strings are the required credits. */
+export function aerialPhotoCredit(): readonly string[] {
+  return [AERIAL_IMAGERY_CREDIT, AERIAL_CREDIT_SHORT, AERIAL_DISCLOSURE];
+}
+
+/** quality.json flags green_partly_hidden_by_trees on these holes only. */
+const TREE_HIDDEN_HOLES = new Set([3, 7]);
+
+/** Short note for a green the aerial only partly shows. Null on every other hole. */
+export function aerialTreeNote(hole: number): string | null {
+  if (!TREE_HIDDEN_HOLES.has(hole)) return null;
+  return 'Green partly hidden by trees';
 }
 
 export interface AerialTestPoint {
@@ -47,7 +68,7 @@ export interface AerialTestPoint {
  * Do not add another half pixel, and do not rebuild the matrix from bearing and scale.
  */
 export interface AerialGeoref {
-  hole: 1 | 2;
+  hole: number;
   widthPx: number;
   heightPx: number;
   centerLat: number;
@@ -61,53 +82,26 @@ export interface AerialGeoref {
   tests: readonly AerialTestPoint[];
 }
 
-const HOLE_1_TESTS: readonly AerialTestPoint[] = [
-  { name: 'tee', lat: 47.1162422, lng: -122.2383395, expectedPx: [411.135, 1165.22] },
-  { name: 'green_center', lat: 47.11234509, lng: -122.23777439, expectedPx: [411.135, 397.18] },
-  { name: 'pin', lat: 47.1123305, lng: -122.2377775, expectedPx: [411.83, 394.374] },
-  { name: 'image_top_left_corner', lat: 47.11053621, lng: -122.23442652, expectedPx: [0.019, -0.009] },
-  { name: 'image_bottom_right_corner', lat: 47.11870951, lng: -122.24146613, expectedPx: [780.019, 1687.991] },
-];
-
-const HOLE_2_TESTS: readonly AerialTestPoint[] = [
-  { name: 'tee', lat: 47.1121898, lng: -122.23713, expectedPx: [393.863, 1165.22] },
-  { name: 'green_center', lat: 47.11123312, lng: -122.2390419, expectedPx: [393.861, 397.18] },
-  { name: 'pin', lat: 47.1112259, lng: -122.239029, expectedPx: [388.625, 398.524] },
-  { name: 'image_top_left_corner', lat: 47.11006904, lng: -122.23931196, expectedPx: [-0.008, 0.003] },
-  { name: 'image_bottom_right_corner', lat: 47.11349719, lng: -122.23653311, expectedPx: [779.992, 1688.003] },
-];
-
-/** High Cedars holes 1 and 2. `matrix_px_per_meter` is copied verbatim from aerials.json. */
-export const HIGH_CEDARS_AERIALS: readonly AerialGeoref[] = [
-  {
-    hole: 1,
-    widthPx: 780,
-    heightPx: 1688,
-    centerLat: 47.114622914,
-    centerLng: -122.237946056,
-    m00: -1.7606567382416216,
-    m01: -0.17374298157126253,
-    m10: -0.17428527541260733,
-    m11: 1.7551784120775813,
-    teePx: [411.135, 1165.22],
-    greenPx: [411.135, 397.18],
-    tests: HOLE_1_TESTS,
-  },
-  {
-    hole: 2,
-    widthPx: 780,
-    heightPx: 1688,
-    centerLat: 47.111783122,
-    centerLng: -122.237922578,
-    m00: -2.5310340211743463,
-    m01: 3.4424974229156238,
-    m10: 3.453243427659924,
-    m11: 2.5231578036393865,
-    teePx: [393.863, 1165.22],
-    greenPx: [393.861, 397.18],
-    tests: HOLE_2_TESTS,
-  },
-];
+/** High Cedars holes 1–18. `matrix_px_per_meter` is copied verbatim from aerials.json. */
+export const HIGH_CEDARS_AERIALS: readonly AerialGeoref[] = HIGH_CEDARS_AERIAL_ROWS.map((row) => ({
+  hole: row.hole,
+  widthPx: row.widthPx,
+  heightPx: row.heightPx,
+  centerLat: row.centerLat,
+  centerLng: row.centerLng,
+  m00: row.m00,
+  m01: row.m01,
+  m10: row.m10,
+  m11: row.m11,
+  teePx: row.teePx,
+  greenPx: row.greenPx,
+  tests: row.tests.map((point) => ({
+    name: point.name,
+    lat: point.lat,
+    lng: point.lng,
+    expectedPx: point.expectedPx,
+  })),
+}));
 
 export function aerialGeoref(hole: number): AerialGeoref | null {
   return HIGH_CEDARS_AERIALS.find((item) => item.hole === hole) ?? null;
@@ -159,7 +153,7 @@ export function pointOnAerial(geo: AerialGeoref, point: LatLon): boolean {
 
 export type AerialFocus = 'tee' | 'green' | 'hole';
 
-/** One scale and one origin, shared by the JPEG and every overlay point. */
+/** One scale and one origin, shared by the picture and every overlay point. */
 export interface AerialView {
   scale: number;
   originX: number;

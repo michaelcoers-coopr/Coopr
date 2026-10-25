@@ -72,6 +72,11 @@ export interface HoleMapProps {
   creditLeft?: number;
   /** Right inset of the attribution pill. */
   creditRight?: number;
+  /**
+   * Short note drawn with the aerial credit. Play sets this only while the plate is showing.
+   * Holes 3 and 7 say the green is partly hidden by trees. Null draws nothing.
+   */
+  aerialNote?: string | null;
   /** Draws the dispersion oval this many times larger. 1 keeps the measured shape. */
   ellipseScale?: number;
 }

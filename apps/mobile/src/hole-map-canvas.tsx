@@ -10,7 +10,7 @@ import { useDisplayFace } from './design/display-font';
 import { HOLE_BLEED_PAD, holeFitPoints, playingWidthMeters, projectHoleFill, projectPlayFrame } from './hole-fit';
 import { tileSourceDrawsVectors } from './tile-source';
 import { MAP_LAYER } from './aerial/map-layers';
-import { aerialMapCredit, aerialScreenProjection, aerialView } from './aerial/project';
+import { aerialMapCredit, aerialPhotoCredit, aerialScreenProjection, aerialView } from './aerial/project';
 import { AERIAL_OVAL_FLOOR, boundsBox, CARRY_CHIP, clipPolylineAtOval, DOT_STROKE, ellipseEdge, fittedEllipse, GREEN_DOT, insideEllipse, layoutHoleLabels, leaderEnd, nearestMark, PIN_HIT, pinFromPoint, sampleCaptionAt, sampleCaptionBox, SAMPLE_CHIP, VECTOR_OVAL_BOX } from './map-label-layout';
 
 const SURROUND = '#143524';
@@ -641,9 +641,24 @@ export function HoleMap(props: HoleMapProps) {
             },
           ]}
         >
-          <Text numberOfLines={1} style={styles.credit}>
-            {aerialMapCredit(Math.max(0, width - (props.creditLeft ?? MAP_CREDIT_LEFT) - (props.creditRight ?? MAP_CREDIT_RIGHT) - MAP_CREDIT_PAD * 2))}
-          </Text>
+          {photo ? (
+            <View
+              accessibilityRole="text"
+              accessibilityLabel={[props.aerialNote, ...aerialPhotoCredit()].filter((line): line is string => line != null && line !== '').join('. ')}
+              style={styles.creditPlate}
+            >
+              {props.aerialNote ? <Text style={styles.creditNote}>{props.aerialNote}</Text> : null}
+              {aerialPhotoCredit().map((line) => (
+                <Text key={line} style={styles.creditLine}>
+                  {line}
+                </Text>
+              ))}
+            </View>
+          ) : (
+            <Text numberOfLines={1} style={styles.credit}>
+              {aerialMapCredit(Math.max(0, width - (props.creditLeft ?? MAP_CREDIT_LEFT) - (props.creditRight ?? MAP_CREDIT_RIGHT) - MAP_CREDIT_PAD * 2))}
+            </Text>
+          )}
         </View>
       ) : null}
       {bleed ? null : (
@@ -677,6 +692,27 @@ const styles = StyleSheet.create({
   photoImage: { position: 'absolute' },
   vectorOverlay: { position: 'relative', zIndex: MAP_LAYER.overlay },
   creditWrap: { position: 'absolute', left: MAP_CREDIT_LEFT, right: MAP_CREDIT_RIGHT, zIndex: MAP_LAYER.credit, alignItems: 'flex-start' },
+  creditPlate: {
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(2,6,14,0.92)',
+    borderRadius: 7,
+    overflow: 'hidden',
+    paddingHorizontal: MAP_CREDIT_PAD,
+    paddingVertical: 4,
+  },
+  creditLine: {
+    color: 'rgba(255,255,255,0.94)',
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '600',
+  },
+  creditNote: {
+    color: '#D5E8C4',
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
   credit: {
     color: 'rgba(255,255,255,0.94)',
     fontSize: 10,

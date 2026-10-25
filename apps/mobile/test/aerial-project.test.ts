@@ -1,20 +1,29 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  AERIAL_DISCLOSURE,
+  AERIAL_IMAGERY_CREDIT,
   AERIAL_TOLERANCE_PX,
   HIGH_CEDARS_AERIALS,
   aerialGeoref,
+  aerialPhotoCredit,
   aerialScreenPoint,
   aerialScreenProjection,
+  aerialTreeNote,
   aerialView,
   invertAerialPx,
   pointOnAerial,
   projectAerialPx,
 } from '../src/aerial/project';
 
+const here = dirname(fileURLToPath(import.meta.url));
+
 describe('aerial affine', () => {
   it('projects the five shipped vectors for each hole within 0.25 px', () => {
     expect(AERIAL_TOLERANCE_PX).toBe(0.25);
-    expect(HIGH_CEDARS_AERIALS.map((geo) => geo.hole)).toEqual([1, 2]);
+    expect(HIGH_CEDARS_AERIALS.map((geo) => geo.hole)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]);
     for (const geo of HIGH_CEDARS_AERIALS) {
       expect(geo.tests).toHaveLength(5);
       for (const point of geo.tests) {
@@ -27,10 +36,41 @@ describe('aerial affine', () => {
     }
   });
 
-  it('has no plate geometry for any other hole', () => {
-    expect(aerialGeoref(1)?.hole).toBe(1);
-    expect(aerialGeoref(2)?.hole).toBe(2);
-    for (const hole of [0, 3, 9, 18]) expect(aerialGeoref(hole)).toBeNull();
+  it('has plate geometry for every High Cedars hole and nowhere else', () => {
+    for (let hole = 1; hole <= 18; hole += 1) expect(aerialGeoref(hole)?.hole).toBe(hole);
+    expect(aerialGeoref(0)).toBeNull();
+    expect(aerialGeoref(19)).toBeNull();
+  });
+
+  it('names the three required credits and the tree note on holes 3 and 7', () => {
+    expect(aerialPhotoCredit()).toEqual([
+      AERIAL_IMAGERY_CREDIT,
+      '© OpenStreetMap contributors',
+      AERIAL_DISCLOSURE,
+    ]);
+    expect(AERIAL_IMAGERY_CREDIT).toBe('Imagery: USDA NAIP, 2023');
+    expect(AERIAL_DISCLOSURE).toBe('Stylized and enhanced, not true-colour, not current conditions');
+    expect(aerialTreeNote(3)).toBe('Green partly hidden by trees');
+    expect(aerialTreeNote(7)).toBe('Green partly hidden by trees');
+    for (const hole of [1, 2, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]) {
+      expect(aerialTreeNote(hole), `hole ${hole}`).toBeNull();
+    }
+  });
+
+  it('bundles a webp plate and a 1x placeholder for every hole, and falls back when art is missing', () => {
+    const source = readFileSync(join(here, '../src/aerial/registry.ts'), 'utf8');
+    expect(source).toContain('if (!georef || !art) return null');
+    expect(source).toContain('const art = ART[holeNumber] ?? null');
+    for (let hole = 1; hole <= 18; hole += 1) {
+      const sharp = `hole${hole}_aerial_2x.webp`;
+      const placeholder = `hole${hole}_aerial_1x_placeholder.jpg`;
+      expect(source, sharp).toContain(sharp);
+      expect(source, placeholder).toContain(placeholder);
+      expect(existsSync(join(here, '../assets/aerials', sharp)), sharp).toBe(true);
+      expect(existsSync(join(here, '../assets/aerials', placeholder)), placeholder).toBe(true);
+    }
+    expect(source).not.toContain('hole1_aerial_2x.jpg');
+    expect(source).not.toContain('hole2_aerial_2x.jpg');
   });
 
   it('frames the full hole so the tee is near 69% and the green near 23.5%', () => {

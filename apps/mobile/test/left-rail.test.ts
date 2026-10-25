@@ -14,6 +14,7 @@ describe('left rail hole screen', () => {
     expect(play).toContain('ellipseScale={1.2}');
     expect(play).toContain('labels={[]}');
     expect(play).toContain('creditLeft={14}');
+    expect(play).toContain('aerialNote={plate ? aerialTreeNote(hole.holeNumber) : null}');
     expect(play).toContain('>WIND<');
     expect(play).toContain('>ELEV<');
     expect(play).toContain('>TEMP<');
@@ -37,5 +38,7 @@ describe('left rail hole screen', () => {
     expect(play).not.toContain('shotChips');
     expect(play).toContain('applySheet.current(true)');
     expect(map).toContain('props.creditLeft != null');
+    expect(map).toContain('aerialPhotoCredit');
+    expect(map).toContain('props.aerialNote');
   });
 });

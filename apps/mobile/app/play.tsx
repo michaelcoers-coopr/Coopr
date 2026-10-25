@@ -82,7 +82,7 @@ import { caddieSpeaker, speakSentences } from '../src/speech/tts';
 import { useTalkCaddie, Waveform, YardageLine } from '../src/talk-overlay';
 import { courseCall, holeSubline } from '../src/design/home-copy';
 import { aerialPlate } from '../src/aerial/registry';
-import { pointOnAerial } from '../src/aerial/project';
+import { aerialTreeNote, pointOnAerial } from '../src/aerial/project';
 import { VECTOR_TILE_SOURCE } from '../src/tile-source';
 import { useTalkPrefs } from '../src/talk-prefs';
 
@@ -1164,6 +1164,7 @@ export default function PlayScreen() {
           aerial
           imagery={VECTOR_TILE_SOURCE}
           plate={plate}
+          aerialNote={plate ? aerialTreeNote(hole.holeNumber) : null}
           showCredit={!sheetOpen}
           creditLeft={14}
           creditRight={88}
