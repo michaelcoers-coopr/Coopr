@@ -1,4 +1,8 @@
 import { sampleTalkReply, type TalkAction, type TalkContext, type TalkReply, type TalkToolResult } from '@coopr/engine';
+import { extractionUrl } from './extract-client';
+
+/** Shown whenever the reply is the on-phone script, including when no server is set. */
+export const SAMPLE_ANSWER_LABEL = 'Sample answer. Not from a live caddie.';
 
 function parseStream(text: string): TalkReply | null {
   let mode: TalkReply['mode'] = 'sample';
@@ -31,10 +35,12 @@ function parseStream(text: string): TalkReply | null {
   return { mode, line: line || sentences.join(' '), sentences: sentences.length > 0 ? sentences : [line], tools, heard: mode === 'live' };
 }
 
-/** The EAS route when it is up. A static preview or a missing key uses the scripted sample. */
+/** The hosted caddie when EXPO_PUBLIC_EXTRACT_URL is a real origin. Otherwise a labeled sample. */
 export async function requestTalk(transcript: string, context: TalkContext): Promise<TalkReply> {
+  const base = extractionUrl();
+  if (!base) return sampleTalkReply(context, transcript);
   try {
-    const response = await fetch('/v1/caddie', {
+    const response = await fetch(`${base}/v1/caddie`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ transcript, context }),

@@ -16,6 +16,7 @@ export default function SetupScreen() {
     <Screen>
       <Title>Setup</Title>
       <Muted>Imports and the provisional bag stay here. The bag screen is the fourteen clubs.</Muted>
+      {inPlay.length === 0 ? <Muted>No clubs yet. Add a name below, or import a CSV. This build does not include a sample bag.</Muted> : null}
       {founderTools && bagNote ? (
         <Card>
           <Muted>{`In play is ${bagStatus ?? 'unspecified'}. ${bagNote}`}</Muted>

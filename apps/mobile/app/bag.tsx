@@ -19,6 +19,7 @@ export default function BagScreen() {
     <Screen>
       <Title>Bag</Title>
       <Muted>{`${inPlay.length} of 14. Carry and total stay apart.`}</Muted>
+      {inPlay.length === 0 ? <Muted>No clubs in the bag yet. Add one in Setup. Nothing was filled in for you.</Muted> : null}
       {inPlay.map((club) => {
         const carry = stock(profiles, club.id, 'carry');
         const total = stock(profiles, club.id, 'total');

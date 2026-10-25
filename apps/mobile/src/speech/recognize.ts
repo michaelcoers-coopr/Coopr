@@ -20,6 +20,9 @@ export async function listenForSpeech(onText: (text: string, final: boolean) => 
     const mod = await import('expo-speech-recognition');
     const speech = mod.ExpoSpeechRecognitionModule;
     if (!speech.isRecognitionAvailable()) return null;
+    // Keep the audio on the phone. Without this flag iOS may send it to Apple's servers.
+    // A missing on-device model falls back to the typed Ask.
+    if (!speech.supportsOnDeviceRecognition()) return null;
     const permission = await speech.requestPermissionsAsync();
     if (!permission.granted) return null;
     const result = speech.addListener('result', (event) => {
@@ -29,11 +32,15 @@ export async function listenForSpeech(onText: (text: string, final: boolean) => 
     const end = speech.addListener('end', () => {
       onText('', true);
     });
-    speech.start({ lang: 'en-US', interimResults: true, continuous: false });
+    const failed = speech.addListener('error', () => {
+      onText('', true);
+    });
+    speech.start({ lang: 'en-US', interimResults: true, continuous: false, requiresOnDeviceRecognition: true });
     return {
       stop: () => {
         result.remove();
         end.remove();
+        failed.remove();
         try {
           speech.abort();
         } catch {

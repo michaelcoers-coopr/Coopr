@@ -30,6 +30,8 @@ export default function MoreScreen() {
     <Screen>
       <Title>More</Title>
       <Muted>Setup and the card. The round starts from Play.</Muted>
+      <Button label="Send feedback" tone="ghost" onPress={() => router.push('/feedback')} />
+      <Button label="Privacy" tone="ghost" onPress={() => router.push('/privacy')} />
       <Button label="Game plan" tone="ghost" onPress={() => router.push('/plan')} />
       <Button label="Scorecard" tone="ghost" onPress={() => router.push('/scorecard')} />
       <Button label="Debrief" tone="ghost" onPress={() => router.push('/debrief')} />
@@ -57,7 +59,7 @@ export default function MoreScreen() {
       <Card>
         <Muted>High Cedars, Orting, is the only course on this phone. The hole uses the phone position. Wind and temperature come from the course, and plays-like can be switched off here.</Muted>
         <Muted>{AERIAL_CREDIT}</Muted>
-        <Muted>Holes 1 and 2 use a stylized 2023 aerial. It is not a true-colour photo and not current conditions. Sample numbers stay labeled Sample.</Muted>
+        <Muted>Every hole uses a stylized 2023 aerial. It is not a true-colour photo and not current conditions. Sample numbers stay labeled Sample.</Muted>
         <Muted>{dbStatus}</Muted>
         {founderTools ? <Muted>{`${displayName}. Caddie ${caddieName}, ${personalityLabel}.`}</Muted> : <Muted>Public shell.</Muted>}
       </Card>

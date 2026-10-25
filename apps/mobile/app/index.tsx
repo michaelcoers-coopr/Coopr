@@ -7,6 +7,7 @@ import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
 import { buildTalkContext, holeOverlay, ringCentroid, roundProgress, sampleTalkReply, shotBearing } from '@coopr/engine';
+import { SAMPLE_ANSWER_LABEL } from '../src/talk-client';
 import { loadHighCedarsPilot } from '@coopr/course';
 import { colors, font, signal, type } from '@coopr/tokens';
 import { useReduceMotion } from '../src/design/reduce-motion';
@@ -415,7 +416,12 @@ export default function HomeScreen() {
                       <Pressable accessibilityRole="button" accessibilityLabel="Send question" onPress={sendAsk} style={styles.sendHit}>
                         <Text style={styles.send}>Send</Text>
                       </Pressable>
-                      {askReply ? <Text style={styles.hello}>{askReply}</Text> : null}
+                      {askReply ? (
+                        <View>
+                          <Text style={styles.hello}>{SAMPLE_ANSWER_LABEL}</Text>
+                          <Text style={styles.hello}>{askReply}</Text>
+                        </View>
+                      ) : null}
                     </View>
                   ) : null}
                   <View style={styles.teeCard}>

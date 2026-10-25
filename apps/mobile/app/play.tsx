@@ -79,6 +79,7 @@ import { readWeather, type WeatherRead } from '../src/weather';
 import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
 import { caddieSpeaker, speakSentences } from '../src/speech/tts';
+import { SAMPLE_ANSWER_LABEL } from '../src/talk-client';
 import { useTalkCaddie, Waveform, YardageLine } from '../src/talk-overlay';
 import { courseCall, holeSubline } from '../src/design/home-copy';
 import { aerialPlate } from '../src/aerial/registry';
@@ -1395,7 +1396,7 @@ export default function PlayScreen() {
           {sheetOpen && sheetTab === 'coach' ? (
           <View style={styles.heard}>
             <Waveform live={talk.phase === 'listening' || talk.phase === 'speaking'} compact />
-            {talk.sample ? <Text style={styles.clubMeta}>Sample mode. No live model on this server.</Text> : null}
+            {talk.sample ? <Text style={styles.clubMeta}>{SAMPLE_ANSWER_LABEL}</Text> : null}
             <Text style={styles.clubMeta}>You</Text>
             <Text style={styles.line}>{talk.transcript || talk.voiceHint || 'Hold the mic, or type it.'}</Text>
             <Text style={styles.clubMeta}>Caddie</Text>

@@ -1,7 +1,7 @@
 import 'react-native-reanimated';
 import { useEffect } from 'react';
 import { Image, View } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { colors } from '@coopr/tokens';
 import { DisplayFontProvider } from '../src/design/display-font';
 import { FloatingAsk } from '../src/design/floating-ask';
 import { LocalStoreProvider } from '../src/local-store';
+import { rememberScreen } from '../src/screen-name';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   // Web has no native splash. The launch view below covers that gap.
@@ -27,6 +28,15 @@ function LaunchScreen() {
   );
 }
 
+function RememberScreen() {
+  const segments = useSegments();
+  const name = segments.join('/') || 'Home';
+  useEffect(() => {
+    rememberScreen(name);
+  }, [name]);
+  return null;
+}
+
 function HideSplash() {
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => {});
@@ -40,6 +50,7 @@ export default function RootLayout() {
       <DisplayFontProvider>
         <LocalStoreProvider fallback={<LaunchScreen />}>
           <HideSplash />
+          <RememberScreen />
           <StatusBar style="dark" />
           <Stack
             screenOptions={{

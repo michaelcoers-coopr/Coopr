@@ -16,7 +16,7 @@ import { BlurView } from 'expo-blur';
 import { tick } from './haptics';
 import { deviceSpeechAvailable, listenForSpeech, type HeardSpeech } from './speech/recognize';
 import { caddieSpeaker, speakSentences } from './speech/tts';
-import { requestTalk } from './talk-client';
+import { requestTalk, SAMPLE_ANSWER_LABEL } from './talk-client';
 import { useTalkPrefs } from './talk-prefs';
 
 const BARS = [0.35, 0.62, 0.9, 0.48, 1, 0.7, 0.4, 0.82, 0.55];
@@ -275,7 +275,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & {
             <Text style={styles.closeText}>{prefs.handsFree ? 'Hands-free' : 'Hold to talk'}</Text>
           </Pressable>
         </View>
-        {sample ? <Text style={styles.sample}>Sample mode. No live model on this server.</Text> : null}
+        {sample ? <Text style={styles.sample}>{SAMPLE_ANSWER_LABEL}</Text> : null}
         <Waveform live={live} />
         <Text style={styles.kicker}>{phase === 'listening' ? 'Listening' : phase === 'thinking' ? 'Thinking' : 'You'}</Text>
         <Text style={styles.heard}>{transcript || voiceHint || 'Hold Ask, or type it.'}</Text>

@@ -35,20 +35,25 @@
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "COOPR listens while you hold Ask, or while hands-free is on. On this iPhone the words are recognized on the device. A typed question is used when speech recognition is unavailable.",
+          "microphonePermission": "COOPR listens while you hold Ask, or while hands-free is on. On this iPhone, speech is turned into text on the device and the audio is not kept.",
           "speechRecognitionPermission": "COOPR turns your question into text on this iPhone. The audio is not kept."
         }
       ],
       [
         "expo-audio",
         {
-          "microphonePermission": "COOPR listens while you hold Ask COOPR. The recording goes to the server to be transcribed and is not kept."
+          "microphonePermission": "COOPR listens while you hold Ask, or while hands-free is on. On this iPhone, speech is turned into text on the device and the audio is not kept.",
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "COOPR uses your location to measure ground distance to a green you have verified. That distance is not saved as a shot."
+          "locationWhenInUsePermission": "COOPR uses your location while the app is open to show your distance to the green. Your position is not saved as a shot.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "motionUsagePermission": false
         }
       ],
       [
