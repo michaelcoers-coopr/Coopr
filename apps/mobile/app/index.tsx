@@ -109,7 +109,7 @@ export default function HomeScreen() {
   const [archive, setArchive] = useState<StoredRound[]>([]);
   const summary = homeRoundSummary(archive);
   const progress = roundProgress(summary.kept);
-  const handicapLine = summary.handicap;
+  const handicapLine = summary.disclaimer ? `${summary.handicap} ${summary.disclaimer}` : summary.handicap;
   const grossShown = summary.kept >= 3 && summary.lastKept?.gross != null ? String(summary.lastKept.gross) : '—';
   const inPlay = clubs.filter((club) => club.slot === 'in_play').length;
   const cardHole = pilot.record.scorecard.find((item) => item.holeNumber === currentHole);
@@ -224,7 +224,7 @@ export default function HomeScreen() {
     });
     void requestTalk(text, context).then((reply) => {
       setAskReply(reply.line);
-      setAskSample(reply.mode === 'sample' && founderTools);
+      setAskSample(reply.mode === 'sample');
     });
   };
 
@@ -451,9 +451,10 @@ export default function HomeScreen() {
                       {progress.filled < 3 ? <Text style={styles.tileNote}>{progress.gross}</Text> : null}
                     </View>
                     <View style={styles.tile}>
-                      <Text style={styles.tileLabel}>HANDICAP</Text>
-                      <Text style={[styles.tileValue, { fontFamily: display }]}>{summary.trend ?? '—'}</Text>
-                      <Text style={styles.tileNote}>{handicapLine}</Text>
+                      <Text style={styles.tileLabel}>LAST 3 TO PAR</Text>
+                      <Text style={[styles.tileValue, summary.trend ? styles.tileTrend : null, { fontFamily: display }]}>{summary.trend ?? '—'}</Text>
+                      <Text style={styles.tileNote}>{summary.handicap}</Text>
+                      {summary.disclaimer ? <Text style={styles.tileDisclaimer}>{summary.disclaimer}</Text> : null}
                     </View>
                   </View>
                   <Text style={styles.section}>RECENT ROUNDS</Text>
@@ -673,6 +674,8 @@ const styles = StyleSheet.create({
   tileLabel: { color: '#FFFFFF', fontFamily: font.family, fontSize: 12, fontWeight: '700', letterSpacing: 0.8 },
   tileValue: { color: '#FFFFFF', fontSize: 28, lineHeight: 32, fontWeight: '700' },
   tileNote: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  tileTrend: { fontSize: 22, lineHeight: 26 },
+  tileDisclaimer: { color: '#FFFFFF', fontFamily: font.family, fontSize: 16, lineHeight: 20, fontWeight: '800' },
   section: { color: '#FFFFFF', fontFamily: font.family, fontSize: 12, fontWeight: '700', letterSpacing: 1 },
   empty: { minHeight: 64, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', padding: 14, justifyContent: 'center' },
   emptyText: { color: '#FFFFFF', fontFamily: font.family, fontSize: 15, lineHeight: 22, fontWeight: '600' },

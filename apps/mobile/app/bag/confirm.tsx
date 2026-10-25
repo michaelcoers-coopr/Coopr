@@ -1,5 +1,6 @@
 import { StyleSheet, Text } from 'react-native';
 import { router } from 'expo-router';
+import { forwardBag } from '../../src/bag-scan/bag-nav';
 import { ClubFields } from '../../src/bag-scan/fields';
 import { canConfirmDraft } from '../../src/bag-scan/logic';
 import { ClubPicture } from '../../src/bag-scan/picture';
@@ -23,7 +24,7 @@ export default function ConfirmScreen() {
       ))}
       <ClubFields draft={draft} patch={patch} />
       <Body>{ready ? 'Type and a loft or club number are set. Brand, model, and flex can stay blank.' : 'Pick a type, and a loft or a club number, before this can continue.'}</Body>
-      <ScanButton label="YES, ADD IT" disabled={!ready} onPress={() => router.push('/bag/card')} />
+      <ScanButton label="YES, ADD IT" disabled={!ready} onPress={() => forwardBag(router, '/bag/card')} />
       <ScanButton
         label="NOT THIS ONE"
         tone="ghost"
@@ -32,7 +33,7 @@ export default function ConfirmScreen() {
           router.replace('/bag/add');
         }}
       />
-      <ScanButton label="FIX DETAILS" tone="ghost" onPress={() => router.push('/bag/details')} />
+      <ScanButton label="FIX DETAILS" tone="ghost" onPress={() => forwardBag(router, '/bag/details')} />
     </ScanScreen>
   );
 }

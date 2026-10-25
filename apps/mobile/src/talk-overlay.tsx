@@ -16,7 +16,9 @@ import { BlurView } from 'expo-blur';
 import { tick } from './haptics';
 import { deviceSpeechAvailable, listenForSpeech, type HeardSpeech } from './speech/recognize';
 import { caddieSpeaker, speakSentences } from './speech/tts';
+import { readTalkPreview } from './talk-preview';
 import { requestTalk, SAMPLE_ANSWER_LABEL } from './talk-client';
+import { webStore } from './web-storage';
 import { useTalkPrefs } from './talk-prefs';
 
 const BARS = [0.35, 0.62, 0.9, 0.48, 1, 0.7, 0.4, 0.82, 0.55];
@@ -233,9 +235,9 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & {
   useEffect(() => {
     if (preview.current || input.hole < 1) return;
     if (input.gpsYards == null || input.gpsYards <= 0) return;
-    if (typeof localStorage === 'undefined' || localStorage.getItem('coopr.talk.open') !== '1') return;
+    const sim = readTalkPreview(webStore());
+    if (!sim) return;
     preview.current = true;
-    const sim = localStorage.getItem('coopr.voice.sim')?.trim() || 'What should I hit?';
     setOpen(true);
     setTranscript(sim);
     setTyped(true);

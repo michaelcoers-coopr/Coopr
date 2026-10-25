@@ -24,6 +24,11 @@ export function readPlayNote(): string | null {
   return note;
 }
 
+export function dismissPlayNote(): void {
+  note = null;
+  emit();
+}
+
 export function clearHeldDraft(): void {
   held = null;
   note = null;

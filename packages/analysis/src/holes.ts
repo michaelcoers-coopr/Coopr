@@ -133,7 +133,10 @@ export function ledger(rounds: readonly RoundInput[], cfg: Config): Insight<Ledg
   const args = {
     id: 'loss_ledger', title: 'Where you lose strokes', n: ch.length, nUnit: 'holes', gate, baseline: 'par_allotment' as const,
     sample: isSample(rounds), quality: qualityOf(rounds),
-    invitationUnit: { perRound: 18, text: 'rounds with strokes, putts and penalties logged on every hole' },
+    invitationUnit: {
+      perRound: 18,
+      text: ch.length < total ? 'rounds with strokes, putts and penalties logged on every hole' : 'rounds',
+    },
     missingInputs: ch.length < total ? ['putts and/or penalties on some holes'] : [],
   };
   const nr = notReady<LedgerValue>(args);
@@ -218,7 +221,7 @@ export interface ParTypeValue {
 function yardLabel(par: 3 | 4 | 5, band: number, edges: number[]): string {
   const lo = edges[0]!;
   const hi = edges[1]!;
-  return band === 0 ? `Par ${par} under ${lo}` : band === 1 ? `Par ${par} ${lo}-${hi}` : `Par ${par} over ${hi}`;
+  return band === 0 ? `Par ${par} under` : band === 1 ? `Par ${par} ${lo}-${hi}` : `Par ${par} over`;
 }
 
 export function scoringByHoleType(rounds: readonly RoundInput[], cfg: Config): Insight<ParTypeValue> {

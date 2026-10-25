@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { router } from 'expo-router';
+import { forwardBag, returnToBag } from '../../src/bag-scan/bag-nav';
 import { ClubFields } from '../../src/bag-scan/fields';
 import { canConfirmDraft, loftProblem } from '../../src/bag-scan/logic';
 import { Body, ScanButton, ScanScreen, scan } from '../../src/bag-scan/chrome';
@@ -29,7 +30,8 @@ export default function DetailsScreen() {
           const saved = saveDraft(null);
           if (!saved) return;
           setError(null);
-          router.replace('/bag/card');
+          if (draft.existingId) returnToBag(router);
+          else forwardBag(router, '/bag/card');
         }}
       />
     </ScanScreen>

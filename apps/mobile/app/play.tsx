@@ -80,7 +80,7 @@ import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
 import { caddieSpeaker, speakSentences } from '../src/speech/tts';
 import { SAMPLE_ANSWER_LABEL } from '../src/talk-client';
-import { readPlayNote, subscribePlayNote } from '../src/bag-scan/play-note';
+import { dismissPlayNote, readPlayNote, subscribePlayNote } from '../src/bag-scan/play-note';
 import { readPlayWebFlags } from '../src/play-web-flags';
 import { useTalkCaddie, Waveform, YardageLine } from '../src/talk-overlay';
 import { courseCall, holeSubline } from '../src/design/home-copy';
@@ -1216,8 +1216,10 @@ export default function PlayScreen() {
           >
             <Text style={styles.pillArrowText}>‹</Text>
           </Pressable>
-          <Text style={styles.pillMeta}>PAR</Text>
-          <Text style={[styles.pillNum, { fontFamily: display }]}>{par ?? '—'}</Text>
+          <View style={styles.pillPair}>
+            <Text style={styles.pillMeta}>PAR</Text>
+            <Text style={[styles.pillNum, { fontFamily: display }]}>{par ?? '—'}</Text>
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Home"
@@ -1229,8 +1231,10 @@ export default function PlayScreen() {
               <Text style={[styles.pillBallNum, { fontFamily: display }]}>{hole.holeNumber}</Text>
             </View>
           </Pressable>
-          <Text style={styles.pillMeta}>HCP</Text>
-          <Text style={[styles.pillNum, { fontFamily: display }]}>{hole.strokeIndex ?? '—'}</Text>
+          <View style={styles.pillPair}>
+            <Text style={styles.pillMeta}>HCP</Text>
+            <Text style={[styles.pillNum, { fontFamily: display }]}>{hole.strokeIndex ?? '—'}</Text>
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Next hole"
@@ -1242,11 +1246,6 @@ export default function PlayScreen() {
           </Pressable>
         </Glass>
       </View>
-      {draftNote ? (
-        <View pointerEvents="none" style={[styles.draftBanner, { top: insets.top + 168 }]}>
-          <Text style={styles.draftBannerText}>{draftNote}</Text>
-        </View>
-      ) : null}
       <View pointerEvents="box-none" style={[styles.hero, { top: insets.top + 58 }]}>
         <View style={[styles.heroPlate, hole.holeNumber === 2 && styles.heroPlateClear]}>
         {player == null ? (
@@ -1319,6 +1318,14 @@ export default function PlayScreen() {
             <View {...sheetPan.panHandlers} style={styles.handleHit}>
               <View style={styles.handle} />
             </View>
+            {draftNote ? (
+              <View style={styles.draftBanner}>
+                <Text style={styles.draftBannerText}>{draftNote}</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="Dismiss note" onPress={dismissPlayNote} style={styles.draftDismiss}>
+                  <Text style={styles.draftDismissText}>Dismiss</Text>
+                </Pressable>
+              </View>
+            ) : null}
             <View style={styles.tabs}>
               {(['course', 'coach', 'stats'] as const).map((tab) => (
                 <Pressable
@@ -1891,8 +1898,10 @@ const styles = StyleSheet.create({
   saved: { minWidth: 200 },
   savedFill: { paddingVertical: 28, paddingHorizontal: 32, alignItems: 'center', gap: 4 },
   savedTitle: { color: '#FFFFFF', fontFamily: font.family, fontSize: 40, lineHeight: 46, fontWeight: '700' },
-  draftBanner: { position: 'absolute', left: 12, right: 12, zIndex: 8, backgroundColor: '#041018', borderRadius: 12, padding: 12 },
-  draftBannerText: { color: '#FFFFFF', fontFamily: font.family, fontSize: 15, lineHeight: 20, fontWeight: '700' },
+  draftBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 12, marginBottom: 8, backgroundColor: '#041018', borderRadius: 12, paddingLeft: 12, paddingVertical: 4 },
+  draftBannerText: { flex: 1, color: '#FFFFFF', fontFamily: font.family, fontSize: 15, lineHeight: 20, fontWeight: '700' },
+  draftDismiss: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  draftDismissText: { color: '#8AC926', fontFamily: font.family, fontSize: 13, fontWeight: '800' },
   heroScrim: { position: 'absolute', left: 0, width: 220, height: 250, zIndex: 3 },
   holePill: { position: 'absolute', left: 12, zIndex: 6 },
   holePillGlass: { minHeight: 44 },
@@ -1900,9 +1909,10 @@ const styles = StyleSheet.create({
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
     paddingHorizontal: 4,
   },
+  pillPair: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   pillArrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   pillArrowText: { color: 'rgba(255,255,255,0.9)', fontSize: 18, lineHeight: 20, fontWeight: '700' },
   pillBallHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

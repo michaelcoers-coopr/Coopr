@@ -1,6 +1,7 @@
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { CROP_BOX } from '../../src/bag-scan/crop';
+import { forwardBag } from '../../src/bag-scan/bag-nav';
 import { ON_PHONE } from '../../src/bag-scan/copy';
 import { Body, Panel, ScanButton, ScanScreen, scan } from '../../src/bag-scan/chrome';
 import { useBagScan } from '../../src/bag-scan/session';
@@ -36,10 +37,10 @@ export default function ScanStepScreen() {
         label="CONTINUE"
         onPress={() => {
           if (face && photo && !draft.faceCropped) {
-            void keepFacePhoto(photo).then(() => router.push('/bag/confirm'));
+            void keepFacePhoto(photo).then(() => forwardBag(router, '/bag/confirm'));
             return;
           }
-          router.push('/bag/confirm');
+          forwardBag(router, '/bag/confirm');
         }}
       />
       <ScanButton

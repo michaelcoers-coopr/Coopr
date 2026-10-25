@@ -52,8 +52,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "COOPR reads a photo you choose. A bag photo stays on this phone. Add from photos sends that picture to the COOPR extract server, only to read the club details, when a server is set.",
-          "cameraPermission": "COOPR uses the camera for a club or a scorecard. A bag photo stays on this phone. A scorecard photo is sent to the COOPR extract server, only to read the club details, when a server is set."
+          "photosPermission": "COOPR reads a photo you choose. A bag photo stays on this phone. Add from photos sends that picture to the COOPR extract server to read the club details, shots, scores, or distances in the photo, when a server is set.",
+          "cameraPermission": "COOPR uses the camera for a club or a scorecard. A bag photo stays on this phone. A club or scorecard photo is sent to the COOPR extract server to read the club details, shots, scores, or distances in the photo, when a server is set."
         }
       ],
       [

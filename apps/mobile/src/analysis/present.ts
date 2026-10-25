@@ -59,7 +59,7 @@ function blank(insight: Insight<unknown>, eyebrow: string): AnalysisPanel {
   };
 }
 
-export function presentAnalysis(analysis: Analysis): AnalysisPanel[] {
+export function presentAnalysis(analysis: Analysis, view?: { unloggedPenalties?: boolean }): AnalysisPanel[] {
   const fix = analysis.oneFix;
   const home = blank(fix, '1 · ANALYSIS');
   if (fix.status === 'ready' && fix.value?.fix) {
@@ -82,11 +82,14 @@ export function presentAnalysis(analysis: Analysis): AnalysisPanel[] {
     const top = ledger.value.items[0];
     loss.figure = figureOf('ready', top?.strokesPer18);
     loss.unit = 'STROKES / ROUND';
-    loss.rows = ledger.value.items.map((item) => ({
-      label: item.label,
-      detail: String(item.strokesPer18),
-      tone: item.strokesPer18 > 0 ? 'loss' : item.strokesPer18 < 0 ? 'gain' : 'neutral',
-    }));
+    loss.rows = ledger.value.items.map((item) => {
+      const unlogged = view?.unloggedPenalties === true && item.id === 'penalties';
+      return {
+        label: item.label,
+        detail: unlogged ? 'Not logged' : String(item.strokesPer18),
+        tone: unlogged ? 'neutral' : item.strokesPer18 > 0 ? 'loss' : item.strokesPer18 < 0 ? 'gain' : 'neutral',
+      };
+    });
     if (top && top.strokesPer18 > 0) loss.action = `Next round, start with ${top.label}.`;
   }
 
@@ -190,6 +193,7 @@ export function shareText(panel: AnalysisPanel): string | null {
   if (panel.figure == null && !panel.take && panel.rows.length === 0) return null;
   const lines = [panel.title];
   if (panel.sample) lines.push('SAMPLE');
+  if (panel.confidence) lines.push(panel.confidence);
   if (panel.headline) lines.push(panel.headline);
   if (panel.figure != null) lines.push([panel.figure, panel.unit].filter(Boolean).join(' '));
   if (panel.take) lines.push(panel.take);

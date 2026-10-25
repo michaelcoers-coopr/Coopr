@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { forwardBag, returnToBag } from '../../src/bag-scan/bag-nav';
 import { VERDICT_LABEL } from '../../src/bag-scan/copy';
 import { canConfirmDraft } from '../../src/bag-scan/logic';
 import { ClubPicture } from '../../src/bag-scan/picture';
@@ -14,7 +15,7 @@ export default function ClubCardScreen() {
     return (
       <ScanScreen title="Club card" backTo="/bag">
         <Body>That club is not on this phone.</Body>
-        <ScanButton label="BACK TO BAG" tone="ghost" onPress={() => router.replace('/bag')} />
+        <ScanButton label="BACK TO BAG" tone="ghost" onPress={() => returnToBag(router)} />
       </ScanScreen>
     );
   }
@@ -40,7 +41,7 @@ export default function ClubCardScreen() {
                     if (saved) scanState.editClub(saved);
                   }
                   scanState.setStep('face');
-                  router.push('/bag/add');
+                  forwardBag(router, '/bag/add');
                 }
           }
         />
@@ -85,7 +86,7 @@ export default function ClubCardScreen() {
             }
             scanState.saveDraft(club.fitAck);
             scanState.setNotice(null);
-            router.replace('/bag');
+            returnToBag(router);
           }}
         />
       ) : null}
@@ -106,7 +107,7 @@ export default function ClubCardScreen() {
           onPress={() => {
             const match = scanState.clubs.find((item) => item.id === club.id);
             if (match) scanState.editClub(match);
-            router.push('/bag/details');
+            forwardBag(router, '/bag/details');
           }}
         />
       ) : null}
@@ -116,7 +117,7 @@ export default function ClubCardScreen() {
           tone="ghost"
           onPress={() => {
             scanState.removeClub(club.id);
-            router.replace('/bag');
+            returnToBag(router);
           }}
         />
       ) : null}

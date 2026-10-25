@@ -108,7 +108,7 @@ describe('sample-size gating and the null rule', () => {
     assert.equal(l.status, 'needs_more');
     assert.equal(l.n, 36);
     assert.equal(l.nNeeded, 54);
-    assert.equal(l.invitation, 'Needs 1 more round with strokes, putts and penalties logged on every hole.');
+    assert.equal(l.invitation, 'Needs 1 more round.');
   });
   test('holes with null putts are skipped, not zeroed', () => {
     const rs = seasonRounds.slice(0, 3).map((r, i) => (i === 0 ? { ...r, holes: r.holes.map((h) => ({ ...h, putts: null })) } : r));

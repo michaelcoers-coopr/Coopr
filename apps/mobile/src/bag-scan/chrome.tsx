@@ -28,7 +28,16 @@ export function ScanScreen({ title, children, backTo }: { title: string; childre
           headerTitleStyle: { fontWeight: '800', color: scan.white },
           contentStyle: { backgroundColor: scan.navy },
           headerLeft: () => (
-            <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => (backTo ? router.replace(backTo) : router.back())} style={styles.back}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+              onPress={() => {
+                // backTo names the screen already under this one. Pop. Replacing it would stack another copy.
+                if (backTo) router.back();
+                else router.back();
+              }}
+              style={styles.back}
+            >
               <Text style={styles.backMark}>‹</Text>
             </Pressable>
           ),

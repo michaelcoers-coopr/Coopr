@@ -17,6 +17,7 @@ import {
   type WedgeLength,
 } from '@coopr/engine';
 import { analyze } from '@coopr/analysis';
+import { calendarDate } from '@coopr/games';
 import { loadHighCedarsPilot } from '@coopr/course';
 import { loadFounderDataset, profilesFromFounder } from '@coopr/seed';
 import { archiveRound, readArchive, readLastFix, writeLastFix } from './analysis/archive';
@@ -693,7 +694,7 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
           holes,
           putts,
           penalties,
-          playedOn: new Date().toISOString().slice(0, 10),
+          playedOn: calendarDate(new Date()),
           courseName: analysisCourse.record.name,
           card: analysisCourse.record.scorecard.map((hole) => ({
             holeNumber: hole.holeNumber,

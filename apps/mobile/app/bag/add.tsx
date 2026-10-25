@@ -1,6 +1,7 @@
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
+import { forwardBag } from '../../src/bag-scan/bag-nav';
 import { CAMERA_WEB, ON_PHONE, PHOTOS_STAY } from '../../src/bag-scan/copy';
 import { Body, Panel, ScanButton, ScanChoice, ScanScreen, scan } from '../../src/bag-scan/chrome';
 import { useBagScan } from '../../src/bag-scan/session';
@@ -36,7 +37,7 @@ export default function AddClubScreen() {
           : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
       if (result.canceled || !result.assets[0]?.uri) return;
       attachPhoto(result.assets[0].uri, draft.step);
-      router.push('/bag/scan');
+      forwardBag(router, '/bag/scan');
     } catch {
       setCameraNote(kind === 'camera' ? CAMERA_WEB : 'The photo could not be opened. Type the club instead.');
     }
@@ -64,7 +65,7 @@ export default function AddClubScreen() {
       <ScanButton
         label="TYPE IT"
         tone="ghost"
-        onPress={() => router.push('/bag/details')}
+        onPress={() => forwardBag(router, '/bag/details')}
       />
     </ScanScreen>
   );

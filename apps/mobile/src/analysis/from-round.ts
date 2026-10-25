@@ -82,6 +82,11 @@ export function openRound(input: OpenRoundInput): StoredRound | null {
   return { id: 'open', playedOn: input.playedOn, courseName: input.courseName, holes };
 }
 
+/** True when a scored hole left penalties blank. Analysis may still treat that blank as zero. */
+export function penaltiesUnlogged(rounds: readonly StoredRound[]): boolean {
+  return rounds.some((round) => round.holes.some((hole) => hole.strokes != null && hole.penalties == null));
+}
+
 export function toEngine(rounds: readonly StoredRound[], shots: readonly StoredShot[]): { rounds: RoundInput[]; shots: ShotInput[] } {
   return {
     rounds: rounds.map((round) => ({

@@ -239,7 +239,8 @@ describe('bag scan', () => {
     expect(hold).toContain('color: scan.white');
     expect(card).toContain("router.push('/bag/hold')");
     expect(read('../app/bag/index.tsx')).toContain('No clubs in the bag yet. Nothing was filled in for you.');
-    expect(read('../app.json')).toContain('extract server, only to read the club details');
+    expect(read('../app.json')).toContain('club details, shots, scores, or distances in the photo');
+    expect(read('../app.json')).not.toContain('only to read the club details');
     expect(read('../app.json')).not.toContain('Nothing is uploaded.');
   });
 });

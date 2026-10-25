@@ -6,14 +6,22 @@ import { describe, expect, it } from 'vitest';
 import { analyze, DEFAULT_CONFIG, scoringByHoleType } from '@coopr/analysis';
 import type { HoleInput, RoundInput } from '@coopr/analysis';
 import { colors, signal } from '@coopr/tokens';
-import { toEngine, type StoredRound } from '../src/analysis/from-round';
+import { calendarDate } from '@coopr/games';
+import { penaltiesUnlogged, toEngine, type StoredRound } from '../src/analysis/from-round';
 import { homeRoundSummary } from '../src/analysis/home-rounds';
-import { NEEDS_MORE_LINE, presentAnalysis, shareText, showsNeedsMore } from '../src/analysis/present';
+import { NEEDS_MORE_LINE, presentAnalysis, shareText, showsNeedsMore, type AnalysisPanel } from '../src/analysis/present';
 import { sampleBundle } from '../src/analysis/sample-season';
+import { reduceBagStack, type BagStackOp } from '../src/bag-scan/bag-nav';
+import { EXTRACT_READS } from '../src/bag-scan/copy';
 import { bagSubscriptionUpdate } from '../src/device/bag-sync';
-import { clearHeldDraft, leaveDraftForShots, readHeldDraft, readPlayNote, SHOTS_FIRST_NOTE } from '../src/bag-scan/play-note';
+import { clearHeldDraft, dismissPlayNote, leaveDraftForShots, readHeldDraft, readPlayNote, SHOTS_FIRST_NOTE } from '../src/bag-scan/play-note';
 import { blankDraft } from '../src/bag-scan/types';
+import { readStoredFix } from '../src/gps-fix';
 import { readPlayWebFlags } from '../src/play-web-flags';
+import { hasWebStorage, readRoundSync, writeRound } from '../src/round-save-io';
+import type { RoundSave } from '../src/round-save';
+import { readTalkPreview } from '../src/talk-preview';
+import { webStore } from '../src/web-storage';
 
 const require = createRequire(import.meta.url);
 const here = dirname(fileURLToPath(import.meta.url));
@@ -31,6 +39,26 @@ function contrast(front: string, back: string): number {
   const lighter = Math.max(lum(front), lum(back));
   const darker = Math.min(lum(front), lum(back));
   return (lighter + 0.05) / (darker + 0.05);
+}
+
+function sharePanel(confidence: string): AnalysisPanel {
+  return {
+    id: 'share',
+    eyebrow: '6 · SHARE',
+    title: 'Share',
+    status: 'ready',
+    sample: false,
+    confidence,
+    figure: '1.2',
+    unit: 'STROKES / ROUND',
+    headline: null,
+    invitation: null,
+    take: 'A read',
+    action: null,
+    caveat: null,
+    fixId: null,
+    rows: [],
+  };
 }
 
 function playedRound(id: string, strokes: number, putts: number | null, penalties: number | null): StoredRound {
@@ -62,10 +90,15 @@ describe('rest of PR 5', () => {
     expect(summary.kept).toBe(4);
     expect(summary.last?.gross).toBe(18 * 4);
     expect(summary.handicap).toMatch(/Last 3 rounds/);
-    expect(summary.handicap).toMatch(/Not an official handicap/);
+    expect(summary.disclaimer).toBe('Not an official handicap.');
+    expect(summary.handicap).not.toMatch(/Not an official handicap/);
     expect(summary.handicap).not.toBe('Play 3 rounds to see your handicap trend');
-    expect(summary.trend).toBeTruthy();
+    expect(summary.trend).toBe('avg +6 to par');
+    expect(empty.disclaimer).toBeNull();
     const home = read('../app/index.tsx');
+    expect(home).toContain('LAST 3 TO PAR');
+    expect(home).toContain('tileDisclaimer');
+    expect(home).not.toContain('>HANDICAP<');
     expect(home).toContain('homeRoundSummary');
     expect(home).toContain('readArchive');
     expect(home).toContain('No rounds yet. Your first one lands here.');
@@ -80,6 +113,10 @@ describe('rest of PR 5', () => {
     expect(short.find((panel) => panel.id === 'one_fix')?.status).toBe('needs_more');
     expect(short.find((panel) => panel.id === 'one_fix')?.invitation).toMatch(/Needs/);
     expect(short.find((panel) => panel.id === 'one_fix')?.invitation).not.toMatch(/log putts and penalties/);
+    expect(short.find((panel) => panel.id === 'one_fix')?.invitation).not.toMatch(/penalties logged/);
+    expect(short.find((panel) => panel.id === 'loss_ledger')?.invitation).not.toMatch(/penalties logged/);
+    expect(penaltiesUnlogged([playedRound('r1', 5, 2, null)])).toBe(true);
+    expect(penaltiesUnlogged([playedRound('r1', 5, 2, 0)])).toBe(false);
     const missingPutts = toEngine([playedRound('r1', 5, null, null)], []);
     expect(missingPutts.rounds[0]?.holes[0]?.putts).toBeNull();
     const withheld = presentAnalysis(analyze({ rounds: missingPutts.rounds, shots: [] }));
@@ -92,6 +129,9 @@ describe('rest of PR 5', () => {
     expect(panels.find((panel) => panel.id === 'one_fix')?.figure).toMatch(/^\d/);
     expect(panels.find((panel) => panel.id === 'loss_ledger')?.status).toBe('ready');
     expect(panels.find((panel) => panel.id === 'loss_ledger')?.figure).toMatch(/^\d/);
+    const card = presentAnalysis(analyze({ rounds: three.rounds, shots: [] }), { unloggedPenalties: true });
+    expect(card.find((panel) => panel.id === 'loss_ledger')?.rows.find((row) => row.label === 'Penalty strokes')?.detail).toBe('Not logged');
+    expect(three.rounds[0]?.holes[0]?.penalties).toBe(0);
   });
 
   it('keeps iOS light when the splash plugin runs on the resolved config', () => {
@@ -123,17 +163,21 @@ describe('rest of PR 5', () => {
     expect(read('../app.json')).not.toMatch(/"dark"\s*:/);
   });
 
-  it('says a photo sent for extraction is used only to read club details', () => {
+  it('says a photo sent for extraction is read for club details, shots, scores, or distances', () => {
     const config = read('../app.json');
-    expect(config).toContain('only to read the club details');
+    expect(config).toContain(EXTRACT_READS);
+    expect(config).not.toContain('only to read the club details');
     expect(config).not.toContain('Nothing is uploaded');
     const copy = read('../src/bag-scan/copy.ts');
     expect(copy).toContain('extract server');
+    expect(copy).toContain(EXTRACT_READS);
     expect(copy).not.toContain('Nothing is uploaded');
     const privacy = read('../app/privacy.tsx');
     expect(privacy).toContain('DRAFT for lawyer review');
     expect(privacy).toContain('lawyer-reviewed privacy policy');
-    expect(privacy).toContain('only to read the club details');
+    expect(privacy).toContain(EXTRACT_READS);
+    expect(privacy).toContain('not only club details');
+    expect(privacy).not.toContain('only to read the club details');
   });
 
   it('clears a live bag when the last club is deleted and leaves founder seed alone', () => {
@@ -153,6 +197,17 @@ describe('rest of PR 5', () => {
     leaveDraftForShots(draft);
     expect(readHeldDraft()?.brand).toBe('Ping');
     expect(readPlayNote()).toBe(SHOTS_FIRST_NOTE);
+    dismissPlayNote();
+    expect(readPlayNote()).toBeNull();
+    expect(readHeldDraft()?.brand).toBe('Ping');
+    leaveDraftForShots(draft);
+    const play = read('../app/play.tsx');
+    expect(play).not.toContain('insets.top + 168');
+    expect(play).toContain('Dismiss note');
+    expect(play).toContain('dismissPlayNote');
+    expect(play).not.toMatch(/draftBanner: \{[^}]*position: 'absolute'/);
+    expect(play).toMatch(/holePillFill: \{[^}]*gap: 8/);
+    expect(play).toContain('pillPair: { flexDirection: \'row\', alignItems: \'center\', gap: 6 }');
     const hold = read('../app/bag/hold.tsx');
     expect(hold).toContain('leaveDraftForShots');
     expect(hold.slice(hold.indexOf('LOG SHOTS FIRST'))).not.toContain('saveDraft');
@@ -206,6 +261,10 @@ describe('rest of PR 5', () => {
       holes,
     };
     const scoring = scoringByHoleType([round], DEFAULT_CONFIG);
+    const labels = scoring.value?.buckets.map((bucket) => bucket.label) ?? [];
+    expect(labels).toContain('Par 3 under');
+    expect(labels).toContain('Par 3 over');
+    expect(labels.some((label) => /Par 3 under \d/.test(label) || /Par 3 over \d/.test(label))).toBe(false);
     expect(scoring.value?.worst).toBe(scoring.value?.best);
     expect(scoring.take).toMatch(/One bucket so far/);
     expect(scoring.take).not.toMatch(/Best:/);
@@ -218,7 +277,8 @@ describe('rest of PR 5', () => {
     expect(ledger?.action).toMatch(/^Next round, start with /);
     expect(read('../../../packages/analysis/src/shots.ts')).not.toContain('Tap the gap');
     const screen = read('../app/analysis.tsx');
-    expect(screen).toContain('numberOfLines={1}');
+    expect(screen).toContain('numberOfLines={2}');
+    expect(screen).not.toContain('numberOfLines={1}');
     expect(screen).toContain('Share these facts');
     expect(screen).toContain('showsNeedsMore');
     const sample = presentAnalysis(analyze(sampleBundle()));
@@ -230,6 +290,8 @@ describe('rest of PR 5', () => {
     const text = share ? shareText(share) : null;
     expect(text).toBeTruthy();
     expect(text).not.toContain(NEEDS_MORE_LINE);
+    const early = shareText(sharePanel('Early read'));
+    expect(early).toContain('Early read');
     expect(screen).toContain('Share.share');
   });
 
@@ -237,7 +299,8 @@ describe('rest of PR 5', () => {
     const home = read('../app/index.tsx');
     expect(home).toContain('requestTalk');
     expect(home).not.toContain('sampleTalkReply');
-    expect(home).toContain("reply.mode === 'sample' && founderTools");
+    expect(home).toContain("setAskSample(reply.mode === 'sample')");
+    expect(home).not.toContain("reply.mode === 'sample' && founderTools");
     expect(home).toContain('cardLine:');
     const privacy = read('../app/privacy.tsx');
     expect(privacy).toContain('selected club');
@@ -248,5 +311,98 @@ describe('rest of PR 5', () => {
     expect(readPlayWebFlags({ getItem: () => { throw new Error('denied'); } })).toEqual({ sample: false, scrub: null });
     expect(readPlayWebFlags({ getItem: (key) => (key === 'coopr.sample.signature' ? '1' : '4') })).toEqual({ sample: true, scrub: 4 });
     expect(read('../app/play.tsx')).toContain('readPlayWebFlags');
+  });
+
+  it('stores an archived round on the local calendar date', () => {
+    expect(calendarDate(new Date('2026-10-25T04:41:00.000Z'), 'America/Los_Angeles')).toBe('2026-10-24');
+    const store = read('../src/local-store.tsx');
+    expect(store).toContain('calendarDate(new Date())');
+    expect(store).not.toContain('toISOString().slice(0, 10)');
+    expect(read('../app/analysis.tsx')).toContain('calendarDate(new Date())');
+  });
+
+  it('returns to the bag without stacking the add flow again', () => {
+    const typeIt: BagStackOp[] = [
+      { kind: 'push', href: '/bag' },
+      { kind: 'push', href: '/bag/add' },
+      { kind: 'replace', href: '/bag/details' },
+      { kind: 'replace', href: '/bag/card' },
+      { kind: 'back' },
+    ];
+    expect(typeIt.reduce(reduceBagStack, ['/'])).toEqual(['/', '/bag']);
+    const photo: BagStackOp[] = [
+      { kind: 'push', href: '/bag' },
+      { kind: 'push', href: '/bag/add' },
+      { kind: 'replace', href: '/bag/scan' },
+      { kind: 'replace', href: '/bag/confirm' },
+      { kind: 'replace', href: '/bag/card' },
+      { kind: 'back' },
+    ];
+    expect(photo.reduce(reduceBagStack, ['/'])).toEqual(['/', '/bag']);
+    const kept: BagStackOp[] = [
+      { kind: 'push', href: '/bag' },
+      { kind: 'push', href: '/bag/card' },
+      { kind: 'push', href: '/bag/hold' },
+      { kind: 'dismiss', count: 2 },
+    ];
+    expect(kept.reduce(reduceBagStack, ['/'])).toEqual(['/', '/bag']);
+    expect(read('../app/bag/add.tsx')).toContain("forwardBag(router, '/bag/scan')");
+    expect(read('../app/bag/add.tsx')).not.toContain("router.push('/bag/scan')");
+    expect(read('../app/bag/confirm.tsx')).toContain("forwardBag(router, '/bag/card')");
+    expect(read('../app/bag/confirm.tsx')).not.toContain("router.push('/bag/card')");
+    expect(read('../app/bag/card.tsx')).toContain('returnToBag(router)');
+    expect(read('../app/bag/card.tsx')).not.toContain("router.replace('/bag')");
+    expect(read('../app/bag/card.tsx')).not.toContain("router.push('/bag/add')");
+  });
+
+  it('guards gps, talk preview, and round save when storage throws', async () => {
+    expect(readTalkPreview({ getItem() { throw new Error('denied'); } })).toBeNull();
+    const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    const restore = () => {
+      if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+      else Reflect.deleteProperty(globalThis, 'localStorage');
+    };
+    try {
+      Object.defineProperty(globalThis, 'localStorage', {
+        configurable: true,
+        get() {
+          throw new Error('denied');
+        },
+      });
+      expect(webStore()).toBeNull();
+      expect(readStoredFix()).toBeNull();
+      expect(hasWebStorage()).toBe(false);
+      expect(readRoundSync()).toBeNull();
+      expect(readTalkPreview(webStore())).toBeNull();
+      Object.defineProperty(globalThis, 'localStorage', {
+        configurable: true,
+        value: {
+          getItem() {
+            throw new Error('denied');
+          },
+          setItem() {
+            throw new Error('denied');
+          },
+          removeItem() {},
+          clear() {},
+          key() {
+            return null;
+          },
+          length: 0,
+        },
+      });
+      expect(readStoredFix()).toBeNull();
+      expect(readRoundSync()).toBeNull();
+      expect(readTalkPreview(webStore())).toBeNull();
+      await writeRound({} as RoundSave);
+    } finally {
+      restore();
+    }
+    expect(read('../src/gps-fix.ts')).not.toContain('localStorage');
+    expect(read('../src/talk-overlay.tsx')).not.toContain('localStorage');
+    expect(read('../src/round-save-io.ts')).not.toContain('localStorage');
+    expect(read('../src/talk-overlay.tsx')).toContain('readTalkPreview');
+    expect(read('../src/gps-fix.ts')).toContain('webStore');
+    expect(read('../src/round-save-io.ts')).toContain('webStore');
   });
 });

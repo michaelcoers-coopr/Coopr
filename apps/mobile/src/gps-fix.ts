@@ -1,12 +1,12 @@
 import type { LatLon } from '@coopr/domain';
+import { webStore } from './web-storage';
 
 /** Desk rounds write a preset name or a lat/lon here. The phone ignores it. */
 export const GPS_SIM_KEY = 'coopr.gps.sim';
 
 export function readStoredFix(): LatLon | 'tee' | 'approach' | 'green' | null {
   try {
-    if (typeof localStorage === 'undefined') return null;
-    const raw = localStorage.getItem(GPS_SIM_KEY);
+    const raw = webStore()?.getItem(GPS_SIM_KEY) ?? null;
     if (!raw) return null;
     if (raw === 'tee' || raw === 'approach' || raw === 'green') return raw;
     const parsed = JSON.parse(raw) as { lat?: unknown; lon?: unknown };

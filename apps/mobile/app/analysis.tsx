@@ -3,12 +3,13 @@ import { Pressable, ScrollView, Share, StyleSheet, Text, View, useWindowDimensio
 import { router, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { analyze } from '@coopr/analysis';
+import { calendarDate } from '@coopr/games';
 import { signal } from '@coopr/tokens';
 import { loadHighCedarsPilot } from '@coopr/course';
 import { useDisplayFace } from '../src/design/display-font';
 import { useLocalStore } from '../src/local-store';
 import { readArchive, readLastFix } from '../src/analysis/archive';
-import { openRound, storedShots, toEngine, type StoredRound } from '../src/analysis/from-round';
+import { openRound, penaltiesUnlogged, storedShots, toEngine, type StoredRound } from '../src/analysis/from-round';
 import { NEEDS_MORE_LINE, presentAnalysis, shareText, showsNeedsMore, type AnalysisPanel } from '../src/analysis/present';
 import { sampleBundle } from '../src/analysis/sample-season';
 
@@ -26,7 +27,7 @@ function cardOf() {
 }
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return calendarDate(new Date());
 }
 
 export default function AnalysisScreen() {
@@ -53,7 +54,9 @@ export default function AnalysisScreen() {
     const finished = readArchive().filter((round) => round.id !== 'open');
     const rounds: StoredRound[] = open ? [...finished, open] : finished;
     const engine = toEngine(rounds, storedShots(shots));
-    return presentAnalysis(analyze({ rounds: engine.rounds, shots: engine.shots, lastFix: readLastFix() }));
+    return presentAnalysis(analyze({ rounds: engine.rounds, shots: engine.shots, lastFix: readLastFix() }), {
+      unloggedPenalties: penaltiesUnlogged(rounds),
+    });
   }, [holes, penalties, putts, sample, sampleOn, shots]);
 
   return (
@@ -120,7 +123,7 @@ function Panel({ panel, display }: { panel: AnalysisPanel; display: string }) {
       {panel.action ? <Text style={styles.action}>{panel.action}</Text> : null}
       {panel.rows.map((row) => (
         <View key={`${row.label}-${row.detail}`} style={styles.row}>
-          <Text style={styles.rowLabel} numberOfLines={1}>{row.label}</Text>
+          <Text style={styles.rowLabel} numberOfLines={2}>{row.label}</Text>
           <Text style={[styles.rowDetail, { fontFamily: display, color: row.tone === 'loss' ? '#C8102E' : row.tone === 'gain' ? LIME : '#FFFFFF' }]}>
             {row.detail}
           </Text>

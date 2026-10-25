@@ -13,6 +13,7 @@ import { holdBody, sameFlexIrons, shaftNudge } from '../../src/bag-scan/logic';
 import { ClubPicture } from '../../src/bag-scan/picture';
 import { shownForFocus } from '../../src/bag-scan/resolve';
 import { Body, Panel, ScanButton, ScanScreen, scan } from '../../src/bag-scan/chrome';
+import { returnFromHold } from '../../src/bag-scan/bag-nav';
 import { leaveDraftForShots } from '../../src/bag-scan/play-note';
 import { useBagScan } from '../../src/bag-scan/session';
 
@@ -74,7 +75,7 @@ export default function HoldScreen() {
           }
           state.saveDraft('kept_anyway');
           state.setNotice('Kept anyway. The verdict stays on the card.');
-          router.replace('/bag');
+          returnFromHold(router);
         }}
       />
       <ScanButton
