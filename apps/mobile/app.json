@@ -32,19 +32,12 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
+      "expo-updates",
       [
         "expo-speech-recognition",
         {
           "microphonePermission": "COOPR listens while you hold Ask, or while hands-free is on. On this iPhone, speech is turned into text on the device and the audio is not kept.",
           "speechRecognitionPermission": "COOPR turns your question into text on this iPhone. The audio is not kept."
-        }
-      ],
-      [
-        "expo-audio",
-        {
-          "microphonePermission": "COOPR listens while you hold Ask, or while hands-free is on. On this iPhone, speech is turned into text on the device and the audio is not kept.",
-          "enableBackgroundPlayback": false,
-          "enableBackgroundRecording": false
         }
       ],
       [

@@ -34,7 +34,8 @@ describe('Expo Go preview and TestFlight profile', () => {
     expect(mobilePackage.dependencies['expo-sqlite']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-router']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-image-picker']).toMatch(/^~58\./);
-    expect(mobilePackage.dependencies['expo-audio']).toMatch(/^~58\./);
+    expect(mobilePackage.dependencies['expo-audio']).toBeUndefined();
+    expect(mobilePackage.dependencies['expo-updates']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-speech']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-haptics']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['react-native-maps']).toBeTruthy();

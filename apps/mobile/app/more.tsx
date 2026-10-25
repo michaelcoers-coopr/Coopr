@@ -50,7 +50,7 @@ export default function MoreScreen() {
         <Choice label={talk.handsFree ? 'Hands-free is on' : 'Hands-free is off'} selected={talk.handsFree} onPress={() => talk.setHandsFree(!talk.handsFree)} />
         <Choice label={talk.callouts ? 'Callouts are on' : 'Callouts are off'} selected={talk.callouts} onPress={() => talk.setCallouts(!talk.callouts)} />
       </Card>
-      <Button label="Course quality" tone="ghost" onPress={() => router.push('/course')} />
+      {founderTools ? <Button label="Course quality" tone="ghost" onPress={() => router.push('/course')} /> : null}
       <Button
         label={conditions.usePlaysLike ? 'Plays-like is on' : 'Plays-like is off'}
         tone="ghost"

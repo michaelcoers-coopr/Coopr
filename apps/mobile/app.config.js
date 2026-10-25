@@ -18,7 +18,7 @@ module.exports = ({ config }) => {
 
   // Screenshot exports set COOPR_WEB_STATIC=1 so `expo export -p web` writes
   // files a static server can host. EAS Hosting stays on `server` (app.json)
-  // for the voice and extract routes.
+  // for the caddie and extract routes.
   const web =
     process.env.COOPR_WEB_STATIC === '1' ? { ...(config.web ?? {}), output: 'static' } : config.web;
 

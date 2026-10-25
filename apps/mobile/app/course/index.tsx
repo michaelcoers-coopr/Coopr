@@ -1,13 +1,23 @@
 import { router } from 'expo-router';
 import { loadHighCedarsPilot } from '@coopr/course';
 import { AERIAL_CREDIT } from '../../src/aerial/project';
+import { useLocalStore } from '../../src/local-store';
 import { Button, Card, Muted, Screen, Title } from '../../src/ui';
 
 const pilot = loadHighCedarsPilot();
 
 export default function CourseIndex() {
+  const { founderTools } = useLocalStore();
   const withGreen = pilot.quality.filter((hole) => hole.greenPolygons === 1).length;
   const derivable = pilot.quality.filter((hole) => hole.frontCenterBackDerivable).length;
+  if (!founderTools) {
+    return (
+      <Screen>
+        <Title>Course quality</Title>
+        <Muted>This screen is not in this build.</Muted>
+      </Screen>
+    );
+  }
   return (
     <Screen>
       <Title>High Cedars</Title>

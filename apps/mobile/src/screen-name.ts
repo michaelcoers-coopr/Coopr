@@ -1,8 +1,8 @@
-const SKIP = new Set(['feedback', 'privacy']);
+const SKIP = new Set(['feedback', 'privacy', 'more']);
 
 let remembered = 'Home';
 
-/** The last screen that is not Feedback or Privacy. */
+/** The last screen that is not More, Feedback, or Privacy. */
 export function rememberScreen(name: string): void {
   const trimmed = name.trim();
   if (!trimmed || SKIP.has(trimmed.toLowerCase())) return;

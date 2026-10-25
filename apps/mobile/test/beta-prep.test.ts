@@ -45,15 +45,13 @@ describe('beta profile and permission strings', () => {
     expect(app.expo.icon).toBe('./assets/brand/icon.png');
     const plugins = app.expo.plugins;
     const speech = plugins.find((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-speech-recognition') as [string, Record<string, string>];
-    const audio = plugins.find((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-audio') as [string, Record<string, unknown>];
     const location = plugins.find((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-location') as [string, Record<string, unknown>];
     expect(speech[1].microphonePermission).toBe(
       'COOPR listens while you hold Ask, or while hands-free is on. On this iPhone, speech is turned into text on the device and the audio is not kept.',
     );
     expect(speech[1].speechRecognitionPermission).toBe('COOPR turns your question into text on this iPhone. The audio is not kept.');
-    expect(audio[1].microphonePermission).toBe(speech[1].microphonePermission);
-    expect(audio[1].enableBackgroundPlayback).toBe(false);
-    expect(audio[1].enableBackgroundRecording).toBe(false);
+    expect(plugins.some((plugin) => plugin === 'expo-audio' || (Array.isArray(plugin) && plugin[0] === 'expo-audio'))).toBe(false);
+    expect(plugins).toContain('expo-updates');
     expect(location[1].locationWhenInUsePermission).toBe(
       'COOPR uses your location while the app is open to show your distance to the green. Your position is not saved as a shot.',
     );
@@ -78,6 +76,9 @@ describe('on-device voice and labeled samples', () => {
     expect(ask).not.toContain('/v1/voice');
     expect(ask).toContain('onAsk?.()');
     expect(existsSync(join(here, '../src/voice-client.ts'))).toBe(false);
+    expect(existsSync(join(here, '../src/voice-host.ts'))).toBe(false);
+    expect(existsSync(join(here, '../app/v1/voice+api.ts'))).toBe(false);
+    expect(existsSync(join(here, '../../../packages/engine/src/voice-http.ts'))).toBe(false);
   });
 
   it('uses the hosted origin and labels a sample when that origin is unset', async () => {
@@ -130,7 +131,9 @@ describe('on-device voice and labeled samples', () => {
 describe('feedback, privacy, and a founder-off first run', () => {
   it('shows the note before mail and leaves out location', () => {
     rememberScreen('play');
+    rememberScreen('more');
     rememberScreen('feedback');
+    rememberScreen('privacy');
     expect(rememberedScreen()).toBe('play');
     const body = feedbackBody({
       category: 'Wrong data',
@@ -160,10 +163,23 @@ describe('feedback, privacy, and a founder-off first run', () => {
     expect(privacy).toContain('Open-Meteo');
     expect(privacy).toContain('on the device');
     expect(privacy).toContain('stay on this phone');
+    expect(privacy).toContain('transcript');
+    expect(privacy).toContain('distance profiles');
+    expect(privacy).toContain('prior conversation turns');
+    expect(privacy).toContain('OpenAI');
+    expect(privacy).toContain('green centre');
+    expect(privacy).toContain('IP address');
+    expect(privacy).toContain('https://api.openai.com/v1');
     const more = read('../app/more.tsx');
     const home = read('../app/index.tsx');
+    const importer = read('../app/import.tsx');
+    const course = read('../app/course/index.tsx');
     expect(more).toContain("router.push('/feedback')");
     expect(more).toContain("router.push('/privacy')");
+    expect(more).toContain('founderTools ? <Button label="Course quality"');
+    expect(importer).toContain('founderTools ? <Button label="Review a sample extraction"');
+    expect(course).toContain('This screen is not in this build.');
+    expect(course.indexOf('!founderTools')).toBeLessThan(course.indexOf('admin-verified'));
     expect(home).toContain("router.push('/more')");
   });
 
