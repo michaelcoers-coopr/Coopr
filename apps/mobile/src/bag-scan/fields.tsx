@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { BUILD_CHOICES, CATALOG_LINE, FLEX_CHOICES, TYPE_CHOICES } from './copy';
-import { parseOptionalNumber } from './logic';
+import { loftProblem, parseOptionalNumber } from './logic';
 import { Body, Field, ScanChoice, scan } from './chrome';
 import type { ScanDraft } from './types';
 
@@ -8,8 +8,11 @@ export function ClubFields({ draft, patch }: { draft: ScanDraft; patch: (partial
   const loft = parseOptionalNumber(draft.loftText);
   const step = (delta: number) => {
     if (loft == null) return;
-    patch({ loftText: String(Math.round((loft + delta) * 10) / 10) });
+    const next = Math.round((loft + delta) * 10) / 10;
+    if (loftProblem(String(next))) return;
+    patch({ loftText: String(next) });
   };
+  const loftError = loftProblem(draft.loftText);
   return (
     <View style={styles.wrap}>
       <Body>{CATALOG_LINE}</Body>
@@ -44,7 +47,7 @@ export function ClubFields({ draft, patch }: { draft: ScanDraft; patch: (partial
         <ScanChoice label="−" selected={false} onPress={() => step(-1)} />
         <ScanChoice label="+" selected={false} onPress={() => step(1)} />
       </View>
-      {loft == null ? <Text style={styles.note}>A blank loft stays blank. The stepper waits until you type one.</Text> : null}
+      {loftError ? <Text style={styles.note}>{loftError}</Text> : loft == null ? <Text style={styles.note}>A blank loft stays blank. The stepper waits until you type one.</Text> : null}
       <Text style={styles.label}>Flex</Text>
       <View style={styles.row}>
         {FLEX_CHOICES.map((choice) => (

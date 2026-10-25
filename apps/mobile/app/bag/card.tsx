@@ -20,7 +20,8 @@ export default function ClubCardScreen() {
   }
   const { club, verdict } = shown;
   const label = VERDICT_LABEL[verdict.verdict];
-  const verdictColor = verdict.verdict === 'PROBABLY_NOT' ? scan.red : verdict.verdict === 'CANT_TELL' ? scan.muted : verdict.verdict === 'OKAY' ? scan.white : scan.lime;
+  const verdictColor = verdict.verdict === 'PROBABLY_NOT' ? scan.warn : verdict.verdict === 'CANT_TELL' ? scan.muted : verdict.verdict === 'OKAY' ? scan.white : scan.lime;
+  const needs = verdict.needs.filter((need, index) => !verdict.needs.some((other, otherIndex) => otherIndex !== index && other.toLowerCase().includes(need.toLowerCase()) && other.length > need.length));
   const ready = scanState.focus.kind === 'draft' && canConfirmDraft(scanState.draft);
   const name = [club.brand, club.model].filter(Boolean).join(' ');
   return (
@@ -49,19 +50,26 @@ export default function ClubCardScreen() {
           <Text style={styles.name}>{name || 'Name not set'}</Text>
         </View>
       </View>
-      <Panel>
-        <Fact label="Type" value={club.type} extra={club.type ? 'you picked it' : null} />
-        <Fact label="Iron type" value={club.ironBuild} extra={club.ironBuild ? 'you picked it' : null} />
-        <Fact label="Loft" value={club.loft == null ? null : `${club.loft}°`} />
-        <Fact label="Flex" value={club.flex} />
-        <Fact label="Number" value={club.clubNumber} />
-      </Panel>
+      <View style={styles.pills}>
+        {(Object.keys(VERDICT_LABEL) as (keyof typeof VERDICT_LABEL)[]).map((id) => (
+          <View key={id} style={[styles.pill, verdict.verdict === id && styles.pillOn]}>
+            <Text style={[styles.pillText, verdict.verdict === id && { color: id === 'PROBABLY_NOT' ? scan.warn : scan.white }]}>{VERDICT_LABEL[id]}</Text>
+          </View>
+        ))}
+      </View>
+      <View style={styles.tiles}>
+        <Tile label="Type" value={club.type} extra={club.type ? 'you picked it' : null} />
+        <Tile label="Iron type" value={club.ironBuild} extra={club.ironBuild ? 'you picked it' : null} />
+        <Tile label="Loft" value={club.loft == null ? null : `${club.loft}°`} />
+        <Tile label="Flex" value={club.flex} />
+        <Tile label="Number" value={club.clubNumber} />
+      </View>
       <Panel>
         <Text style={[styles.verdict, { color: verdictColor }]}>{label}</Text>
         {verdict.checks.map((check) => (
           <Text key={check.label} style={styles.check}>{`${check.label}: ${check.status}. ${check.why}`}</Text>
         ))}
-        {verdict.needs.length ? <Body>{`Still need ${verdict.needs.join('; ')}.`}</Body> : null}
+        {needs.length ? <Body>{`Still need ${needs.join('; ')}.`}</Body> : null}
         <Body>A starting point, not a fitting. Handicap is never the whole story.</Body>
         {club.fitAck === 'kept_anyway' ? <Body>You kept this club. The verdict stays on the card.</Body> : null}
       </Panel>
@@ -81,21 +89,48 @@ export default function ClubCardScreen() {
           }}
         />
       ) : null}
-      {!club.sample && scanState.focus.kind === 'saved' && verdict.verdict === 'PROBABLY_NOT' && club.fitAck !== 'kept_anyway' ? (
+      {verdict.verdict === 'PROBABLY_NOT' && club.fitAck !== 'kept_anyway' ? (
         <ScanButton label="HOLD UP A SEC" tone="ghost" onPress={() => router.push('/bag/hold')} />
       ) : null}
-      {!club.sample ? <ScanButton label="FIX DETAILS" tone="ghost" onPress={() => router.push('/bag/details')} /> : null}
+      {!club.sample && scanState.focus.kind === 'saved' ? (
+        <ScanButton
+          label={club.inPlay ? 'OUT OF PLAY' : 'IN PLAY'}
+          tone="ghost"
+          onPress={() => scanState.setInPlay(club.id, !club.inPlay)}
+        />
+      ) : null}
+      {!club.sample ? (
+        <ScanButton
+          label="FIX DETAILS"
+          tone="ghost"
+          onPress={() => {
+            const match = scanState.clubs.find((item) => item.id === club.id);
+            if (match) scanState.editClub(match);
+            router.push('/bag/details');
+          }}
+        />
+      ) : null}
+      {!club.sample && scanState.focus.kind === 'saved' ? (
+        <ScanButton
+          label="DELETE CLUB"
+          tone="ghost"
+          onPress={() => {
+            scanState.removeClub(club.id);
+            router.replace('/bag');
+          }}
+        />
+      ) : null}
     </ScanScreen>
   );
 }
 
-function Fact({ label, value, extra }: { label: string; value: string | null; extra?: string | null }) {
-  if (!value) return null;
+function Tile({ label, value, extra }: { label: string; value: string | null; extra?: string | null }) {
   return (
-    <Text style={styles.fact}>
-      {`${label}: ${value}`}
-      {extra ? ` · ${extra}` : ''}
-    </Text>
+    <View style={styles.tile}>
+      <Text style={styles.tileLabel}>{label}</Text>
+      <Text style={styles.tileValue}>{value ?? '—'}</Text>
+      {extra ? <Text style={styles.tileExtra}>{extra}</Text> : null}
+    </View>
   );
 }
 
@@ -105,5 +140,13 @@ const styles = StyleSheet.create({
   name: { color: scan.white, fontSize: 18, fontWeight: '700' },
   verdict: { color: scan.lime, fontSize: 28, fontWeight: '800' },
   check: { color: scan.white, fontSize: 15, lineHeight: 21 },
-  fact: { color: scan.white, fontSize: 16 },
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pill: { borderRadius: 999, borderWidth: 1, borderColor: scan.line, paddingHorizontal: 10, paddingVertical: 8, minHeight: 44, justifyContent: 'center' },
+  pillOn: { borderColor: scan.lime, backgroundColor: '#14301F' },
+  pillText: { color: scan.muted, fontSize: 12, fontWeight: '800' },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tile: { width: '47%', backgroundColor: scan.card, borderRadius: 16, borderWidth: 1, borderColor: scan.line, padding: 12, gap: 4 },
+  tileLabel: { color: scan.muted, fontSize: 12, fontWeight: '700' },
+  tileValue: { color: scan.white, fontSize: 18, fontWeight: '800' },
+  tileExtra: { color: scan.lime, fontSize: 12, fontWeight: '700' },
 });

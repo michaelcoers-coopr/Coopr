@@ -19,7 +19,7 @@ export const COMMISSION_BLIND =
 export const NOT_A_FITTING = 'COOPR is a smart starting point, not a launch monitor.';
 export const AI_ATTRIBUTION =
   'Club pictures marked AI RENDER are generated illustrations of a generic club type, not photographs of any product. Brand and model names belong to their owners and are used only to describe the clubs you own. COOPR is not affiliated with any golf equipment maker.';
-export const EMPTY_BAG = 'No clubs in the bag yet. Add one in Setup. Nothing was filled in for you.';
+export const EMPTY_BAG = 'No clubs in the bag yet. Nothing was filled in for you.';
 
 export const VERDICT_LABEL = {
   GOOD: 'Good fit',

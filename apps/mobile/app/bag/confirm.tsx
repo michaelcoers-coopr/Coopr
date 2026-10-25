@@ -7,13 +7,15 @@ import { Body, ScanButton, ScanScreen, scan } from '../../src/bag-scan/chrome';
 import { useBagScan } from '../../src/bag-scan/session';
 
 export default function ConfirmScreen() {
-  const { draft, patch, read, clearPhoto } = useBagScan();
+  const { draft, patch, read, clearPhoto, cameraNote } = useBagScan();
   const ready = canConfirmDraft(draft);
   return (
     <ScanScreen title="Confirm">
       <Text style={styles.kicker}>CONFIRM</Text>
       <ClubPicture photoUri={draft.facePhotoUri} type={draft.type} size={120} />
       <Body>No guess. The photo was not read on this build, so there is no confidence chip.</Body>
+      {cameraNote ? <Body>{cameraNote}</Body> : null}
+      {draft.faceCropped ? <Body>Cropped to the clubhead.</Body> : null}
       {read.lines.map((line) => (
         <Text key={line} style={styles.line}>
           {line}

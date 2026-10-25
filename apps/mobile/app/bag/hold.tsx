@@ -63,26 +63,9 @@ export default function HoldScreen() {
       {shaft ? <Body>{shaft}</Body> : null}
       <Body>{STARTING_POINT}</Body>
       <Body>{NOT_A_FITTING}</Body>
-      <ScanButton
-        label="SHOW ME WHAT FITS BETTER"
-        tone="ghost"
-        onPress={() => state.setNotice(FITS_EMPTY)}
-      />
-      <ScanButton
-        label="LOG SHOTS FIRST"
-        onPress={() => {
-          if (sample) {
-            state.setNotice('Sample stays off your bag. Log shots on a club you add yourself.');
-            return;
-          }
-          state.saveDraft(null);
-          state.setNotice('This club is in the bag. Measured shots are not on this screen yet, so the verdict stays.');
-          router.replace('/bag');
-        }}
-      />
+      <Body>No offers on this phone. Nothing else is suggested.</Body>
       <ScanButton
         label="KEEP IT ANYWAY"
-        tone="ghost"
         onPress={() => {
           if (sample) {
             state.setNotice('Sample stays off your bag.');
@@ -93,6 +76,14 @@ export default function HoldScreen() {
           router.replace('/bag');
         }}
       />
+      <ScanButton
+        label="LOG SHOTS FIRST"
+        tone="ghost"
+        onPress={() => {
+          state.setNotice(sample ? 'Sample stays off your bag. Log shots from the hole.' : 'Shots are logged on the hole. This club is not added until you keep it.');
+          router.push('/play');
+        }}
+      />
     </ScanScreen>
   );
 }
@@ -100,6 +91,6 @@ export default function HoldScreen() {
 const styles = StyleSheet.create({
   headline: { color: scan.white, fontSize: 36, fontWeight: '800', letterSpacing: 0.4 },
   tier: { color: scan.lime, fontSize: 22, fontWeight: '800', letterSpacing: 1 },
-  sponsored: { borderWidth: 2, borderColor: scan.red, borderRadius: 16, padding: 14, gap: 6 },
-  sponsoredLabel: { color: scan.red, fontWeight: '800', letterSpacing: 1.1, fontSize: 13 },
+  sponsored: { backgroundColor: scan.red, borderRadius: 16, padding: 14, gap: 6 },
+  sponsoredLabel: { color: scan.white, fontWeight: '800', letterSpacing: 1.1, fontSize: 13 },
 });

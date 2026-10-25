@@ -52,8 +52,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "COOPR reads a photo you choose so a server can extract golf numbers. The photo is not kept on the server. You review every number before it is saved.",
-          "cameraPermission": "COOPR uses the camera for a photo of a screen, scorecard, or club. The photo is not kept on the server. You review every number before it is saved."
+          "photosPermission": "COOPR reads a photo you choose on this iPhone. Club photos stay on this phone. Nothing is uploaded.",
+          "cameraPermission": "COOPR uses the camera on this iPhone for a club or a scorecard. The photo stays on this phone. Nothing is uploaded."
         }
       ],
       [

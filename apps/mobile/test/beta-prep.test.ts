@@ -192,7 +192,8 @@ describe('feedback, privacy, and a founder-off first run', () => {
     expect(store).toContain('else if (!FOUNDER_TOOLS_ENABLED) setClubs([]);');
     const bag = read('../app/bag/index.tsx');
     const setup = read('../app/setup.tsx');
-    expect(bag).toContain('No clubs in the bag yet. Add one in Setup. Nothing was filled in for you.');
+    expect(bag).toContain('No clubs in the bag yet. Nothing was filled in for you.');
+    expect(bag).not.toContain('Add one in Setup');
     expect(setup).toContain('No clubs yet. Add a name below, or import a CSV. This build does not include a sample bag.');
     const stub = read('../../../packages/seed/src/store-stub.ts');
     expect(stub).toContain('Founder tools are off in this build');

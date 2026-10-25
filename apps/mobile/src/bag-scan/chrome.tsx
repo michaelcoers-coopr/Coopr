@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useDisplayFace } from '../design/display-font';
 
@@ -11,6 +11,8 @@ export const scan = {
   red: '#C8102E',
   lime: '#8AC926',
   muted: '#C5D0DE',
+  /** #C8102E on the card is 2.53:1. This rose is 6.6:1 on the same card. */
+  warn: '#FF8A9B',
   line: 'rgba(255,255,255,0.18)',
   card: '#102844',
 } as const;
@@ -25,6 +27,11 @@ export function ScanScreen({ title, children }: { title: string; children: React
           headerTintColor: scan.white,
           headerTitleStyle: { fontWeight: '800', color: scan.white },
           contentStyle: { backgroundColor: scan.navy },
+          headerLeft: () => (
+            <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}>
+              <Text style={styles.backMark}>‹</Text>
+            </Pressable>
+          ),
         }}
       />
       <StatusBar style="light" />
@@ -113,7 +120,9 @@ export function SampleChip() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: scan.navy },
-  content: { padding: 20, paddingBottom: 48, gap: 14 },
+  content: { padding: 20, paddingTop: 28, paddingRight: 88, paddingBottom: 108, gap: 14 },
+  back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  backMark: { color: scan.white, fontSize: 32, lineHeight: 36, fontWeight: '700' },
   numeral: { color: scan.white, fontVariant: ['tabular-nums'], letterSpacing: 0.5 },
   button: {
     backgroundColor: scan.lime,
@@ -131,7 +140,8 @@ const styles = StyleSheet.create({
   limeText: { color: scan.navy },
   ghostText: { color: scan.white },
   choice: {
-    minHeight: 48,
+    minWidth: 44,
+    minHeight: 44,
     borderRadius: 999,
     borderWidth: 2,
     borderColor: scan.white,

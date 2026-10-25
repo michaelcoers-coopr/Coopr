@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { router, Stack } from 'expo-router';
-import { colors } from '@coopr/tokens';
+import { router } from 'expo-router';
 import { bagGaps, formatDistance, verdict, type DistanceProfile } from '@coopr/engine';
 import { useLocalStore } from '../../src/local-store';
-import { Button, Card, Muted, Screen, Title } from '../../src/ui';
 import { AI_ATTRIBUTION, RENDER_FOOTER, VERDICT_LABEL } from '../../src/bag-scan/copy';
-import { Body, Field, Numeral, Panel, SampleChip, ScanButton, scan } from '../../src/bag-scan/chrome';
-import { parseOptionalNumber, pickedTypes, profileFromFit, toFitClub } from '../../src/bag-scan/logic';
+import { Body, Field, Numeral, Panel, SampleChip, ScanButton, ScanScreen, scan } from '../../src/bag-scan/chrome';
+import { HANDICAP_MAX, HANDICAP_MIN, pickedTypes, profileFromFit, rangedNumber, SPEED_MAX, SPEED_MIN, toFitClub } from '../../src/bag-scan/logic';
 import { clubPictureKind } from '../../src/bag-scan/picture-kind';
 import { ClubPicture } from '../../src/bag-scan/picture';
 import { fitForShown, shownSample, type ShownClub } from '../../src/bag-scan/resolve';
@@ -20,36 +18,27 @@ function stock(profiles: readonly DistanceProfile[], clubId: string, metric: 'ca
 }
 
 export default function BagScreen() {
-  const { profiles, clubs, unit } = useLocalStore();
+  const { profiles, clubs, unit, founderTools } = useLocalStore();
   const bag = useBagScan();
-  const inPlay = clubs.filter((club) => club.slot === 'in_play');
-  const scanInPlay = bag.clubs.filter((club) => club.inPlay);
-  const sample = bag.clubs.length === 0 ? shownSample(bag.sampleProfile) : null;
-  const nothing = inPlay.length === 0 && scanInPlay.length === 0 && !sample;
-  const userBag = bag.clubs.map(toFitClub);
+  const [tab, setTab] = useState<'in' | 'out'>('in');
+  const saved = bag.clubs;
+  const seed = saved.length === 0 ? clubs.filter((club) => club.slot === 'in_play') : [];
+  const sample = saved.length === 0 && seed.length === 0 && founderTools ? shownSample(bag.sampleProfile) : null;
+  const visible = saved.filter((club) => (tab === 'in' ? club.inPlay : !club.inPlay));
+  const userBag = saved.map(toFitClub);
   const userGaps = bagGaps(userBag);
-  const userPicked = pickedTypes(bag.clubs);
+  const userPicked = pickedTypes(saved);
   const userProfile = profileFromFit(bag.fit);
   const showRenderFooter =
-    bag.clubs.some((club) => clubPictureKind(club.photoUri, club.type) === 'render') ||
+    saved.some((club) => clubPictureKind(club.photoUri, club.type) === 'render') ||
     (sample?.clubs.some((club) => clubPictureKind(club.photoUri, club.type) === 'render') ?? false);
 
   return (
-    <Screen>
-      <Stack.Screen
-        options={{
-          title: 'Bag',
-          headerStyle: { backgroundColor: colors.bg },
-          headerTintColor: colors.navy,
-          headerTitleStyle: { fontWeight: '800', color: colors.navy },
-          contentStyle: { backgroundColor: colors.bg },
-        }}
-      />
-      <Title>Bag</Title>
-      {inPlay.length > 0 || nothing ? <Muted>{`${inPlay.length} of 14. Carry and total stay apart.`}</Muted> : null}
-      {nothing ? <Muted>No clubs in the bag yet. Add one in Setup. Nothing was filled in for you.</Muted> : null}
-      {bag.notice ? <Muted>{bag.notice}</Muted> : null}
-      <Button
+    <ScanScreen title="Bag">
+      <Text style={styles.kicker}>BAG</Text>
+      {saved.length === 0 && seed.length === 0 && !sample ? <Body>No clubs in the bag yet. Nothing was filled in for you.</Body> : null}
+      {bag.notice ? <Body>{bag.notice}</Body> : null}
+      <ScanButton
         label="Add to bag"
         onPress={() => {
           bag.startNew();
@@ -57,9 +46,17 @@ export default function BagScreen() {
         }}
       />
       <YourNumbers fit={bag.fit} onSave={bag.saveFit} />
-      {bag.clubs.length ? (
+      {saved.length ? (
         <View style={styles.block}>
-          <Text style={styles.heading}>{`${scanInPlay.length} of 14 in play`}</Text>
+          <View style={styles.row}>
+            <Pressable accessibilityRole="button" accessibilityLabel="In play" onPress={() => setTab('in')} style={styles.link}>
+              <Text style={styles.linkText}>{tab === 'in' ? 'IN PLAY' : 'In play'}</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Out of play" onPress={() => setTab('out')} style={styles.link}>
+              <Text style={styles.linkText}>{tab === 'out' ? 'OUT OF PLAY' : 'Out of play'}</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.heading}>{`${saved.filter((club) => club.inPlay).length} of 14 in play`}</Text>
           <GapPanel
             median={userGaps.median_gap}
             known={userGaps.known_lofts.length}
@@ -67,7 +64,7 @@ export default function BagScreen() {
             unknown={userGaps.unknown_loft_in_play}
             benched={userGaps.benched}
           />
-          {bag.clubs.map((club) => {
+          {visible.map((club) => {
             const shown: ShownClub = {
               id: club.id,
               slot: club.slot,
@@ -111,7 +108,8 @@ export default function BagScreen() {
         <View style={styles.block}>
           <SampleChip />
           <Text style={styles.heading}>Sample bag</Text>
-          <Muted>Sample player {bag.sampleProfile} is not your handicap or your driver speed.</Muted>
+          <Body>{`Handicap ${sample.profile.handicap_index} (Sample)`}</Body>
+          <Body>{`Driver speed ${sample.profile.driver_speed_mph} mph (Sample)`}</Body>
           <View style={styles.row}>
             <Pressable accessibilityRole="button" onPress={() => bag.setSampleProfile('A')} style={styles.link}>
               <Text style={styles.linkText}>Sample player A</Text>
@@ -140,21 +138,32 @@ export default function BagScreen() {
           ))}
         </View>
       ) : null}
-      {showRenderFooter ? <Muted>{RENDER_FOOTER}</Muted> : null}
-      <Muted>{AI_ATTRIBUTION}</Muted>
-      {inPlay.map((club) => {
+      {showRenderFooter ? <Body>{RENDER_FOOTER}</Body> : null}
+      <Body>{AI_ATTRIBUTION}</Body>
+      {seed.map((club) => {
         const carry = stock(profiles, club.id, 'carry');
         const total = stock(profiles, club.id, 'total');
         return (
-          <Card key={club.id}>
+          <Panel key={club.id}>
             <Text style={styles.label}>{club.label.split('·')[0]?.trim() || club.label}</Text>
             <Text style={styles.number}>{`Carry ${carry ? formatDistance(carry.stockYards, unit) : '—'}`}</Text>
             <Text style={styles.number}>{`Total ${total ? formatDistance(total.stockYards, unit) : '—'}`}</Text>
-          </Card>
+          </Panel>
         );
       })}
-      <Button label="Setup" tone="ghost" onPress={() => router.push('/setup')} />
-    </Screen>
+      {saved.map((club) => {
+        const carry = stock(profiles, club.id, 'carry');
+        const total = stock(profiles, club.id, 'total');
+        if (!carry && !total) return null;
+        return (
+          <Panel key={`distance-${club.id}`}>
+            <Text style={styles.label}>{club.slot}</Text>
+            <Text style={styles.number}>{`Carry ${carry ? formatDistance(carry.stockYards, unit) : '—'}`}</Text>
+            <Text style={styles.number}>{`Total ${total ? formatDistance(total.stockYards, unit) : '—'}`}</Text>
+          </Panel>
+        );
+      })}
+    </ScanScreen>
   );
 }
 
@@ -171,20 +180,18 @@ function YourNumbers({ fit, onSave }: { fit: StoredFit; onSave: (fit: StoredFit)
       <ScanButton
         label="SAVE ON THIS PHONE"
         onPress={() => {
-          const handicapBlank = handicapText.trim() === '';
-          const speedBlank = speedText.trim() === '';
-          const handicap = parseOptionalNumber(handicapText);
-          const speed = parseOptionalNumber(speedText);
-          if ((!handicapBlank && handicap == null) || (!speedBlank && speed == null)) {
-            setError('That is not a number. Nothing was saved.');
+          const handicap = rangedNumber(handicapText, HANDICAP_MIN, HANDICAP_MAX);
+          const speed = rangedNumber(speedText, SPEED_MIN, SPEED_MAX);
+          if (handicap.problem || speed.problem) {
+            setError(handicap.problem ? `Handicap has to be from ${HANDICAP_MIN} to ${HANDICAP_MAX}. Nothing was saved.` : `Driver speed has to be from ${SPEED_MIN} to ${SPEED_MAX} mph. Nothing was saved.`);
             return;
           }
           setError(null);
           onSave({
-            handicapIndex: handicap,
-            handicapQuality: handicap == null ? null : 'user_confirmed',
-            driverSpeedMph: speed,
-            speedQuality: speed == null ? null : 'user_confirmed',
+            handicapIndex: handicap.value,
+            handicapQuality: handicap.value == null ? null : 'user_confirmed',
+            driverSpeedMph: speed.value,
+            speedQuality: speed.value == null ? null : 'user_confirmed',
           });
         }}
       />
@@ -216,9 +223,10 @@ function GapPanel({
         </View>
       )}
       {flags.map((flag) => (
-        <Body key={`${flag.kind}-${flag.between.join('-')}`}>
-          {`${flag.kind === 'overlap' ? 'Overlap' : 'Gap'}: ${flag.between.join(' and ')} are ${flag.gap}° apart.`}
-        </Body>
+        <View key={`${flag.kind}-${flag.between.join('-')}`} style={styles.gapRow}>
+          <Body>{`${flag.kind === 'overlap' ? 'Overlap' : 'Gap'}: ${flag.between.join(' and ')}`}</Body>
+          <Text style={styles.badge}>{`${flag.gap}° APART`}</Text>
+        </View>
       ))}
       {unknown.length ? <Body>{`Unchecked, loft not set: ${unknown.join(', ')}.`}</Body> : null}
       {benched.length ? (
@@ -245,7 +253,7 @@ function ClubRow({
       <ClubPicture photoUri={club.photoUri} type={club.type} size={64} />
       <View style={styles.clubText}>
         {club.sample ? <SampleChip /> : null}
-        <Numeral size={28} color={colors.navy}>{club.slot}</Numeral>
+        <Numeral size={28}>{club.slot}</Numeral>
         <Text style={styles.clubName}>{name || 'Name not set'}</Text>
         <Text style={styles.clubMeta}>{club.loft == null ? 'Loft not set' : `${club.loft}°`}</Text>
         <Text style={styles.clubMeta}>{verdictLabel}</Text>
@@ -262,17 +270,19 @@ function ClubRow({
 
 const styles = StyleSheet.create({
   block: { gap: 10 },
-  heading: { color: colors.navy, fontSize: 22, fontWeight: '800' },
+  kicker: { color: scan.lime, fontWeight: '800', letterSpacing: 1.2, fontSize: 13 },
+  heading: { color: scan.white, fontSize: 22, fontWeight: '800' },
   row: { flexDirection: 'row', gap: 12 },
   link: { minHeight: 44, justifyContent: 'center' },
-  linkText: { color: colors.navy, fontWeight: '800', textDecorationLine: 'underline' },
-  label: { color: colors.navy, fontSize: 28, fontWeight: '800' },
-  number: { color: colors.navy, fontSize: 22, fontWeight: '800' },
-  error: { color: '#C8102E', fontWeight: '700' },
+  linkText: { color: scan.white, fontWeight: '800', textDecorationLine: 'underline' },
+  label: { color: scan.white, fontSize: 28, fontWeight: '800' },
+  number: { color: scan.white, fontSize: 22, fontWeight: '800' },
+  error: { color: scan.warn, fontWeight: '700' },
+  badge: { color: scan.navy, backgroundColor: scan.lime, fontWeight: '800', fontSize: 12, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, overflow: 'hidden' },
   gapRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   club: { flexDirection: 'row', gap: 12, paddingVertical: 8, alignItems: 'center' },
   clubText: { flex: 1, gap: 2 },
-  clubName: { color: colors.navy, fontSize: 16, fontWeight: '700' },
-  clubMeta: { color: colors.muted, fontSize: 14 },
-  details: { color: colors.navy, fontWeight: '800', textDecorationLine: 'underline', paddingVertical: 6 },
+  clubName: { color: scan.white, fontSize: 16, fontWeight: '700' },
+  clubMeta: { color: scan.muted, fontSize: 14 },
+  details: { color: scan.white, fontWeight: '800', textDecorationLine: 'underline', minHeight: 44, paddingVertical: 10 },
 });
