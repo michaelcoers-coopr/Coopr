@@ -4,6 +4,7 @@
     { "path": "packages/domain" },
     { "path": "packages/tokens" },
     { "path": "packages/engine" },
+    { "path": "packages/analysis" },
     { "path": "packages/seed" },
     { "path": "packages/db" },
     { "path": "packages/course" }

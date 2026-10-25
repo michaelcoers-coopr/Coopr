@@ -452,6 +452,13 @@ export default function HomeScreen() {
                       <Text style={styles.emptyText}>No rounds yet. Your first one lands here.</Text>
                     )}
                   </View>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Analysis" onPress={() => router.push('/analysis')} style={styles.foursome}>
+                    <View style={styles.foursomeCopy}>
+                      <Text style={styles.foursomeTitle}>ANALYSIS</Text>
+                      <Text style={styles.foursomeNote}>Where the strokes went. A number shows up only after the card has enough holes.</Text>
+                    </View>
+                    <Text style={styles.foursomeChevron}>›</Text>
+                  </Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel="Foursome games" onPress={openGames} style={styles.foursome}>
                     <View style={styles.foursomeIcon}>
                       <PeopleMark />

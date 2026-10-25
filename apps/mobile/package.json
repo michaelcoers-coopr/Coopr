@@ -13,6 +13,7 @@
     "@coopr/course": "*",
     "@coopr/db": "*",
     "@coopr/domain": "*",
+    "@coopr/analysis": "*",
     "@coopr/engine": "*",
     "@coopr/seed": "*",
     "@coopr/tokens": "*",

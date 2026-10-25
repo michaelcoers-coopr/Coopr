@@ -9,7 +9,7 @@ export default function PrivacyScreen() {
       <Card warning>
         <Muted>DRAFT for lawyer review. This is not a finished privacy policy.</Muted>
       </Card>
-      <Muted>Scores, putts, your bag, and marked shots stay on this phone. There is no account. Deleting the app deletes them. This beta does not sync to a cloud and does not use ads or a tracker.</Muted>
+      <Muted>Scores, putts, penalties, your bag, and marked shots stay on this phone. There is no account. Deleting the app deletes them. This beta does not sync to a cloud and does not use ads or a tracker.</Muted>
       <Muted>A club face photo stays on this phone. This build does not upload it, and it does not read the stamp. Brand and model are what you type.</Muted>
       <Muted>While the app is open, the phone’s location is used to measure distance to the green. That position is not saved as a shot and is not uploaded with your round.</Muted>
       <Muted>A weather request sends the latitude and longitude of the weather point to Open-Meteo for wind and temperature. The elevation call sends the player’s GPS position and the green centre. The phone calls Open-Meteo directly, so that service sees the phone’s IP address. These calls are not a saved history of where you walked.</Muted>

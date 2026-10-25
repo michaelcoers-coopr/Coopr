@@ -82,6 +82,8 @@ export interface RoundSave {
   localShots: SavedShot[];
   /** Putts beside the score. 0 is a chip-in. Null means unknown. Never added to strokes. */
   putts: Array<number | null>;
+  /** Penalty strokes beside the score. 0 is a logged zero. Null means not logged. Never added to strokes. */
+  penalties: Array<number | null>;
   /** Wind, elevation, temperature, and the plays-like switch for this round. */
   conditions: RoundConditions;
   /** GPS marks. Absent on older saves. */
@@ -327,6 +329,7 @@ export function parseRoundSave(raw: string | null): RoundSave | null {
     plans: plansOf(row.plans),
     localShots: shotsOf(row.localShots),
     putts: puttsOf(row.putts),
+    penalties: puttsOf(row.penalties),
     conditions: conditionsOf(row.conditions),
     marks: marksOf(row.marks),
   };

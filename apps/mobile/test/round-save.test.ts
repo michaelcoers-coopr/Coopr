@@ -38,6 +38,7 @@ describe('round save', () => {
     expect(round?.plans['1']?.target).toBe('Left center');
     expect(round?.holes).not.toContain(0);
     expect(round?.putts.every((putt) => putt == null)).toBe(true);
+    expect(round?.penalties.every((count) => count == null)).toBe(true);
     expect(round?.conditions.usePlaysLike).toBe(false);
     expect(round?.conditions.wind).toBe('');
     expect(round?.marks).toEqual([]);
@@ -94,6 +95,13 @@ describe('round save', () => {
     );
     expect(gross.gross).toBe(12);
     expect(gross.gross).not.toBe(14);
+    const logged = parseRoundSave(
+      save({ penalties: [0, 1, -1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null] }),
+    );
+    expect(logged?.penalties[0]).toBe(0);
+    expect(logged?.penalties[1]).toBe(1);
+    expect(logged?.penalties[2]).toBeNull();
+    expect(logged?.penalties[3]).toBeNull();
   });
 
   it('refuses a scorecard that is not 18 holes or has a zero', () => {

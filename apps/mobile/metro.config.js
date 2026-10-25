@@ -11,6 +11,8 @@ if (process.env.EXPO_PUBLIC_FOUNDER_TOOLS === '0') {
   const founderOff = path.resolve(projectRoot, 'src/founder-off.tsx');
   const sampleOn = path.resolve(projectRoot, 'src/bag-scan/sample-data.ts');
   const sampleOff = path.resolve(projectRoot, 'src/bag-scan/sample-data-off.ts');
+  const seasonOn = path.resolve(projectRoot, 'src/analysis/sample-season.ts');
+  const seasonOff = path.resolve(projectRoot, 'src/analysis/sample-season-off.ts');
   const blockedFounderScreens = new Set([
     path.resolve(projectRoot, 'app/founder/index.tsx'),
     path.resolve(projectRoot, 'app/founder/[demo].tsx'),
@@ -22,6 +24,9 @@ if (process.env.EXPO_PUBLIC_FOUNDER_TOOLS === '0') {
     const resolved = context.resolveRequest(context, moduleName, platform);
     if (resolved && resolved.type === 'sourceFile' && resolved.filePath === sampleOn) {
       return { filePath: sampleOff, type: 'sourceFile' };
+    }
+    if (resolved && resolved.type === 'sourceFile' && resolved.filePath === seasonOn) {
+      return { filePath: seasonOff, type: 'sourceFile' };
     }
     if (resolved && resolved.type === 'sourceFile' && blockedFounderScreens.has(resolved.filePath)) {
       return { filePath: founderOff, type: 'sourceFile' };

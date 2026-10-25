@@ -35,6 +35,7 @@ export default function MoreScreen() {
       <Button label="Privacy" tone="ghost" onPress={() => router.push('/privacy')} />
       <Button label="Game plan" tone="ghost" onPress={() => router.push('/plan')} />
       <Button label="Scorecard" tone="ghost" onPress={() => router.push('/scorecard')} />
+      <Button label="Analysis" tone="ghost" onPress={() => router.push('/analysis')} />
       <Button label="Debrief" tone="ghost" onPress={() => router.push('/debrief')} />
       <Button label="Bag" tone="ghost" onPress={() => router.push('/bag')} />
       <Button label="Wedge matrix" tone="ghost" onPress={() => router.push('/wedges')} />
@@ -79,7 +80,7 @@ export default function MoreScreen() {
           router.push('/play');
         }}
       />
-      {armed ? <Muted>Tap clear scores to wipe the strokes, the putts, the hole, and the marked shots. Wedge carries stay.</Muted> : null}
+      {armed ? <Muted>Tap clear scores to wipe the strokes, the putts, the penalties, the hole, and the marked shots. Finished rounds stay in Analysis. Wedge carries stay.</Muted> : null}
     </Screen>
   );
 }

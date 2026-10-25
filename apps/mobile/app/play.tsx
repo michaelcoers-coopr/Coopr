@@ -1551,6 +1551,9 @@ export default function PlayScreen() {
                 </View>
               </View>
               <ThruBar label={thru.label ?? 'THRU'} pips={thru.pips} />
+              <Pressable accessibilityRole="button" accessibilityLabel="Analysis" onPress={() => router.push('/analysis')} style={styles.textHit}>
+                <Text style={styles.body}>Analysis</Text>
+              </Pressable>
             </ScrollView>
           ) : null}
         </Glass>
