@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { EXTRACT_URL_PLACEHOLDER, FEEDBACK_EMAIL_PLACEHOLDER, configuredAddress, extractionUrl, feedbackEmail } from '../src/extract-client';
 import { feedbackBody, feedbackMailto } from '../src/feedback-note';
 import { rememberScreen, rememberedScreen } from '../src/screen-name';
-import { requestTalk, SAMPLE_ANSWER_LABEL } from '../src/talk-client';
+import { CADDIE_SECRET_PLACEHOLDER, requestTalk, SAMPLE_ANSWER_LABEL } from '../src/talk-client';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const read = (path: string) => readFileSync(join(here, path), 'utf8');
@@ -33,10 +33,12 @@ describe('beta profile and permission strings', () => {
       APP_VARIANT: 'production',
       EXPO_PUBLIC_FOUNDER_TOOLS: '0',
       EXPO_PUBLIC_EXTRACT_URL: EXTRACT_URL_PLACEHOLDER,
+      EXPO_PUBLIC_CADDIE_SECRET: CADDIE_SECRET_PLACEHOLDER,
       EXPO_PUBLIC_FEEDBACK_EMAIL: FEEDBACK_EMAIL_PLACEHOLDER,
     });
     expect(eas.submit.beta).toEqual({ ios: {} });
     expect(EXTRACT_URL_PLACEHOLDER).toContain('REPLACE');
+    expect(CADDIE_SECRET_PLACEHOLDER).toContain('REPLACE');
     expect(FEEDBACK_EMAIL_PLACEHOLDER).toContain('REPLACE');
   });
 
@@ -85,10 +87,13 @@ describe('on-device voice and labeled samples', () => {
   it('uses the hosted origin and labels a sample when that origin is unset', async () => {
     const previousExtract = process.env.EXPO_PUBLIC_EXTRACT_URL;
     const previousMail = process.env.EXPO_PUBLIC_FEEDBACK_EMAIL;
+    const previousSecret = process.env.EXPO_PUBLIC_CADDIE_SECRET;
     const calls: string[] = [];
+    const secrets: string[] = [];
     const original = globalThis.fetch;
-    globalThis.fetch = (async (url: string) => {
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
       calls.push(String(url));
+      secrets.push(new Headers(init?.headers).get('x-coopr-secret') ?? '');
       return new Response('not json', { status: 500 });
     }) as typeof fetch;
     try {
@@ -109,14 +114,22 @@ describe('on-device voice and labeled samples', () => {
       expect(placeholder.mode).toBe('sample');
       expect(calls).toEqual([]);
       process.env.EXPO_PUBLIC_EXTRACT_URL = 'https://caddie.example';
+      process.env.EXPO_PUBLIC_CADDIE_SECRET = CADDIE_SECRET_PLACEHOLDER;
       await requestTalk('How far is it?', context);
       expect(calls).toEqual(['https://caddie.example/v1/caddie']);
+      expect(secrets.at(-1)).toBe('');
+      process.env.EXPO_PUBLIC_CADDIE_SECRET = 'desk-secret';
+      await requestTalk('How far is it?', context);
+      expect(calls.at(-1)).toBe('https://caddie.example/v1/caddie');
+      expect(secrets.at(-1)).toBe('desk-secret');
     } finally {
       globalThis.fetch = original;
       if (previousExtract === undefined) delete process.env.EXPO_PUBLIC_EXTRACT_URL;
       else process.env.EXPO_PUBLIC_EXTRACT_URL = previousExtract;
       if (previousMail === undefined) delete process.env.EXPO_PUBLIC_FEEDBACK_EMAIL;
       else process.env.EXPO_PUBLIC_FEEDBACK_EMAIL = previousMail;
+      if (previousSecret === undefined) delete process.env.EXPO_PUBLIC_CADDIE_SECRET;
+      else process.env.EXPO_PUBLIC_CADDIE_SECRET = previousSecret;
     }
     expect(SAMPLE_ANSWER_LABEL).toMatch(/^Sample answer/);
     const play = read('../app/play.tsx');

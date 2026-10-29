@@ -2,6 +2,9 @@ import { sampleTalkReply, type TalkAction, type TalkContext, type TalkReply, typ
 import { SECRET_HEADER } from './api-guard';
 import { extractionUrl } from './extract-client';
 
+/** Marked stand-in in the beta profile until Mike puts the same string as COOPR_API_SECRET here. */
+export const CADDIE_SECRET_PLACEHOLDER = 'REPLACE-WITH-CADDIE-SECRET';
+
 function caddieSecret(): string | null {
   const value = process.env.EXPO_PUBLIC_CADDIE_SECRET?.trim();
   if (!value || value.includes('REPLACE')) return null;

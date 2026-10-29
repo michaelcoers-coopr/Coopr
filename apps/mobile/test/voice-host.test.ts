@@ -73,8 +73,28 @@ describe('deploy and preview scripts', () => {
     expect(doc).toContain('EXPO_PUBLIC_CADDIE_SECRET');
     expect(doc).not.toContain('deploy-voice.sh');
     expect(doc).toMatch(/do not deploy|Do not deploy/i);
+    expect(doc).toContain('scripts/deploy-caddie.sh');
+    expect(doc).toContain('caddie-budget:');
     expect(existsSync(path.join(repo, 'scripts/deploy-voice.sh'))).toBe(false);
     expect(existsSync(path.join(repo, 'scripts/verify-voice.sh'))).toBe(false);
     expect(existsSync(path.join(repo, 'apps/mobile/app/v1/voice+api.ts'))).toBe(false);
+  });
+
+  it('stops the caddie deploy script without EXPO_TOKEN and does not print a secret', () => {
+    const script = path.join(repo, 'scripts/deploy-caddie.sh');
+    const source = readFileSync(script, 'utf8');
+    expect(source).toContain('eas-cli@latest env:set');
+    expect(source).toContain('deploy --prod');
+    expect(source).toContain('deploy-origin.mjs');
+    expect(source).not.toContain('deploy-voice.sh');
+    expect(source).not.toMatch(/echo .*(COOPR_API_SECRET|CADDIE_LLM_API_KEY|UPSTASH_REDIS_REST_TOKEN)/);
+    const secret = 'super-secret-not-for-logs';
+    const result = spawnSync('bash', [script], {
+      env: { ...process.env, EXPO_TOKEN: '', COOPR_API_SECRET: secret, CADDIE_LLM_API_KEY: secret },
+      encoding: 'utf8',
+    });
+    expect(result.status).toBe(1);
+    expect(`${result.stdout}${result.stderr}`).not.toContain(secret);
+    expect(result.stderr).toMatch(/EXPO_TOKEN is required/);
   });
 });

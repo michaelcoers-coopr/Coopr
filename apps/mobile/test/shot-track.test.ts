@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { budgetAllows, budgetMonth, corsHeaders, MONTHLY_BUDGET_CENTS, secretOk, upstashAllow } from '../src/api-guard';
+import { budgetAllows, budgetMonth, corsHeaders, MONTHLY_BUDGET_CENTS, secretOk, upstashAllow, upstashCharge } from '../src/api-guard';
 import { keepShot, measuredAverage, measuredLine, MIN_MEASURED_SHOTS, shouldSpeak, yardsBetween } from '../src/shots/track';
 
 describe('shot distances', () => {
@@ -56,5 +56,24 @@ describe('caddie server guards', () => {
     }) as typeof fetch;
     expect(await upstashAllow(fetchImpl, 'https://example.upstash.io', 'token', 'caddie:1', 20)).toBe(false);
     expect(calls[0]).toContain('/pipeline');
+  });
+
+  it('keeps the hundred-dollar month in Upstash and fails closed', async () => {
+    const bodies: string[] = [];
+    const fetchImpl = (async (_url: string, init?: RequestInit) => {
+      bodies.push(String(init?.body ?? ''));
+      return new Response(JSON.stringify([{ result: 2 }]), { status: 200 });
+    }) as typeof fetch;
+    expect(await upstashCharge(fetchImpl, 'https://example.upstash.io/', 'token', 'caddie-budget:2026-10', 2, MONTHLY_BUDGET_CENTS)).toBe(true);
+    expect(bodies[0]).toContain('INCRBY');
+    expect(bodies[0]).toContain('caddie-budget:2026-10');
+    const over = (async () => new Response(JSON.stringify([{ result: MONTHLY_BUDGET_CENTS + 2 }]), { status: 200 })) as typeof fetch;
+    expect(await upstashCharge(over, 'https://example.upstash.io', 'token', 'caddie-budget:2026-10', 2, MONTHLY_BUDGET_CENTS)).toBe(false);
+    const down = (async () => new Response('no', { status: 500 })) as typeof fetch;
+    expect(await upstashCharge(down, 'https://example.upstash.io', 'token', 'caddie-budget:2026-10', 2, MONTHLY_BUDGET_CENTS)).toBe(false);
+    const broken = (async () => {
+      throw new Error('upstash down');
+    }) as typeof fetch;
+    expect(await upstashCharge(broken, 'https://example.upstash.io', 'token', 'caddie-budget:2026-10', 2, MONTHLY_BUDGET_CENTS)).toBe(false);
   });
 });

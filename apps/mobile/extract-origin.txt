@@ -1,1 +1,1 @@
-# EAS Hosting origin for Ask COOPR. Not a secret. scripts/deploy-voice.sh writes the URL.
+# EAS Hosting origin for the caddie and photo extract. Not a secret. scripts/deploy-caddie.sh writes the URL.

@@ -110,4 +110,46 @@ describe('caddie conversation host', () => {
     expect(await capped.text()).toContain('"mode":"sample"');
     resetCaddieBudget();
   });
+
+  it('uses the Upstash month even when this instance has not spent anything', async () => {
+    resetCaddieBudget();
+    const env = {
+      CADDIE_LLM_API_KEY: 'server-key',
+      UPSTASH_REDIS_REST_URL: 'https://example.upstash.io',
+      UPSTASH_REDIS_REST_TOKEN: 'token',
+    };
+    const over = (async (_url: string, init?: RequestInit) => {
+      const body = String(init?.body ?? '');
+      if (body.includes('INCRBY')) return new Response(JSON.stringify([{ result: 10_002 }]), { status: 200 });
+      if (body.includes('"INCR"')) return new Response(JSON.stringify([{ result: 1 }]), { status: 200 });
+      throw new Error('model should not be called');
+    }) as typeof fetch;
+    const capped = await serveCaddie(turn('203.0.113.70'), env, over);
+    expect(await capped.text()).toContain('"mode":"sample"');
+
+    let model = false;
+    setCaddieSpendForTests(10_000);
+    const under = (async (url: string, init?: RequestInit) => {
+      const body = String(init?.body ?? '');
+      if (String(url).includes('/pipeline') && body.includes('INCRBY')) return new Response(JSON.stringify([{ result: 2 }]), { status: 200 });
+      if (String(url).includes('/pipeline')) return new Response(JSON.stringify([{ result: 1 }]), { status: 200 });
+      model = true;
+      const chunk = `data: ${JSON.stringify({ choices: [{ delta: { content: 'Seven iron.' } }] })}\n\n`;
+      return new Response(chunk, { status: 200 });
+    }) as typeof fetch;
+    const live = await serveCaddie(turn('203.0.113.71'), env, under);
+    expect(model).toBe(true);
+    const liveText = await live.text();
+    expect(liveText).toContain('"mode":"live"');
+    expect(liveText).toContain('Seven iron.');
+
+    const down = (async (_url: string, init?: RequestInit) => {
+      const body = String(init?.body ?? '');
+      if (body.includes('INCRBY')) return new Response('no', { status: 500 });
+      return new Response(JSON.stringify([{ result: 1 }]), { status: 200 });
+    }) as typeof fetch;
+    const refused = await serveCaddie(turn('203.0.113.72'), env, down);
+    expect(await refused.text()).toContain('"mode":"sample"');
+    resetCaddieBudget();
+  });
 });

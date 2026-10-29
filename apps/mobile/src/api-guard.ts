@@ -52,6 +52,36 @@ export function budgetMonth(now: Date): string {
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+/**
+ * Add this turn to the month counter in Upstash.
+ * The new total above the cap is a refusal. A failed call is a refusal.
+ */
+export async function upstashCharge(
+  fetchImpl: typeof fetch,
+  baseUrl: string,
+  token: string,
+  key: string,
+  cents: number,
+  cap: number,
+): Promise<boolean> {
+  try {
+    const response = await fetchImpl(`${baseUrl.replace(/\/$/, '')}/pipeline`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify([
+        ['INCRBY', key, String(cents)],
+        ['EXPIRE', key, String(40 * 24 * 60 * 60), 'NX'],
+      ]),
+    });
+    if (!response.ok) return false;
+    const data = (await response.json()) as { result?: number }[];
+    const spent = data[0]?.result;
+    return typeof spent === 'number' && spent <= cap;
+  } catch {
+    return false;
+  }
+}
+
 /** Upstash REST increment. Count above the limit is a refusal. A failed call is a refusal. */
 export async function upstashAllow(
   fetchImpl: typeof fetch,

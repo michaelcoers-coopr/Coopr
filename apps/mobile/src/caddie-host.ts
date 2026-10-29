@@ -9,7 +9,7 @@ import {
   type TalkReply,
   type TalkToolResult,
 } from '@coopr/engine';
-import { allowRequest, bodyTooLarge, budgetAllows, budgetMonth, CADDIE_TURN_CENTS, clientIp, corsHeaders, MAX_CADDIE_BYTES, SECRET_HEADER, secretOk, upstashAllow } from './api-guard';
+import { allowRequest, bodyTooLarge, budgetAllows, budgetMonth, CADDIE_TURN_CENTS, clientIp, corsHeaders, MAX_CADDIE_BYTES, MONTHLY_BUDGET_CENTS, SECRET_HEADER, secretOk, upstashAllow, upstashCharge } from './api-guard';
 
 const HITS = new Map<string, number[]>();
 const SPENT = new Map<string, number>();
@@ -197,8 +197,13 @@ async function rateOk(request: Request, env: CaddieEnv, fetchImpl: typeof fetch)
   return allowRequest(clientIp(request), HITS, Date.now());
 }
 
-function chargeTurn(now = new Date()): boolean {
+async function chargeTurn(env: CaddieEnv, fetchImpl: typeof fetch, now = new Date()): Promise<boolean> {
   const month = budgetMonth(now);
+  const url = env.UPSTASH_REDIS_REST_URL;
+  const token = env.UPSTASH_REDIS_REST_TOKEN;
+  if (url && token) {
+    return upstashCharge(fetchImpl, url, token, `caddie-budget:${month}`, CADDIE_TURN_CENTS, MONTHLY_BUDGET_CENTS);
+  }
   const spent = SPENT.get(month) ?? 0;
   if (!budgetAllows(spent)) return false;
   SPENT.set(month, spent + CADDIE_TURN_CENTS);
@@ -235,7 +240,7 @@ export async function serveCaddie(request: Request, env: CaddieEnv = readCaddieE
   }
   const transcript = typeof body.transcript === 'string' ? body.transcript.slice(0, 500) : '';
   const context = contextFrom(body);
-  const sample = !env.CADDIE_LLM_API_KEY || env.CADDIE_MODE === 'sample' || !chargeTurn();
+  const sample = !env.CADDIE_LLM_API_KEY || env.CADDIE_MODE === 'sample' || !(await chargeTurn(env, fetchImpl));
   if (sample) return sse(request, env, replyEvents(await sampleTalkReply(context, transcript)));
   try {
     return sse(request, env, replyEvents(await liveReply(transcript, context, env, fetchImpl)));
