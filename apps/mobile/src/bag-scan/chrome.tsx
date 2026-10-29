@@ -20,7 +20,7 @@ export const scan = {
 export function ScanScreen({ title, children, footer = null, backTo }: { title: string; children: ReactNode; footer?: ReactNode; backTo?: string }) {
   const window = useWindowDimensions();
   const [footerHeight, setFooterHeight] = useState(footer ? 72 : 0);
-  const scrollMax = Math.max(160, window.height - footerHeight - 56);
+  const scrollMax = Math.max(120, window.height - footerHeight - 88);
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>
       <Stack.Screen
@@ -47,7 +47,7 @@ export function ScanScreen({ title, children, footer = null, backTo }: { title: 
         }}
       />
       <StatusBar style="light" />
-      <ScrollView style={[styles.scroll, { maxHeight: scrollMax }]} contentContainerStyle={[styles.content, { paddingBottom: footerHeight + 24 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView style={[styles.scroll, { height: scrollMax, maxHeight: scrollMax }]} contentContainerStyle={[styles.content, { paddingBottom: footerHeight + 36 }]} keyboardShouldPersistTaps="handled">
         {children}
       </ScrollView>
       {footer ? <View onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}>{footer}</View> : null}

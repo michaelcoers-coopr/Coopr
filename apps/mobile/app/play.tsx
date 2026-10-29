@@ -1395,7 +1395,16 @@ export default function PlayScreen() {
         style={styles.mapOffset}
         {...({ dataSet: { offset: panMark } } as object)}
       />
-      <Text testID="caddie-speech" style={styles.speechProbe}>{speechPhase}</Text>
+      <Text
+        testID="caddie-speech"
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.speechProbe}
+        {...({ accessibilityHidden: true, 'aria-hidden': true } as object)}
+      >
+        {speechPhase}
+      </Text>
       <View pointerEvents="box-none" style={[styles.hero, { top: chrome.plate.y, left: chrome.plate.x, maxWidth: chrome.plate.w }]}>
         <View style={[styles.heroPlate, hole.holeNumber === 2 && styles.heroPlateClear]}>
         {player == null ? (
@@ -1756,7 +1765,7 @@ export default function PlayScreen() {
         </Glass>
       </Animated.View>
       {playableClubs.length > 0 ? (
-        <View style={[styles.clubChipWrap, { bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + (windowWidth > windowHeight ? chrome.coachPeek + 8 : 4) }]} pointerEvents="box-none">
+        <View testID="club-chip-panel" style={[styles.clubChipWrap, { bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + (windowWidth > windowHeight ? chrome.coachPeek + 8 : 4) }]} pointerEvents="box-none">
           <Text testID="club-chip-hint" accessibilityLabel="Swipe for more clubs" style={styles.chipHint}>Swipe for clubs</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="club-chips" contentContainerStyle={styles.clubChipRow}>
             {playableClubs.map((club) => {
@@ -2173,7 +2182,7 @@ const styles = StyleSheet.create({
   thruText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
   mapOffset: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', left: -20, top: 0 },
   speechProbe: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', left: -20, top: 0 },
-  clubChipWrap: { position: 'absolute', left: 8, right: 8, zIndex: 8, gap: 2 },
+  clubChipWrap: { position: 'absolute', left: 8, right: 8, zIndex: 8, gap: 2, backgroundColor: '#041018', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 6 },
   chipHint: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', alignSelf: 'flex-end' },
   clubChipRow: { gap: 6, alignItems: 'center', paddingRight: 8 },
   finishPill: { minWidth: 64, minHeight: 44, borderRadius: 12, backgroundColor: '#8AC926', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },

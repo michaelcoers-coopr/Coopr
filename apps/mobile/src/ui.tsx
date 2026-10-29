@@ -11,7 +11,7 @@ export function Screen({ children, footer = null }: { children: ReactNode; foote
   const scrollMax = Math.max(120, window.height - footerHeight);
   return (
     <SafeAreaView style={[styles.screen, { height: window.height }]} edges={['bottom']}>
-      <ScrollView style={[styles.scroll, { maxHeight: scrollMax }]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView style={[styles.scroll, { maxHeight: scrollMax }]} contentContainerStyle={[styles.content, { paddingBottom: footerHeight + 28 }]} keyboardShouldPersistTaps="handled">
         {children}
       </ScrollView>
       {footer ? (
@@ -36,11 +36,13 @@ export function Card({ children, warning = false }: { children: ReactNode; warni
 }
 
 export function Button({ label, onPress, tone = 'navy' }: { label: string; onPress: () => void; tone?: 'navy' | 'red' | 'ghost' }) {
+  const window = useWindowDimensions();
+  const landscape = window.width > window.height;
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      style={[styles.button, tone === 'red' && styles.buttonRed, tone === 'ghost' && styles.buttonGhost]}
+      style={[styles.button, landscape && styles.buttonLandscape, tone === 'red' && styles.buttonRed, tone === 'ghost' && styles.buttonGhost]}
     >
       <Text style={[styles.buttonText, tone === 'ghost' && styles.buttonGhostText]}>{label}</Text>
     </Pressable>
@@ -93,7 +95,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, minHeight: 0 },
   content: { padding: 20, paddingBottom: 24, gap: 14 },
   footer: { flexShrink: 0, paddingHorizontal: 20, paddingBottom: 12, gap: 8, zIndex: 5 },
-  footerRow: { flexDirection: 'row', flexWrap: 'wrap' },
+  footerRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'stretch' },
   title: { color: colors.text, fontSize: 34, fontWeight: '700', letterSpacing: -0.6 },
   muted: { color: colors.muted, fontSize: 17, lineHeight: 24 },
   card: {
@@ -119,6 +121,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  buttonLandscape: { flexGrow: 1, flexBasis: 0, minWidth: 44, minHeight: 48, paddingVertical: 8, paddingHorizontal: 8 },
   buttonRed: { backgroundColor: colors.red },
   buttonGhost: { backgroundColor: colors.white, borderWidth: 2, borderColor: colors.navy },
   buttonText: { color: colors.onAccent, fontWeight: '800', fontSize: 18, letterSpacing: 0.2, textAlign: 'center' },

@@ -149,7 +149,7 @@ export function ScoreDock({
   return (
     <View pointerEvents="box-none" style={styles.wrap}>
       {menu ? (
-        <View style={styles.panel} accessibilityLabel="Round menu">
+        <View style={[styles.panel, { maxHeight: Math.max(200, window.height - 96) }]} accessibilityLabel="Round menu" testID="round-menu-panel">
           <Pressable accessibilityRole="button" accessibilityLabel="Pause round (keep progress)" onPress={onPause} style={styles.wide}>
             <Text style={styles.wideText}>Pause round (keep progress)</Text>
           </Pressable>
@@ -163,6 +163,34 @@ export function ScoreDock({
               <Text style={styles.wideText}>{handsFree ? 'Hands-free on' : 'Hands-free off'}</Text>
             </Pressable>
           ) : null}
+          {confirmEnd ? (
+            <View>
+              <Text style={styles.kicker}>{endSummary}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Confirm end round" onPress={onEnd} style={styles.wide}>
+                <Text style={styles.wideText}>End round</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Keep playing"
+                onPress={() => {
+                  setConfirmEnd(false);
+                  setMenu(false);
+                }}
+                style={styles.wide}
+              >
+                <Text style={styles.wideText}>Keep playing</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable accessibilityRole="button" accessibilityLabel="End round" onPress={() => setConfirmEnd(true)} style={styles.wide}>
+              <Text style={styles.wideText}>End round</Text>
+            </Pressable>
+          )}
+          <ScrollView
+            testID="shot-list"
+            style={{ maxHeight: Math.max(72, Math.min(180, window.height - 280)) }}
+            keyboardShouldPersistTaps="handled"
+          >
           {holeShots.map((shot) => (
             <View key={shot.id}>
               <Pressable
@@ -211,29 +239,7 @@ export function ScoreDock({
               </Pressable>
             </View>
           ) : null}
-          {confirmEnd ? (
-            <View>
-              <Text style={styles.kicker}>{endSummary}</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Confirm end round" onPress={onEnd} style={styles.wide}>
-                <Text style={styles.wideText}>End round</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Keep playing"
-                onPress={() => {
-                  setConfirmEnd(false);
-                  setMenu(false);
-                }}
-                style={styles.wide}
-              >
-                <Text style={styles.wideText}>Keep playing</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <Pressable accessibilityRole="button" accessibilityLabel="End round" onPress={() => setConfirmEnd(true)} style={styles.wide}>
-              <Text style={styles.wideText}>End round</Text>
-            </Pressable>
-          )}
+          </ScrollView>
         </View>
       ) : null}
       {open ? (
