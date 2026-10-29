@@ -31,6 +31,7 @@ export default function MoreScreen() {
     <Screen>
       <Title>More</Title>
       <Muted>Setup and the card. The round starts from Play.</Muted>
+      <Button label="Past rounds" tone="ghost" onPress={() => router.push('/rounds')} />
       <Button label="Send feedback" tone="ghost" onPress={() => router.push('/feedback')} />
       <Button label="Privacy" tone="ghost" onPress={() => router.push('/privacy')} />
       <Button label="Game plan" tone="ghost" onPress={() => router.push('/plan')} />

@@ -36,7 +36,15 @@ export default function QuickAddScreen() {
   return (
     <ScanScreen title="Add a club">
       <Text style={styles.kicker}>ADD A CLUB</Text>
-      <Body>Pick a brand, a model, and a club. Unknown loft and flex stay blank.</Body>
+      <Body>Pick the club, then add it. Brand and model can follow. Unknown loft and flex stay blank.</Body>
+      <View style={styles.row}>
+        {QUICK_TYPES.map((item) => (
+          <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={item.id} onPress={() => setTypeId(item.id)} style={[styles.chip, typeId === item.id && styles.chipOn]}>
+            <Text style={[styles.chipText, typeId === item.id && styles.chipTextOn]}>{item.id}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <ScanButton label="Add club" onPress={addOne} />
       <Body>{CATALOG_NOTE}</Body>
       <View style={styles.row}>
         {GOLF_BRANDS.map((name) => (
@@ -72,7 +80,6 @@ export default function QuickAddScreen() {
         }}
       />
       {hintNote ? <Body>{hintNote}</Body> : null}
-      <ScanButton label="Add club" onPress={addOne} />
       <ScanButton label="Add 4 through PW" tone="ghost" onPress={addSet} />
       <Pressable
         accessibilityRole="button"
@@ -87,13 +94,6 @@ export default function QuickAddScreen() {
       >
         <Text style={styles.chipText}>{remembered ? `Copy last brand and model · ${remembered.brand} ${remembered.model}` : 'Copy last brand and model'}</Text>
       </Pressable>
-      <View style={styles.row}>
-        {QUICK_TYPES.map((item) => (
-          <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={item.id} onPress={() => setTypeId(item.id)} style={[styles.chip, typeId === item.id && styles.chipOn]}>
-            <Text style={[styles.chipText, typeId === item.id && styles.chipTextOn]}>{item.id}</Text>
-          </Pressable>
-        ))}
-      </View>
       <Pressable accessibilityRole="button" accessibilityLabel="Use typical loft and flex" onPress={() => setTypical((value) => !value)} style={[styles.chip, typical && styles.chipOn]}>
         <Text style={[styles.chipText, typical && styles.chipTextOn]}>{typical ? 'Typical loft and flex on' : 'Use typical loft and flex'}</Text>
       </Pressable>

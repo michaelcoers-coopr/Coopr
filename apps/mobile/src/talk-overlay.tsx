@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   buildTalkContext,
@@ -232,8 +232,12 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & {
     setReply('');
     setVoiceHint(null);
     void tick();
+    if (Platform.OS === 'web') {
+      typeInstead();
+      return;
+    }
     void deviceSpeechAvailable().then((ready) => {
-      if (!ready || Platform.OS === 'web') {
+      if (!ready) {
         typeInstead();
         return;
       }
@@ -293,7 +297,9 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & {
         <Text style={styles.kicker}>{phase === 'listening' ? 'Listening' : phase === 'thinking' ? 'Thinking' : 'You'}</Text>
         <Text style={styles.heard}>{transcript || voiceHint || 'Hold Ask, or type it.'}</Text>
         <Text style={styles.kicker}>Caddie</Text>
-        {reply ? <YardageLine text={reply} /> : <Text style={styles.reply}> </Text>}
+        <ScrollView testID="caddie-answer" style={styles.answerScroll} contentContainerStyle={styles.answerBody}>
+          {reply ? <YardageLine text={reply} /> : <Text style={styles.reply}> </Text>}
+        </ScrollView>
         {typed ? (
           <View style={styles.typeRow}>
             <TextInput
@@ -370,8 +376,10 @@ const styles = StyleSheet.create({
   bar: { width: 8, borderRadius: 4, backgroundColor: '#FFFFFF' },
   kicker: { color: 'rgba(255,255,255,0.62)', fontFamily: font.family, fontSize: type.caption, fontWeight: '700', letterSpacing: 0.6 },
   heard: { color: '#FFFFFF', fontFamily: font.family, fontSize: 22, lineHeight: 28, fontWeight: '700' },
-  reply: { color: '#FFFFFF', fontFamily: font.family, fontSize: 28, lineHeight: 34, fontWeight: '700' },
-  yards: { fontSize: 40, lineHeight: 44 },
+  reply: { color: '#FFFFFF', fontFamily: font.family, fontSize: 18, lineHeight: 24, fontWeight: '700' },
+  yards: { fontSize: 22, lineHeight: 26 },
+  answerScroll: { maxHeight: 120, flexGrow: 0 },
+  answerBody: { paddingBottom: 4 },
   typeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 'auto' },
   input: {
     flex: 1,

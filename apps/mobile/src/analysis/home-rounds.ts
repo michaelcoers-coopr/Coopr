@@ -7,6 +7,8 @@ export interface HomeRoundRow {
   gross: number | null;
   toPar: number | null;
   kept: boolean;
+  /** Holes that have a stroke, including a round ended early. */
+  thru: number;
 }
 
 function scored(strokes: number | null): strokes is number {
@@ -28,11 +30,12 @@ export function averageToParLabel(values: readonly number[]): string {
 
 export function roundRow(round: StoredRound): HomeRoundRow {
   const holes = round.holes.slice(0, 18);
+  const played = holes.filter((hole) => scored(hole.strokes));
   const kept = round.holes.length >= 18 && holes.every((hole) => scored(hole.strokes));
-  const gross = kept ? holes.reduce((sum, hole) => sum + (hole.strokes as number), 0) : null;
-  const withPar = kept && holes.every((hole) => hole.par != null);
-  const toPar = withPar ? holes.reduce((sum, hole) => sum + ((hole.strokes as number) - (hole.par as number)), 0) : null;
-  return { id: round.id, playedOn: round.playedOn, courseName: round.courseName || 'Round', gross, toPar, kept };
+  const gross = played.length > 0 ? played.reduce((sum, hole) => sum + (hole.strokes as number), 0) : null;
+  const withPar = played.length > 0 && played.every((hole) => hole.par != null);
+  const toPar = withPar ? played.reduce((sum, hole) => sum + ((hole.strokes as number) - (hole.par as number)), 0) : null;
+  return { id: round.id, playedOn: round.playedOn, courseName: round.courseName || 'Round', gross, toPar, kept, thru: played.length };
 }
 
 export interface HomeRoundSummary {

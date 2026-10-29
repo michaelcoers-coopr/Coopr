@@ -92,6 +92,8 @@ export interface RoundSave {
   fairways: Array<'hit' | 'left' | 'right' | 'short' | 'long' | null>;
   /** Green in regulation per hole. Null means not logged. */
   girs: Array<boolean | null>;
+  /** True once the player opens the hole, even before a score. Older saves infer this from a score or a hole past 1. */
+  inProgress: boolean;
 }
 
 export const EMPTY_FAIRWAYS = Array.from({ length: 18 }, () => null) as RoundSave['fairways'];
@@ -336,6 +338,7 @@ export function parseRoundSave(raw: string | null): RoundSave | null {
   const currentHole = holeNumber(row.currentHole);
   if (!holes || !currentHole) return null;
   if (row.unit !== 'yd' && row.unit !== 'm') return null;
+  const started = holes.some((strokes) => strokes != null) || currentHole > 1;
   return {
     version: 1,
     holes,
@@ -353,6 +356,7 @@ export function parseRoundSave(raw: string | null): RoundSave | null {
     marks: marksOf(row.marks),
     fairways: fairwaysOf(row.fairways),
     girs: girsOf(row.girs),
+    inProgress: row.inProgress === true || (row.inProgress !== false && started),
   };
 }
 

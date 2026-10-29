@@ -271,7 +271,7 @@ function ClubRow({
 }) {
   const name = [club.brand, club.model].filter(Boolean).join(' ');
   return (
-    <Pressable accessibilityRole="button" onPress={onOpen} style={styles.club}>
+    <Pressable accessibilityRole="button" testID={quiet ? 'starter-club' : undefined} onPress={onOpen} style={styles.club}>
       <ClubPicture photoUri={club.photoUri} type={club.type} size={64} />
       <View style={styles.clubText}>
         {club.sample ? <SampleChip /> : null}

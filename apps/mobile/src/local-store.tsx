@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { PERSONALITY_LABELS, type CaddiePersonality, type EnvironmentName } from '@coopr/domain';
 import {
   buildProfiles,
@@ -211,6 +211,11 @@ interface LocalStore {
   conditions: RoundConditions;
   setConditions: (patch: Partial<RoundConditions>) => void;
   startNewRound: () => void;
+  /** Stores the open card in Past rounds without clearing the hole. */
+  finishRound: (patch?: { hole: number; strokes: number; putts: number; penalties: number; fairway: 'hit' | 'left' | 'right' | 'short' | 'long' | null; gir: boolean | null }) => void;
+  inProgress: boolean;
+  /** Remember that a round was opened, even on hole 1 with no score. */
+  markRoundStarted: () => void;
   onboarded: boolean;
   finishOnboarding: (entry: { name: string; handicap: number | null; driverSpeed: number | null }) => void;
 }
@@ -383,6 +388,7 @@ function applySavedRound(
     setGirs: (girs: RoundSave['girs']) => void;
     setMarks: (marks: SavedMark[]) => void;
     setConditionsState: (conditions: RoundConditions) => void;
+    setInProgress: (started: boolean) => void;
   },
 ) {
   if (!save) return;
@@ -401,6 +407,7 @@ function applySavedRound(
   apply.setGirs(save.girs);
   apply.setMarks(save.marks);
   apply.setConditionsState(save.conditions);
+  apply.setInProgress(save.inProgress);
 }
 
 export function LocalStoreProvider({ children, fallback = null }: { children: ReactNode; fallback?: ReactNode }) {
@@ -435,6 +442,12 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
   const [girs, setGirs] = useState<RoundSave['girs']>([...EMPTY_GIRS]);
   const [marks, setMarks] = useState<SavedMark[]>([]);
   const [conditions, setConditionsState] = useState<RoundConditions>({ ...FRESH_CONDITIONS });
+  const [inProgress, setInProgress] = useState(false);
+  const roundArchived = useRef(false);
+
+  const markRoundStarted = useCallback(() => {
+    setInProgress((current) => (current ? current : true));
+  }, []);
 
   const value = useMemo<LocalStore>(() => {
     const observations: DistanceObservation[] = [];
@@ -717,13 +730,16 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
           speedQuality: entry.driverSpeed == null ? fit.speedQuality : 'user_confirmed',
         });
       },
-      startNewRound: () => {
+      inProgress,
+      markRoundStarted,
+      finishRound: (patch) => {
+        if (roundArchived.current) return;
         const open = openRound({
-          holes,
-          putts,
-          penalties,
-          fairways,
-          girs,
+          holes: patch ? holes.map((value, index) => (index === patch.hole - 1 ? patch.strokes : value)) : holes,
+          putts: patch ? putts.map((value, index) => (index === patch.hole - 1 ? patch.putts : value)) : putts,
+          penalties: patch ? penalties.map((value, index) => (index === patch.hole - 1 ? patch.penalties : value)) : penalties,
+          fairways: patch ? fairways.map((value, index) => (index === patch.hole - 1 ? patch.fairway : value)) : fairways,
+          girs: patch ? girs.map((value, index) => (index === patch.hole - 1 ? patch.gir : value)) : girs,
           playedOn: calendarDate(new Date()),
           courseName: analysisCourse.record.name,
           card: analysisCourse.record.scorecard.map((hole) => ({
@@ -733,13 +749,41 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
             yards: hole.yardagesByTee.white ?? null,
           })),
         });
-        if (open) {
-          archiveRound(open);
-          const engine = toEngine(readArchive(), storedShots(shots));
-          const result = analyze({ rounds: engine.rounds, shots: engine.shots, lastFix: readLastFix() });
-          const fix = result.oneFix.status === 'ready' ? result.oneFix.value?.fix : null;
-          if (fix && !result.meta.sample) writeLastFix({ id: fix.id, strokesPer18: fix.strokesPer18 });
+        if (!open) return;
+        archiveRound(open);
+        roundArchived.current = true;
+        const engine = toEngine(readArchive(), storedShots(shots));
+        const result = analyze({ rounds: engine.rounds, shots: engine.shots, lastFix: readLastFix() });
+        const fix = result.oneFix.status === 'ready' ? result.oneFix.value?.fix : null;
+        if (fix && !result.meta.sample) writeLastFix({ id: fix.id, strokesPer18: fix.strokesPer18 });
+      },
+      startNewRound: () => {
+        if (!roundArchived.current) {
+          const open = openRound({
+            holes,
+            putts,
+            penalties,
+            fairways,
+            girs,
+            playedOn: calendarDate(new Date()),
+            courseName: analysisCourse.record.name,
+            card: analysisCourse.record.scorecard.map((hole) => ({
+              holeNumber: hole.holeNumber,
+              par: hole.par,
+              strokeIndex: hole.strokeIndex,
+              yards: hole.yardagesByTee.white ?? null,
+            })),
+          });
+          if (open) {
+            archiveRound(open);
+            const engine = toEngine(readArchive(), storedShots(shots));
+            const result = analyze({ rounds: engine.rounds, shots: engine.shots, lastFix: readLastFix() });
+            const fix = result.oneFix.status === 'ready' ? result.oneFix.value?.fix : null;
+            if (fix && !result.meta.sample) writeLastFix({ id: fix.id, strokesPer18: fix.strokesPer18 });
+          }
         }
+        roundArchived.current = false;
+        setInProgress(false);
         setHoles(EMPTY_HOLES);
         setCurrentHole(1);
         setManual({});
@@ -756,7 +800,7 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
         setConditionsState({ ...FRESH_CONDITIONS });
       },
     };
-  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, voice, plans, debriefs, wedges, putts, penalties, fairways, girs, conditions, marks, displayName, onboarded]);
+  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, voice, plans, debriefs, wedges, putts, penalties, fairways, girs, conditions, marks, displayName, onboarded, inProgress, markRoundStarted]);
 
   useEffect(() => {
     let cancel = false;
@@ -778,6 +822,7 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
         setGirs,
         setMarks,
         setConditionsState,
+        setInProgress,
       });
     };
     const applyDevice = () => {
@@ -867,8 +912,9 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
       girs,
       conditions,
       marks,
+      inProgress,
     });
-  }, [hydrated, holes, currentHole, manualYards, tagged, debriefs, wedges, unit, plans, shots, putts, penalties, fairways, girs, conditions, marks]);
+  }, [hydrated, holes, currentHole, manualYards, tagged, debriefs, wedges, unit, plans, shots, putts, penalties, fairways, girs, conditions, marks, inProgress]);
 
   if (!hydrated) return fallback;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

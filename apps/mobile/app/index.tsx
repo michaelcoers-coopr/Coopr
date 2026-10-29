@@ -101,7 +101,7 @@ function foldBlocks(scroll: HTMLElement): { top: number; bottom: number }[] {
 }
 
 export default function HomeScreen() {
-  const { currentHole, score, clubs, displayName, onboarded, founderTools } = useLocalStore();
+  const { currentHole, score, clubs, displayName, onboarded, founderTools, inProgress } = useLocalStore();
   const display = useDisplayFace();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -122,7 +122,7 @@ export default function HomeScreen() {
     gross: score.holesEntered > 0 ? score.gross : null,
     par: cardHole?.par ?? null,
   });
-  const started = score.holesEntered > 0 || currentHole > 1;
+  const started = inProgress || score.holesEntered > 0 || currentHole > 1;
   const sticker = started ? 'RESUME ROUND' : 'START ROUND';
   const courseName = courseCall(pilot.record.name);
   const pillHole = started ? currentHole : 1;
@@ -342,6 +342,9 @@ export default function HomeScreen() {
         >
           <Text style={[styles.stickerText, { fontFamily: display }]}>{sticker}</Text>
         </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Past rounds" onPress={() => router.push('/rounds')} style={styles.pastHit}>
+          <Text style={styles.pastText}>Past rounds</Text>
+        </Pressable>
         {sheetOpen ? null : (
           <View style={styles.weather}>
             <WindMark />
@@ -435,10 +438,10 @@ export default function HomeScreen() {
                         <Text style={styles.send}>Send</Text>
                       </Pressable>
                       {askReply ? (
-                        <View>
+                        <ScrollView style={styles.askAnswer} testID="home-ask-answer">
                           {askSample ? <Text style={styles.hello}>{SAMPLE_ANSWER_LABEL}</Text> : null}
                           <Text style={styles.hello}>{askReply}</Text>
-                        </View>
+                        </ScrollView>
                       ) : null}
                     </View>
                   ) : null}
@@ -584,6 +587,8 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-2deg' }],
   },
   stickerText: { color: colors.white, fontSize: 28, lineHeight: 32, letterSpacing: 1 },
+  pastHit: { alignSelf: 'flex-start', marginTop: 10, minHeight: 44, minWidth: 44, justifyContent: 'center', paddingHorizontal: 4 },
+  pastText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', textDecorationLine: 'underline' },
   pressed: { transform: [{ scale: 0.98 }, { rotate: '-2deg' }] },
   weather: {
     alignSelf: 'flex-start',
@@ -644,6 +649,7 @@ const styles = StyleSheet.create({
   scrollBody: { paddingHorizontal: 14, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 48, gap: 12 },
   roundBody: { gap: 12 },
   askBox: { gap: 8 },
+  askAnswer: { maxHeight: 120 },
   askInput: {
     minHeight: 44,
     borderRadius: 12,

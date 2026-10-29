@@ -263,7 +263,8 @@ export default function PlayScreen() {
     setFairway,
     girs,
     setGir,
-    startNewRound,
+    finishRound,
+    markRoundStarted,
     marks,
     recordMark,
     dropLastMark,
@@ -348,14 +349,21 @@ export default function PlayScreen() {
     carryToClearYards: number | null;
     carry: DistanceProfile | null;
   }>({ clubId: null, clubLabel: 'Shot', carryToClearYards: null, carry: null });
+  const dragOrigin = useRef<{ x: number; y: number } | null>(null);
+  const [panMark, setPanMark] = useState('0,0');
+  const applyPan = (dx: number, dy: number) => {
+    panOffX.value = panBase.current.x + dx;
+    panOffY.value = panBase.current.y + dy;
+  };
   const pan = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 12 || Math.abs(gesture.dy) > 12,
+      onMoveShouldSetPanResponderCapture: (_, gesture) => Math.abs(gesture.dx) > 8 || Math.abs(gesture.dy) > 8,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 8 || Math.abs(gesture.dy) > 8,
+      onPanResponderTerminationRequest: () => false,
       onPanResponderMove: (_, gesture) => {
         const edge = gesture.x0 <= 28 || gesture.x0 >= widthRef.current - 28;
         if (edge && Math.abs(gesture.dx) > Math.abs(gesture.dy)) return;
-        panOffX.value = panBase.current.x + gesture.dx;
-        panOffY.value = panBase.current.y + gesture.dy;
+        applyPan(gesture.dx, gesture.dy);
       },
       onPanResponderRelease: (_, gesture) => {
         const edge = gesture.x0 <= 28 || gesture.x0 >= widthRef.current - 28;
@@ -375,9 +383,13 @@ export default function PlayScreen() {
           return;
         }
         panBase.current = { x: panOffX.value, y: panOffY.value };
+        setPanMark(`${Math.round(panOffX.value)},${Math.round(panOffY.value)}`);
       },
     }),
   ).current;
+  useEffect(() => {
+    if (path === '/play') markRoundStarted();
+  }, [path, markRoundStarted]);
   const heldOpen = useRef(false);
   const dwell = useRef<ReturnType<typeof setTimeout> | null>(null);
   const framedHole = useRef<number | null>(null);
@@ -1005,6 +1017,7 @@ export default function PlayScreen() {
     thinLine: Boolean(oneLiner && /sample is thin|Thin sample/i.test(oneLiner)),
     emptyBag: bagEmpty,
   });
+  const thruLabel = thruHud(holes, pilot.quality.map((item) => item.par));
   const chrome = playChrome({
     screenWidth: windowWidth,
     screenHeight: windowHeight,
@@ -1168,7 +1181,7 @@ export default function PlayScreen() {
       <StatusBar style="light" />
       <Stack.Screen options={{ headerShown: false, title: `Hole ${hole.holeNumber}` }} />
       <ClubPulse clubLabel={shownLabel} yards={landingLabelYards} />
-      <Animated.View {...pan.panHandlers} style={[styles.mapWrap, mapStyle]}>
+      <Animated.View {...pan.panHandlers} testID="hole-map" style={[styles.mapWrap, mapStyle]}>
         <HoleMap
           bleed
           height={mapH}
@@ -1233,6 +1246,28 @@ export default function PlayScreen() {
           creditBottom={chrome.coachPeek + chrome.actionHeight + Math.max(insets.bottom, 8) + 12}
         />
         <Vignette deep />
+        <View
+          style={StyleSheet.absoluteFill}
+          {...({
+            onMouseDown: (event: { nativeEvent: { pageX: number; pageY: number } }) => {
+              dragOrigin.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY };
+            },
+            onMouseMove: (event: { nativeEvent: { pageX: number; pageY: number } }) => {
+              const origin = dragOrigin.current;
+              if (!origin) return;
+              const dx = event.nativeEvent.pageX - origin.x;
+              const dy = event.nativeEvent.pageY - origin.y;
+              if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+              applyPan(dx, dy);
+            },
+            onMouseUp: () => {
+              if (!dragOrigin.current) return;
+              dragOrigin.current = null;
+              panBase.current = { x: panOffX.value, y: panOffY.value };
+              setPanMark(`${Math.round(panOffX.value)},${Math.round(panOffY.value)}`);
+            },
+          } as object)}
+        />
       </Animated.View>
       <View pointerEvents="none" style={[styles.heroScrim, { top: insets.top }]}>
         <Svg width={220} height={250}>
@@ -1287,17 +1322,33 @@ export default function PlayScreen() {
             <Text style={styles.pillMeta}>{strokes != null ? 'SCR' : 'HCP'}</Text>
             <Text accessibilityLabel={strokes != null ? `Saved score ${strokes}` : undefined} style={[styles.pillNum, { fontFamily: display }]}>{strokes != null ? strokes : hole.strokeIndex ?? '—'}</Text>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Next hole"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={leaveHole}
-            style={({ pressed }) => [styles.pillArrow, pressed && !reduceMotion && styles.pressed]}
-          >
-            <Text style={styles.pillArrowText}>›</Text>
-          </Pressable>
+          {hole.holeNumber >= 18 ? (
+            <View style={styles.pillArrow} />
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Next hole"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={leaveHole}
+              style={({ pressed }) => [styles.pillArrow, pressed && !reduceMotion && styles.pressed]}
+            >
+              <Text style={styles.pillArrowText}>›</Text>
+            </Pressable>
+          )}
         </Glass>
       </View>
+      {thruLabel ? (
+        <View
+          testID="thru-label"
+          pointerEvents="none"
+          style={[styles.thruChip, { top: chrome.plate.y, left: chrome.plate.x + chrome.plate.w + 8 }]}
+        >
+          <Text accessibilityLabel={thruLabel} style={styles.thruText}>
+            {thruLabel}
+          </Text>
+        </View>
+      ) : null}
+      <Text testID="map-offset" style={styles.mapOffset}>{panMark}</Text>
       <View pointerEvents="box-none" style={[styles.hero, { top: chrome.plate.y, left: chrome.plate.x, maxWidth: chrome.plate.w }]}>
         <View style={[styles.heroPlate, hole.holeNumber === 2 && styles.heroPlateClear]}>
         {player == null ? (
@@ -1496,40 +1547,42 @@ export default function PlayScreen() {
             <Text style={styles.clubMeta}>You</Text>
             <Text style={styles.line}>{talk.transcript || talk.voiceHint || 'Hold the mic, or type it.'}</Text>
             <Text style={styles.clubMeta}>Caddie</Text>
-            {talk.reply ? <YardageLine text={talk.reply} /> : <Text style={styles.line}> </Text>}
+            <ScrollView testID="caddie-answer" style={styles.answerScroll}>
+              {talk.reply ? <YardageLine text={talk.reply} /> : <Text style={styles.line}> </Text>}
+            </ScrollView>
           </View>
+          ) : null}
+          {sheetOpen && sheetTab === 'coach' && talk.typed ? (
+            <View style={styles.typeRow}>
+              <TextInput
+                value={talk.draft}
+                onChangeText={talk.setDraft}
+                placeholder="Ask your caddie…"
+                placeholderTextColor="rgba(255,255,255,0.55)"
+                style={styles.askInput}
+                accessibilityLabel="Typed ask"
+                onSubmitEditing={() => {
+                  const text = talk.draft;
+                  talk.setDraft('');
+                  void talk.ask(text, 'typed');
+                }}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Send question"
+                style={styles.coachPeekHit}
+                onPress={() => {
+                  const text = talk.draft;
+                  talk.setDraft('');
+                  void talk.ask(text, 'typed');
+                }}
+              >
+                <Text style={[styles.micLabel, styles.sendHit]}>Send</Text>
+              </Pressable>
+            </View>
           ) : null}
           {sheetOpen && sheetTab === 'coach' ? (
           <ScrollView ref={detailsRef} style={[styles.details, styles.scrollMask, { marginBottom: SHEET_BALL_TEXT.openPx + foldPad }]} contentContainerStyle={styles.detailsBody} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
-            {talk.typed ? (
-              <View style={styles.typeRow}>
-                <TextInput
-                  value={talk.draft}
-                  onChangeText={talk.setDraft}
-                  placeholder="Ask your caddie…"
-                  placeholderTextColor="rgba(255,255,255,0.55)"
-                  style={styles.askInput}
-                  accessibilityLabel="Typed ask"
-                  onSubmitEditing={() => {
-                    const text = talk.draft;
-                    talk.setDraft('');
-                    void talk.ask(text, 'typed');
-                  }}
-                />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Send question"
-                  style={styles.coachPeekHit}
-                  onPress={() => {
-                    const text = talk.draft;
-                    talk.setDraft('');
-                    void talk.ask(text, 'typed');
-                  }}
-                >
-                  <Text style={[styles.micLabel, styles.sendHit]}>Send</Text>
-                </Pressable>
-              </View>
-            ) : null}
             <ClubStrip
               clubs={stripClubs.map((club) => ({ id: club.id, label: club.label }))}
               index={stripClubs.findIndex((club) => club.id === shownId)}
@@ -1667,14 +1720,14 @@ export default function PlayScreen() {
           markCount={holeMarks.length}
           ask={ask.button}
           screenHeight={windowHeight}
-          thruLabel={thruHud(holes, pilot.quality.map((item) => item.par))}
+          thruLabel={thruLabel}
           onPrev={goBack}
           onNext={leaveHole}
           onMark={markHere}
           onPause={() => router.push('/')}
           onEnd={() => {
-            startNewRound();
-            router.replace('/');
+            finishRound();
+            router.push('/recap');
           }}
           onSave={(draft, finish) => {
             const puttsSaved = Math.min(draft.strokes, draft.putts ?? 0);
@@ -1683,8 +1736,17 @@ export default function PlayScreen() {
             setPenalties(hole.holeNumber, draft.penalties ?? 0);
             setFairway(hole.holeNumber, draft.fairway);
             setGir(hole.holeNumber, draft.gir);
-            if (finish) router.push('/recap');
-            else leaveHole();
+            if (finish) {
+              finishRound({
+                hole: hole.holeNumber,
+                strokes: draft.strokes,
+                putts: puttsSaved,
+                penalties: draft.penalties ?? 0,
+                fairway: draft.fairway,
+                gir: draft.gir,
+              });
+              router.push('/recap');
+            } else leaveHole();
           }}
         />
       </View>
@@ -1700,7 +1762,7 @@ export default function PlayScreen() {
       />
       {talk.overlay}
       {saved ? (
-        <View testID="marked-toast" accessibilityLabel="Marked" style={[styles.toast, { top: Math.max(insets.top, 8) + 52 }]}>
+        <View testID="marked-toast" accessibilityLabel="Marked" style={[styles.toast, { top: chrome.toast.y, left: chrome.plate.x }]}>
           <Text style={styles.toastText}>Marked</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Undo last mark" onPress={() => { dropLastMark(); setSaved(null); }} style={styles.toastUndo}>
             <Text style={styles.toastUndoText}>Undo</Text>
@@ -1837,7 +1899,7 @@ const styles = StyleSheet.create({
   micFoot: { width: 8, height: 1.5, borderRadius: 1, backgroundColor: '#FFFFFF' },
   micLabel: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, fontWeight: '700' },
   talkGrow: { flex: 1 },
-  typeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  typeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, minHeight: 52 },
   askInput: {
     flex: 1,
     minHeight: 40,
@@ -1995,7 +2057,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     zIndex: 100,
     elevation: 100,
-    right: 12,
     width: 220,
     minHeight: 44,
     borderRadius: 12,
@@ -2008,6 +2069,10 @@ const styles = StyleSheet.create({
   toastText: { color: '#0B1F3A', fontSize: 16, lineHeight: 20, fontWeight: '800' },
   toastUndo: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   toastUndoText: { color: '#0B1F3A', fontSize: 16, fontWeight: '800' },
+  thruChip: { position: 'absolute', zIndex: 6, maxWidth: 150, minHeight: 24, justifyContent: 'center' },
+  thruText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+  mapOffset: { position: 'absolute', width: 1, height: 1, opacity: 0 },
+  answerScroll: { maxHeight: 72, flexGrow: 0 },
   coachPeekHit: { minHeight: 44, justifyContent: 'center' },
   sendHit: { minWidth: 44, minHeight: 44, textAlign: 'center', lineHeight: 44 },
   pillArrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

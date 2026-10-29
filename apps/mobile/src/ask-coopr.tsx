@@ -72,7 +72,14 @@ export function useAskCoopr(input: AskContext): { banner: ReactNode; button: Rea
   const rail = input.rail === true;
   const button = (
     <Animated.View style={orbStyle}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Ask COOPR" onPressIn={pressIn} onPressOut={pressOut} style={rail ? styles.askRailHit : styles.askHit}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Ask COOPR"
+        onPressIn={pressIn}
+        onPressOut={pressOut}
+        onPress={() => latest.current.onAsk?.()}
+        style={rail ? styles.askRailHit : styles.askHit}
+      >
         <Glass radius={rail ? 28 : 48} intensity={84} style={rail ? styles.askRailHit : styles.ask} contentStyle={rail ? styles.askRailFill : styles.askFill}>
           <View style={rail ? styles.askRailMic : undefined}>
             <Mic />

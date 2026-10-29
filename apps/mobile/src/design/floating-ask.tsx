@@ -26,7 +26,7 @@ export function FloatingAsk() {
   }, [reduce, breathe]);
   const pulse = useAnimatedStyle(() => ({ transform: [{ scale: breathe.value }] }));
   const root = segments[0];
-  if (root == null || root === 'index' || root === 'play' || root === 'analysis' || root === 'games' || root === 'onboard') return null;
+  if (root == null || root === 'index' || root === 'play' || root === 'analysis' || root === 'games' || root === 'onboard' || root === 'rounds' || root === 'round' || root === 'recap') return null;
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
       <Animated.View pointerEvents="box-none" style={[styles.slot, { top: insets.top + 8 }, pulse]}>
