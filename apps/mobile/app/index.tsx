@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance } from 'react-native';
+import { PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +17,7 @@ import { colors, font, signal, type } from '@coopr/tokens';
 import { useReduceMotion } from '../src/design/reduce-motion';
 import { useDisplayFace } from '../src/design/display-font';
 import { bagGlance, courseCall, coursePill, hypeHero, resumeLine, skyLine } from '../src/design/home-copy';
+import { homeWordmark } from '../src/design/round-chrome';
 import { foldSnap } from '../src/design/play-polish';
 import { fieldNavy } from '../src/design/theme';
 import { Glass } from '../src/design/glass';
@@ -103,6 +104,8 @@ export default function HomeScreen() {
   const { currentHole, score, clubs, displayName, onboarded, founderTools } = useLocalStore();
   const display = useDisplayFace();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const word = homeWordmark({ screenWidth: windowWidth, safeTop: insets.top, safeLeft: insets.left });
   const reduceMotion = useReduceMotion();
   const scrimId = useId().replace(/:/g, '');
   const hero = hypeHero({ name: displayName.trim(), course: pilot.record.name });
@@ -321,16 +324,17 @@ export default function HomeScreen() {
           <Text style={styles.chevron}>›</Text>
         </Glass>
       </Pressable>
-      <View pointerEvents="box-none" style={[styles.wordmark, { top: insets.top + 64 }]}>
+      <View pointerEvents="box-none" style={[styles.wordmark, { top: word.top, left: word.left, maxWidth: word.maxWidth }]}>
         <View style={styles.wordPlate}>
-          <Text style={[styles.word, { fontFamily: display }]}>TEE</Text>
-          <Text style={[styles.word, { fontFamily: display }]}>
+          <Text style={[styles.word, { fontFamily: display, fontSize: word.fontSize, lineHeight: word.lineHeight }]}>TEE</Text>
+          <Text style={[styles.word, { fontFamily: display, fontSize: word.fontSize, lineHeight: word.lineHeight }]}>
             IT <Text style={styles.wordLime}>UP</Text>
           </Text>
         </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${sticker}. ${resume.detail}`}
+          testID="start-round"
           onPress={() => router.push('/play')}
           style={({ pressed }) => [styles.sticker, pressed && !reduceMotion && styles.pressed]}
         >
@@ -560,7 +564,7 @@ const styles = StyleSheet.create({
   chevron: { color: 'rgba(255,255,255,0.85)', fontSize: 18, lineHeight: 20, fontWeight: '700', paddingRight: 4 },
   wordmark: { position: 'absolute', left: 16, zIndex: 4, maxWidth: 250 },
   wordPlate: { alignSelf: 'flex-start', backgroundColor: '#02060E', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
-  word: { color: '#FFFFFF', fontSize: 80, lineHeight: 72, fontWeight: '700', letterSpacing: 1 },
+  word: { color: '#FFFFFF', fontSize: 52, lineHeight: 58, fontWeight: '700', letterSpacing: 0 },
   wordLime: { color: '#8AC926' },
   sticker: {
     alignSelf: 'flex-start',

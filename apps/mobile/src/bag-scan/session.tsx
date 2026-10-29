@@ -3,6 +3,7 @@ import { subscribeDevice } from '../device-store';
 import { cropClubhead } from './crop';
 import { copyClubPhoto } from './photos';
 import { readScanClubs, readStoredFit, writeScanClubs, writeStoredFit } from './persist';
+import { mergeStarter, starterBag } from '../clubs/starter';
 import { clubToDraft, draftToClub, placeClub, setAsideNotice, withInPlay, withoutClub } from './logic';
 import { stubVision, type ClubVisionRead } from './vision';
 import { clearHeldDraft, openAddDraft, readHeldDraft } from './play-note';
@@ -34,6 +35,9 @@ interface BagScanValue {
   clearPhoto: () => void;
   saveFit: (fit: StoredFit) => void;
   saveDraft: (ack: 'kept_anyway' | null) => ScanClub | null;
+  addClubs: (incoming: readonly ScanClub[]) => void;
+  useStarterBag: (override?: { handicap: number | null; driverSpeed: number | null }) => void;
+  setEstimatedCarry: (id: string, yards: number | null) => void;
 }
 
 const BagScanContext = createContext<BagScanValue | null>(null);
@@ -60,10 +64,19 @@ export function BagScanProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<BagScanValue>(() => {
+    const addClubs = (incoming: readonly ScanClub[]) => {
+      let next = clubs.filter((club) => club.source !== 'starter' || !incoming.some((item) => item.source !== 'starter' && item.slot === club.slot));
+      for (const club of incoming) next = placeClub(next, club);
+      setClubs(next);
+      writeScanClubs(next);
+    };
     const saveDraft = (ack: 'kept_anyway' | null) => {
       if (focus.kind === 'sample') return null;
       const club = draftToClub(draft, ack);
-      const next = placeClub(clubs, club);
+      const next = placeClub(
+        clubs.filter((item) => !(item.source === 'starter' && item.slot === club.slot && item.id !== club.id)),
+        club,
+      );
       const placed = next.find((item) => item.id === club.id) ?? club;
       setClubs(next);
       writeScanClubs(next);
@@ -154,6 +167,22 @@ export function BagScanProvider({ children }: { children: ReactNode }) {
         writeStoredFit(next);
       },
       saveDraft,
+      addClubs,
+      useStarterBag: (override) => {
+        const next = mergeStarter(clubs, starterBag({
+          handicap: override?.handicap ?? fit.handicapIndex,
+          driverSpeed: override?.driverSpeed ?? fit.driverSpeedMph,
+        }));
+        setClubs(next);
+        writeScanClubs(next);
+      },
+      setEstimatedCarry: (id, yards) => {
+        const carry = yards != null && Number.isFinite(yards) && yards > 0 && yards <= 400 ? Math.round(yards) : null;
+        if (yards != null && carry == null) return;
+        const next = clubs.map((club) => (club.id === id ? { ...club, estimatedCarry: carry } : club));
+        setClubs(next);
+        writeScanClubs(next);
+      },
     };
   }, [cameraNote, clubs, draft, fit, focus, notice, read, sampleProfile]);
 

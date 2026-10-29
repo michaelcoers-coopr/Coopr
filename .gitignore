@@ -20,3 +20,6 @@ android/build/
 android/app/build/
 *.sqlite
 *.db
+
+test-results/
+playwright-report/

@@ -224,6 +224,9 @@ export function sanitizeClub(value: unknown): ScanClub | null {
     fitAckOn: typeof raw.fitAckOn === 'string' ? raw.fitAckOn : null,
     clubNumber: typeof raw.clubNumber === 'string' && raw.clubNumber.trim() ? raw.clubNumber.trim() : null,
     identifiedBy: 'typed',
+    source: raw.source === 'starter' || raw.source === 'entered' ? raw.source : undefined,
+    estimatedCarry: typeof raw.estimatedCarry === 'number' && raw.estimatedCarry > 0 && raw.estimatedCarry <= 400 ? Math.round(raw.estimatedCarry) : null,
+    distanceBasis: typeof raw.distanceBasis === 'string' && raw.distanceBasis.trim() ? raw.distanceBasis.trim() : null,
   };
 }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { bagGaps, formatDistance, verdict, type DistanceProfile } from '@coopr/engine';
 import { useLocalStore } from '../../src/local-store';
@@ -37,6 +37,7 @@ export default function BagScreen() {
     <ScanScreen title="Bag">
       <Text style={styles.kicker}>BAG</Text>
       {saved.length === 0 && seed.length === 0 && !sample ? <Body>No clubs in the bag yet. Nothing was filled in for you.</Body> : null}
+      <ScanButton label="Use a starter bag" tone="ghost" onPress={() => bag.useStarterBag()} />
       {bag.notice ? <Body>{bag.notice}</Body> : null}
       <ScanButton
         label="Add to bag"
@@ -83,6 +84,23 @@ export default function BagScreen() {
             };
             const result = verdict(toFitClub(club), userProfile, userBag, userPicked);
             return (
+              <View key={club.id} style={styles.clubBlock}>
+              {club.source === 'starter' ? <Text style={styles.starter}>Starter</Text> : null}
+              {club.estimatedCarry != null ? (
+                <View>
+                  <Text style={styles.starter}>{`Estimated ${club.estimatedCarry}. ${club.distanceBasis ?? 'All-player average'}`}</Text>
+                  <TextInput
+                    accessibilityLabel={`Estimated carry for ${club.slot}`}
+                    defaultValue={String(club.estimatedCarry)}
+                    keyboardType="number-pad"
+                    onEndEditing={(event) => {
+                      const next = Number(event.nativeEvent.text);
+                      bag.setEstimatedCarry(club.id, Number.isFinite(next) ? next : null);
+                    }}
+                    style={styles.carry}
+                  />
+                </View>
+              ) : null}
               <ClubRow
                 key={club.id}
                 club={shown}
@@ -100,6 +118,7 @@ export default function BagScreen() {
                     : undefined
                 }
               />
+              </View>
             );
           })}
         </View>
@@ -280,6 +299,9 @@ const styles = StyleSheet.create({
   error: { color: scan.warn, fontWeight: '700' },
   badge: { color: scan.navy, backgroundColor: scan.lime, fontWeight: '800', fontSize: 12, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, overflow: 'hidden' },
   gapRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  clubBlock: { gap: 4 },
+  starter: { color: scan.lime, fontSize: 13, fontWeight: '800' },
+  carry: { minHeight: 44, color: scan.white, fontSize: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.3)' },
   club: { flexDirection: 'row', gap: 12, paddingVertical: 8, alignItems: 'center' },
   clubText: { flex: 1, gap: 2 },
   clubName: { color: scan.white, fontSize: 16, fontWeight: '700' },

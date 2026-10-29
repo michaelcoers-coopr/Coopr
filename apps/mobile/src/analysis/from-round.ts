@@ -1,5 +1,10 @@
 import type { FairwayResult, RoundInput, ShotInput } from '@coopr/analysis';
 
+function fairwayMark(value: string | null | undefined): FairwayResult | null {
+  if (value === 'hit' || value === 'left' || value === 'right' || value === 'short' || value === 'long') return value;
+  return null;
+}
+
 export interface CardHole {
   holeNumber: number;
   par: number | null;
@@ -14,6 +19,8 @@ export interface OpenRoundInput {
   playedOn: string;
   courseName: string;
   card: readonly CardHole[];
+  fairways?: readonly (string | null)[];
+  girs?: readonly (boolean | null)[];
 }
 
 /** A round the phone already stored. Nulls stay null. Nothing here is sample data. */
@@ -67,6 +74,7 @@ export function openRound(input: OpenRoundInput): StoredRound | null {
   if (!input.holes.some((strokes) => strokes != null)) return null;
   const holes = input.holes.map((strokes, index) => {
     const card = input.card.find((hole) => hole.holeNumber === index + 1);
+    const gir = input.girs?.[index];
     return {
       number: index + 1,
       par: card?.par ?? null,
@@ -75,8 +83,8 @@ export function openRound(input: OpenRoundInput): StoredRound | null {
       strokes,
       putts: input.putts[index] ?? null,
       penalties: input.penalties[index] ?? null,
-      fairway: null,
-      gir: null,
+      fairway: fairwayMark(input.fairways?.[index]),
+      gir: typeof gir === 'boolean' ? gir : null,
     };
   });
   return { id: 'open', playedOn: input.playedOn, courseName: input.courseName, holes };

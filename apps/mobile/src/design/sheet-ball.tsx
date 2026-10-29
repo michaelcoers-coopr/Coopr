@@ -18,9 +18,12 @@ const stageStyle = {
  * Photo ball on a lime halo, with olive climbing the sheet above it.
  * Bottom-anchored. The sheet clip rounds the corners. Nothing here takes touches.
  */
-export function SheetBall({ reduceMotion }: { reduceMotion: boolean }) {
+export function SheetBall({ reduceMotion, compact = false }: { reduceMotion: boolean; compact?: boolean }) {
   void reduceMotion;
   const [size, setSize] = useState({ w: 366, h: 176 });
+  if (compact) {
+    return <View pointerEvents="none" style={styles.compactDot} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />;
+  }
   const { w, h } = size;
   const olive = oliveHeight(h);
   return (
@@ -79,4 +82,5 @@ export function SheetBall({ reduceMotion }: { reduceMotion: boolean }) {
 
 const styles = StyleSheet.create({
   cap: { position: 'absolute', left: 0, bottom: 0 },
+  compactDot: { position: 'absolute', width: 18, height: 18, borderRadius: 9, backgroundColor: '#8AC926', left: 12, bottom: 8 },
 });

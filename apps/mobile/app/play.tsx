@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Keyboard, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance, type ViewStyle } from 'react-native';
+import { Keyboard, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, type ScrollViewInstance, type ViewStyle } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -73,7 +73,11 @@ import { fieldNavy } from '../src/design/theme';
 import { Glass, Vignette } from '../src/design/glass';
 import { ClubStrip, ThruBar } from '../src/design/signature-ui';
 import { useReduceMotion } from '../src/design/reduce-motion';
-import { CountChip } from '../src/design/count-chip';
+import { ScoreDock } from '../src/design/score-dock';
+import { MARKED_TOAST_MS, playChrome } from '../src/design/round-chrome';
+import { coachOpenHeight, coachPeekHeight } from '../src/design/round-chrome';
+import { starterAdvice } from '../src/clubs/starter';
+import { useBagScan } from '../src/bag-scan/session';
 import { lineLengthYards, PAST_STOCK_YARDS, playCamera, pointAtYards, teeWindowYards } from '../src/hole-fit';
 import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
@@ -92,9 +96,6 @@ import { useTalkPrefs } from '../src/talk-prefs';
 
 const pilot = loadHighCedarsPilot();
 /** Tall enough for a wrapped caddie sentence and the mic. The locked HUD constant stays shorter. */
-const SHEET_CLOSED = 240;
-const SHEET_OPEN = 540;
-const RAIL_SIZE = 56;
 const MINUS = '\u2212';
 
 /** Signed tenth. A missing reading stays an em dash. */
@@ -256,11 +257,19 @@ export default function PlayScreen() {
     setDebrief,
     putts,
     setPutts,
+    penalties,
+    setPenalties,
+    fairways,
+    setFairway,
+    girs,
+    setGir,
+    startNewRound,
     marks,
     recordMark,
     conditions,
     removeTag,
   } = useLocalStore();
+  const bag = useBagScan();
   const hole = pilot.quality.find((item) => item.holeNumber === currentHole);
   const [player, setPlayer] = useState<LatLon | null>(null);
   const [sky, setSky] = useState<WeatherRead | null>(null);
@@ -289,10 +298,15 @@ export default function PlayScreen() {
   const mapScale = useSharedValue(1);
   const mapFade = useSharedValue(1);
   const sheetX = useSharedValue(0);
-  const sheetH = useSharedValue(SHEET_CLOSED);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const sheetH = useSharedValue(coachPeekHeight(windowHeight));
+  const peekSV = useSharedValue(coachPeekHeight(windowHeight));
+  const openSV = useSharedValue(coachOpenHeight(windowHeight));
   const sheetDrag = useSharedValue(0);
   const sheetOpenRef = useRef(false);
-  const closedSheetRef = useRef(SHEET_CLOSED);
+  const closedSheetRef = useRef(coachPeekHeight(windowHeight));
+  const peekRef = useRef(coachPeekHeight(windowHeight));
+  const openRef = useRef(coachOpenHeight(windowHeight));
   const seenHole = useRef<number | null>(null);
   const rolledFrom = useRef<number | null>(null);
   const rollHole = useRef<number | null>(null);
@@ -356,7 +370,7 @@ export default function PlayScreen() {
     sheetOpenRef.current = open;
     setSheetOpen(open);
     sheetDrag.value = 0;
-    sheetH.value = withSpring(open ? SHEET_OPEN : SHEET_CLOSED, SHEET_SPRING);
+    sheetH.value = withSpring(open ? openRef.current : peekRef.current, SHEET_SPRING);
     void tick();
   };
   const sheetPan = useRef(
@@ -367,7 +381,7 @@ export default function PlayScreen() {
         sheetDrag.value = gesture.dy;
       },
       onPanResponderRelease: (_, gesture) => {
-        const visual = Math.min(SHEET_OPEN + 28, Math.max(96, sheetH.value - gesture.dy));
+        const visual = Math.min(openRef.current, Math.max(peekRef.current, sheetH.value - gesture.dy));
         sheetDrag.value = 0;
         sheetH.value = visual;
         const dir = holeSwipe(gesture.dx, gesture.dy, holeNo.current);
@@ -476,7 +490,7 @@ export default function PlayScreen() {
     if (!bannerOn) return;
     sheetOpenRef.current = true;
     setSheetOpen(true);
-    sheetH.value = withSpring(SHEET_OPEN, SHEET_SPRING);
+    sheetH.value = withSpring(openRef.current, SHEET_SPRING);
   }, [bannerOn, sheetH]);
 
   useEffect(() => {
@@ -525,7 +539,7 @@ export default function PlayScreen() {
     transform: [{ translateX: bump.value }],
   }));
   const sheetStyle = useAnimatedStyle(() => ({
-    height: Math.min(SHEET_OPEN + 28, Math.max(96, sheetH.value - sheetDrag.value)),
+    height: Math.min(openSV.value, Math.max(peekSV.value, sheetH.value - sheetDrag.value)),
     transform: [{ translateX: sheetX.value }],
   }));
 
@@ -733,7 +747,7 @@ export default function PlayScreen() {
 
   useEffect(() => {
     if (!sheetOpenRef.current) return;
-    const next = keyboard > 0 ? Math.min(SHEET_OPEN, Math.max(360, 800 - keyboard)) : SHEET_OPEN;
+    const next = keyboard > 0 ? Math.min(openRef.current, Math.max(peekRef.current, windowHeight - keyboard - 48)) : openRef.current;
     sheetH.value = withSpring(next, SHEET_SPRING);
   }, [keyboard, sheetH]);
 
@@ -956,6 +970,9 @@ export default function PlayScreen() {
       : oneLiner && /sample is thin|thin sample/i.test(oneLiner) && shotShown == null
         ? null
         : oneLiner;
+  const measuredCall = shownProfile != null && shownProfile.sampleSize > 0 && !shownProfile.sampleWarning?.startsWith('Estimated');
+  const estimateLine = measuredCall ? null : starterAdvice(bag.clubs, shotShown);
+  const peekLine = (measuredCall ? oneLiner || cardSentence : null) ?? estimateLine ?? cardSentence ?? EMPTY_BAG_ADVICE;
   visibleCall.current = { line: cardSentence, clubId: shownId, clubLabel: shownLabel };
   const patternLine = patternCaption({
     onGreen,
@@ -967,10 +984,19 @@ export default function PlayScreen() {
     thinLine: Boolean(oneLiner && /sample is thin|Thin sample/i.test(oneLiner)),
     emptyBag: bagEmpty,
   });
-  const closedSheet = closedPlaySheet(SHEET_CLOSED);
+  const chrome = playChrome({
+    screenWidth: windowWidth,
+    screenHeight: windowHeight,
+    safe: { top: insets.top, right: insets.right, bottom: insets.bottom, left: insets.left },
+  });
+  peekRef.current = chrome.coachPeek;
+  openRef.current = chrome.coachOpen;
+  const closedSheet = closedPlaySheet(chrome.coachPeek);
   closedSheetRef.current = closedSheet;
   if (!sheetOpenRef.current) sheetH.value = closedSheet;
-  const frameSheet = sheetOpen || talk.phase !== 'idle' ? SHEET_OPEN : closedSheet;
+  peekSV.value = chrome.coachPeek;
+  openSV.value = chrome.coachOpen;
+  const frameSheet = sheetOpen || talk.phase !== 'idle' ? chrome.coachOpen : closedSheet;
   const tipCarry = carryProfile(profiles, shownId);
   const carryYards = tipCarry != null && Number.isFinite(tipCarry.stockYards) ? Math.round(tipCarry.stockYards) : null;
   const carrySpread = carryBand(tipCarry, unit);
@@ -1034,13 +1060,14 @@ export default function PlayScreen() {
   holeNo.current = hole.holeNumber;
 
   const markHere = () => {
-    if (!player) return;
+    const spot = player ?? overlay.line[0] ?? null;
+    if (!spot) return;
     const prior = [...holeMarks].reverse().find((mark) => mark.yards == null) ?? null;
-    const closed = prior ? closeMarkedShot({ lat: prior.lat, lon: prior.lon }, player, polygons) : null;
+    const closed = prior && player ? closeMarkedShot({ lat: prior.lat, lon: prior.lon }, player, polygons) : null;
     recordMark({
       hole: hole.holeNumber,
-      lat: player.lat,
-      lon: player.lon,
+      lat: spot.lat,
+      lon: spot.lon,
       clubId: calledId,
       clubLabel: calledLabel,
       close: closed,
@@ -1061,12 +1088,11 @@ export default function PlayScreen() {
     setSaved(calledLabel ?? 'Marked');
     void celebrate();
     if (savedTimer.current) clearTimeout(savedTimer.current);
-    savedTimer.current = setTimeout(() => setSaved(null), 1400);
+    savedTimer.current = setTimeout(() => setSaved(null), MARKED_TOAST_MS);
   };
 
   const heroText = roll != null ? String(Math.round(roll)) : heroBase == null ? '' : formatDistance(heroBase, unit);
-  const heroDigits = heroText.replace(/\D/g, '').length;
-  const heroSize = heroDigits >= 4 ? 64 : heroDigits >= 3 ? 84 : 112;
+  const heroSize = chrome.yardageFont;
   const playsLikeText =
     playsLikeYards != null && shotRaw != null && Math.round(playsLikeYards) !== Math.round(shotRaw)
       ? `PLAYS LIKE ${formatDistance(playsLikeYards, unit)}`
@@ -1183,7 +1209,7 @@ export default function PlayScreen() {
           showCredit={!sheetOpen}
           creditLeft={14}
           creditRight={88}
-          creditBottom={SHEET_CLOSED + Math.max(insets.bottom, 8) + 20}
+          creditBottom={chrome.coachPeek + chrome.actionHeight + Math.max(insets.bottom, 8) + 12}
         />
         <Vignette deep />
       </Animated.View>
@@ -1201,7 +1227,6 @@ export default function PlayScreen() {
       </View>
       <View
         pointerEvents="box-none"
-        accessibilityRole="adjustable"
         accessibilityLabel={`Hole ${hole.holeNumber}, par ${par ?? 'unknown'}, stroke index ${hole.strokeIndex ?? 'unknown'}`}
         accessibilityHint="Swipe left for the next hole. Swipe right for the previous hole."
         accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
@@ -1209,7 +1234,8 @@ export default function PlayScreen() {
           if (event.nativeEvent.actionName === 'increment') leaveRef.current();
           if (event.nativeEvent.actionName === 'decrement') backRef.current();
         }}
-        style={[styles.holePill, { top: insets.top + 12 }]}
+        style={[styles.holePill, { top: chrome.pill.y, left: chrome.pill.x, maxWidth: chrome.pill.w }]}
+        testID="hole-pill"
       >
         <Glass radius={19} style={styles.holePillGlass} contentStyle={styles.holePillFill}>
           <Pressable
@@ -1240,6 +1266,12 @@ export default function PlayScreen() {
             <Text style={styles.pillMeta}>HCP</Text>
             <Text style={[styles.pillNum, { fontFamily: display }]}>{hole.strokeIndex ?? '—'}</Text>
           </View>
+          {strokes != null ? (
+            <View style={styles.pillStack}>
+              <Text style={styles.pillMeta}>SCR</Text>
+              <Text accessibilityLabel={`Saved score ${strokes}`} style={[styles.pillNum, { fontFamily: display }]}>{strokes}</Text>
+            </View>
+          ) : null}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Next hole"
@@ -1251,10 +1283,11 @@ export default function PlayScreen() {
           </Pressable>
         </Glass>
       </View>
-      <View pointerEvents="box-none" style={[styles.hero, { top: insets.top + 58 }]}>
+      <View pointerEvents="box-none" style={[styles.hero, { top: chrome.plate.y, left: chrome.plate.x, maxWidth: chrome.plate.w }]}>
         <View style={[styles.heroPlate, hole.holeNumber === 2 && styles.heroPlateClear]}>
         {player == null ? (
           <Pressable
+            testID="yardage-plate"
             accessibilityRole="button"
             accessibilityLabel={manual == null ? 'Waiting for GPS, or tap to set your position' : `Shot yards${playsLikeText ? `, ${playsLikeText}` : ''}`}
             delayLongPress={450}
@@ -1282,14 +1315,14 @@ export default function PlayScreen() {
                 }}
               />
             ) : (
-              <Text style={[styles.heroNum, { fontFamily: display, fontSize: heroSize, lineHeight: heroSize * 0.86 }]}>{heroText === '' ? '—' : heroText}</Text>
+              <Text style={[styles.heroNum, { fontFamily: display, fontSize: heroSize, lineHeight: heroSize + 4 }]}>{heroText === '' ? '—' : heroText}</Text>
             )}
             <Text style={styles.heroCap}>{unit === 'yd' ? 'YARDS TO GREEN' : 'METERS TO GREEN'}</Text>
             {manual == null ? <Text style={styles.fbInvite}>Waiting for GPS · tap to set position</Text> : null}
           </Pressable>
         ) : (
-          <View pointerEvents="none" accessibilityLabel={playsLikeText ? `${heroText} yards to the green. ${playsLikeText}` : undefined}>
-            <Text style={[styles.heroNum, { fontFamily: display, fontSize: heroSize, lineHeight: heroSize * 0.86 }]}>{heroText === '' ? '—' : heroText}</Text>
+          <View testID="yardage-plate" pointerEvents="none" accessibilityLabel={playsLikeText ? `${heroText} yards to the green. ${playsLikeText}` : undefined}>
+            <Text style={[styles.heroNum, { fontFamily: display, fontSize: heroSize, lineHeight: heroSize + 4 }]}>{heroText === '' ? '—' : heroText}</Text>
             <Text style={styles.heroCap}>{unit === 'yd' ? 'YARDS TO GREEN' : 'METERS TO GREEN'}</Text>
           </View>
         )}
@@ -1316,9 +1349,9 @@ export default function PlayScreen() {
           </Glass>
         </View>
       ) : null}
-      <Animated.View style={[styles.sheet, sheetStyle, { bottom: Math.max(insets.bottom, 8) + (sheetOpen ? keyboard : 0), zIndex: sheetOpen ? 8 : 2 }]}>
+      <Animated.View testID="coach-sheet" style={[styles.sheet, sheetStyle, { bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + (sheetOpen ? keyboard : 0), zIndex: sheetOpen ? 8 : 2 }]}>
         <Glass radius={28} style={styles.sheetGlass} contentStyle={styles.sheetFill}>
-          <SheetBall reduceMotion={reduceMotion} />
+          <SheetBall reduceMotion={reduceMotion} compact />
           <View style={styles.grab}>
             <View {...sheetPan.panHandlers} style={styles.handleHit}>
               <View style={styles.handle} />
@@ -1331,7 +1364,7 @@ export default function PlayScreen() {
                 </Pressable>
               </View>
             ) : null}
-            <View style={styles.tabs}>
+            {sheetOpen ? <View style={styles.tabs}>
               {(['course', 'coach', 'stats'] as const).map((tab) => (
                 <Pressable
                   key={tab}
@@ -1344,9 +1377,13 @@ export default function PlayScreen() {
                   <Text style={[styles.tab, sheetTab === tab && styles.tabOn]}>{tab === 'coach' ? 'Coach AI' : tab === 'course' ? 'Course' : 'Stats'}</Text>
                 </Pressable>
               ))}
-            </View>
+            </View> : null}
             <View style={{ marginTop: SHEET_BALL_TEXT.closedPx }}>
-            {sheetTab === 'course' ? (
+            {!sheetOpen ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="Coach AI" testID="coach-line" onPress={() => applySheet.current(true)} style={styles.coachPeekHit}>
+                <Text numberOfLines={1} style={styles.line}>{peekLine}</Text>
+              </Pressable>
+            ) : sheetTab === 'course' ? (
               <Text style={styles.line} numberOfLines={2}>{`${courseCall(pilot.record.name)}. ${holeSubline({ hole: hole.holeNumber, par })}`}</Text>
             ) : sheetTab === 'stats' ? (
               sheetOpen ? null : (
@@ -1597,29 +1634,36 @@ export default function PlayScreen() {
           ) : null}
         </Glass>
       </Animated.View>
-      {sheetOpen ? null : (
-        <>
-          {ask.undo ? <View pointerEvents="box-none" style={[styles.undoFloat, { bottom: SHEET_CLOSED + Math.max(insets.bottom, 8) + 16 + RAIL_SIZE * 3 + 24 + 8 }]}>{ask.undo}</View> : null}
-          <View pointerEvents="box-none" style={[styles.rail, { bottom: SHEET_CLOSED + Math.max(insets.bottom, 8) + 16 }]}>
-            <CountChip rail value={face.strokes} confirmed={face.strokesConfirmed} par={par} floor={1} idleLabel="Score" onWrite={writeStrokes} />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Mark shot, ${holeMarks.length} ${holeMarks.length === 1 ? 'mark' : 'marks'}`}
-              onPress={markHere}
-              style={({ pressed }) => [styles.railBtn, pressed && !reduceMotion && styles.pressed]}
-            >
-              <Glass radius={28} borderColor="rgba(190,245,70,0.9)" style={styles.railBtn} contentStyle={styles.railFill}>
-                <MarkSight />
-                <Text style={styles.railLabel}>MARK</Text>
-              </Glass>
-              <View pointerEvents="none" style={styles.markBadge}>
-                <Text style={[styles.markBadgeNum, { fontFamily: display }]}>{String(holeMarks.length)}</Text>
-              </View>
-            </Pressable>
-            {ask.button}
-          </View>
-        </>
-      )}
+      <View pointerEvents="box-none" style={[styles.actionDock, { bottom: Math.max(insets.bottom, 8) }]}>
+        <ScoreDock
+          hole={hole.holeNumber}
+          par={par}
+          savedStrokes={strokes}
+          savedPutts={puttCount}
+          savedPenalties={penalties[hole.holeNumber - 1] ?? null}
+          savedFairway={fairways[hole.holeNumber - 1] ?? null}
+          savedGir={girs[hole.holeNumber - 1] ?? null}
+          markCount={holeMarks.length}
+          ask={ask.button}
+          onPrev={goBack}
+          onNext={leaveHole}
+          onMark={markHere}
+          onPause={() => router.push('/')}
+          onEnd={() => {
+            startNewRound();
+            router.replace('/');
+          }}
+          onSave={(draft, finish) => {
+            writeStrokes(draft.strokes);
+            if (draft.putts != null) setPutts(hole.holeNumber, draft.putts);
+            if (draft.penalties != null) setPenalties(hole.holeNumber, draft.penalties);
+            setFairway(hole.holeNumber, draft.fairway);
+            setGir(hole.holeNumber, draft.gir);
+            if (finish) router.push('/recap');
+            else leaveHole();
+          }}
+        />
+      </View>
       </Animated.View>
       <MomentOverlay
         stamp={stamp}
@@ -1631,11 +1675,8 @@ export default function PlayScreen() {
         }}
       />
       {saved ? (
-        <View pointerEvents="none" style={styles.savedWrap}>
-          <Glass radius={28} style={styles.saved} contentStyle={styles.savedFill}>
-            <Text style={styles.kicker}>Marked</Text>
-            <Text style={[styles.savedTitle, { fontFamily: display }]}>{saved}</Text>
-          </Glass>
+        <View pointerEvents="none" testID="marked-toast" accessibilityLabel="Marked" style={[styles.toast, { top: chrome.toast.y, left: chrome.toast.x, width: chrome.toast.w, height: chrome.toast.h }]}>
+          <Text style={styles.toastText}>Marked</Text>
         </View>
       ) : null}
       {talk.overlay}
@@ -1650,16 +1691,6 @@ function WindArrow({ degrees }: { degrees: number | null }) {
     <View style={[styles.windArrow, { transform: [{ rotate: `${degrees}deg` }] }]}>
       <View style={styles.windArrowHead} />
       <View style={styles.windArrowStem} />
-    </View>
-  );
-}
-
-function MarkSight() {
-  return (
-    <View style={styles.sight}>
-      <View style={styles.sightRing} />
-      <View style={styles.sightH} />
-      <View style={styles.sightV} />
     </View>
   );
 }
@@ -1931,6 +1962,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   pillPair: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pillStack: { alignItems: 'center', justifyContent: 'center', minWidth: 28 },
+  actionDock: { position: 'absolute', left: 8, right: 8, zIndex: 9 },
+  toast: { position: 'absolute', zIndex: 12, borderRadius: 8, backgroundColor: '#041018', alignItems: 'center', justifyContent: 'center' },
+  toastText: { color: '#FFFFFF', fontSize: 13, lineHeight: 16, fontWeight: '700' },
+  coachPeekHit: { minHeight: 44, justifyContent: 'center' },
   pillArrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   pillArrowText: { color: 'rgba(255,255,255,0.9)', fontSize: 18, lineHeight: 20, fontWeight: '700' },
   pillBallHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

@@ -28,7 +28,7 @@ import { hydrateDevice, readDevice, readPlayerFit, subscribeDevice, writePlayerB
 import { playingFromBag, type PlayingClubView } from './device/snapshot';
 import { FOUNDER_TOOLS_ENABLED } from './founder-flag';
 import { hasWebStorage, readRound, readRoundSync, writeRound } from './round-save-io';
-import { EMPTY_PUTTS, FRESH_CONDITIONS, type RoundConditions, type RoundSave, type SavedLie, type SavedMark } from './round-save';
+import { EMPTY_FAIRWAYS, EMPTY_GIRS, EMPTY_PUTTS, FRESH_CONDITIONS, type RoundConditions, type RoundSave, type SavedLie, type SavedMark } from './round-save';
 
 export type { DistanceUnit };
 export type LandingResult = 'fairway' | 'left' | 'right' | 'short' | 'rough' | 'green' | 'hazard';
@@ -195,6 +195,10 @@ interface LocalStore {
   setPutts: (hole: number, count: number | null) => void;
   penalties: readonly (number | null)[];
   setPenalties: (hole: number, count: number | null) => void;
+  fairways: readonly ('hit' | 'left' | 'right' | 'short' | 'long' | null)[];
+  setFairway: (hole: number, result: 'hit' | 'left' | 'right' | 'short' | 'long' | null) => void;
+  girs: readonly (boolean | null)[];
+  setGir: (hole: number, hit: boolean | null) => void;
   marks: readonly SavedMark[];
   recordMark: (mark: { hole: number; lat: number; lon: number; clubId: string | null; clubLabel: string | null; close: { yards: number; lie: SavedLie | null } | null }) => void;
   conditions: RoundConditions;
@@ -368,6 +372,8 @@ function applySavedRound(
     setWedges: (wedges: Record<string, Partial<Record<WedgeLength, number | null>>>) => void;
     setPutts: (putts: Array<number | null>) => void;
     setPenalties: (penalties: Array<number | null>) => void;
+    setFairways: (fairways: RoundSave['fairways']) => void;
+    setGirs: (girs: RoundSave['girs']) => void;
     setMarks: (marks: SavedMark[]) => void;
     setConditionsState: (conditions: RoundConditions) => void;
   },
@@ -384,6 +390,8 @@ function applySavedRound(
   apply.setWedges(save.wedges);
   apply.setPutts(save.putts);
   apply.setPenalties(save.penalties);
+  apply.setFairways(save.fairways);
+  apply.setGirs(save.girs);
   apply.setMarks(save.marks);
   apply.setConditionsState(save.conditions);
 }
@@ -416,6 +424,8 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
   const [wedges, setWedges] = useState<Record<string, Partial<Record<WedgeLength, number | null>>>>({});
   const [putts, setPutts] = useState<Array<number | null>>([...EMPTY_PUTTS]);
   const [penalties, setPenalties] = useState<Array<number | null>>([...EMPTY_PUTTS]);
+  const [fairways, setFairways] = useState<RoundSave['fairways']>([...EMPTY_FAIRWAYS]);
+  const [girs, setGirs] = useState<RoundSave['girs']>([...EMPTY_GIRS]);
   const [marks, setMarks] = useState<SavedMark[]>([]);
   const [conditions, setConditionsState] = useState<RoundConditions>({ ...FRESH_CONDITIONS });
 
@@ -645,6 +655,14 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
       setPenalties: (hole, count) => {
         setPenalties((current) => current.map((value, index) => (index === hole - 1 ? count : value)));
       },
+      fairways,
+      setFairway: (hole, result) => {
+        setFairways((current) => current.map((value, index) => (index === hole - 1 ? result : value)));
+      },
+      girs,
+      setGir: (hole, hit) => {
+        setGirs((current) => current.map((value, index) => (index === hole - 1 ? hit : value)));
+      },
       marks,
       recordMark: (mark) => {
         setMarks((current) => {
@@ -694,6 +712,8 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
           holes,
           putts,
           penalties,
+          fairways,
+          girs,
           playedOn: calendarDate(new Date()),
           courseName: analysisCourse.record.name,
           card: analysisCourse.record.scorecard.map((hole) => ({
@@ -721,10 +741,12 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
         setUnit('yd');
         setPutts([...EMPTY_PUTTS]);
         setPenalties([...EMPTY_PUTTS]);
+        setFairways([...EMPTY_FAIRWAYS]);
+        setGirs([...EMPTY_GIRS]);
         setConditionsState({ ...FRESH_CONDITIONS });
       },
     };
-  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, voice, plans, debriefs, wedges, putts, penalties, conditions, marks, displayName, onboarded]);
+  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, voice, plans, debriefs, wedges, putts, penalties, fairways, girs, conditions, marks, displayName, onboarded]);
 
   useEffect(() => {
     let cancel = false;
@@ -742,6 +764,8 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
         setWedges,
         setPutts,
         setPenalties,
+        setFairways,
+        setGirs,
         setMarks,
         setConditionsState,
       });
@@ -829,10 +853,12 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
       localShots: shots,
       putts,
       penalties,
+      fairways,
+      girs,
       conditions,
       marks,
     });
-  }, [hydrated, holes, currentHole, manualYards, tagged, debriefs, wedges, unit, plans, shots, putts, penalties, conditions, marks]);
+  }, [hydrated, holes, currentHole, manualYards, tagged, debriefs, wedges, unit, plans, shots, putts, penalties, fairways, girs, conditions, marks]);
 
   if (!hydrated) return fallback;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

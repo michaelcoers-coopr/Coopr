@@ -68,6 +68,8 @@ export default function AddClubScreen() {
         tone="ghost"
         onPress={() => forwardBag(router, '/bag/details')}
       />
+      <ScanButton label="ADD IT FAST" tone="ghost" onPress={() => forwardBag(router, '/bag/quick')} />
+      <ScanButton label="Use a starter bag" tone="ghost" onPress={() => { bag.useStarterBag(); bag.discardDraft(); }} />
       <ScanButton label="DISCARD" tone="ghost" onPress={() => bag.discardDraft()} />
     </ScanScreen>
   );

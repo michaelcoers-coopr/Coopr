@@ -18,6 +18,7 @@
     "preview:publish": "npm run preview:publish -w @coopr/mobile"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^22.10.0",
     "typescript": "~5.9.2",
     "vitest": "^2.1.8"

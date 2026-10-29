@@ -19,7 +19,7 @@ describe('left rail hole screen', () => {
     expect(play).toContain('>ELEV<');
     expect(play).toContain('>TEMP<');
     expect(play).toContain('>PUTTS<');
-    expect(play).toContain('>MARK<');
+    expect(readFileSync(join(here, '../src/design/score-dock.tsx'), 'utf8')).toContain('>MARK<');
     expect(play).toContain('rail: true');
     expect(play).toContain('Waiting for GPS · tap to set position');
     expect(play).toContain('PLAYS LIKE');

@@ -19,6 +19,11 @@ export interface ScanClub {
   fitAckOn: string | null;
   clubNumber: string | null;
   identifiedBy: 'typed';
+  /** starter clubs are estimates. entered clubs were typed. A scan leaves this unset. */
+  source?: 'starter' | 'entered';
+  /** Estimated carry. Null means unknown. Never a measured shot. */
+  estimatedCarry?: number | null;
+  distanceBasis?: string | null;
 }
 
 export interface ScanDraft {

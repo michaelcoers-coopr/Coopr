@@ -3,31 +3,34 @@ import { Stack, router } from 'expo-router';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors } from '@coopr/tokens';
 import { HANDICAP_MAX, HANDICAP_MIN, rangedNumber, SPEED_MAX, SPEED_MIN } from '../src/bag-scan/logic';
+import { useBagScan } from '../src/bag-scan/session';
 import { useLocalStore } from '../src/local-store';
 import { Button, Muted, Screen, Title } from '../src/ui';
 
 export default function OnboardScreen() {
   const { finishOnboarding } = useLocalStore();
+  const bag = useBagScan();
   const [name, setName] = useState('');
   const [handicap, setHandicap] = useState('');
   const [speed, setSpeed] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const finish = (save: boolean) => {
+  const finish = (save: boolean): boolean => {
     if (!save) {
       finishOnboarding({ name: '', handicap: null, driverSpeed: null });
       router.replace('/');
-      return;
+      return true;
     }
     const handicapValue = rangedNumber(handicap, HANDICAP_MIN, HANDICAP_MAX);
     const speedValue = rangedNumber(speed, SPEED_MIN, SPEED_MAX);
     if (handicapValue.problem || speedValue.problem) {
       setError(handicapValue.problem ? `Handicap has to be from ${HANDICAP_MIN} to ${HANDICAP_MAX}.` : `Driver speed has to be from ${SPEED_MIN} to ${SPEED_MAX} mph.`);
-      return;
+      return false;
     }
     setError(null);
     finishOnboarding({ name, handicap: handicapValue.value, driverSpeed: speedValue.value });
     router.replace('/');
+    return true;
   };
 
   return (
@@ -75,6 +78,14 @@ export default function OnboardScreen() {
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Button label="Save" onPress={() => finish(true)} />
+      <Button
+        label="Use a starter bag"
+        onPress={() => {
+          const handicapValue = rangedNumber(handicap, HANDICAP_MIN, HANDICAP_MAX);
+          const speedValue = rangedNumber(speed, SPEED_MIN, SPEED_MAX);
+          if (finish(true)) bag.useStarterBag({ handicap: handicapValue.value, driverSpeed: speedValue.value });
+        }}
+      />
       <Button label="Skip" tone="ghost" onPress={() => finish(false)} />
     </Screen>
   );
