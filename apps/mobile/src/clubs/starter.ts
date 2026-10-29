@@ -86,7 +86,11 @@ export function mergeStarter(existing: readonly ScanClub[], starter: readonly Sc
     if (play) inPlay += 1;
     add.push({ ...club, inPlay: play });
   }
-  return [...kept, ...add];
+  const merged = [...kept, ...add];
+  const starterIds = new Set(STARTER_SLOTS.map((slot) => slot.id));
+  const outside = merged.filter((club) => !starterIds.has(club.id) && club.inPlay).length;
+  if (outside > 0) return merged;
+  return merged.map((club) => (starterIds.has(club.id) ? { ...club, inPlay: true } : club));
 }
 
 /** The starter or estimated club closest to the shot. Null when nothing has an estimated carry. */

@@ -1,8 +1,7 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { router, Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Keyboard, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, type ScrollViewInstance, type ViewStyle } from 'react-native';
-import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
@@ -70,7 +69,7 @@ import { caddieVoiceLine } from '../src/design/caddie-voice';
 import { useDisplayFace } from '../src/design/display-font';
 import { MomentOverlay } from '../src/design/moments';
 import { fieldNavy } from '../src/design/theme';
-import { Glass, Vignette } from '../src/design/glass';
+import { Glass } from '../src/design/glass';
 import { ClubStrip, ThruBar } from '../src/design/signature-ui';
 import { useReduceMotion } from '../src/design/reduce-motion';
 import { ScoreDock } from '../src/design/score-dock';
@@ -83,7 +82,7 @@ import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
 import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
-import { caddieSpeaker, speakSentences } from '../src/speech/tts';
+import { caddieSpeaker, isSpeechMuted, speakSentences, subscribeSpeech } from '../src/speech/tts';
 import { SAMPLE_ANSWER_LABEL } from '../src/talk-client';
 import { dismissPlayNote, readPlayNote, subscribePlayNote } from '../src/bag-scan/play-note';
 import { readPlayWebFlags } from '../src/play-web-flags';
@@ -272,6 +271,8 @@ export default function PlayScreen() {
     dropLastMark,
     deleteLastShot,
     adjustLastShot,
+    setLastShotYards,
+    reassignLastShot,
     conditions,
     removeTag,
   } = useLocalStore();
@@ -294,7 +295,21 @@ export default function PlayScreen() {
   const [sampleOn, setSampleOn] = useState(false);
   const [draftNote, setDraftNote] = useState<string | null>(() => readPlayNote());
   const fullHole = false;
-  const scrimId = useId().replace(/:/g, '');
+  const [pickedClubId, setPickedClubId] = useState<string | null>(null);
+  const [scoreAsk, setScoreAsk] = useState(0);
+  const [speechPhase, setSpeechPhase] = useState<'speaking' | 'silent'>('silent');
+  useEffect(() => subscribeSpeech(setSpeechPhase), []);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const html = document.documentElement.style.overflow;
+    const body = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.documentElement.style.overflow = html;
+      document.body.style.overflow = body;
+    };
+  }, []);
   const reduceMotion = useReduceMotion();
   const display = useDisplayFace();
   const [stamp, setStamp] = useState<ReturnType<typeof scoreStamp>>(null);
@@ -711,7 +726,7 @@ export default function PlayScreen() {
   const calloutLive = useRef(false);
   const calloutSpeaker = useRef(caddieSpeaker('device'));
   useEffect(() => {
-    if (!talkPrefs.callouts || talk.phase !== 'idle') {
+    if (!talkPrefs.callouts || talkPrefs.muted || isSpeechMuted() || talk.phase !== 'idle') {
       if (calloutLive.current) {
         calloutGate.current.stopped = true;
         calloutSpeaker.current.stop();
@@ -739,7 +754,7 @@ export default function PlayScreen() {
     void speakSentences(calloutSpeaker.current, [call.line], calloutGate.current).finally(() => {
       calloutLive.current = false;
     });
-  }, [atTeeNow, currentHole, hole?.par, lastMark?.id, player, talk.phase, talkPrefs.callouts, voice, yardsFromLast, ground?.centerYards]);
+  }, [atTeeNow, currentHole, hole?.par, lastMark?.id, player, talk.phase, talkPrefs.callouts, talkPrefs.muted, voice, yardsFromLast, ground?.centerYards]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -1010,7 +1025,11 @@ export default function PlayScreen() {
         ? null
         : oneLiner;
   const measuredCall = shownProfile != null && shownProfile.sampleSize > 0 && !shownProfile.sampleWarning?.startsWith('Estimated');
-  const fromShots = measuredAverage(shotLog.filter((shot) => shot.clubId === shownId).map((shot) => shot.yards));
+  const playableClubs = bag.clubs.filter((club) => club.inPlay);
+  const suggestedClub = estimatedPick(playableClubs, shotShown);
+  const activeClub = playableClubs.find((club) => club.id === (pickedClubId ?? suggestedClub?.id)) ?? null;
+  const measuredClubId = activeClub?.id ?? shownId;
+  const fromShots = measuredAverage(shotLog.filter((shot) => shot.clubId === measuredClubId).map((shot) => shot.yards));
   const shotLine = fromShots && shownLabel ? measuredLine(shownLabel, fromShots) : null;
   const estimateLine = shotLine ?? (measuredCall ? null : starterAdvice(bag.clubs, shotShown));
   const peekLine = (measuredCall ? oneLiner || cardSentence : null) ?? estimateLine ?? cardSentence ?? EMPTY_BAG_ADVICE;
@@ -1106,12 +1125,14 @@ export default function PlayScreen() {
     if (!spot) return;
     const prior = [...holeMarks].reverse().find((mark) => mark.yards == null) ?? null;
     const closed = prior && player ? closeMarkedShot({ lat: prior.lat, lon: prior.lon }, player, polygons) : null;
+    const clubId = activeClub?.id ?? calledId;
+    const clubLabel = activeClub?.slot ?? calledLabel;
     recordMark({
       hole: hole.holeNumber,
       lat: spot.lat,
       lon: spot.lon,
-      clubId: calledId,
-      clubLabel: calledLabel,
+      clubId,
+      clubLabel,
       close: closed,
     });
     const result = lieResult(closed?.lie ?? null);
@@ -1254,16 +1275,17 @@ export default function PlayScreen() {
           creditRight={88}
           creditBottom={chrome.coachPeek + chrome.actionHeight + Math.max(insets.bottom, 8) + 12}
         />
-        <Vignette deep />
         <View
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, styles.mapDrag]}
           {...({
-            onMouseDown: (event: { nativeEvent: { pageX: number; pageY: number } }) => {
+            onMouseDown: (event: { preventDefault?: () => void; nativeEvent: { pageX: number; pageY: number } }) => {
+              event.preventDefault?.();
               dragOrigin.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY };
             },
-            onMouseMove: (event: { nativeEvent: { pageX: number; pageY: number } }) => {
+            onMouseMove: (event: { preventDefault?: () => void; nativeEvent: { pageX: number; pageY: number } }) => {
               const origin = dragOrigin.current;
               if (!origin) return;
+              event.preventDefault?.();
               const dx = event.nativeEvent.pageX - origin.x;
               const dy = event.nativeEvent.pageY - origin.y;
               if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
@@ -1278,18 +1300,6 @@ export default function PlayScreen() {
           } as object)}
         />
       </Animated.View>
-      <View pointerEvents="none" style={[styles.heroScrim, { top: insets.top }]}>
-        <Svg width={220} height={250}>
-          <Defs>
-            <RadialGradient id={scrimId} cx="28%" cy="42%" rx="70%" ry="68%">
-              <Stop offset="0" stopColor="#02060E" stopOpacity="0.94" />
-              <Stop offset="0.55" stopColor="#02060E" stopOpacity="0.72" />
-              <Stop offset="1" stopColor="#02060E" stopOpacity="0" />
-            </RadialGradient>
-          </Defs>
-          <Rect x="0" y="0" width="220" height="250" fill={`url(#${scrimId})`} />
-        </Svg>
-      </View>
       <View
         pointerEvents="box-none"
         accessibilityLabel={`Hole ${hole.holeNumber}, par ${par ?? 'unknown'}, stroke index ${hole.strokeIndex ?? 'unknown'}`}
@@ -1332,7 +1342,9 @@ export default function PlayScreen() {
             <Text accessibilityLabel={strokes != null ? `Saved score ${strokes}` : undefined} style={[styles.pillNum, { fontFamily: display }]}>{strokes != null ? strokes : hole.strokeIndex ?? '—'}</Text>
           </View>
           {hole.holeNumber >= 18 ? (
-            <View style={styles.pillArrow} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Finish hole" testID="hole-finish-pill" onPress={() => setScoreAsk((value) => value + 1)} style={styles.pillArrow}>
+              <Text style={styles.pillArrowText}>Finish</Text>
+            </Pressable>
           ) : (
             <Pressable
               accessibilityRole="button"
@@ -1350,14 +1362,15 @@ export default function PlayScreen() {
         <View
           testID="thru-label"
           pointerEvents="none"
-          style={[styles.thruChip, { top: chrome.plate.y, left: chrome.plate.x + chrome.plate.w + 8 }]}
+          style={[styles.thruChip, { top: chrome.pill.y + chrome.pill.h + 8, right: 12 }]}
         >
           <Text accessibilityLabel={thruLabel} style={styles.thruText}>
             {thruLabel}
           </Text>
         </View>
       ) : null}
-      <Text testID="map-offset" style={styles.mapOffset}>{panMark}</Text>
+      <View testID="map-offset" accessibilityLabel={panMark} style={styles.mapOffset} />
+      <Text testID="caddie-speech" style={styles.speechProbe}>{speechPhase}</Text>
       <View pointerEvents="box-none" style={[styles.hero, { top: chrome.plate.y, left: chrome.plate.x, maxWidth: chrome.plate.w }]}>
         <View style={[styles.heroPlate, hole.holeNumber === 2 && styles.heroPlateClear]}>
         {player == null ? (
@@ -1717,8 +1730,32 @@ export default function PlayScreen() {
           ) : null}
         </Glass>
       </Animated.View>
+      {playableClubs.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="club-chips" style={[styles.clubChips, { bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + 4 }]} contentContainerStyle={styles.clubChipRow}>
+          {playableClubs.map((club) => {
+            const selected = club.id === activeClub?.id;
+            return (
+              <Pressable
+                key={club.id}
+                accessibilityRole="button"
+                accessibilityLabel={club.slot}
+                accessibilityState={{ selected }}
+                testID={selected ? 'club-chip-on' : 'club-chip'}
+                onPress={() => {
+                  setPickedClubId(club.id);
+                  reassignLastShot(club.id, club.slot);
+                }}
+                style={[styles.clubChip, selected && styles.clubChipOn]}
+              >
+                <Text style={[styles.clubChipText, selected && styles.clubChipTextOn]}>{club.slot}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
       <View pointerEvents="box-none" style={[styles.actionDock, { bottom: Math.max(insets.bottom, 8) }]}>
         <ScoreDock
+          scoreAsk={scoreAsk}
           hole={hole.holeNumber}
           par={par}
           savedStrokes={strokes}
@@ -1740,6 +1777,7 @@ export default function PlayScreen() {
           shotYards={lastClosed?.yards ?? null}
           onDeleteShot={deleteLastShot}
           onAdjustShot={adjustLastShot}
+          onSetShotYards={setLastShotYards}
           onPause={() => router.push('/')}
           onEnd={() => {
             finishRound();
@@ -1778,7 +1816,7 @@ export default function PlayScreen() {
       />
       {talk.overlay}
       {saved ? (
-        <View testID="marked-toast" accessibilityLabel="Marked" style={[styles.toast, { top: chrome.toast.y, left: chrome.plate.x }]}>
+        <View testID="marked-toast" accessibilityLabel="Marked" style={[styles.toast, { top: chrome.toast.y, left: chrome.toast.x, width: chrome.toast.w }]}>
           <Text style={styles.toastText}>Marked</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Undo last mark" onPress={() => { dropLastMark(); setSaved(null); }} style={styles.toastUndo}>
             <Text style={styles.toastUndoText}>Undo</Text>
@@ -1836,9 +1874,10 @@ function ClubPulse({ clubLabel, yards }: { clubLabel: string | null; yards: numb
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: fieldNavy, overflow: 'hidden' },
+  screen: { flex: 1, backgroundColor: fieldNavy, overflow: 'hidden', touchAction: 'none' },
+  mapDrag: { touchAction: 'none' },
   shake: { flex: 1, zIndex: 0 },
-  mapWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: fieldNavy, zIndex: 0 },
+  mapWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: fieldNavy, zIndex: 0, touchAction: 'none' },
   hud: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 10, zIndex: 20 },
   hudFill: { paddingHorizontal: 6, paddingTop: 2, paddingBottom: 4 },
   hudTop: { minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -2085,9 +2124,16 @@ const styles = StyleSheet.create({
   toastText: { color: '#0B1F3A', fontSize: 16, lineHeight: 20, fontWeight: '800' },
   toastUndo: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   toastUndoText: { color: '#0B1F3A', fontSize: 16, fontWeight: '800' },
-  thruChip: { position: 'absolute', zIndex: 6, maxWidth: 150, minHeight: 24, justifyContent: 'center' },
+  thruChip: { position: 'absolute', zIndex: 20, maxWidth: 150, minHeight: 28, justifyContent: 'center', backgroundColor: 'rgba(2,6,14,0.88)', borderRadius: 8, paddingHorizontal: 8 },
   thruText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
-  mapOffset: { position: 'absolute', width: 1, height: 1, opacity: 0 },
+  mapOffset: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', left: -20, top: 0 },
+  speechProbe: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', left: -20, top: 0 },
+  clubChips: { position: 'absolute', left: 8, right: 8, zIndex: 8, maxHeight: 48 },
+  clubChipRow: { gap: 6, alignItems: 'center' },
+  clubChip: { minHeight: 44, minWidth: 44, paddingHorizontal: 10, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2,6,14,0.88)' },
+  clubChipOn: { backgroundColor: '#8AC926' },
+  clubChipText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+  clubChipTextOn: { color: '#0B1F3A' },
   answerScroll: { maxHeight: 72, flexGrow: 0 },
   coachPeekHit: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
   sendHit: { minWidth: 44, minHeight: 44, textAlign: 'center', lineHeight: 44 },

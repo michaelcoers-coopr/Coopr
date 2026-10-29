@@ -1,16 +1,18 @@
 import { type ReactNode } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@coopr/tokens';
 
 /** Scrolls the body. A footer stays pinned, so Save and Done remain on a short phone. */
 export function Screen({ children, footer = null }: { children: ReactNode; footer?: ReactNode }) {
+  const window = useWindowDimensions();
+  const landscape = window.width > window.height;
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {children}
       </ScrollView>
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      {footer ? <View style={[styles.footer, landscape && styles.footerRow]}>{footer}</View> : null}
     </SafeAreaView>
   );
 }
@@ -81,10 +83,11 @@ export function Crest({ size = 176 }: { size?: number }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  scroll: { flex: 1 },
+  screen: { flex: 1, height: '100%', flexDirection: 'column', backgroundColor: colors.bg, minHeight: 0 },
+  scroll: { flex: 1, minHeight: 0 },
   content: { padding: 20, paddingBottom: 24, gap: 14 },
-  footer: { paddingHorizontal: 20, paddingBottom: 12, gap: 8, zIndex: 5 },
+  footer: { flexShrink: 0, paddingHorizontal: 20, paddingBottom: 12, gap: 8, zIndex: 5 },
+  footerRow: { flexDirection: 'row', flexWrap: 'wrap' },
   title: { color: colors.text, fontSize: 34, fontWeight: '700', letterSpacing: -0.6 },
   muted: { color: colors.muted, fontSize: 17, lineHeight: 24 },
   card: {

@@ -106,7 +106,7 @@ export function playChrome(input: { screenWidth: number; screenHeight: number; s
     x: pill.x,
     y: pill.y + pill.h + gap,
     w: Math.min(168, width - safe.left - safe.right - 24),
-    h: 52,
+    h: 118,
   };
   let toast: Box = { x: safe.left + 12, y: plate.y + plate.h + gap, w: 128, h: 32 };
   if (boxesOverlap(toast, plate) || boxesOverlap(toast, pill) || boxesOverlap(toast, menu)) {

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { scorePanelBudget } from './responsive';
 import { MIN_TAP } from './round-chrome';
 
@@ -45,6 +45,8 @@ export function ScoreDock({
   shotYards,
   onDeleteShot,
   onAdjustShot,
+  onSetShotYards,
+  scoreAsk = 0,
 }: {
   hole: number;
   par: number | null;
@@ -70,6 +72,8 @@ export function ScoreDock({
   shotYards?: number | null;
   onDeleteShot?: () => void;
   onAdjustShot?: (delta: number) => void;
+  onSetShotYards?: (yards: number) => void;
+  scoreAsk?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -80,6 +84,7 @@ export function ScoreDock({
   const [fairway, setFairway] = useState<FairwayPick>(savedFairway);
   const [gir, setGir] = useState<boolean | null>(savedGir);
   const window = useWindowDimensions();
+  const [yardDraft, setYardDraft] = useState(shotYards == null ? '' : String(Math.round(shotYards)));
   const last = hole >= 18;
   const floor = par ?? 4;
   const budget = scorePanelBudget(window.height || screenHeight, window.width);
@@ -89,6 +94,24 @@ export function ScoreDock({
     setMenu(false);
     setConfirmEnd(false);
   }, [hole]);
+
+  useEffect(() => {
+    if (shotYards == null) return;
+    setYardDraft(String(Math.round(shotYards)));
+  }, [shotYards]);
+
+  useEffect(() => {
+    if (!scoreAsk) return;
+    const nextStrokes = savedStrokes ?? floor;
+    setStrokes(nextStrokes);
+    setPutts(clampPutts(nextStrokes, savedPutts ?? 0));
+    setPenalties(savedPenalties ?? 0);
+    setFairway(savedFairway);
+    setGir(savedGir);
+    setMenu(false);
+    setConfirmEnd(false);
+    setOpen(true);
+  }, [scoreAsk, savedStrokes, savedPutts, savedPenalties, savedFairway, savedGir, floor]);
 
   const show = () => {
     if (open) {
@@ -135,9 +158,30 @@ export function ScoreDock({
           {shotYards != null ? (
             <View>
               <Text accessibilityLabel={`Shot ${Math.round(shotYards)} yards`} testID="shot-readout" style={styles.kicker}>{`Shot ${Math.round(shotYards)} yards`}</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="More shot yards" onPress={() => onAdjustShot?.(1)} style={styles.wide}>
-                <Text style={styles.wideText}>More shot yards</Text>
-              </Pressable>
+              <View style={styles.stepRow}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Fewer shot yards" onPress={() => onAdjustShot?.(-1)} style={styles.hit}>
+                  <Text style={styles.sign}>−</Text>
+                </Pressable>
+                <TextInput
+                  accessibilityLabel="Shot yards"
+                  testID="shot-yards"
+                  value={yardDraft}
+                  keyboardType="number-pad"
+                  onChangeText={(text) => {
+                    setYardDraft(text);
+                    const next = Number(text);
+                    if (Number.isFinite(next) && next >= 1 && next <= 400) onSetShotYards?.(next);
+                  }}
+                  onEndEditing={(event) => {
+                    const next = Number(event.nativeEvent.text);
+                    if (Number.isFinite(next)) onSetShotYards?.(next);
+                  }}
+                  style={styles.yardInput}
+                />
+                <Pressable accessibilityRole="button" accessibilityLabel="More shot yards" onPress={() => onAdjustShot?.(1)} style={styles.hit}>
+                  <Text style={styles.sign}>+</Text>
+                </Pressable>
+              </View>
               <Pressable accessibilityRole="button" accessibilityLabel="Delete last shot" onPress={onDeleteShot} style={styles.wide}>
                 <Text style={styles.wideText}>Delete last shot</Text>
               </Pressable>
@@ -257,7 +301,7 @@ export function ScoreDock({
           <Text style={styles.primaryText}>Score</Text>
         </Pressable>
         {last ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="Finish" onPress={show} style={styles.hit}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Finish" testID="hole-finish" onPress={show} style={styles.hit}>
             <Text style={styles.finish}>Finish</Text>
           </Pressable>
         ) : (
@@ -285,6 +329,7 @@ const styles = StyleSheet.create({
   block: { gap: 2 },
   bar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, minHeight: MIN_TAP },
   kicker: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', flex: 1 },
+  yardInput: { minWidth: 64, minHeight: MIN_TAP, color: '#FFFFFF', fontSize: 18, fontWeight: '800', textAlign: 'center' },
   label: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', minWidth: 72 },
   stepRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },

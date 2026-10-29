@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { readDevice, writePlayerSettings } from './device-store';
+import { setSpeechMuted } from './speech/tts';
 
 export interface TalkPrefs {
   handsFree: boolean;
@@ -21,6 +22,9 @@ export function useTalkPrefs(): TalkPrefs & { setHandsFree: (on: boolean) => voi
   useEffect(() => {
     setPrefs(readTalkPrefs());
   }, []);
+  useEffect(() => {
+    setSpeechMuted(prefs.muted);
+  }, [prefs.muted]);
   return {
     ...prefs,
     setHandsFree: (on) => {

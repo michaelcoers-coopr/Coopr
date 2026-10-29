@@ -14,11 +14,54 @@ export function mediaTypeOf(header: string | null | undefined): string {
   return (header ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
 }
 
-/** Unset means local dev. A set secret must match the header exactly. */
+/**
+ * A missing server secret is a refusal. The compare always walks both strings
+ * so a mismatch does not return on the first different character.
+ */
 export function secretOk(header: string | null, secret: string | undefined): boolean {
-  const expected = secret?.trim();
-  if (!expected) return true;
-  return header === expected;
+  const expected = secret?.trim() ?? '';
+  if (!expected) return false;
+  const got = header ?? '';
+  const length = Math.max(got.length, expected.length);
+  let diff = got.length === expected.length ? 0 : 1;
+  for (let index = 0; index < length; index += 1) {
+    diff |= (got.charCodeAt(index) || 0) ^ (expected.charCodeAt(index) || 0);
+  }
+  return diff === 0;
+}
+
+/** Read the body in chunks and stop once it passes the cap. Null means too large. */
+export async function readBounded(request: Request, maxBytes: number): Promise<Uint8Array | null> {
+  if (bodyTooLarge(request, maxBytes)) return null;
+  const reader = request.body?.getReader();
+  if (!reader) {
+    const bytes = new Uint8Array(await request.arrayBuffer());
+    return bytes.byteLength > maxBytes ? null : bytes;
+  }
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const step = await reader.read();
+    if (step.done) break;
+    const value = step.value;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      try {
+        await reader.cancel();
+      } catch {
+        /* The caller already stopped reading. */
+      }
+      return null;
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
 }
 
 export function allowedOrigins(raw: string | undefined): string[] {

@@ -165,6 +165,24 @@ export function dropLastMeasuredShot(clubId: string): void {
   });
 }
 
+/** The last stored shot for this club and distance becomes the new club and distance. */
+export function reviseMeasuredShot(previous: { clubId: string; yards: number }, next: { clubId: string; yards: number }): void {
+  if (!next.clubId || !Number.isFinite(next.yards)) return;
+  updateDevice((current) => {
+    const yards = Math.round(previous.yards);
+    const index = [...current.measuredShots].reverse().findIndex((shot) => shot.clubId === previous.clubId && shot.yards === yards);
+    const replacement = { clubId: next.clubId, yards: Math.round(next.yards) };
+    if (index < 0) {
+      if (!previous.clubId) return { ...current, measuredShots: [...current.measuredShots, replacement].slice(-400) };
+      return current;
+    }
+    const at = current.measuredShots.length - 1 - index;
+    const shots = current.measuredShots.slice();
+    shots[at] = replacement;
+    return { ...current, measuredShots: shots };
+  });
+}
+
 export function writePlayerSettings(patch: Partial<DeviceSettings>): void {
   updateDevice((snap) => ({ ...snap, settings: { ...snap.settings, ...patch } }));
 }

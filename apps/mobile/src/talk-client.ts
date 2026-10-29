@@ -2,6 +2,14 @@ import { sampleTalkReply, type TalkAction, type TalkContext, type TalkReply, typ
 import { SECRET_HEADER } from './api-guard';
 import { extractionUrl } from './extract-client';
 
+function talkBase(): string | null {
+  const configured = extractionUrl();
+  if (configured) return configured;
+  const origin = typeof location === 'undefined' ? '' : location.origin;
+  if (origin.startsWith('http')) return origin.replace(/\/$/, '');
+  return null;
+}
+
 /** Marked stand-in in the beta profile until Mike puts the same string as COOPR_API_SECRET here. */
 export const CADDIE_SECRET_PLACEHOLDER = 'REPLACE-WITH-CADDIE-SECRET';
 
@@ -47,7 +55,7 @@ function parseStream(text: string): TalkReply | null {
 
 /** The hosted caddie when EXPO_PUBLIC_EXTRACT_URL is a real origin. Otherwise a labeled sample. */
 export async function requestTalk(transcript: string, context: TalkContext): Promise<TalkReply> {
-  const base = extractionUrl();
+  const base = talkBase();
   if (!base) return sampleTalkReply(context, transcript);
   try {
     const headers: Record<string, string> = { 'content-type': 'application/json' };

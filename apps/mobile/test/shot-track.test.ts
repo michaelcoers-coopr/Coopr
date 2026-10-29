@@ -29,9 +29,11 @@ describe('shot distances', () => {
 
 describe('caddie server guards', () => {
   it('matches a shared secret only when one is configured', () => {
-    expect(secretOk(null, undefined)).toBe(true);
+    expect(secretOk(null, undefined)).toBe(false);
+    expect(secretOk(null, '')).toBe(false);
     expect(secretOk('nope', 'desk-secret')).toBe(false);
     expect(secretOk('desk-secret', 'desk-secret')).toBe(true);
+    expect(secretOk('desk-secret-long', 'desk-secret')).toBe(false);
   });
 
   it('echoes an allowed origin and never a wildcard', () => {

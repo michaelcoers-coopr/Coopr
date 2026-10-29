@@ -10,9 +10,9 @@ The live caddie and measured shots are in this beta. They are not waiting on a l
 
 Set these on the host. Do not put the model keys in the app. `scripts/deploy-caddie.sh` writes them to the EAS production environment. Sensitive values are `COOPR_API_SECRET`, `UPSTASH_REDIS_REST_TOKEN`, `CADDIE_LLM_API_KEY`, and, when set, `COOPR_VISION_API_KEY` and `EXTRACT_TOKEN`.
 
-- `COOPR_API_SECRET` — shared secret. When set, every POST must send the same value in `x-coopr-secret`. When unset, the routes stay open for a local desk check.
+- `COOPR_API_SECRET` — shared secret. Every POST must send the same value in `x-coopr-secret`. An unset secret is refused. The compare does not stop at the first different character.
 - `ALLOWED_ORIGINS` — comma-separated https origins (and `http://localhost:8081` for the desk). A request from any other origin does not get `access-control-allow-origin`. There is no `*`.
-- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` — rate limit and the monthly counter. The cap key is `caddie-budget:YYYY-MM`. Each live turn adds 2 cents. A total above `10000` cents, or any failed Upstash call, returns the labeled sample and does not call the model. Without these two variables, the limit is the memory of that one instance and does not survive a serverless cold start.
+- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` — optional. When both are set, the rate limit and the monthly counter are on. The cap key is `caddie-budget:YYYY-MM`. Each live turn adds 2 cents. A total above `10000` cents, or any failed Upstash call, returns the labeled sample and does not call the model. When either variable is unset, there is no rate limit and no spend cap, and the route does not return an error for their absence.
 - `CADDIE_LLM_API_KEY` — model key. No key means a labeled sample answer.
 - `CADDIE_LLM_URL` — optional. Default `https://api.openai.com/v1/chat/completions`.
 - `CADDIE_LLM_MODEL` — optional. Default `gpt-4o-mini`.

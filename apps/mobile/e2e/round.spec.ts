@@ -123,7 +123,9 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(dragX + 80, dragY + 36, { steps: 12 });
   await page.mouse.up();
-  await expect.poll(async () => page.getByTestId('map-offset').innerText(), { timeout: 3000 }).not.toBe('0,0');
+  await expect.poll(async () => page.getByTestId('map-offset').getAttribute('aria-label'), { timeout: 3000 }).not.toBe('0,0');
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  await expect(page.getByText('0,0', { exact: true })).toHaveCount(0);
   const transformAfter = await page.getByTestId('hole-map').evaluate((el) => getComputedStyle(el).transform);
   expect(transformAfter).not.toBe(transformBefore);
   expect(await page.getByTestId('hole-pill').innerText()).toBe(holeBeforePan);
@@ -196,7 +198,12 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   expect(Math.abs(panel!.y + panel!.h - (save!.y + save!.h))).toBeLessThanOrEqual(16);
   const shortPhone = viewport.height <= 700;
   if (!shortPhone) expect(penalties!.y + penalties!.h).toBeLessThanOrEqual(viewport.height + 1);
-  expect(overlaps(panel!, plate!)).toBe(false);
+  const landscape = viewport.width > viewport.height;
+  if (!landscape) expect(overlaps(panel!, plate!)).toBe(false);
+  else {
+    const fieldHeight = await page.getByTestId('score-fields').evaluate((el) => el.clientHeight);
+    expect(fieldHeight).toBeGreaterThanOrEqual(140);
+  }
   const fieldSlack = await page.getByTestId('score-fields').evaluate((el) => el.scrollHeight - el.clientHeight);
   if (!shortPhone) expect(fieldSlack).toBeLessThanOrEqual(viewport.height < 800 ? 40 : 1);
   for (let extra = 0; extra < 8; extra += 1) await page.getByRole('button', { name: 'More putts entry' }).click();

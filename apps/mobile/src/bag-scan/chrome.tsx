@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
@@ -18,6 +18,7 @@ export const scan = {
 } as const;
 
 export function ScanScreen({ title, children, footer = null, backTo }: { title: string; children: ReactNode; footer?: ReactNode; backTo?: string }) {
+  const [footerHeight, setFooterHeight] = useState(0);
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>
       <Stack.Screen
@@ -44,10 +45,10 @@ export function ScanScreen({ title, children, footer = null, backTo }: { title: 
         }}
       />
       <StatusBar style="light" />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: 24 + footerHeight }]} keyboardShouldPersistTaps="handled">
         {children}
       </ScrollView>
-      {footer}
+      {footer ? <View onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}>{footer}</View> : null}
     </SafeAreaView>
   );
 }
@@ -136,8 +137,8 @@ export function SampleChip() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: scan.navy },
-  scroll: { flex: 1 },
+  screen: { flex: 1, height: '100%', flexDirection: 'column', backgroundColor: scan.navy, minHeight: 0 },
+  scroll: { flex: 1, minHeight: 0 },
   content: { padding: 20, paddingTop: 28, paddingRight: 20, paddingBottom: 24, gap: 14 },
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   backMark: { color: scan.white, fontSize: 32, lineHeight: 36, fontWeight: '700' },

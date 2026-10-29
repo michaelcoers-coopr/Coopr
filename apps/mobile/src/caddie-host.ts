@@ -9,10 +9,10 @@ import {
   type TalkReply,
   type TalkToolResult,
 } from '@coopr/engine';
-import { allowRequest, bodyTooLarge, budgetAllows, budgetMonth, CADDIE_TURN_CENTS, clientIp, corsHeaders, MAX_CADDIE_BYTES, MONTHLY_BUDGET_CENTS, SECRET_HEADER, secretOk, upstashAllow, upstashCharge } from './api-guard';
+import { bodyTooLarge, budgetMonth, CADDIE_TURN_CENTS, clientIp, corsHeaders, MAX_CADDIE_BYTES, MONTHLY_BUDGET_CENTS, readBounded, SECRET_HEADER, secretOk, upstashAllow, upstashCharge } from './api-guard';
 
-const HITS = new Map<string, number[]>();
-const SPENT = new Map<string, number>();
+/** A spoken answer is one or two sentences. The model cannot run on. */
+export const CADDIE_MAX_TOKENS = 120;
 
 export interface CaddieEnv {
   CADDIE_LLM_API_KEY?: string;
@@ -129,7 +129,7 @@ async function liveReply(transcript: string, context: TalkContext, env: CaddieEn
     const response = await fetchImpl(url, {
       method: 'POST',
       headers: { authorization: `Bearer ${env.CADDIE_LLM_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ model, messages, tools, stream: true }),
+      body: JSON.stringify({ model, messages, tools, stream: true, max_tokens: CADDIE_MAX_TOKENS }),
     });
     if (!response.ok || !response.body) throw new Error('model');
     const reader = response.body.getReader();
@@ -193,30 +193,15 @@ async function liveReply(transcript: string, context: TalkContext, env: CaddieEn
 async function rateOk(request: Request, env: CaddieEnv, fetchImpl: typeof fetch): Promise<boolean> {
   const url = env.UPSTASH_REDIS_REST_URL;
   const token = env.UPSTASH_REDIS_REST_TOKEN;
-  if (url && token) return upstashAllow(fetchImpl, url, token, `caddie:${clientIp(request)}`, 20);
-  return allowRequest(clientIp(request), HITS, Date.now());
+  if (!url || !token) return true;
+  return upstashAllow(fetchImpl, url, token, `caddie:${clientIp(request)}`, 20);
 }
 
 async function chargeTurn(env: CaddieEnv, fetchImpl: typeof fetch, now = new Date()): Promise<boolean> {
-  const month = budgetMonth(now);
   const url = env.UPSTASH_REDIS_REST_URL;
   const token = env.UPSTASH_REDIS_REST_TOKEN;
-  if (url && token) {
-    return upstashCharge(fetchImpl, url, token, `caddie-budget:${month}`, CADDIE_TURN_CENTS, MONTHLY_BUDGET_CENTS);
-  }
-  const spent = SPENT.get(month) ?? 0;
-  if (!budgetAllows(spent)) return false;
-  SPENT.set(month, spent + CADDIE_TURN_CENTS);
-  return true;
-}
-
-/** Test hook. A month spend is not part of the request. */
-export function resetCaddieBudget(): void {
-  SPENT.clear();
-}
-
-export function setCaddieSpendForTests(cents: number): void {
-  SPENT.set(budgetMonth(new Date()), cents);
+  if (!url || !token) return true;
+  return upstashCharge(fetchImpl, url, token, `caddie-budget:${budgetMonth(now)}`, CADDIE_TURN_CENTS, MONTHLY_BUDGET_CENTS);
 }
 
 export async function serveCaddie(request: Request, env: CaddieEnv = readCaddieEnv(), fetchImpl: typeof fetch = fetch): Promise<Response> {
@@ -231,8 +216,9 @@ export async function serveCaddie(request: Request, env: CaddieEnv = readCaddieE
   }
   let body: Record<string, unknown>;
   try {
-    const raw = await request.text();
-    if (raw.length > MAX_CADDIE_BYTES) return json(request, env, 413, { error: 'The turn is too large.' });
+    const bytes = await readBounded(request, MAX_CADDIE_BYTES);
+    if (!bytes) return json(request, env, 413, { error: 'The turn is too large.' });
+    const raw = new TextDecoder().decode(bytes);
     const parsed: unknown = raw ? JSON.parse(raw) : {};
     body = typeof parsed === 'object' && parsed != null ? (parsed as Record<string, unknown>) : {};
   } catch {

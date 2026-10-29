@@ -1,7 +1,5 @@
 import { handleExtractBuffer, type ExtractEnv } from '@coopr/engine';
-import { allowRequest, clientIp, corsHeaders, declaredTooLarge, MAX_UPLOAD_BYTES, mediaTypeOf, SECRET_HEADER, secretOk, upstashAllow } from './api-guard';
-
-const HITS = new Map<string, number[]>();
+import { clientIp, corsHeaders, declaredTooLarge, MAX_UPLOAD_BYTES, mediaTypeOf, readBounded, SECRET_HEADER, secretOk, upstashAllow } from './api-guard';
 
 export function readExtractEnv(env: Record<string, string | undefined> = process.env): ExtractEnv & { COOPR_API_SECRET?: string; ALLOWED_ORIGINS?: string; UPSTASH_REDIS_REST_URL?: string; UPSTASH_REDIS_REST_TOKEN?: string } {
   return {
@@ -32,7 +30,7 @@ export async function serveExtract(request: Request, env: ReturnType<typeof read
   }
   const url = env.UPSTASH_REDIS_REST_URL;
   const token = env.UPSTASH_REDIS_REST_TOKEN;
-  const allowed = url && token ? await upstashAllow(fetchImpl, url, token, `extract:${clientIp(request)}`, 20) : allowRequest(clientIp(request), HITS, Date.now());
+  const allowed = !url || !token ? true : await upstashAllow(fetchImpl, url, token, `extract:${clientIp(request)}`, 20);
   if (!allowed) {
     return json(request, env, 429, { error: 'Too many photos. Wait a minute and try again.', imageRetained: false });
   }
@@ -43,9 +41,8 @@ export async function serveExtract(request: Request, env: ReturnType<typeof read
   if (type !== 'application/json' && !type.startsWith('image/')) {
     return json(request, env, 415, { error: 'The upload was not a photo. Nothing was read.', imageRetained: false });
   }
-  const raw = new Uint8Array(await request.arrayBuffer());
-  if (raw.byteLength > MAX_UPLOAD_BYTES) {
-    raw.fill(0);
+  const raw = await readBounded(request, MAX_UPLOAD_BYTES);
+  if (!raw) {
     return json(request, env, 413, { error: 'The upload is larger than 8 MB. It was not kept.', imageRetained: false });
   }
   let payload = raw;

@@ -24,7 +24,7 @@ import { archiveRound, readArchive, readLastFix, writeLastFix } from './analysis
 import { openRound, storedShots, toEngine } from './analysis/from-round';
 import { DEFAULT_VOICE, parseVoice, VOICE_LABELS, type CaddieVoice } from './design/caddie-voice';
 import { bagSubscriptionUpdate } from './device/bag-sync';
-import { hydrateDevice, readDevice, readPlayerFit, subscribeDevice, writePlayerBag, writePlayerFit, writePlayerSettings } from './device-store';
+import { dropLastMeasuredShot, hydrateDevice, readDevice, readPlayerFit, reviseMeasuredShot, subscribeDevice, writePlayerBag, writePlayerFit, writePlayerSettings } from './device-store';
 import { playingFromBag, type PlayingClubView } from './device/snapshot';
 import { FOUNDER_TOOLS_ENABLED } from './founder-flag';
 import { hasWebStorage, readRound, readRoundSync, writeRound } from './round-save-io';
@@ -210,6 +210,8 @@ interface LocalStore {
   dropLastMark: () => void;
   deleteLastShot: () => void;
   adjustLastShot: (delta: number) => void;
+  setLastShotYards: (yards: number) => void;
+  reassignLastShot: (clubId: string, clubLabel: string) => void;
   conditions: RoundConditions;
   setConditions: (patch: Partial<RoundConditions>) => void;
   startNewRound: () => void;
@@ -719,9 +721,13 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
           if (current.length === 0) return current;
           const last = current[current.length - 1]!;
           const rest = current.slice(0, -1);
+          if (last.yards != null && last.clubId) dropLastMeasuredShot(last.clubId);
           if (last.yards == null && rest.length > 0) {
             const prior = rest[rest.length - 1]!;
-            if (prior.hole === last.hole && prior.yards != null) rest[rest.length - 1] = { ...prior, yards: null, lie: null };
+            if (prior.hole === last.hole && prior.yards != null) {
+              if (prior.clubId) dropLastMeasuredShot(prior.clubId);
+              rest[rest.length - 1] = { ...prior, yards: null, lie: null };
+            }
           }
           return rest;
         });
@@ -733,8 +739,37 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
           const at = current.length - 1 - index;
           const mark = current[at];
           if (!mark || mark.yards == null) return current;
-          const yards = Math.max(1, Math.min(400, mark.yards + delta));
+          const yards = Math.max(1, Math.min(400, Math.round(mark.yards + delta)));
+          if (mark.clubId) reviseMeasuredShot({ clubId: mark.clubId, yards: mark.yards }, { clubId: mark.clubId, yards });
           return current.map((item, itemIndex) => (itemIndex === at ? { ...item, yards } : item));
+        });
+      },
+      setLastShotYards: (yards) => {
+        setMarks((current) => {
+          const index = [...current].reverse().findIndex((mark) => mark.yards != null);
+          if (index < 0) return current;
+          const at = current.length - 1 - index;
+          const mark = current[at];
+          if (!mark || mark.yards == null) return current;
+          const next = Math.max(1, Math.min(400, Math.round(yards)));
+          if (mark.clubId) reviseMeasuredShot({ clubId: mark.clubId, yards: mark.yards }, { clubId: mark.clubId, yards: next });
+          return current.map((item, itemIndex) => (itemIndex === at ? { ...item, yards: next } : item));
+        });
+      },
+      reassignLastShot: (clubId, clubLabel) => {
+        setMarks((current) => {
+          if (!clubId) return current;
+          const openIndex = [...current].reverse().findIndex((mark) => mark.yards == null);
+          const closedIndex = [...current].reverse().findIndex((mark) => mark.yards != null);
+          const index = openIndex >= 0 ? openIndex : closedIndex;
+          if (index < 0) return current;
+          const at = current.length - 1 - index;
+          const mark = current[at];
+          if (!mark) return current;
+          if (mark.yards != null && mark.clubId && mark.clubId !== clubId) {
+            reviseMeasuredShot({ clubId: mark.clubId, yards: mark.yards }, { clubId, yards: mark.yards });
+          }
+          return current.map((item, itemIndex) => (itemIndex === at ? { ...item, clubId, clubLabel } : item));
         });
       },
       conditions,

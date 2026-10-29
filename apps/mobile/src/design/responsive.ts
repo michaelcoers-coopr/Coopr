@@ -40,7 +40,7 @@ export function scorePanelBudget(screenHeight: number, screenWidth = 393): numbe
   const width = Number.isFinite(screenWidth) && screenWidth > 0 ? screenWidth : 393;
   const dock = actionDockHeight(width, height);
   const room = Math.max(140, height - dock - 16);
-  if (width > height) return Math.max(120, Math.min(room, height - dock - 128));
+  if (width > height) return Math.max(220, Math.min(room, height - dock - 8));
   if (height <= 700) return Math.min(room, 420);
   return Math.min(room, 448);
 }

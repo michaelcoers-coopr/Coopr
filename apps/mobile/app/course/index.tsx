@@ -1,8 +1,10 @@
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { loadHighCedarsPilot } from '@coopr/course';
 import { AERIAL_CREDIT } from '../../src/aerial/project';
 import { useLocalStore } from '../../src/local-store';
 import { Button, Card, Muted, Screen, Title } from '../../src/ui';
+import { Pressable, StyleSheet, Text } from 'react-native';
+import { colors } from '@coopr/tokens';
 
 const pilot = loadHighCedarsPilot();
 
@@ -13,6 +15,10 @@ export default function CourseIndex() {
   if (!founderTools) {
     return (
       <Screen>
+        <Stack.Screen options={{ headerShown: false, title: 'Course quality' }} />
+        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}>
+          <Text style={styles.backText}>‹ Back</Text>
+        </Pressable>
         <Title>Course quality</Title>
         <Muted>This screen is not in this build.</Muted>
       </Screen>
@@ -20,6 +26,10 @@ export default function CourseIndex() {
   }
   return (
     <Screen>
+      <Stack.Screen options={{ headerShown: false, title: 'Course quality' }} />
+      <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}>
+        <Text style={styles.backText}>‹ Back</Text>
+      </Pressable>
       <Title>High Cedars</Title>
       <Muted>Orting, Washington. 18 holes. Open data only. Nothing on this list is admin-verified, so play still uses a manual distance.</Muted>
       <Card>
@@ -38,3 +48,8 @@ export default function CourseIndex() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  back: { alignSelf: 'flex-start', minWidth: 44, minHeight: 44, justifyContent: 'center', paddingRight: 12 },
+  backText: { color: colors.navy, fontSize: 17, fontWeight: '700' },
+});

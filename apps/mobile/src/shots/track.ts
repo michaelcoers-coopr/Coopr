@@ -48,3 +48,6 @@ export function measuredLine(label: string, average: { yards: number; count: num
 export function shouldSpeak(muted: boolean): boolean {
   return muted !== true;
 }
+
+/** Spoken yardage stays a normal sentence size. The number is not a display headline. */
+export const ANSWER_FONT = 16;

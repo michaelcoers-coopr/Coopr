@@ -31,10 +31,10 @@ describe('Ask COOPR hosting guards', () => {
   it('answers a photo extract without a vision key', async () => {
     const request = new Request('https://coopr.example/v1/extract', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.12' },
+      headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.12', 'x-coopr-secret': 'desk' },
       body: JSON.stringify({ imageBase64: 'aGVsbG8=', mediaType: 'image/jpeg' }),
     });
-    const response = await serveExtract(request, {});
+    const response = await serveExtract(request, { COOPR_API_SECRET: 'desk' });
     expect(response.status).toBe(200);
     const body = (await response.json()) as { mode?: string; readFromImage?: boolean; imageRetained?: boolean };
     expect(body.mode).toBe('stub');

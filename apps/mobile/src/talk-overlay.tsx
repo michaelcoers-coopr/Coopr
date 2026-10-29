@@ -15,8 +15,8 @@ import { useDisplayFace } from './design/display-font';
 import { BlurView } from 'expo-blur';
 import { tick } from './haptics';
 import { deviceSpeechAvailable, listenForSpeech, type HeardSpeech } from './speech/recognize';
-import { shouldSpeak } from './shots/track';
-import { caddieSpeaker, speakSentences } from './speech/tts';
+import { ANSWER_FONT, shouldSpeak } from './shots/track';
+import { caddieSpeaker, isSpeechMuted, speakSentences } from './speech/tts';
 import { readTalkPreview } from './talk-preview';
 import { requestTalk, SAMPLE_ANSWER_LABEL } from './talk-client';
 import { webStore } from './web-storage';
@@ -150,17 +150,6 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & {
       selectedClubLabel: snap?.clubLabel ?? latest.current.selectedClubLabel,
       cardLine: snap?.line ?? null,
     });
-    const cardLine = snap?.line ?? null;
-    if (cardLine && cardLine.startsWith('Estimated.')) {
-      setSample(false);
-      const nextTurns: TalkTurn[] = [...turns.current, { role: 'player', text: spoken }, { role: 'caddie', text: cardLine }];
-      turns.current = nextTurns.slice(-6);
-      move('speak');
-      setReply(cardLine);
-      const done = move('finish');
-      if (done.phase === 'listening') void startEar();
-      return;
-    }
     const result = await requestTalk(spoken, context);
     if (gate.current.stopped) return;
     setSample(result.mode === 'sample');
@@ -168,7 +157,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & {
     turns.current = nextTurns.slice(-6);
     apply(result.tools.flatMap((tool) => (tool.action ? [tool.action] : [])));
     move('speak');
-    const saying = shouldSpeak(prefs.muted) ? speakSentences(speaker.current, result.sentences, gate.current) : Promise.resolve();
+    const saying = shouldSpeak(prefs.muted) && !isSpeechMuted() ? speakSentences(speaker.current, result.sentences, gate.current) : Promise.resolve();
     let shown = '';
     for (const sentence of result.sentences) {
       if (gate.current.stopped) break;
@@ -377,8 +366,8 @@ const styles = StyleSheet.create({
   bar: { width: 8, borderRadius: 4, backgroundColor: '#FFFFFF' },
   kicker: { color: 'rgba(255,255,255,0.62)', fontFamily: font.family, fontSize: type.caption, fontWeight: '700', letterSpacing: 0.6 },
   heard: { color: '#FFFFFF', fontFamily: font.family, fontSize: 22, lineHeight: 28, fontWeight: '700' },
-  reply: { color: '#FFFFFF', fontFamily: font.family, fontSize: 18, lineHeight: 24, fontWeight: '700' },
-  yards: { fontSize: 22, lineHeight: 26 },
+  reply: { color: '#FFFFFF', fontFamily: font.family, fontSize: ANSWER_FONT, lineHeight: 22, fontWeight: '700' },
+  yards: { fontSize: ANSWER_FONT, lineHeight: 22 },
   answerScroll: { maxHeight: 120, flexGrow: 0 },
   answerBody: { paddingBottom: 4 },
   typeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 'auto' },

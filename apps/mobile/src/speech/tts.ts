@@ -1,5 +1,48 @@
 import * as Speech from 'expo-speech';
 
+export type SpeechPhase = 'speaking' | 'silent';
+
+let speechMuted = false;
+let phase: SpeechPhase = 'silent';
+const listeners = new Set<(next: SpeechPhase) => void>();
+const active = new Set<() => void>();
+
+function setPhase(next: SpeechPhase): void {
+  phase = next;
+  for (const listener of listeners) listener(next);
+}
+
+export function isSpeechMuted(): boolean {
+  return speechMuted;
+}
+
+/** Mute stops the sentence that is playing, not only the next one. */
+export function setSpeechMuted(next: boolean): void {
+  speechMuted = next;
+  if (!next) return;
+  try {
+    Speech.stop();
+  } catch {
+    /* Web can lack a voice. */
+  }
+  for (const finish of [...active]) finish();
+  active.clear();
+  setPhase('silent');
+}
+
+export function subscribeSpeech(listener: (next: SpeechPhase) => void): () => void {
+  listeners.add(listener);
+  listener(phase);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function holdSpeech(): boolean {
+  const flag = globalThis as { __cooprHoldSpeech?: boolean };
+  return flag.__cooprHoldSpeech === true;
+}
+
 /** Device speech now. ElevenLabs is a later voice behind the same calls. */
 export interface CaddieSpeaker {
   readonly kind: 'device' | 'elevenlabs';
@@ -12,19 +55,29 @@ export function deviceSpeaker(): CaddieSpeaker {
     kind: 'device',
     speak(sentence) {
       return new Promise((resolve) => {
+        if (speechMuted) {
+          setPhase('silent');
+          resolve();
+          return;
+        }
         let settled = false;
         const finish = () => {
           if (settled) return;
           settled = true;
+          active.delete(finish);
+          if (!speechMuted) setPhase('silent');
           resolve();
         };
-        const timer = setTimeout(finish, 1400);
+        active.add(finish);
+        setPhase('speaking');
+        const timer = setTimeout(finish, holdSpeech() ? 30_000 : 1400);
         try {
           Speech.stop();
           Speech.speak(sentence, {
             language: 'en-US',
             rate: 1.02,
             onDone: () => {
+              if (holdSpeech()) return;
               clearTimeout(timer);
               finish();
             },
@@ -71,8 +124,9 @@ export function caddieSpeaker(kind: 'device' | 'elevenlabs' = 'device'): CaddieS
 /** Speak each sentence, and stop at the first barge-in. */
 export async function speakSentences(speaker: CaddieSpeaker, sentences: readonly string[], gate: { stopped: boolean }): Promise<void> {
   for (const sentence of sentences) {
-    if (gate.stopped) {
+    if (gate.stopped || speechMuted) {
       speaker.stop();
+      setPhase('silent');
       return;
     }
     try {
