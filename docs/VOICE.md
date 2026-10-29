@@ -76,13 +76,7 @@ npm run preview:publish
 
 `preview:publish` uses `EXPO_PUBLIC_EXTRACT_URL` if it is set, otherwise the https line in `apps/mobile/extract-origin.txt`. It does not send the ElevenLabs key into the app.
 
-Check a real clip:
-
-```bash
-bash scripts/verify-voice.sh https://the-origin.expo.app path/to/clip.m4a
-```
-
-That prints the transcript and the parsed intent.
+A posted audio clip is no longer transcribed. The check script is gone with `/v1/voice`.
 
 ## Local server
 
