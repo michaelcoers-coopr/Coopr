@@ -105,6 +105,7 @@ export default function BagScreen() {
                 key={club.id}
                 club={shown}
                 verdictLabel={VERDICT_LABEL[result.verdict]}
+                quiet={club.source === 'starter'}
                 onOpen={() => {
                   bag.openSaved(club.id);
                   router.push('/bag/card');
@@ -260,11 +261,13 @@ function ClubRow({
   verdictLabel,
   onOpen,
   onDetails,
+  quiet = false,
 }: {
   club: ShownClub;
   verdictLabel: string;
   onOpen: () => void;
   onDetails?: () => void;
+  quiet?: boolean;
 }) {
   const name = [club.brand, club.model].filter(Boolean).join(' ');
   return (
@@ -273,9 +276,9 @@ function ClubRow({
       <View style={styles.clubText}>
         {club.sample ? <SampleChip /> : null}
         <Numeral size={28}>{club.slot}</Numeral>
-        <Text style={styles.clubName}>{name || 'Name not set'}</Text>
-        <Text style={styles.clubMeta}>{club.loft == null ? 'Loft not set' : `${club.loft}°`}</Text>
-        <Text style={styles.clubMeta}>{verdictLabel}</Text>
+        {name ? <Text style={styles.clubName}>{name}</Text> : quiet ? <Text style={styles.clubMeta}>Starter</Text> : <Text style={styles.clubName}>Name not set</Text>}
+        {quiet ? null : <Text style={styles.clubMeta}>{club.loft == null ? 'Loft not set' : `${club.loft}°`}</Text>}
+        {quiet ? null : <Text style={styles.clubMeta}>{verdictLabel}</Text>}
         {!club.inPlay ? <Text style={styles.clubMeta}>Out of play</Text> : null}
         {onDetails ? (
           <Pressable accessibilityRole="button" onPress={onDetails}>

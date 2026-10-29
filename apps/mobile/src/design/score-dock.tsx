@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MIN_TAP } from './round-chrome';
 
 export type FairwayPick = 'hit' | 'left' | 'right' | 'short' | 'long' | null;
@@ -22,6 +22,8 @@ export function ScoreDock({
   savedGir,
   markCount,
   ask,
+  screenHeight,
+  thruLabel,
   onSave,
   onPrev,
   onNext,
@@ -38,6 +40,8 @@ export function ScoreDock({
   savedGir: boolean | null;
   markCount: number;
   ask: ReactNode;
+  screenHeight: number;
+  thruLabel: string | null;
   onSave: (draft: ScoreDraft, finish: boolean) => void;
   onPrev: () => void;
   onNext: () => void;
@@ -47,6 +51,7 @@ export function ScoreDock({
 }) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
   const [strokes, setStrokes] = useState(par ?? 4);
   const [putts, setPutts] = useState<number | null>(savedPutts);
   const [penalties, setPenalties] = useState<number | null>(savedPenalties);
@@ -61,14 +66,22 @@ export function ScoreDock({
   }, [hole]);
 
   const show = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
     setStrokes(savedStrokes ?? floor);
     setPutts(savedPutts);
     setPenalties(savedPenalties);
     setFairway(savedFairway);
     setGir(savedGir);
     setMenu(false);
+    setConfirmEnd(false);
     setOpen(true);
   };
+  const endSummary = thruLabel
+    ? `End the round? ${thruLabel}. Saved holes stay on this phone.`
+    : 'End the round? Holes you already saved stay on this phone.';
 
   const choices = [floor - 1, floor, floor + 1, floor + 2].filter((value) => value >= 1);
 
@@ -79,14 +92,31 @@ export function ScoreDock({
           <Pressable accessibilityRole="button" accessibilityLabel="Pause round (keep progress)" onPress={onPause} style={styles.wide}>
             <Text style={styles.wideText}>Pause round (keep progress)</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="End round" onPress={onEnd} style={styles.wide}>
-            <Text style={styles.wideText}>End round</Text>
-          </Pressable>
+          {confirmEnd ? (
+            <View>
+              <Text style={styles.kicker}>{endSummary}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Confirm end round" onPress={onEnd} style={styles.wide}>
+                <Text style={styles.wideText}>End round</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Keep playing" onPress={() => setConfirmEnd(false)} style={styles.wide}>
+                <Text style={styles.wideText}>Keep playing</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable accessibilityRole="button" accessibilityLabel="End round" onPress={() => setConfirmEnd(true)} style={styles.wide}>
+              <Text style={styles.wideText}>End round</Text>
+            </Pressable>
+          )}
         </View>
       ) : null}
       {open ? (
-        <View style={styles.panel} testID="score-entry" accessibilityLabel="Score entry">
-          <Text style={styles.kicker}>{`Hole ${hole}${par != null ? ` · par ${par}` : ''}`}</Text>
+        <ScrollView style={[styles.panel, { maxHeight: Math.round(Math.max(1, screenHeight) * 0.45) }]} testID="score-entry" accessibilityLabel="Score entry">
+          <View style={styles.stepRow}>
+            <Text style={styles.kicker}>{`Hole ${hole}${par != null ? ` · par ${par}` : ''}`}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close score" onPress={() => setOpen(false)} style={styles.hit}>
+              <Text style={styles.sign}>Close</Text>
+            </Pressable>
+          </View>
           <View style={styles.stepRow}>
             <Pressable accessibilityRole="button" accessibilityLabel="Fewer strokes" onPress={() => setStrokes((value) => Math.max(1, value - 1))} style={styles.hit}>
               <Text style={styles.sign}>−</Text>
@@ -114,6 +144,8 @@ export function ScoreDock({
             </Pressable>
           </View>
           {par != null && par >= 4 ? (
+            <View>
+            <Text style={styles.label}>Fairway</Text>
             <View style={styles.choiceRow}>
               {(['hit', 'left', 'right', 'short'] as const).map((side) => (
                 <Pressable key={side} accessibilityRole="button" accessibilityLabel={`Fairway ${side}`} onPress={() => setFairway(side)} style={[styles.choice, fairway === side && styles.choiceOn]}>
@@ -121,7 +153,9 @@ export function ScoreDock({
                 </Pressable>
               ))}
             </View>
+            </View>
           ) : null}
+          <Text style={styles.label}>Green</Text>
           <View style={styles.choiceRow}>
             <Pressable accessibilityRole="button" accessibilityLabel="Green in regulation" onPress={() => setGir(true)} style={[styles.choice, gir === true && styles.choiceOn]}>
               <Text style={[styles.choiceText, gir === true && styles.choiceTextOn]}>GIR</Text>
@@ -152,8 +186,9 @@ export function ScoreDock({
           >
             <Text style={styles.primaryText}>{last ? 'Finish round' : 'Save and next hole'}</Text>
           </Pressable>
-        </View>
+        </ScrollView>
       ) : null}
+      {thruLabel ? <Text accessibilityLabel={thruLabel} style={styles.kicker}>{thruLabel}</Text> : null}
       <View style={styles.bar}>
         <Pressable accessibilityRole="button" accessibilityLabel="Score previous hole" onPress={onPrev} style={styles.hit}>
           <Text style={styles.sign}>‹</Text>
@@ -161,7 +196,7 @@ export function ScoreDock({
         <Pressable accessibilityRole="button" accessibilityLabel="Score" testID="open-score" onPress={show} style={styles.primary}>
           <Text style={styles.primaryText}>Score</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Score next hole" onPress={onNext} style={styles.hit}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Score next hole" accessibilityState={{ disabled: last }} disabled={last} onPress={onNext} style={styles.hit}>
           <Text style={styles.sign}>›</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={`Mark shot, ${markCount} ${markCount === 1 ? 'mark' : 'marks'}`} testID="mark-shot" onPress={onMark} style={styles.mark}>
@@ -179,7 +214,7 @@ export function ScoreDock({
 
 const styles = StyleSheet.create({
   wrap: { gap: 8 },
-  panel: { backgroundColor: '#041018', borderRadius: 16, padding: 12, gap: 8 },
+  panel: { backgroundColor: '#041018', borderRadius: 16, padding: 8, gap: 6, overflow: 'hidden' },
   bar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, minHeight: MIN_TAP },
   kicker: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
   label: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', minWidth: 72 },

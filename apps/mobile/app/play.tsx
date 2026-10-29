@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { router, Stack } from 'expo-router';
+import { router, Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Keyboard, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, type ScrollViewInstance, type ViewStyle } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
@@ -74,9 +74,9 @@ import { Glass, Vignette } from '../src/design/glass';
 import { ClubStrip, ThruBar } from '../src/design/signature-ui';
 import { useReduceMotion } from '../src/design/reduce-motion';
 import { ScoreDock } from '../src/design/score-dock';
-import { MARKED_TOAST_MS, playChrome } from '../src/design/round-chrome';
+import { MARKED_TOAST_MS, playChrome, thruHud } from '../src/design/round-chrome';
 import { coachOpenHeight, coachPeekHeight } from '../src/design/round-chrome';
-import { starterAdvice } from '../src/clubs/starter';
+import { estimatedPick, starterAdvice } from '../src/clubs/starter';
 import { useBagScan } from '../src/bag-scan/session';
 import { lineLengthYards, PAST_STOCK_YARDS, playCamera, pointAtYards, teeWindowYards } from '../src/hole-fit';
 import { subscribeGps } from '../src/gps-fix';
@@ -266,10 +266,12 @@ export default function PlayScreen() {
     startNewRound,
     marks,
     recordMark,
+    dropLastMark,
     conditions,
     removeTag,
   } = useLocalStore();
   const bag = useBagScan();
+  const path = usePathname();
   const hole = pilot.quality.find((item) => item.holeNumber === currentHole);
   const [player, setPlayer] = useState<LatLon | null>(null);
   const [sky, setSky] = useState<WeatherRead | null>(null);
@@ -295,10 +297,15 @@ export default function PlayScreen() {
   const bump = useSharedValue(0);
   const insets = useSafeAreaInsets();
   const mapX = useSharedValue(0);
+  const panOffX = useSharedValue(0);
+  const panOffY = useSharedValue(0);
+  const panBase = useRef({ x: 0, y: 0 });
+  const widthRef = useRef(393);
   const mapScale = useSharedValue(1);
   const mapFade = useSharedValue(1);
   const sheetX = useSharedValue(0);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  widthRef.current = windowWidth;
   const sheetH = useSharedValue(coachPeekHeight(windowHeight));
   const peekSV = useSharedValue(coachPeekHeight(windowHeight));
   const openSV = useSharedValue(coachOpenHeight(windowHeight));
@@ -343,21 +350,31 @@ export default function PlayScreen() {
   }>({ clubId: null, clubLabel: 'Shot', carryToClearYards: null, carry: null });
   const pan = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 24 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.4,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 12 || Math.abs(gesture.dy) > 12,
+      onPanResponderMove: (_, gesture) => {
+        const edge = gesture.x0 <= 28 || gesture.x0 >= widthRef.current - 28;
+        if (edge && Math.abs(gesture.dx) > Math.abs(gesture.dy)) return;
+        panOffX.value = panBase.current.x + gesture.dx;
+        panOffY.value = panBase.current.y + gesture.dy;
+      },
       onPanResponderRelease: (_, gesture) => {
-        const dir = holeSwipe(gesture.dx, gesture.dy, holeNo.current);
+        const edge = gesture.x0 <= 28 || gesture.x0 >= widthRef.current - 28;
+        const dir = edge ? holeSwipe(gesture.dx, gesture.dy, holeNo.current) : null;
         const last = lastButtonNav.current;
-        if (
-          !acceptHoleGesture({
-            dir,
-            lastDir: last?.dir ?? null,
-            elapsedMs: last ? Date.now() - last.at : Number.POSITIVE_INFINITY,
-          })
-        ) {
+        const accepted = acceptHoleGesture({
+          dir,
+          lastDir: last?.dir ?? null,
+          elapsedMs: last ? Date.now() - last.at : Number.POSITIVE_INFINITY,
+        });
+        if (accepted && dir) {
+          panBase.current = { x: 0, y: 0 };
+          panOffX.value = 0;
+          panOffY.value = 0;
+          if (dir === 'next') leaveRef.current();
+          if (dir === 'prev') backRef.current();
           return;
         }
-        if (dir === 'next') leaveRef.current();
-        if (dir === 'prev') backRef.current();
+        panBase.current = { x: panOffX.value, y: panOffY.value };
       },
     }),
   ).current;
@@ -533,7 +550,7 @@ export default function PlayScreen() {
 
   const mapStyle = useAnimatedStyle(() => ({
     opacity: mapFade.value,
-    transform: [{ translateX: mapX.value }, { scale: mapScale.value }],
+    transform: [{ translateX: mapX.value + panOffX.value }, { translateY: panOffY.value }, { scale: mapScale.value }],
   }));
   const bumpStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: bump.value }],
@@ -604,7 +621,7 @@ export default function PlayScreen() {
   useEffect(() => {
     const manual = manualNav.current;
     manualNav.current = false;
-    if (!player || currentHole >= 18) return;
+    if (path !== '/play' || !player || currentHole >= 18) return;
     const geometry = holeOverlay(pilot.features, pilot.record.scorecard, currentHole);
     const nextTee = holeOverlay(pilot.features, pilot.record.scorecard, currentHole + 1).line[0] ?? null;
     const center = geometry.green?.rings[0] ? ringCentroid(geometry.green.rings[0]) : null;
@@ -622,7 +639,7 @@ export default function PlayScreen() {
     }
     advanced.current = currentHole;
     setCurrentHole((hole) => hole + 1);
-  }, [player, currentHole]);
+  }, [path, player, currentHole]);
 
   const talkPrefs = useTalkPrefs();
   const teePointEarly = overlay?.line[0] ?? null;
@@ -852,7 +869,11 @@ export default function PlayScreen() {
   };
   const layup = !shortMode && !onGreen && hazard ? layupDecision({ carry: carryStock, carryToClearYards: hazard.yards }) : null;
   const hazardYards = player ? nearestHazardYards(player, [...polygons.hazards, ...polygons.bunkers]) : null;
-  const fallbackClub = scrubClub == null && calledId == null ? stripClubs[0] ?? null : null;
+  const estimatePick = estimatedPick(bag.clubs, callYards);
+  const fallbackClub =
+    scrubClub == null && calledId == null
+      ? stripClubs.find((club) => club.id === estimatePick?.id) ?? stripClubs[0] ?? null
+      : null;
   const shownId = scrubClub?.id ?? calledId ?? fallbackClub?.id ?? null;
   const shownLabel = scrubClub
     ? scrubClub.label.split('·')[0]?.trim() || scrubClub.label
@@ -973,7 +994,7 @@ export default function PlayScreen() {
   const measuredCall = shownProfile != null && shownProfile.sampleSize > 0 && !shownProfile.sampleWarning?.startsWith('Estimated');
   const estimateLine = measuredCall ? null : starterAdvice(bag.clubs, shotShown);
   const peekLine = (measuredCall ? oneLiner || cardSentence : null) ?? estimateLine ?? cardSentence ?? EMPTY_BAG_ADVICE;
-  visibleCall.current = { line: cardSentence, clubId: shownId, clubLabel: shownLabel };
+  visibleCall.current = { line: estimateLine ?? cardSentence, clubId: shownId, clubLabel: shownLabel };
   const patternLine = patternCaption({
     onGreen,
     noShots,
@@ -1234,7 +1255,7 @@ export default function PlayScreen() {
           if (event.nativeEvent.actionName === 'increment') leaveRef.current();
           if (event.nativeEvent.actionName === 'decrement') backRef.current();
         }}
-        style={[styles.holePill, { top: chrome.pill.y, left: chrome.pill.x, maxWidth: chrome.pill.w }]}
+        style={[styles.holePill, { top: chrome.pill.y, left: chrome.pill.x }]}
         testID="hole-pill"
       >
         <Glass radius={19} style={styles.holePillGlass} contentStyle={styles.holePillFill}>
@@ -1263,15 +1284,9 @@ export default function PlayScreen() {
             </View>
           </Pressable>
           <View style={styles.pillPair}>
-            <Text style={styles.pillMeta}>HCP</Text>
-            <Text style={[styles.pillNum, { fontFamily: display }]}>{hole.strokeIndex ?? '—'}</Text>
+            <Text style={styles.pillMeta}>{strokes != null ? 'SCR' : 'HCP'}</Text>
+            <Text accessibilityLabel={strokes != null ? `Saved score ${strokes}` : undefined} style={[styles.pillNum, { fontFamily: display }]}>{strokes != null ? strokes : hole.strokeIndex ?? '—'}</Text>
           </View>
-          {strokes != null ? (
-            <View style={styles.pillStack}>
-              <Text style={styles.pillMeta}>SCR</Text>
-              <Text accessibilityLabel={`Saved score ${strokes}`} style={[styles.pillNum, { fontFamily: display }]}>{strokes}</Text>
-            </View>
-          ) : null}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Next hole"
@@ -1377,11 +1392,14 @@ export default function PlayScreen() {
                   <Text style={[styles.tab, sheetTab === tab && styles.tabOn]}>{tab === 'coach' ? 'Coach AI' : tab === 'course' ? 'Course' : 'Stats'}</Text>
                 </Pressable>
               ))}
+              <Pressable accessibilityRole="button" accessibilityLabel="Hide coach" onPress={() => applySheet.current(false)} style={styles.coachPeekHit}>
+                <Text style={styles.line}>Hide</Text>
+              </Pressable>
             </View> : null}
             <View style={{ marginTop: SHEET_BALL_TEXT.closedPx }}>
             {!sheetOpen ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Coach AI" testID="coach-line" onPress={() => applySheet.current(true)} style={styles.coachPeekHit}>
-                <Text numberOfLines={1} style={styles.line}>{peekLine}</Text>
+                <Text numberOfLines={2} style={styles.line}>{peekLine}</Text>
               </Pressable>
             ) : sheetTab === 'course' ? (
               <Text style={styles.line} numberOfLines={2}>{`${courseCall(pilot.record.name)}. ${holeSubline({ hole: hole.holeNumber, par })}`}</Text>
@@ -1455,7 +1473,9 @@ export default function PlayScreen() {
                         </Text>
                       ) : null}
                       <Text pointerEvents="box-none" style={styles.carrySentence}>
-                        {carryYards == null ? (
+                        {estimateLine ? (
+                          estimateLine
+                        ) : carryYards == null ? (
                           `Carry not measured. ${PATTERN_INVITE}.`
                         ) : (
                           <Text style={[styles.carryNum, { fontFamily: display }]}>{`${carryYards} carry`}</Text>
@@ -1499,13 +1519,14 @@ export default function PlayScreen() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Send question"
+                  style={styles.coachPeekHit}
                   onPress={() => {
                     const text = talk.draft;
                     talk.setDraft('');
                     void talk.ask(text, 'typed');
                   }}
                 >
-                  <Text style={styles.micLabel}>Send</Text>
+                  <Text style={[styles.micLabel, styles.sendHit]}>Send</Text>
                 </Pressable>
               </View>
             ) : null}
@@ -1645,6 +1666,8 @@ export default function PlayScreen() {
           savedGir={girs[hole.holeNumber - 1] ?? null}
           markCount={holeMarks.length}
           ask={ask.button}
+          screenHeight={windowHeight}
+          thruLabel={thruHud(holes, pilot.quality.map((item) => item.par))}
           onPrev={goBack}
           onNext={leaveHole}
           onMark={markHere}
@@ -1654,9 +1677,10 @@ export default function PlayScreen() {
             router.replace('/');
           }}
           onSave={(draft, finish) => {
+            const puttsSaved = Math.min(draft.strokes, draft.putts ?? 0);
             writeStrokes(draft.strokes);
-            if (draft.putts != null) setPutts(hole.holeNumber, draft.putts);
-            if (draft.penalties != null) setPenalties(hole.holeNumber, draft.penalties);
+            setPutts(hole.holeNumber, puttsSaved);
+            setPenalties(hole.holeNumber, draft.penalties ?? 0);
             setFairway(hole.holeNumber, draft.fairway);
             setGir(hole.holeNumber, draft.gir);
             if (finish) router.push('/recap');
@@ -1674,12 +1698,15 @@ export default function PlayScreen() {
           setConsolation(false);
         }}
       />
+      {talk.overlay}
       {saved ? (
-        <View pointerEvents="none" testID="marked-toast" accessibilityLabel="Marked" style={[styles.toast, { top: chrome.toast.y, left: chrome.toast.x, width: chrome.toast.w, height: chrome.toast.h }]}>
+        <View testID="marked-toast" accessibilityLabel="Marked" style={[styles.toast, { top: Math.max(insets.top, 8) + 52 }]}>
           <Text style={styles.toastText}>Marked</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Undo last mark" onPress={() => { dropLastMark(); setSaved(null); }} style={styles.toastUndo}>
+            <Text style={styles.toastUndoText}>Undo</Text>
+          </Pressable>
         </View>
       ) : null}
-      {talk.overlay}
     </View>
   );
 }
@@ -1732,7 +1759,7 @@ function ClubPulse({ clubLabel, yards }: { clubLabel: string | null; yards: numb
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: fieldNavy, overflow: 'hidden' },
-  shake: { flex: 1 },
+  shake: { flex: 1, zIndex: 0 },
   mapWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: fieldNavy, zIndex: 0 },
   hud: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 10, zIndex: 20 },
   hudFill: { paddingHorizontal: 6, paddingTop: 2, paddingBottom: 4 },
@@ -1964,9 +1991,25 @@ const styles = StyleSheet.create({
   pillPair: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   pillStack: { alignItems: 'center', justifyContent: 'center', minWidth: 28 },
   actionDock: { position: 'absolute', left: 8, right: 8, zIndex: 9 },
-  toast: { position: 'absolute', zIndex: 12, borderRadius: 8, backgroundColor: '#041018', alignItems: 'center', justifyContent: 'center' },
-  toastText: { color: '#FFFFFF', fontSize: 13, lineHeight: 16, fontWeight: '700' },
+  toast: {
+    position: 'absolute',
+    zIndex: 100,
+    elevation: 100,
+    right: 12,
+    width: 220,
+    minHeight: 44,
+    borderRadius: 12,
+    backgroundColor: '#F4F1EA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+  },
+  toastText: { color: '#0B1F3A', fontSize: 16, lineHeight: 20, fontWeight: '800' },
+  toastUndo: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  toastUndoText: { color: '#0B1F3A', fontSize: 16, fontWeight: '800' },
   coachPeekHit: { minHeight: 44, justifyContent: 'center' },
+  sendHit: { minWidth: 44, minHeight: 44, textAlign: 'center', lineHeight: 44 },
   pillArrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   pillArrowText: { color: 'rgba(255,255,255,0.9)', fontSize: 18, lineHeight: 20, fontWeight: '700' },
   pillBallHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

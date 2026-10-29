@@ -52,12 +52,57 @@ export function starterBag(input: { handicap: number | null; driverSpeed: number
   });
 }
 
-/** Scanned or typed clubs stay. A starter club is skipped when that slot is already taken. */
+/** One key for "PW" and "Pitching wedge", and the same for the other starter slots. */
+export function clubKey(club: { slot: string; clubNumber?: string | null }): string {
+  const raw = `${club.clubNumber ?? ''} ${club.slot}`.toLowerCase();
+  if (/\bpw\b|pitching/.test(raw)) return 'pw';
+  if (/\bgw\b|gap/.test(raw)) return 'gw';
+  if (/\bsw\b|sand/.test(raw)) return 'sw';
+  if (/\blw\b|lob/.test(raw)) return 'lw';
+  if (/putter|\bpt\b/.test(raw)) return 'pt';
+  if (/driver/.test(raw) || /\bdr\b/.test(raw)) return 'dr';
+  if (/3\s*wood|\b3w\b/.test(raw)) return '3w';
+  if (/5\s*wood|\b5w\b/.test(raw)) return '5w';
+  if (/4\s*hybrid|\b4h\b/.test(raw)) return '4h';
+  const iron = raw.match(/\b([4-9])\b/);
+  if (iron) return `${iron[1]}i`;
+  return raw.trim();
+}
+
+/**
+ * Entered and scanned clubs stay, including their brand. A starter club is skipped
+ * when that slot is already in the bag. In-play never goes past 14.
+ */
 export function mergeStarter(existing: readonly ScanClub[], starter: readonly ScanClub[]): ScanClub[] {
   const kept = existing.filter((club) => club.source !== 'starter');
-  const taken = new Set(kept.map((club) => club.slot.toUpperCase()));
-  const add = starter.filter((club) => !taken.has(club.slot.toUpperCase()));
+  const taken = new Set(kept.map((club) => clubKey(club)));
+  let inPlay = kept.filter((club) => club.inPlay).length;
+  const add: ScanClub[] = [];
+  for (const club of starter) {
+    const key = clubKey(club);
+    if (taken.has(key)) continue;
+    taken.add(key);
+    const play = inPlay < 14;
+    if (play) inPlay += 1;
+    add.push({ ...club, inPlay: play });
+  }
   return [...kept, ...add];
+}
+
+/** The starter or estimated club closest to the shot. Null when nothing has an estimated carry. */
+export function estimatedPick(clubs: readonly ScanClub[], targetYards: number | null): { id: string; label: string; line: string } | null {
+  const line = starterAdvice(clubs, targetYards);
+  if (!line) return null;
+  const playable = clubs.filter((club) => club.estimatedCarry != null);
+  if (playable.length === 0) return null;
+  const target = targetYards;
+  const ranked = [...playable].sort((a, b) => {
+    if (target == null || !Number.isFinite(target)) return a.slot === 'Driver' ? -1 : 1;
+    return Math.abs((a.estimatedCarry ?? 0) - target) - Math.abs((b.estimatedCarry ?? 0) - target);
+  });
+  const pick = ranked[0];
+  if (!pick) return null;
+  return { id: pick.id, label: pick.slot, line };
 }
 
 export function starterAdvice(clubs: readonly ScanClub[], targetYards: number | null): string | null {

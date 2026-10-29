@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GOLF_BRANDS, modelsFor, optionalModelHints } from '../src/clubs/catalog';
 import { estimateCarry, primaryFlex } from '../src/clubs/distances';
 import { ironSet, lastIdentity, quickClub } from '../src/clubs/quick';
-import { mergeStarter, starterAdvice, starterBag } from '../src/clubs/starter';
+import { estimatedPick, mergeStarter, starterAdvice, starterBag } from '../src/clubs/starter';
 import type { ScanClub } from '../src/bag-scan/types';
 
 describe('starter bag and fast entry', () => {
@@ -28,6 +28,17 @@ describe('starter bag and fast entry', () => {
     expect(merged.filter((club) => club.slot === '5 iron')).toHaveLength(1);
     expect(merged.find((club) => club.slot === '5 iron')?.brand).toBe('Ping');
     expect(merged).toHaveLength(14);
+    const base = starterBag({ handicap: null, driverSpeed: null });
+    const owned = base.slice(0, 8).map((club) => ({ ...club, source: 'entered' as const, brand: 'Ping' }));
+    owned.push({ ...base[9]!, id: 'pw', source: 'entered' as const, slot: 'PW', clubNumber: 'PW', brand: 'Ping' });
+    const filled = mergeStarter(owned, starterBag({ handicap: null, driverSpeed: null }));
+    expect(filled.filter((club) => club.inPlay)).toHaveLength(14);
+    expect(filled.filter((club) => club.slot === 'PW' || club.slot === 'Pitching wedge')).toHaveLength(1);
+    expect(filled.find((club) => club.slot === 'PW')?.brand).toBe('Ping');
+    const pick = estimatedPick(starterBag({ handicap: 20, driverSpeed: 95 }), 153);
+    expect(pick?.line.startsWith('Estimated.')).toBe(true);
+    expect(pick?.label).toMatch(/iron/);
+    expect(pick?.line).not.toMatch(/not measured/i);
   });
 
   it('copies the last brand and does not invent loft until asked', () => {

@@ -72,6 +72,8 @@ export default function QuickAddScreen() {
         }}
       />
       {hintNote ? <Body>{hintNote}</Body> : null}
+      <ScanButton label="Add club" onPress={addOne} />
+      <ScanButton label="Add 4 through PW" tone="ghost" onPress={addSet} />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Copy last brand and model"
@@ -81,7 +83,7 @@ export default function QuickAddScreen() {
           setBrand(remembered.brand);
           setModel(remembered.model);
         }}
-        style={styles.copy}
+        style={[styles.chip, styles.copy]}
       >
         <Text style={styles.chipText}>{remembered ? `Copy last brand and model · ${remembered.brand} ${remembered.model}` : 'Copy last brand and model'}</Text>
       </Pressable>
@@ -96,8 +98,6 @@ export default function QuickAddScreen() {
         <Text style={[styles.chipText, typical && styles.chipTextOn]}>{typical ? 'Typical loft and flex on' : 'Use typical loft and flex'}</Text>
       </Pressable>
       <Body>{TYPICAL_NOTE}</Body>
-      <ScanButton label="Add club" onPress={addOne} />
-      <ScanButton label="Add 4 through PW" tone="ghost" onPress={addSet} />
       <ScanButton label="Use a starter bag" tone="ghost" onPress={() => { bag.useStarterBag(); returnToBag(router); }} />
     </ScanScreen>
   );
@@ -106,7 +106,7 @@ export default function QuickAddScreen() {
 const styles = StyleSheet.create({
   kicker: { color: scan.lime, fontWeight: '800', letterSpacing: 1.2, fontSize: 13 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minHeight: 44, paddingHorizontal: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' },
+  chip: { minHeight: 44, minWidth: 44, paddingHorizontal: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' },
   chipOn: { backgroundColor: scan.lime },
   chipText: { color: scan.white, fontWeight: '700', fontSize: 14 },
   chipTextOn: { color: scan.navy },

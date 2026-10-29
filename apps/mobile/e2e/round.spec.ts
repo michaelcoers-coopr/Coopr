@@ -83,10 +83,21 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
 
   await page.getByTestId('mark-shot').click();
   await expect(page.getByTestId('marked-toast')).toBeVisible();
+  const covered = await page.evaluate(() => {
+    const toast = document.querySelector('[data-testid="marked-toast"]');
+    if (!toast) return true;
+    const box = toast.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + Math.min(box.height / 2, 20));
+    return hit != null && !toast.contains(hit);
+  });
+  expect(covered).toBe(false);
   await shot(page, 'marked');
   await expect(page.getByTestId('marked-toast')).toBeHidden({ timeout: 3000 });
 
   await page.getByRole('button', { name: 'Score', exact: true }).click();
+  const panel = await page.getByTestId('score-entry').boundingBox();
+  expect(panel).toBeTruthy();
+  expect(panel!.height / viewport.height).toBeLessThanOrEqual(0.48);
   await shot(page, 'score');
   const advance = page.getByRole('button', { name: 'Save and next hole' });
   if (await advance.isVisible()) await advance.click();

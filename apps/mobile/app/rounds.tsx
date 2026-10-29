@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useFocusEffect } from 'expo-router';
 import { colors } from '@coopr/tokens';
 import { readArchive } from '../src/analysis/archive';
 import { formatToPar, homeRoundSummary, type HomeRoundRow } from '../src/analysis/home-rounds';
@@ -16,11 +16,11 @@ function line(row: HomeRoundRow): string {
 
 export default function RoundsScreen() {
   const [archive, setArchive] = useState<StoredRound[]>([]);
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     const pull = () => setArchive(readArchive());
     pull();
     return subscribeDevice(pull);
-  }, []);
+  }, []));
   const summary = homeRoundSummary(archive);
   const rows = [...summary.rows].reverse();
   return (

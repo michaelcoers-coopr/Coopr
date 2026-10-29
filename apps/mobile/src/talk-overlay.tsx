@@ -149,6 +149,17 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & {
       selectedClubLabel: snap?.clubLabel ?? latest.current.selectedClubLabel,
       cardLine: snap?.line ?? null,
     });
+    const cardLine = snap?.line ?? null;
+    if (cardLine && cardLine.startsWith('Estimated.')) {
+      setSample(false);
+      const nextTurns: TalkTurn[] = [...turns.current, { role: 'player', text: spoken }, { role: 'caddie', text: cardLine }];
+      turns.current = nextTurns.slice(-6);
+      move('speak');
+      setReply(cardLine);
+      const done = move('finish');
+      if (done.phase === 'listening') void startEar();
+      return;
+    }
     const result = await requestTalk(spoken, context);
     if (gate.current.stopped) return;
     setSample(result.mode === 'sample');

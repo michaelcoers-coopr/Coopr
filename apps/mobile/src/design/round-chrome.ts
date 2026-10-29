@@ -34,6 +34,22 @@ export function insideFrame(box: Box, width: number, height: number, safe: Inset
   );
 }
 
+/** Running score against par for the holes that have a stroke and a par. */
+export function thruHud(strokes: readonly (number | null)[], pars: readonly (number | null)[]): string | null {
+  let count = 0;
+  let diff = 0;
+  for (let index = 0; index < strokes.length; index += 1) {
+    const score = strokes[index];
+    const par = pars[index];
+    if (score == null || par == null) continue;
+    count += 1;
+    diff += score - par;
+  }
+  if (count === 0) return null;
+  const versus = diff === 0 ? 'E' : diff > 0 ? `+${diff}` : String(diff);
+  return `Thru ${count} · ${versus}`;
+}
+
 export function coachPeekHeight(screenHeight: number): number {
   const height = Number.isFinite(screenHeight) && screenHeight > 0 ? screenHeight : 852;
   return Math.round(height * COACH_PEEK_RATIO);
@@ -82,16 +98,12 @@ export function playChrome(input: { screenWidth: number; screenHeight: number; s
   const pillH = MIN_TAP;
   const maxPill = menu.x - gap - (safe.left + 12);
   const pill: Box = { x: safe.left + 12, y: safe.top + 8, w: Math.max(160, Math.min(236, maxPill)), h: pillH };
-  let plate: Box = { x: pill.x + pill.w + gap, y: pill.y, w: Math.min(148, width - safe.right - 12 - (pill.x + pill.w + gap)), h: 52 };
-  const plateFits = plate.w >= 108 && plate.x + plate.w <= menu.x - gap && !boxesOverlap(plate, menu) && !boxesOverlap(plate, pill);
-  if (!plateFits) {
-    plate = {
-      x: pill.x,
-      y: pill.y + pill.h + gap,
-      w: Math.min(168, width - safe.left - safe.right - 24),
-      h: 52,
-    };
-  }
+  const plate: Box = {
+    x: pill.x,
+    y: pill.y + pill.h + gap,
+    w: Math.min(168, width - safe.left - safe.right - 24),
+    h: 52,
+  };
   let toast: Box = { x: safe.left + 12, y: plate.y + plate.h + gap, w: 128, h: 32 };
   if (boxesOverlap(toast, plate) || boxesOverlap(toast, pill) || boxesOverlap(toast, menu)) {
     const beside = plate.x + plate.w + gap;

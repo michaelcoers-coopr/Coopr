@@ -1,7 +1,7 @@
 import 'react-native-reanimated';
 import { useEffect } from 'react';
-import { Image, View } from 'react-native';
-import { Stack, useSegments } from 'expo-router';
+import { Image, Pressable, Text, View } from 'react-native';
+import { router, Stack, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -62,6 +62,12 @@ export default function RootLayout() {
               headerShadowVisible: false,
               contentStyle: { backgroundColor: colors.bg },
               title: 'COOPR',
+              headerLeft: ({ canGoBack }) =>
+                canGoBack ? (
+                  <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', paddingRight: 8 }}>
+                    <Text style={{ color: colors.navy, fontSize: 17, fontWeight: '800' }}>‹ Back</Text>
+                  </Pressable>
+                ) : null,
             }}
           >
             <Stack.Screen name="bag" options={{ headerShown: false, contentStyle: { backgroundColor: '#0B1F3A' } }} />

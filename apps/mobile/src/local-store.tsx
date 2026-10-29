@@ -111,7 +111,13 @@ interface FounderShell {
 
 function loadShell(): FounderShell | null {
   if (!FOUNDER_TOOLS_ENABLED) return null;
-  const dataset = loadFounderDataset();
+  let dataset: ReturnType<typeof loadFounderDataset>;
+  try {
+    dataset = loadFounderDataset();
+  } catch {
+    // A friend web bundle stubs this module. The home screen still renders.
+    return null;
+  }
   const inPlay = dataset.bags.find((bag) => bag.kind === 'in_play');
   const testing = dataset.bags.find((bag) => bag.kind === 'testing');
   const clubs: PlayingClub[] = [];
@@ -201,6 +207,7 @@ interface LocalStore {
   setGir: (hole: number, hit: boolean | null) => void;
   marks: readonly SavedMark[];
   recordMark: (mark: { hole: number; lat: number; lon: number; clubId: string | null; clubLabel: string | null; close: { yards: number; lie: SavedLie | null } | null }) => void;
+  dropLastMark: () => void;
   conditions: RoundConditions;
   setConditions: (patch: Partial<RoundConditions>) => void;
   startNewRound: () => void;
@@ -688,6 +695,9 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
           });
           return next;
         });
+      },
+      dropLastMark: () => {
+        setMarks((current) => current.slice(0, -1));
       },
       conditions,
       setConditions: (patch) => setConditionsState((current) => ({ ...current, ...patch })),

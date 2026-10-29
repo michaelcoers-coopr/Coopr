@@ -122,10 +122,12 @@ export default function HomeScreen() {
     gross: score.holesEntered > 0 ? score.gross : null,
     par: cardHole?.par ?? null,
   });
-  const started = score.holesEntered > 0;
+  const started = score.holesEntered > 0 || currentHole > 1;
   const sticker = started ? 'RESUME ROUND' : 'START ROUND';
   const courseName = courseCall(pilot.record.name);
-  const pillLine = coursePill({ course: courseName, hole: 1, par: holeOneCard?.par ?? null });
+  const pillHole = started ? currentHole : 1;
+  const pillPar = (started ? cardHole?.par : holeOneCard?.par) ?? null;
+  const pillLine = coursePill({ course: courseName, hole: pillHole, par: pillPar });
   const firstHole = started
     ? `${currentHole}${cardHole?.par != null ? ` · PAR ${cardHole.par}` : ''}`
     : `1${holeOneCard?.par != null ? ` · PAR ${holeOneCard.par}` : ''}`;
@@ -470,7 +472,9 @@ export default function HomeScreen() {
                         <Text style={styles.emptyText}>{`${summary.rows.length} on this phone`}</Text>
                       </Pressable>
                     ) : (
-                      <Text style={styles.emptyText}>No rounds yet. Your first one lands here.</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel="Past rounds" onPress={() => router.push('/rounds')}>
+                        <Text style={styles.emptyText}>No rounds yet. Your first one lands here.</Text>
+                      </Pressable>
                     )}
                   </View>
                   <Pressable accessibilityRole="button" accessibilityLabel="Analysis" onPress={() => router.push('/analysis')} style={styles.foursome}>
