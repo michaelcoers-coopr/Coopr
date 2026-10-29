@@ -9,22 +9,20 @@ import {
   type TalkReply,
   type TalkToolResult,
 } from '@coopr/engine';
-import { allowRequest, clientIp } from './api-guard';
+import { allowRequest, bodyTooLarge, budgetAllows, budgetMonth, CADDIE_TURN_CENTS, clientIp, corsHeaders, MAX_CADDIE_BYTES, SECRET_HEADER, secretOk, upstashAllow } from './api-guard';
 
 const HITS = new Map<string, number[]>();
-
-const CORS: Record<string, string> = {
-  'access-control-allow-origin': '*',
-  'access-control-allow-headers': 'authorization, content-type',
-  'access-control-allow-methods': 'POST, OPTIONS',
-  'cache-control': 'no-store',
-};
+const SPENT = new Map<string, number>();
 
 export interface CaddieEnv {
   CADDIE_LLM_API_KEY?: string;
   CADDIE_LLM_URL?: string;
   CADDIE_LLM_MODEL?: string;
   CADDIE_MODE?: string;
+  COOPR_API_SECRET?: string;
+  ALLOWED_ORIGINS?: string;
+  UPSTASH_REDIS_REST_URL?: string;
+  UPSTASH_REDIS_REST_TOKEN?: string;
 }
 
 export function readCaddieEnv(env: Record<string, string | undefined> = process.env): CaddieEnv {
@@ -33,21 +31,29 @@ export function readCaddieEnv(env: Record<string, string | undefined> = process.
     CADDIE_LLM_URL: env.CADDIE_LLM_URL,
     CADDIE_LLM_MODEL: env.CADDIE_LLM_MODEL,
     CADDIE_MODE: env.CADDIE_MODE,
+    COOPR_API_SECRET: env.COOPR_API_SECRET,
+    ALLOWED_ORIGINS: env.ALLOWED_ORIGINS,
+    UPSTASH_REDIS_REST_URL: env.UPSTASH_REDIS_REST_URL,
+    UPSTASH_REDIS_REST_TOKEN: env.UPSTASH_REDIS_REST_TOKEN,
   };
 }
 
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...CORS } });
+function headersFor(request: Request, env: CaddieEnv, contentType: string): Record<string, string> {
+  return { 'content-type': contentType, ...corsHeaders(request.headers.get('origin'), env.ALLOWED_ORIGINS) };
 }
 
-function sse(chunks: string[]): Response {
+function json(request: Request, env: CaddieEnv, status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), { status, headers: headersFor(request, env, 'application/json') });
+}
+
+function sse(request: Request, env: CaddieEnv, chunks: string[]): Response {
   const stream = new ReadableStream({
     start(controller) {
       for (const chunk of chunks) controller.enqueue(new TextEncoder().encode(chunk));
       controller.close();
     },
   });
-  return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream', ...CORS } });
+  return new Response(stream, { status: 200, headers: headersFor(request, env, 'text/event-stream') });
 }
 
 function event(payload: unknown): string {
@@ -184,27 +190,57 @@ async function liveReply(transcript: string, context: TalkContext, env: CaddieEn
   return { mode: 'live', line, sentences: talkSentences(line), tools: ran, heard: true };
 }
 
+async function rateOk(request: Request, env: CaddieEnv, fetchImpl: typeof fetch): Promise<boolean> {
+  const url = env.UPSTASH_REDIS_REST_URL;
+  const token = env.UPSTASH_REDIS_REST_TOKEN;
+  if (url && token) return upstashAllow(fetchImpl, url, token, `caddie:${clientIp(request)}`, 20);
+  return allowRequest(clientIp(request), HITS, Date.now());
+}
+
+function chargeTurn(now = new Date()): boolean {
+  const month = budgetMonth(now);
+  const spent = SPENT.get(month) ?? 0;
+  if (!budgetAllows(spent)) return false;
+  SPENT.set(month, spent + CADDIE_TURN_CENTS);
+  return true;
+}
+
+/** Test hook. A month spend is not part of the request. */
+export function resetCaddieBudget(): void {
+  SPENT.clear();
+}
+
+export function setCaddieSpendForTests(cents: number): void {
+  SPENT.set(budgetMonth(new Date()), cents);
+}
+
 export async function serveCaddie(request: Request, env: CaddieEnv = readCaddieEnv(), fetchImpl: typeof fetch = fetch): Promise<Response> {
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
-  if (request.method !== 'POST') return json(405, { error: 'POST the turn.' });
-  if (!allowRequest(clientIp(request), HITS, Date.now())) {
-    return json(429, { error: 'Too many questions. Wait a minute.' });
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: headersFor(request, env, 'text/plain') });
+  if (request.method !== 'POST') return json(request, env, 405, { error: 'POST the turn.' });
+  if (!secretOk(request.headers.get(SECRET_HEADER), env.COOPR_API_SECRET)) {
+    return json(request, env, 401, { error: 'The caddie secret did not match.' });
+  }
+  if (bodyTooLarge(request, MAX_CADDIE_BYTES)) return json(request, env, 413, { error: 'The turn is too large.' });
+  if (!(await rateOk(request, env, fetchImpl))) {
+    return json(request, env, 429, { error: 'Too many questions. Wait a minute.' });
   }
   let body: Record<string, unknown>;
   try {
-    const parsed: unknown = await request.json();
+    const raw = await request.text();
+    if (raw.length > MAX_CADDIE_BYTES) return json(request, env, 413, { error: 'The turn is too large.' });
+    const parsed: unknown = raw ? JSON.parse(raw) : {};
     body = typeof parsed === 'object' && parsed != null ? (parsed as Record<string, unknown>) : {};
   } catch {
-    return json(400, { error: 'The turn was not JSON.' });
+    return json(request, env, 400, { error: 'The turn was not JSON.' });
   }
   const transcript = typeof body.transcript === 'string' ? body.transcript.slice(0, 500) : '';
   const context = contextFrom(body);
-  const sample = !env.CADDIE_LLM_API_KEY || env.CADDIE_MODE === 'sample';
-  if (sample) return sse(replyEvents(await sampleTalkReply(context, transcript)));
+  const sample = !env.CADDIE_LLM_API_KEY || env.CADDIE_MODE === 'sample' || !chargeTurn();
+  if (sample) return sse(request, env, replyEvents(await sampleTalkReply(context, transcript)));
   try {
-    return sse(replyEvents(await liveReply(transcript, context, env, fetchImpl)));
+    return sse(request, env, replyEvents(await liveReply(transcript, context, env, fetchImpl)));
   } catch {
     const fallback = await sampleTalkReply(context, transcript);
-    return sse(replyEvents(fallback));
+    return sse(request, env, replyEvents(fallback));
   }
 }

@@ -1,5 +1,12 @@
 import { sampleTalkReply, type TalkAction, type TalkContext, type TalkReply, type TalkToolResult } from '@coopr/engine';
+import { SECRET_HEADER } from './api-guard';
 import { extractionUrl } from './extract-client';
+
+function caddieSecret(): string | null {
+  const value = process.env.EXPO_PUBLIC_CADDIE_SECRET?.trim();
+  if (!value || value.includes('REPLACE')) return null;
+  return value;
+}
 
 /** Shown whenever the reply is the on-phone script, including when no server is set. */
 export const SAMPLE_ANSWER_LABEL = 'Sample answer. Not from a live caddie.';
@@ -40,9 +47,12 @@ export async function requestTalk(transcript: string, context: TalkContext): Pro
   const base = extractionUrl();
   if (!base) return sampleTalkReply(context, transcript);
   try {
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    const secret = caddieSecret();
+    if (secret) headers[SECRET_HEADER] = secret;
     const response = await fetch(`${base}/v1/caddie`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({ transcript, context }),
     });
     if (!response.ok) return sampleTalkReply(context, transcript);

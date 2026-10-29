@@ -38,6 +38,13 @@ export function ScoreDock({
   onMark,
   onPause,
   onEnd,
+  voiceMuted,
+  handsFree,
+  onToggleMute,
+  onToggleHandsFree,
+  shotYards,
+  onDeleteShot,
+  onAdjustShot,
 }: {
   hole: number;
   par: number | null;
@@ -56,6 +63,13 @@ export function ScoreDock({
   onMark: () => void;
   onPause: () => void;
   onEnd: () => void;
+  voiceMuted?: boolean;
+  handsFree?: boolean;
+  onToggleMute?: () => void;
+  onToggleHandsFree?: () => void;
+  shotYards?: number | null;
+  onDeleteShot?: () => void;
+  onAdjustShot?: (delta: number) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -108,6 +122,27 @@ export function ScoreDock({
           <Pressable accessibilityRole="button" accessibilityLabel="Pause round (keep progress)" onPress={onPause} style={styles.wide}>
             <Text style={styles.wideText}>Pause round (keep progress)</Text>
           </Pressable>
+          {onToggleMute ? (
+            <Pressable accessibilityRole="button" accessibilityLabel={voiceMuted ? 'Caddie voice on' : 'Mute caddie'} onPress={onToggleMute} style={styles.wide}>
+              <Text style={styles.wideText}>{voiceMuted ? 'Caddie voice on' : 'Mute caddie'}</Text>
+            </Pressable>
+          ) : null}
+          {onToggleHandsFree ? (
+            <Pressable accessibilityRole="button" accessibilityLabel={handsFree ? 'Hands-free on' : 'Hands-free off'} onPress={onToggleHandsFree} style={styles.wide}>
+              <Text style={styles.wideText}>{handsFree ? 'Hands-free on' : 'Hands-free off'}</Text>
+            </Pressable>
+          ) : null}
+          {shotYards != null ? (
+            <View>
+              <Text accessibilityLabel={`Shot ${Math.round(shotYards)} yards`} testID="shot-readout" style={styles.kicker}>{`Shot ${Math.round(shotYards)} yards`}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="More shot yards" onPress={() => onAdjustShot?.(1)} style={styles.wide}>
+                <Text style={styles.wideText}>More shot yards</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Delete last shot" onPress={onDeleteShot} style={styles.wide}>
+                <Text style={styles.wideText}>Delete last shot</Text>
+              </Pressable>
+            </View>
+          ) : null}
           {confirmEnd ? (
             <View>
               <Text style={styles.kicker}>{endSummary}</Text>

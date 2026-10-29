@@ -93,6 +93,8 @@ import { aerialPlate } from '../src/aerial/registry';
 import { aerialTreeNote, pointOnAerial } from '../src/aerial/project';
 import { VECTOR_TILE_SOURCE } from '../src/tile-source';
 import { useTalkPrefs } from '../src/talk-prefs';
+import { readDevice, rememberMeasuredShot, subscribeDevice } from '../src/device-store';
+import { measuredAverage, measuredLine } from '../src/shots/track';
 
 const pilot = loadHighCedarsPilot();
 /** Tall enough for a wrapped caddie sentence and the mic. The locked HUD constant stays shorter. */
@@ -268,6 +270,8 @@ export default function PlayScreen() {
     marks,
     recordMark,
     dropLastMark,
+    deleteLastShot,
+    adjustLastShot,
     conditions,
     removeTag,
   } = useLocalStore();
@@ -654,6 +658,8 @@ export default function PlayScreen() {
   }, [path, player, currentHole]);
 
   const talkPrefs = useTalkPrefs();
+  const [shotLog, setShotLog] = useState(readDevice().measuredShots);
+  useEffect(() => subscribeDevice(() => setShotLog(readDevice().measuredShots)), []);
   const teePointEarly = overlay?.line[0] ?? null;
   const atTeeNow = player != null && teePointEarly != null && distanceYards(player, teePointEarly) <= NEXT_TEE_YARDS;
   const lastMark = [...marks].reverse().find((mark) => mark.hole === currentHole) ?? null;
@@ -1004,7 +1010,9 @@ export default function PlayScreen() {
         ? null
         : oneLiner;
   const measuredCall = shownProfile != null && shownProfile.sampleSize > 0 && !shownProfile.sampleWarning?.startsWith('Estimated');
-  const estimateLine = measuredCall ? null : starterAdvice(bag.clubs, shotShown);
+  const fromShots = measuredAverage(shotLog.filter((shot) => shot.clubId === shownId).map((shot) => shot.yards));
+  const shotLine = fromShots && shownLabel ? measuredLine(shownLabel, fromShots) : null;
+  const estimateLine = shotLine ?? (measuredCall ? null : starterAdvice(bag.clubs, shotShown));
   const peekLine = (measuredCall ? oneLiner || cardSentence : null) ?? estimateLine ?? cardSentence ?? EMPTY_BAG_ADVICE;
   visibleCall.current = { line: estimateLine ?? cardSentence, clubId: shownId, clubLabel: shownLabel };
   const patternLine = patternCaption({
@@ -1107,6 +1115,7 @@ export default function PlayScreen() {
       close: closed,
     });
     const result = lieResult(closed?.lie ?? null);
+    if (prior?.clubId && closed) rememberMeasuredShot(prior.clubId, closed.yards);
     if (prior && closed && result && prior.clubId) {
       tagShot({
         hole: hole.holeNumber,
@@ -1724,6 +1733,13 @@ export default function PlayScreen() {
           onPrev={goBack}
           onNext={leaveHole}
           onMark={markHere}
+          voiceMuted={talkPrefs.muted}
+          handsFree={talkPrefs.handsFree}
+          onToggleMute={() => talkPrefs.setMuted(!talkPrefs.muted)}
+          onToggleHandsFree={() => talkPrefs.setHandsFree(!talkPrefs.handsFree)}
+          shotYards={lastClosed?.yards ?? null}
+          onDeleteShot={deleteLastShot}
+          onAdjustShot={adjustLastShot}
           onPause={() => router.push('/')}
           onEnd={() => {
             finishRound();

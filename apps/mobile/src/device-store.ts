@@ -151,6 +151,20 @@ export function writePlayerFit(fit: StoredFit): void {
   updateDevice((snap) => ({ ...snap, fit: sanitizeFit(fit) }));
 }
 
+export function rememberMeasuredShot(clubId: string, yards: number): void {
+  if (!clubId || !Number.isFinite(yards)) return;
+  updateDevice((current) => ({ ...current, measuredShots: [...current.measuredShots, { clubId, yards: Math.round(yards) }].slice(-400) }));
+}
+
+export function dropLastMeasuredShot(clubId: string): void {
+  updateDevice((current) => {
+    const index = [...current.measuredShots].reverse().findIndex((shot) => shot.clubId === clubId);
+    if (index < 0) return current;
+    const at = current.measuredShots.length - 1 - index;
+    return { ...current, measuredShots: current.measuredShots.filter((_, item) => item !== at) };
+  });
+}
+
 export function writePlayerSettings(patch: Partial<DeviceSettings>): void {
   updateDevice((snap) => ({ ...snap, settings: { ...snap.settings, ...patch } }));
 }

@@ -17,6 +17,8 @@ export interface DeviceSettings {
   voice: CaddieVoice;
   handsFree: boolean;
   callouts: boolean;
+  /** When true, caddie answers stay on screen and are not spoken. */
+  muted: boolean;
   onboarded: boolean;
   displayName: string;
 }
@@ -30,6 +32,8 @@ export interface DeviceSnapshot {
   lastFix: { id: FixId; strokesPer18: number } | null;
   foursome: FoursomeSave | null;
   foursomeHistory: FoursomeSave[];
+  /** Real shot distances by club. Estimated carries stay until five clean shots exist. */
+  measuredShots: { clubId: string; yards: number }[];
 }
 
 export const MAX_ROUNDS = 40;
@@ -37,11 +41,11 @@ export const MAX_ROUNDS = 40;
 const FAIRWAYS: readonly FairwayResult[] = ['hit', 'left', 'right', 'short', 'long'];
 
 export function emptySettings(): DeviceSettings {
-  return { voice: 'chirpy', handsFree: false, callouts: false, onboarded: false, displayName: '' };
+  return { voice: 'chirpy', handsFree: false, callouts: false, muted: false, onboarded: false, displayName: '' };
 }
 
 export function emptySnapshot(): DeviceSnapshot {
-  return { version: 1, bag: [], fit: { ...EMPTY_FIT }, settings: emptySettings(), rounds: [], lastFix: null, foursome: null, foursomeHistory: [] };
+  return { version: 1, bag: [], fit: { ...EMPTY_FIT }, settings: emptySettings(), rounds: [], lastFix: null, foursome: null, foursomeHistory: [], measuredShots: [] };
 }
 
 function fairwayOf(value: unknown): FairwayResult | null {
@@ -101,6 +105,7 @@ function settingsOf(value: unknown): DeviceSettings {
     voice: parseVoice(raw.voice),
     handsFree: raw.handsFree === true,
     callouts: raw.callouts === true,
+    muted: raw.muted === true,
     onboarded: raw.onboarded === true,
     displayName: typeof raw.displayName === 'string' ? raw.displayName : '',
   };
@@ -112,6 +117,18 @@ function bagOf(value: unknown): ScanClub[] {
     const club = sanitizeClub(item);
     return club ? [club] : [];
   });
+}
+
+function measuredOf(value: unknown): DeviceSnapshot['measuredShots'] {
+  if (!Array.isArray(value)) return [];
+  const shots: DeviceSnapshot['measuredShots'] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    if (typeof row.clubId !== 'string' || typeof row.yards !== 'number' || !Number.isFinite(row.yards)) continue;
+    shots.push({ clubId: row.clubId, yards: Math.round(row.yards) });
+  }
+  return shots.slice(-400);
 }
 
 export function parseSnapshot(raw: string | null): DeviceSnapshot {
@@ -129,6 +146,7 @@ export function parseSnapshot(raw: string | null): DeviceSnapshot {
       lastFix: fixOf(row.lastFix),
       foursome: parseFoursomeSave(row.foursome),
       foursomeHistory: foursomesOf(row.foursomeHistory).slice(-MAX_ROUNDS),
+      measuredShots: measuredOf(row.measuredShots),
     };
   } catch {
     return emptySnapshot();

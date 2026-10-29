@@ -15,6 +15,7 @@ import { useDisplayFace } from './design/display-font';
 import { BlurView } from 'expo-blur';
 import { tick } from './haptics';
 import { deviceSpeechAvailable, listenForSpeech, type HeardSpeech } from './speech/recognize';
+import { shouldSpeak } from './shots/track';
 import { caddieSpeaker, speakSentences } from './speech/tts';
 import { readTalkPreview } from './talk-preview';
 import { requestTalk, SAMPLE_ANSWER_LABEL } from './talk-client';
@@ -167,7 +168,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & {
     turns.current = nextTurns.slice(-6);
     apply(result.tools.flatMap((tool) => (tool.action ? [tool.action] : [])));
     move('speak');
-    const saying = speakSentences(speaker.current, result.sentences, gate.current);
+    const saying = shouldSpeak(prefs.muted) ? speakSentences(speaker.current, result.sentences, gate.current) : Promise.resolve();
     let shown = '';
     for (const sentence of result.sentences) {
       if (gate.current.stopped) break;

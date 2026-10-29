@@ -208,6 +208,8 @@ interface LocalStore {
   marks: readonly SavedMark[];
   recordMark: (mark: { hole: number; lat: number; lon: number; clubId: string | null; clubLabel: string | null; close: { yards: number; lie: SavedLie | null } | null }) => void;
   dropLastMark: () => void;
+  deleteLastShot: () => void;
+  adjustLastShot: (delta: number) => void;
   conditions: RoundConditions;
   setConditions: (patch: Partial<RoundConditions>) => void;
   startNewRound: () => void;
@@ -711,6 +713,29 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
       },
       dropLastMark: () => {
         setMarks((current) => current.slice(0, -1));
+      },
+      deleteLastShot: () => {
+        setMarks((current) => {
+          if (current.length === 0) return current;
+          const last = current[current.length - 1]!;
+          const rest = current.slice(0, -1);
+          if (last.yards == null && rest.length > 0) {
+            const prior = rest[rest.length - 1]!;
+            if (prior.hole === last.hole && prior.yards != null) rest[rest.length - 1] = { ...prior, yards: null, lie: null };
+          }
+          return rest;
+        });
+      },
+      adjustLastShot: (delta) => {
+        setMarks((current) => {
+          const index = [...current].reverse().findIndex((mark) => mark.yards != null);
+          if (index < 0) return current;
+          const at = current.length - 1 - index;
+          const mark = current[at];
+          if (!mark || mark.yards == null) return current;
+          const yards = Math.max(1, Math.min(400, mark.yards + delta));
+          return current.map((item, itemIndex) => (itemIndex === at ? { ...item, yards } : item));
+        });
       },
       conditions,
       setConditions: (patch) => setConditionsState((current) => ({ ...current, ...patch })),

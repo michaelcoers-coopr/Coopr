@@ -1,24 +1,15 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { allowRequest, declaredTooLarge, isVoiceAudioType, RATE_LIMIT } from '../src/api-guard';
+import { allowRequest, declaredTooLarge, RATE_LIMIT } from '../src/api-guard';
 import { readExtractOrigin } from '../scripts/extract-origin.mjs';
 import { serveExtract } from '../src/extract-host';
 
 const repo = fileURLToPath(new URL('../../..', import.meta.url));
 
 describe('Ask COOPR hosting guards', () => {
-  it('accepts audio types and refuses the rest', () => {
-    expect(isVoiceAudioType('audio/m4a')).toBe(true);
-    expect(isVoiceAudioType('audio/mp4; charset=binary')).toBe(true);
-    expect(isVoiceAudioType('audio/wav')).toBe(true);
-    expect(isVoiceAudioType('text/plain')).toBe(false);
-    expect(isVoiceAudioType('image/jpeg')).toBe(false);
-    expect(isVoiceAudioType('application/octet-stream')).toBe(false);
-  });
-
   it('stops the 21st call inside a minute', () => {
     const store = new Map<string, number[]>();
     for (let index = 0; index < RATE_LIMIT; index += 1) {
@@ -72,27 +63,18 @@ describe('deploy and preview scripts', () => {
     expect(result.stdout).toBe('https://coopr.expo.app');
   });
 
-  it('does not print the key and stops without EXPO_TOKEN', () => {
-    const script = path.join(repo, 'scripts/deploy-voice.sh');
-    const source = readFileSync(script, 'utf8');
-    expect(source).toMatch(/eas-cli@latest deploy/);
-    expect(source).toMatch(/--prod/);
-    expect(source).toMatch(/--visibility sensitive/);
-    expect(source).not.toMatch(/echo[^\\n]*\$ELEVENLABS_API_KEY/);
-    expect(source).not.toMatch(/echo[^\\n]*\$key/);
-    expect(source).not.toMatch(/EXPO_PUBLIC_ELEVENLABS/);
-    const result = spawnSync('bash', [script], {
-      env: { ...process.env, EXPO_TOKEN: '', ELEVENLABS_API_KEY: 'super-secret-value' },
-      encoding: 'utf8',
-    });
-    expect(result.status).toBe(1);
-    expect(result.stderr).toMatch(/EXPO_TOKEN is not set/);
-    expect(`${result.stdout}${result.stderr}`).not.toContain('super-secret-value');
-  });
-
-  it('verify-voice prints usage without posting', () => {
-    const result = spawnSync('bash', [path.join(repo, 'scripts/verify-voice.sh')], { encoding: 'utf8' });
-    expect(result.status).toBe(1);
-    expect(result.stderr).toMatch(/Usage: scripts\/verify-voice\.sh/);
+  it('documents the caddie server and no longer ships the voice deploy scripts', () => {
+    const doc = readFileSync(path.join(repo, 'docs/CADDIE_SERVER.md'), 'utf8');
+    expect(doc).toContain('COOPR_API_SECRET');
+    expect(doc).toContain('UPSTASH_REDIS_REST_URL');
+    expect(doc).toContain('ALLOWED_ORIGINS');
+    expect(doc).toContain('100');
+    expect(doc).toContain('EXPO_PUBLIC_EXTRACT_URL');
+    expect(doc).toContain('EXPO_PUBLIC_CADDIE_SECRET');
+    expect(doc).not.toContain('deploy-voice.sh');
+    expect(doc).toMatch(/do not deploy|Do not deploy/i);
+    expect(existsSync(path.join(repo, 'scripts/deploy-voice.sh'))).toBe(false);
+    expect(existsSync(path.join(repo, 'scripts/verify-voice.sh'))).toBe(false);
+    expect(existsSync(path.join(repo, 'apps/mobile/app/v1/voice+api.ts'))).toBe(false);
   });
 });

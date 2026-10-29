@@ -54,7 +54,7 @@ describe('beta profile and permission strings', () => {
     expect(plugins.some((plugin) => plugin === 'expo-notifications' || (Array.isArray(plugin) && plugin[0] === 'expo-notifications'))).toBe(false);
     expect(plugins).toContain('expo-updates');
     expect(location[1].locationWhenInUsePermission).toBe(
-      'COOPR uses your location while the app is open to show your distance to the green. Your position is not saved as a shot.',
+      'COOPR uses your location while the app is open to show your distance to the green and to measure a shot you mark. The shot stays on this phone.',
     );
     expect(location[1].locationAlwaysAndWhenInUsePermission).toBe(false);
     expect(location[1].locationAlwaysPermission).toBe(false);

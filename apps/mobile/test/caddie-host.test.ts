@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readCaddieEnv, serveCaddie } from '../src/caddie-host';
+import { readCaddieEnv, resetCaddieBudget, serveCaddie, setCaddieSpendForTests } from '../src/caddie-host';
 
 const driver = {
   clubId: 'driver',
@@ -84,5 +84,30 @@ describe('caddie conversation host', () => {
     const text = await response.text();
     expect(text).toContain('"mode":"live"');
     expect(text).toContain('Driver, find the short grass.');
+  });
+
+  it('refuses a bad secret, a huge body, a foreign origin, and a spent month', async () => {
+    const denied = await serveCaddie(turn('203.0.113.50'), { COOPR_API_SECRET: 'desk' });
+    expect(denied.status).toBe(401);
+    const huge = new Request('https://coopr.example/v1/caddie', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'content-length': '40000', 'x-coopr-secret': 'desk' },
+      body: '{}',
+    });
+    expect((await serveCaddie(huge, { COOPR_API_SECRET: 'desk' })).status).toBe(413);
+    const foreign = new Request('https://coopr.example/v1/caddie', { method: 'OPTIONS', headers: { origin: 'https://evil.example' } });
+    const open = await serveCaddie(foreign, { ALLOWED_ORIGINS: 'https://play.coopr.app' });
+    expect(open.headers.get('access-control-allow-origin')).toBeNull();
+    const home = new Request('https://coopr.example/v1/caddie', { method: 'OPTIONS', headers: { origin: 'https://play.coopr.app' } });
+    expect((await serveCaddie(home, { ALLOWED_ORIGINS: 'https://play.coopr.app' })).headers.get('access-control-allow-origin')).toBe('https://play.coopr.app');
+    setCaddieSpendForTests(10_000);
+    let called = false;
+    const capped = await serveCaddie(turn('203.0.113.51'), { CADDIE_LLM_API_KEY: 'server-key' }, async () => {
+      called = true;
+      throw new Error('over budget');
+    });
+    expect(called).toBe(false);
+    expect(await capped.text()).toContain('"mode":"sample"');
+    resetCaddieBudget();
   });
 });

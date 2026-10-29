@@ -14,7 +14,7 @@ The overlay is full-bleed glass. It shows a waveform, the live transcript, and t
 
 Hands-free and callouts default off. Callouts speak one short line when he arrives at a new tee, or within 30 yards of the last mark. An out-of-reach par 4 or 5 tee uses the same honest line as the card. It does not invent a landing yardage.
 
-The phone posts `{ audioBase64, mediaType }` to `{EXPO_PUBLIC_EXTRACT_URL}/v1/voice`. That is the same origin as photo extract. The hole screen does not ask for a token. If `EXTRACT_TOKEN` is set on the server, leave it unset for a round, or voice requests are refused.
+There is no `/v1/voice` route. Speech-to-text stays on the phone. The transcript goes to `POST /v1/caddie` when `EXPO_PUBLIC_EXTRACT_URL` is a real origin. Deploy steps and the server variables are in `docs/CADDIE_SERVER.md`. Do not deploy from this page.
 
 A desk check can set `localStorage['coopr.voice.sim']` to a sentence. Releasing the button uses that sentence and does not record. That is not sample mode. Sample mode is only when the server says the clip was not heard.
 
@@ -65,13 +65,7 @@ Both refuse a body over 8 MB. Voice also refuses a body that is not an audio typ
 
 From the repo root, with both values exported and neither committed:
 
-```bash
-export EXPO_TOKEN='...'
-export ELEVENLABS_API_KEY='...'
-bash scripts/deploy-voice.sh
-```
-
-The script sets `ELEVENLABS_API_KEY` on the production EAS environment as **sensitive**. EAS Hosting does not deploy a **secret** into an API route, so a secret would leave Scribe deaf. The script does not print the key. Its only stdout line is the origin, which it also writes to `apps/mobile/extract-origin.txt`.
+The voice deploy script is gone with `/v1/voice`. Use `docs/CADDIE_SERVER.md`. Do not deploy from this page.
 
 Then publish the Expo Go preview so the phone has that origin:
 
@@ -121,7 +115,7 @@ MusicKit, Spotify, Amazon Music, ducking, and the ElevenLabs React Native SDK st
 
 Send these on a secure channel. Not in chat, not in git, not in an issue.
 
-1. `ELEVENLABS_API_KEY` for the Scribe account, exported in the shell that runs `scripts/deploy-voice.sh`. Without it, a posted clip gets the canned transcript. The conversation overlay does not need this key.
+1. `CADDIE_LLM_API_KEY` on the server for a live answer. Without it, the phone keeps the labeled sample. Speech-to-text does not use this key.
 2. `EXPO_TOKEN` for the `@mikecoers` Expo account, in that same shell, and again for `npm run preview:publish` and for `eas build` / `eas submit`.
 3. `ELEVENLABS_STT_MODEL` on the EAS production environment, only if `scribe_v1` is wrong for that account.
 4. `CADDIE_LLM_API_KEY` on the same EAS server environment, as a sensitive variable, not a secret and not an `EXPO_PUBLIC_` value. Without it the caddie stays in sample mode and says so. Optional `CADDIE_LLM_URL` and `CADDIE_LLM_MODEL`. `CADDIE_MODE=sample` forces the script even when the key is set.
@@ -135,7 +129,7 @@ On-device recognition needs a signed iOS binary. Expo Go is not enough.
 - A paid Apple Developer account, used to sign `app.coopr.mobile.preview` (preview) or `app.coopr.mobile` (production). EAS creates the distribution certificate and provisioning profile on the first build. Do not commit them.
 - `EXPO_TOKEN` for the `@mikecoers` Expo account. Project `998f1644-05ec-4980-a0b9-58e5703951d7`.
 - App Store Connect access for that team, so `eas submit` can upload. The `submit.ios` blocks in `eas.json` are empty on purpose. The first submit asks for the Apple team. An App Store Connect API key, or an Apple ID with an app-specific password, is what EAS asks for. It is not stored in this repo.
-- `ELEVENLABS_API_KEY` on the EAS production environment as **sensitive**, via `scripts/deploy-voice.sh`, if Scribe transcription of a posted clip should hear him.
+- Server variables in `docs/CADDIE_SERVER.md`. Do not deploy until he asks.
 - `CADDIE_LLM_API_KEY` on that same server environment if the spoken answers should come from the model. Without it, TestFlight still talks, in sample mode, from the real hole context.
 
 ```bash
