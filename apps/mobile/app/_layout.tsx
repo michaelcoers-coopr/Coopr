@@ -70,6 +70,13 @@ export default function RootLayout() {
                 ) : null,
             }}
           >
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="onboard" options={{ headerShown: false }} />
+            <Stack.Screen name="play" options={{ headerShown: false }} />
+            <Stack.Screen name="recap" options={{ headerShown: false }} />
+            <Stack.Screen name="rounds" options={{ headerShown: false }} />
+            <Stack.Screen name="round/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="more" options={{ headerShown: false }} />
             <Stack.Screen name="bag" options={{ headerShown: false, contentStyle: { backgroundColor: '#0B1F3A' } }} />
             <Stack.Screen name="analysis" options={{ headerShown: false, contentStyle: { backgroundColor: '#0B1F3A' } }} />
             <Stack.Screen name="games" options={{ headerShown: false, contentStyle: { backgroundColor: '#0B1F3A' } }} />

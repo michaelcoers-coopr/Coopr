@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { router } from 'expo-router';
+import { Pressable, StyleSheet, Text } from 'react-native';
+import { router, Stack } from 'expo-router';
+import { colors } from '@coopr/tokens';
 import { Button, Card, Choice, Muted, Screen, Title } from '../src/ui';
 import { bootDatabase } from '../src/boot-db';
 import { useLocalStore } from '../src/local-store';
@@ -29,6 +31,10 @@ export default function MoreScreen() {
 
   return (
     <Screen>
+      <Stack.Screen options={{ headerShown: false, title: 'More' }} />
+      <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}>
+        <Text style={styles.backText}>‹ Back</Text>
+      </Pressable>
       <Title>More</Title>
       <Muted>Setup and the card. The round starts from Play.</Muted>
       <Button label="Past rounds" tone="ghost" onPress={() => router.push('/rounds')} />
@@ -85,3 +91,8 @@ export default function MoreScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  back: { alignSelf: 'flex-start', minWidth: 44, minHeight: 44, justifyContent: 'center', paddingRight: 12 },
+  backText: { color: colors.navy, fontSize: 17, fontWeight: '800' },
+});

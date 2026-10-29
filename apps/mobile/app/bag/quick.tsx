@@ -34,7 +34,7 @@ export default function QuickAddScreen() {
   };
 
   return (
-    <ScanScreen title="Add a club">
+    <ScanScreen title="Add a club" footer={<View style={styles.footer}><ScanButton label="Add club" onPress={addOne} /></View>}>
       <Text style={styles.kicker}>ADD A CLUB</Text>
       <Body>Pick the club, then add it. Brand and model can follow. Unknown loft and flex stay blank.</Body>
       <View style={styles.row}>
@@ -44,7 +44,6 @@ export default function QuickAddScreen() {
           </Pressable>
         ))}
       </View>
-      <ScanButton label="Add club" onPress={addOne} />
       <Body>{CATALOG_NOTE}</Body>
       <View style={styles.row}>
         {GOLF_BRANDS.map((name) => (
@@ -112,4 +111,5 @@ const styles = StyleSheet.create({
   chipTextOn: { color: scan.navy },
   input: { minHeight: 44, borderRadius: 12, paddingHorizontal: 12, color: scan.white, backgroundColor: 'rgba(255,255,255,0.08)', fontSize: 16 },
   copy: { minHeight: 44, justifyContent: 'center' },
+  footer: { paddingHorizontal: 20, paddingBottom: 12 },
 });

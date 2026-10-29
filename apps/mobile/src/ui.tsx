@@ -3,10 +3,14 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@coopr/tokens';
 
-export function Screen({ children }: { children: ReactNode }) {
+/** Scrolls the body. A footer stays pinned, so Save and Done remain on a short phone. */
+export function Screen({ children, footer = null }: { children: ReactNode; footer?: ReactNode }) {
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.content}>{children}</ScrollView>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {children}
+      </ScrollView>
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
     </SafeAreaView>
   );
 }
@@ -78,7 +82,9 @@ export function Crest({ size = 176 }: { size?: number }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 20, paddingBottom: 36, gap: 14 },
+  scroll: { flex: 1 },
+  content: { padding: 20, paddingBottom: 24, gap: 14 },
+  footer: { paddingHorizontal: 20, paddingBottom: 12, gap: 8, zIndex: 5 },
   title: { color: colors.text, fontSize: 34, fontWeight: '700', letterSpacing: -0.6 },
   muted: { color: colors.muted, fontSize: 17, lineHeight: 24 },
   card: {

@@ -18,6 +18,7 @@ import { useReduceMotion } from '../src/design/reduce-motion';
 import { useDisplayFace } from '../src/design/display-font';
 import { bagGlance, courseCall, coursePill, hypeHero, resumeLine, skyLine } from '../src/design/home-copy';
 import { homeWordmark } from '../src/design/round-chrome';
+import { homeSheetHeights, stickerHeight } from '../src/design/responsive';
 import { foldSnap } from '../src/design/play-polish';
 import { fieldNavy } from '../src/design/theme';
 import { Glass } from '../src/design/glass';
@@ -34,8 +35,6 @@ import { Crest } from '../src/ui';
 const pilot = loadHighCedarsPilot();
 const holeOne = holeOverlay(pilot.features, pilot.record.scorecard, 1);
 const holeOneCard = pilot.record.scorecard.find((item) => item.holeNumber === 1);
-const HOME_CLOSED = 268;
-const HOME_OPEN = 540;
 const RAIL = 56;
 const SHEET_SPRING = { damping: 18, stiffness: 190, mass: 0.75 };
 function ringsOf(features: readonly MapFeature[]): LatLon[][] {
@@ -104,8 +103,11 @@ export default function HomeScreen() {
   const { currentHole, score, clubs, displayName, onboarded, founderTools, inProgress } = useLocalStore();
   const display = useDisplayFace();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
-  const word = homeWordmark({ screenWidth: windowWidth, safeTop: insets.top, safeLeft: insets.left });
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const sheets = homeSheetHeights(windowWidth, windowHeight, Math.max(insets.bottom, 0));
+  const sheetsRef = useRef(sheets);
+  sheetsRef.current = sheets;
+  const word = homeWordmark({ screenWidth: windowWidth, screenHeight: windowHeight, safeTop: insets.top, safeLeft: insets.left });
   const reduceMotion = useReduceMotion();
   const scrimId = useId().replace(/:/g, '');
   const hero = hypeHero({ name: displayName.trim(), course: pilot.record.name });
@@ -141,7 +143,7 @@ export default function HomeScreen() {
   const [askSample, setAskSample] = useState(false);
   const sheetOpenRef = useRef(false);
   const sheetScrollRef = useRef<ScrollViewInstance>(null);
-  const sheetH = useSharedValue(HOME_CLOSED);
+  const sheetH = useSharedValue(sheets.closed);
   const breathe = useSharedValue(1);
   const bearing = shotBearing(holeOne.line);
   const weather = skyLine(
@@ -186,7 +188,8 @@ export default function HomeScreen() {
   const applySheet = (open: boolean) => {
     sheetOpenRef.current = open;
     setSheetOpen(open);
-    sheetH.value = withSpring(open ? HOME_OPEN : HOME_CLOSED, SHEET_SPRING);
+    const next = sheetsRef.current;
+    sheetH.value = withSpring(open ? next.open : next.closed, SHEET_SPRING);
   };
 
   const openGames = () => {
@@ -265,7 +268,7 @@ export default function HomeScreen() {
   }, [sheetOpen, sheetTab, askOn, askReply, askDraft, started, firstHole]);
 
   const bottomInset = Math.max(insets.bottom, 8);
-  const railBottom = HOME_CLOSED + bottomInset + 16;
+  const railBottom = sheets.closed + bottomInset + 16;
 
   return (
     <View style={styles.screen} onLayout={(event) => setMapH(Math.max(1, Math.round(event.nativeEvent.layout.height)))}>
@@ -294,7 +297,7 @@ export default function HomeScreen() {
           showCredit={!sheetOpen}
           creditLeft={14}
           creditRight={88}
-          creditBottom={HOME_CLOSED + bottomInset + 20}
+          creditBottom={sheets.closed + bottomInset + 20}
         />
       </View>
       <View pointerEvents="none" style={[styles.scrim, { top: insets.top }]}>
@@ -338,7 +341,7 @@ export default function HomeScreen() {
           accessibilityLabel={`${sticker}. ${resume.detail}`}
           testID="start-round"
           onPress={() => router.push('/play')}
-          style={({ pressed }) => [styles.sticker, pressed && !reduceMotion && styles.pressed]}
+          style={({ pressed }) => [styles.sticker, { minHeight: stickerHeight(windowWidth, windowHeight) }, pressed && !reduceMotion && styles.pressed]}
         >
           <Text style={[styles.stickerText, { fontFamily: display }]}>{sticker}</Text>
         </Pressable>

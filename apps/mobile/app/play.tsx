@@ -2073,7 +2073,7 @@ const styles = StyleSheet.create({
   thruText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
   mapOffset: { position: 'absolute', width: 1, height: 1, opacity: 0 },
   answerScroll: { maxHeight: 72, flexGrow: 0 },
-  coachPeekHit: { minHeight: 44, justifyContent: 'center' },
+  coachPeekHit: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
   sendHit: { minWidth: 44, minHeight: 44, textAlign: 'center', lineHeight: 44 },
   pillArrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   pillArrowText: { color: 'rgba(255,255,255,0.9)', fontSize: 18, lineHeight: 20, fontWeight: '700' },

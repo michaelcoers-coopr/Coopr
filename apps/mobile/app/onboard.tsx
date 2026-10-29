@@ -34,7 +34,22 @@ export default function OnboardScreen() {
   };
 
   return (
-    <Screen>
+    <Screen
+      footer={
+        <>
+          <Button label="Save" onPress={() => finish(true)} />
+          <Button
+            label="Use a starter bag"
+            onPress={() => {
+              const handicapValue = rangedNumber(handicap, HANDICAP_MIN, HANDICAP_MAX);
+              const speedValue = rangedNumber(speed, SPEED_MIN, SPEED_MAX);
+              if (finish(true)) bag.useStarterBag({ handicap: handicapValue.value, driverSpeed: speedValue.value });
+            }}
+          />
+          <Button label="Skip" tone="ghost" onPress={() => finish(false)} />
+        </>
+      }
+    >
       <Stack.Screen options={{ headerShown: false, title: 'Start' }} />
       <Title>Before you tee off</Title>
       <Muted>Skip anything. COOPR keeps what you type on this phone.</Muted>
@@ -77,16 +92,6 @@ export default function OnboardScreen() {
         />
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button label="Save" onPress={() => finish(true)} />
-      <Button
-        label="Use a starter bag"
-        onPress={() => {
-          const handicapValue = rangedNumber(handicap, HANDICAP_MIN, HANDICAP_MAX);
-          const speedValue = rangedNumber(speed, SPEED_MIN, SPEED_MAX);
-          if (finish(true)) bag.useStarterBag({ handicap: handicapValue.value, driverSpeed: speedValue.value });
-        }}
-      />
-      <Button label="Skip" tone="ghost" onPress={() => finish(false)} />
     </Screen>
   );
 }

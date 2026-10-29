@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { scorePanelBudget } from './responsive';
 import { MIN_TAP } from './round-chrome';
 
 export type FairwayPick = 'hit' | 'left' | 'right' | 'short' | 'long' | null;
@@ -17,12 +18,6 @@ export function clampPutts(strokes: number, putts: number): number {
   const score = Number.isFinite(strokes) ? Math.max(1, Math.round(strokes)) : 1;
   const count = Number.isFinite(putts) ? Math.round(putts) : 0;
   return Math.max(0, Math.min(score, count));
-}
-
-/** Room for the fields plus the pinned save button, without covering the top of the hole. */
-export function scorePanelBudget(screenHeight: number): number {
-  const height = Number.isFinite(screenHeight) && screenHeight > 0 ? screenHeight : 852;
-  return Math.min(420, Math.max(300, height - 160));
 }
 
 export function ScoreDock({
@@ -70,9 +65,10 @@ export function ScoreDock({
   const [penalties, setPenalties] = useState(0);
   const [fairway, setFairway] = useState<FairwayPick>(savedFairway);
   const [gir, setGir] = useState<boolean | null>(savedGir);
+  const window = useWindowDimensions();
   const last = hole >= 18;
   const floor = par ?? 4;
-  const budget = scorePanelBudget(screenHeight);
+  const budget = scorePanelBudget(window.height || screenHeight, window.width);
 
   useEffect(() => {
     setOpen(false);

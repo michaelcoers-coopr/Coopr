@@ -18,25 +18,30 @@ export default function RecapScreen() {
     gir: girs[index] ?? null,
   }));
   return (
-    <Screen>
+    <Screen
+      footer={
+        <>
+          <Pressable accessibilityRole="button" accessibilityLabel="Past rounds" onPress={() => router.push('/rounds')} style={styles.link}>
+            <Text style={styles.linkText}>Past rounds</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Done"
+            testID="recap-done"
+            onPress={() => {
+              startNewRound();
+              router.replace('/');
+            }}
+            style={styles.done}
+          >
+            <Text style={styles.doneText}>Done</Text>
+          </Pressable>
+        </>
+      }
+    >
       <Stack.Screen options={{ headerShown: false, title: 'Recap' }} />
       <Title>Round recap</Title>
       <RecapBody holes={rows} />
-      <Pressable accessibilityRole="button" accessibilityLabel="Past rounds" onPress={() => router.push('/rounds')} style={styles.link}>
-        <Text style={styles.linkText}>Past rounds</Text>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Done"
-        testID="recap-done"
-        onPress={() => {
-          startNewRound();
-          router.replace('/');
-        }}
-        style={styles.done}
-      >
-        <Text style={styles.doneText}>Done</Text>
-      </Pressable>
     </Screen>
   );
 }

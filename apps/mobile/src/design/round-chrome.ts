@@ -1,3 +1,5 @@
+import { actionDockHeight } from './responsive';
+
 /** Layout for the hole screen and the home wordmark. Pure numbers, no view. */
 
 export const MARKED_TOAST_MS = 1500;
@@ -60,7 +62,7 @@ export function coachOpenHeight(screenHeight: number): number {
   return Math.round(height * COACH_OPEN_RATIO);
 }
 
-export function homeWordmark(input: { screenWidth: number; safeTop: number; safeLeft: number }): {
+export function homeWordmark(input: { screenWidth: number; screenHeight?: number; safeTop: number; safeLeft: number }): {
   top: number;
   left: number;
   fontSize: number;
@@ -68,9 +70,11 @@ export function homeWordmark(input: { screenWidth: number; safeTop: number; safe
   maxWidth: number;
 } {
   const left = Math.max(16, (Number.isFinite(input.safeLeft) ? input.safeLeft : 0) + 12);
-  const top = (Number.isFinite(input.safeTop) ? input.safeTop : 0) + 68;
   const width = Number.isFinite(input.screenWidth) && input.screenWidth > 0 ? input.screenWidth : 393;
-  const fontSize = width < 390 ? 44 : 52;
+  const height = Number.isFinite(input.screenHeight) && (input.screenHeight ?? 0) > 0 ? (input.screenHeight as number) : 852;
+  const landscape = width > height;
+  const top = (Number.isFinite(input.safeTop) ? input.safeTop : 0) + (landscape ? 52 : 68);
+  const fontSize = landscape ? 28 : width < 390 ? 44 : 52;
   return { top, left, fontSize, lineHeight: fontSize + 6, maxWidth: Math.max(140, width - left - 16) };
 }
 
@@ -121,6 +125,6 @@ export function playChrome(input: { screenWidth: number; screenHeight: number; s
     yardageFont: width < 380 ? 28 : 32,
     coachPeek: coachPeekHeight(height),
     coachOpen: coachOpenHeight(height),
-    actionHeight: 120,
+    actionHeight: actionDockHeight(width, height),
   };
 }
