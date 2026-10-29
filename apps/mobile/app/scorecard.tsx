@@ -109,7 +109,7 @@ export default function ScorecardScreen() {
 const styles = StyleSheet.create({
   gross: { color: colors.navy, fontSize: 36, fontWeight: '800' },
   nine: { color: colors.navy, fontSize: 24, fontWeight: '800', marginTop: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingVertical: 4, maxWidth: '100%' },
   hole: { color: colors.navy, width: 28, fontSize: 20, fontWeight: '800' },
   par: { color: colors.muted, width: 64, fontSize: 16 },
   strokes: { color: colors.navy, width: 36, fontSize: 28, fontWeight: '800', textAlign: 'center' },

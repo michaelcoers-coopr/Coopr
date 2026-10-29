@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -18,7 +18,9 @@ export const scan = {
 } as const;
 
 export function ScanScreen({ title, children, footer = null, backTo }: { title: string; children: ReactNode; footer?: ReactNode; backTo?: string }) {
-  const [footerHeight, setFooterHeight] = useState(0);
+  const window = useWindowDimensions();
+  const [footerHeight, setFooterHeight] = useState(footer ? 72 : 0);
+  const scrollMax = Math.max(160, window.height - footerHeight - 56);
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>
       <Stack.Screen
@@ -45,7 +47,7 @@ export function ScanScreen({ title, children, footer = null, backTo }: { title: 
         }}
       />
       <StatusBar style="light" />
-      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: 24 + footerHeight }]} keyboardShouldPersistTaps="handled">
+      <ScrollView style={[styles.scroll, { maxHeight: scrollMax }]} contentContainerStyle={[styles.content, { paddingBottom: footerHeight + 24 }]} keyboardShouldPersistTaps="handled">
         {children}
       </ScrollView>
       {footer ? <View onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}>{footer}</View> : null}

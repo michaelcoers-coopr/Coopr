@@ -49,6 +49,6 @@ export default function RecapScreen() {
 const styles = StyleSheet.create({
   link: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
   linkText: { color: '#0B1F3A', fontSize: 16, fontWeight: '800', textDecorationLine: 'underline' },
-  done: { minHeight: 48, borderRadius: 14, backgroundColor: '#8AC926', alignItems: 'center', justifyContent: 'center' },
+  done: { minHeight: 48, minWidth: 88, borderRadius: 14, backgroundColor: '#8AC926', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   doneText: { color: '#0B1F3A', fontSize: 18, fontWeight: '800' },
 });

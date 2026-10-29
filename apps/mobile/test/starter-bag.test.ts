@@ -10,6 +10,13 @@ describe('starter bag and fast entry', () => {
     const both = starterBag({ handicap: 18, driverSpeed: 92 });
     expect(both).toHaveLength(14);
     expect(both.every((club) => club.brand == null && club.model == null && club.loft == null)).toBe(true);
+    expect(both.every((club) => club.inPlay)).toBe(true);
+    expect(both.find((club) => club.slot === 'Lob wedge')?.inPlay).toBe(true);
+    expect(both.find((club) => club.slot === 'Putter')?.inPlay).toBe(true);
+    const crowded = Array.from({ length: 12 }, (_, index) => ({ ...both[0]!, id: `owned-${index}`, slot: `Other ${index}`, source: 'entered' as const, inPlay: true }));
+    const withRoom = mergeStarter(crowded, both);
+    expect(withRoom.find((club) => club.slot === 'Lob wedge')?.inPlay).toBe(true);
+    expect(withRoom.find((club) => club.slot === 'Putter')?.inPlay).toBe(true);
     expect(both.filter((club) => club.slot !== 'Putter').every((club) => club.estimatedCarry != null && club.distanceBasis?.includes('Regular'))).toBe(true);
     expect(both.find((club) => club.slot === 'Putter')?.estimatedCarry).toBeNull();
     const ladies = starterBag({ handicap: 12, driverSpeed: 70 });

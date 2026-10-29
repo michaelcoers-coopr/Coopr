@@ -93,7 +93,7 @@ import { aerialTreeNote, pointOnAerial } from '../src/aerial/project';
 import { VECTOR_TILE_SOURCE } from '../src/tile-source';
 import { useTalkPrefs } from '../src/talk-prefs';
 import { readDevice, rememberMeasuredShot, subscribeDevice } from '../src/device-store';
-import { measuredAverage, measuredLine } from '../src/shots/track';
+import { clubCarryLine } from '../src/shots/track';
 
 const pilot = loadHighCedarsPilot();
 /** Tall enough for a wrapped caddie sentence and the mic. The locked HUD constant stays shorter. */
@@ -272,7 +272,7 @@ export default function PlayScreen() {
     deleteLastShot,
     adjustLastShot,
     setLastShotYards,
-    reassignLastShot,
+    reassignShot,
     conditions,
     removeTag,
   } = useLocalStore();
@@ -296,6 +296,12 @@ export default function PlayScreen() {
   const [draftNote, setDraftNote] = useState<string | null>(() => readPlayNote());
   const fullHole = false;
   const [pickedClubId, setPickedClubId] = useState<string | null>(null);
+  const [reviewShotId, setReviewShotId] = useState<string | null>(null);
+  const reviewShotIdRef = useRef<string | null>(null);
+  const chooseReview = (id: string) => {
+    reviewShotIdRef.current = id;
+    setReviewShotId(id);
+  };
   const [scoreAsk, setScoreAsk] = useState(0);
   const [speechPhase, setSpeechPhase] = useState<'speaking' | 'silent'>('silent');
   useEffect(() => subscribeSpeech(setSpeechPhase), []);
@@ -1028,9 +1034,14 @@ export default function PlayScreen() {
   const playableClubs = bag.clubs.filter((club) => club.inPlay);
   const suggestedClub = estimatedPick(playableClubs, shotShown);
   const activeClub = playableClubs.find((club) => club.id === (pickedClubId ?? suggestedClub?.id)) ?? null;
-  const measuredClubId = activeClub?.id ?? shownId;
-  const fromShots = measuredAverage(shotLog.filter((shot) => shot.clubId === measuredClubId).map((shot) => shot.yards));
-  const shotLine = fromShots && shownLabel ? measuredLine(shownLabel, fromShots) : null;
+  const namedClub = activeClub;
+  const shotLine = namedClub
+    ? clubCarryLine(
+        namedClub.slot,
+        shotLog.filter((shot) => shot.clubId === namedClub.id).map((shot) => shot.yards),
+        namedClub.estimatedCarry ?? null,
+      )
+    : null;
   const estimateLine = shotLine ?? (measuredCall ? null : starterAdvice(bag.clubs, shotShown));
   const peekLine = (measuredCall ? oneLiner || cardSentence : null) ?? estimateLine ?? cardSentence ?? EMPTY_BAG_ADVICE;
   visibleCall.current = { line: estimateLine ?? cardSentence, clubId: shownId, clubLabel: shownLabel };
@@ -1087,6 +1098,9 @@ export default function PlayScreen() {
   const holeMarks = marks.filter((mark) => mark.hole === hole.holeNumber);
   const face = scoreFace({ par, storedStrokes: strokes, storedPutts: puttCount, markCount: holeMarks.length });
   const lastClosed = [...holeMarks].reverse().find((mark) => mark.yards != null) ?? null;
+  const closedShots = holeMarks.filter((mark) => mark.yards != null);
+  const reviewedShot = closedShots.find((mark) => mark.id === reviewShotId) ?? null;
+  const chipSelectedId = reviewedShot?.clubId ?? activeClub?.id ?? null;
   const missLine = plainMiss(
     calledId == null
       ? []
@@ -1137,6 +1151,8 @@ export default function PlayScreen() {
     });
     const result = lieResult(closed?.lie ?? null);
     if (prior?.clubId && closed) rememberMeasuredShot(prior.clubId, closed.yards);
+    setPickedClubId(null);
+    setReviewShotId(null);
     if (prior && closed && result && prior.clubId) {
       tagShot({
         hole: hole.holeNumber,
@@ -1204,14 +1220,14 @@ export default function PlayScreen() {
 
   return (
     <View
-      style={styles.screen}
+      style={[styles.screen, noScroll]}
       onLayout={(event) => setMapH(Math.max(1, Math.round(event.nativeEvent.layout.height)))}
     >
       <Animated.View pointerEvents="box-none" style={[styles.shake, bumpStyle]}>
       <StatusBar style="light" />
       <Stack.Screen options={{ headerShown: false, title: `Hole ${hole.holeNumber}` }} />
       <ClubPulse clubLabel={shownLabel} yards={landingLabelYards} />
-      <Animated.View {...pan.panHandlers} testID="hole-map" style={[styles.mapWrap, mapStyle]}>
+      <Animated.View {...pan.panHandlers} testID="hole-map" style={[styles.mapWrap, mapStyle, noScroll]}>
         <HoleMap
           bleed
           height={mapH}
@@ -1271,12 +1287,12 @@ export default function PlayScreen() {
           plate={plate}
           aerialNote={plate ? aerialTreeNote(hole.holeNumber) : null}
           showCredit={!sheetOpen}
-          creditLeft={14}
+          creditLeft={windowWidth > windowHeight ? chrome.plate.x + chrome.plate.w + 16 : 14}
           creditRight={88}
           creditBottom={chrome.coachPeek + chrome.actionHeight + Math.max(insets.bottom, 8) + 12}
         />
         <View
-          style={[StyleSheet.absoluteFill, styles.mapDrag]}
+          style={[StyleSheet.absoluteFill, styles.mapDrag, noScroll]}
           {...({
             onMouseDown: (event: { preventDefault?: () => void; nativeEvent: { pageX: number; pageY: number } }) => {
               event.preventDefault?.();
@@ -1337,13 +1353,15 @@ export default function PlayScreen() {
               <Text style={[styles.pillBallNum, { fontFamily: display }]}>{hole.holeNumber}</Text>
             </View>
           </Pressable>
+          {hole.holeNumber >= 18 ? null : (
           <View style={styles.pillPair}>
             <Text style={styles.pillMeta}>{strokes != null ? 'SCR' : 'HCP'}</Text>
             <Text accessibilityLabel={strokes != null ? `Saved score ${strokes}` : undefined} style={[styles.pillNum, { fontFamily: display }]}>{strokes != null ? strokes : hole.strokeIndex ?? '—'}</Text>
           </View>
+          )}
           {hole.holeNumber >= 18 ? (
-            <Pressable accessibilityRole="button" accessibilityLabel="Finish hole" testID="hole-finish-pill" onPress={() => setScoreAsk((value) => value + 1)} style={styles.pillArrow}>
-              <Text style={styles.pillArrowText}>Finish</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Finish hole" testID="hole-finish-pill" onPress={() => setScoreAsk((value) => value + 1)} style={styles.finishPill}>
+              <Text style={styles.finishPillText}>Finish</Text>
             </Pressable>
           ) : (
             <Pressable
@@ -1369,7 +1387,14 @@ export default function PlayScreen() {
           </Text>
         </View>
       ) : null}
-      <View testID="map-offset" accessibilityLabel={panMark} style={styles.mapOffset} />
+      <View
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
+        accessibilityElementsHidden
+        testID="map-pan"
+        style={styles.mapOffset}
+        {...({ dataSet: { offset: panMark } } as object)}
+      />
       <Text testID="caddie-speech" style={styles.speechProbe}>{speechPhase}</Text>
       <View pointerEvents="box-none" style={[styles.hero, { top: chrome.plate.y, left: chrome.plate.x, maxWidth: chrome.plate.w }]}>
         <View style={[styles.heroPlate, hole.holeNumber === 2 && styles.heroPlateClear]}>
@@ -1731,27 +1756,34 @@ export default function PlayScreen() {
         </Glass>
       </Animated.View>
       {playableClubs.length > 0 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="club-chips" style={[styles.clubChips, { bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + 4 }]} contentContainerStyle={styles.clubChipRow}>
-          {playableClubs.map((club) => {
-            const selected = club.id === activeClub?.id;
-            return (
-              <Pressable
-                key={club.id}
-                accessibilityRole="button"
-                accessibilityLabel={club.slot}
-                accessibilityState={{ selected }}
-                testID={selected ? 'club-chip-on' : 'club-chip'}
-                onPress={() => {
-                  setPickedClubId(club.id);
-                  reassignLastShot(club.id, club.slot);
-                }}
-                style={[styles.clubChip, selected && styles.clubChipOn]}
-              >
-                <Text style={[styles.clubChipText, selected && styles.clubChipTextOn]}>{club.slot}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <View style={[styles.clubChipWrap, { bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + (windowWidth > windowHeight ? chrome.coachPeek + 8 : 4) }]} pointerEvents="box-none">
+          <Text testID="club-chip-hint" accessibilityLabel="Swipe for more clubs" style={styles.chipHint}>Swipe for clubs</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="club-chips" contentContainerStyle={styles.clubChipRow}>
+            {playableClubs.map((club) => {
+              const selected = club.id === chipSelectedId;
+              return (
+                <Pressable
+                  key={club.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={club.slot}
+                  accessibilityState={{ selected }}
+                  testID={selected ? 'club-chip-on' : 'club-chip'}
+                  onPress={() => {
+                    const reviewId = reviewShotIdRef.current;
+                    if (reviewId) {
+                      reassignShot(reviewId, club.id, club.slot);
+                      return;
+                    }
+                    setPickedClubId(club.id);
+                  }}
+                  style={[styles.clubChip, selected && styles.clubChipOn]}
+                >
+                  <Text style={[styles.clubChipText, selected && styles.clubChipTextOn]}>{club.slot}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
       ) : null}
       <View pointerEvents="box-none" style={[styles.actionDock, { bottom: Math.max(insets.bottom, 8) }]}>
         <ScoreDock
@@ -1774,6 +1806,17 @@ export default function PlayScreen() {
           handsFree={talkPrefs.handsFree}
           onToggleMute={() => talkPrefs.setMuted(!talkPrefs.muted)}
           onToggleHandsFree={() => talkPrefs.setHandsFree(!talkPrefs.handsFree)}
+          holeShots={closedShots.map((mark) => ({ id: mark.id, label: mark.clubLabel ?? 'Shot', yards: mark.yards ?? 0 }))}
+          reviewShotId={reviewShotId}
+          onReviewShot={chooseReview}
+          onCycleShot={(id) => {
+            const shot = closedShots.find((mark) => mark.id === id);
+            if (!shot) return;
+            const index = playableClubs.findIndex((club) => club.id === shot.clubId);
+            const next = playableClubs[(index + 1) % playableClubs.length];
+            if (!next) return;
+            reassignShot(id, next.id, next.slot);
+          }}
           shotYards={lastClosed?.yards ?? null}
           onDeleteShot={deleteLastShot}
           onAdjustShot={adjustLastShot}
@@ -1873,11 +1916,13 @@ function ClubPulse({ clubLabel, yards }: { clubLabel: string | null; yards: numb
   return null;
 }
 
+const noScroll = { touchAction: 'none' } as object;
+
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: fieldNavy, overflow: 'hidden', touchAction: 'none' },
-  mapDrag: { touchAction: 'none' },
+  screen: { flex: 1, backgroundColor: fieldNavy, overflow: 'hidden' },
+  mapDrag: {},
   shake: { flex: 1, zIndex: 0 },
-  mapWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: fieldNavy, zIndex: 0, touchAction: 'none' },
+  mapWrap: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: fieldNavy, zIndex: 0 },
   hud: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 10, zIndex: 20 },
   hudFill: { paddingHorizontal: 6, paddingTop: 2, paddingBottom: 4 },
   hudTop: { minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -2128,8 +2173,11 @@ const styles = StyleSheet.create({
   thruText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
   mapOffset: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', left: -20, top: 0 },
   speechProbe: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', left: -20, top: 0 },
-  clubChips: { position: 'absolute', left: 8, right: 8, zIndex: 8, maxHeight: 48 },
-  clubChipRow: { gap: 6, alignItems: 'center' },
+  clubChipWrap: { position: 'absolute', left: 8, right: 8, zIndex: 8, gap: 2 },
+  chipHint: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', alignSelf: 'flex-end' },
+  clubChipRow: { gap: 6, alignItems: 'center', paddingRight: 8 },
+  finishPill: { minWidth: 64, minHeight: 44, borderRadius: 12, backgroundColor: '#8AC926', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  finishPillText: { color: '#0B1F3A', fontSize: 13, fontWeight: '800' },
   clubChip: { minHeight: 44, minWidth: 44, paddingHorizontal: 10, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2,6,14,0.88)' },
   clubChipOn: { backgroundColor: '#8AC926' },
   clubChipText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },

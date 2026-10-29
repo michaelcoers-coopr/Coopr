@@ -22,6 +22,7 @@ test('mute, club chips, and the layout notes from 75b6b7d', async ({ page }) => 
   await page.addInitScript(() => {
     const flag = window as unknown as { __cooprHoldSpeech?: boolean };
     flag.__cooprHoldSpeech = true;
+    localStorage.setItem('coopr.speech.hold', '1');
     const sweep = () => {
       const toast = document.getElementById('error-toast');
       if (!toast) return;
@@ -33,14 +34,20 @@ test('mute, club chips, and the layout notes from 75b6b7d', async ({ page }) => 
   });
   await page.goto('/');
   await dismissDevOverlay(page);
-  const name = page.getByLabel('Name, your entry');
   const save = page.getByRole('button', { name: 'Save', exact: true });
-  await expect(name).toBeVisible({ timeout: 30000 });
-  const nameBox = await name.boundingBox();
-  const saveBox = await save.boundingBox();
-  expect(nameBox).toBeTruthy();
-  expect(saveBox).toBeTruthy();
-  expect(overlaps(nameBox!, saveBox!)).toBe(false);
+  await expect(page.getByLabel('Name, your entry')).toBeVisible({ timeout: 30000 });
+  for (const label of ['Name, your entry', 'Handicap, your entry', 'Driver speed, your entry']) {
+    const field = page.getByLabel(label);
+    await field.scrollIntoViewIfNeeded();
+    const box = await field.boundingBox();
+    const saveBox = await save.boundingBox();
+    const starterBox = await page.getByRole('button', { name: 'Use a starter bag' }).boundingBox();
+    const skipBox = await page.getByRole('button', { name: 'Skip', exact: true }).boundingBox();
+    expect(box && saveBox && starterBox && skipBox).toBeTruthy();
+    expect(overlaps(box!, saveBox!), label).toBe(false);
+    expect(overlaps(box!, starterBox!), label).toBe(false);
+    expect(overlaps(box!, skipBox!), label).toBe(false);
+  }
   await page.getByRole('button', { name: 'Use a starter bag' }).click();
 
   await page.getByRole('button', { name: /Bag,/ }).click();
@@ -102,13 +109,44 @@ test('mute, club chips, and the layout notes from 75b6b7d', async ({ page }) => 
   await page.mouse.down();
   await page.mouse.move(dragX + 70, dragY + 24, { steps: 8 });
   await page.mouse.up();
-  await expect.poll(async () => page.getByTestId('map-offset').getAttribute('aria-label')).not.toBe('0,0');
+  await expect(page.getByTestId('map-offset')).toHaveCount(0);
+  await expect(page.getByLabel('0,0')).toHaveCount(0);
+  await expect(page.getByText('0,0', { exact: true })).toHaveCount(0);
+  await expect.poll(async () => page.getByTestId('map-pan').getAttribute('data-offset')).not.toBe('0,0');
   const after = await page.getByTestId('hole-map').evaluate((el) => getComputedStyle(el).transform);
   expect(after).not.toBe(before);
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 
   await expect(page.getByTestId('club-chip-on')).toBeVisible();
+  await expect(page.getByTestId('club-chip-hint')).toHaveText('Swipe for clubs');
+  await page.evaluate(() => {
+    const raw = localStorage.getItem('coopr.device.v1');
+    const snap = raw ? JSON.parse(raw) as { measuredShots?: { clubId: string; yards: number }[] } : {};
+    snap.measuredShots = Array.from({ length: 11 }, () => ({ clubId: 'starter-driver', yards: 294 }));
+    localStorage.setItem('coopr.device.v1', JSON.stringify(snap));
+  });
+  await page.reload();
+  await expect(page.getByTestId('coach-line')).toBeVisible();
+  const mixed = await page.getByTestId('coach-line').innerText();
+  expect(mixed).not.toMatch(/iron 5 carries 294|5 iron carries 294/i);
+  if (viewport.width > viewport.height) {
+    const note = page.getByTestId('course-note');
+    if (await note.count()) {
+      const noteBox = await note.boundingBox();
+      const plateBox = await page.getByTestId('yardage-plate').boundingBox();
+      if (noteBox && plateBox) expect(overlaps(noteBox, plateBox)).toBe(false);
+    }
+    const chipBox = await page.getByTestId('club-chips').boundingBox();
+    const coachBox = await page.getByTestId('coach-line').boundingBox();
+    if (chipBox && coachBox) expect(overlaps(chipBox, coachBox)).toBe(false);
+  }
+  const suggested = (await page.getByTestId('club-chip-on').innerText()).trim();
+  const otherChip = page.getByTestId('club-chip').first();
+  const otherName = (await otherChip.innerText()).trim();
+  expect(otherName).not.toBe(suggested);
+  await otherChip.click();
   await page.getByTestId('mark-shot').click();
+  await expect(page.getByTestId('club-chip-on')).toHaveText(suggested);
   await expect(page.getByTestId('marked-toast')).toBeVisible();
   const toast = await page.getByTestId('marked-toast').boundingBox();
   const plate = await page.getByTestId('yardage-plate').boundingBox();
@@ -120,6 +158,11 @@ test('mute, club chips, and the layout notes from 75b6b7d', async ({ page }) => 
   await page.waitForTimeout(1200);
   await page.getByTestId('mark-shot').click();
   await page.getByRole('button', { name: 'Round menu' }).click();
+  const reviewed = page.getByTestId('hole-shot').first();
+  await expect(reviewed).toBeVisible();
+  const beforeShot = await reviewed.innerText();
+  await page.getByTestId('reassign-shot').first().click();
+  await expect(reviewed).not.toHaveText(beforeShot);
   const readout = page.getByTestId('shot-readout');
   await expect(readout).toBeVisible();
   const readYards = async () => Number((await readout.innerText()).match(/[\d.]+/)?.[0]);
@@ -152,7 +195,7 @@ test('mute, club chips, and the layout notes from 75b6b7d', async ({ page }) => 
   await page.getByLabel('Typed ask').fill('What club for this starter bag?');
   await page.getByRole('button', { name: 'Send question' }).click();
   await expect.poll(() => caddieHits.length).toBeGreaterThan(0);
-  await expect(page.getByTestId('caddie-speech')).toHaveText('speaking');
+  await expect.poll(async () => page.getByTestId('caddie-speech').innerText()).toBe('speaking');
   const fontSize = await page.getByTestId('caddie-answer').locator('text=/./').first().evaluate((node) => parseFloat(getComputedStyle(node).fontSize));
   expect(fontSize).toBeLessThanOrEqual(18);
   await page.getByRole('button', { name: 'Round menu' }).click();
@@ -199,4 +242,16 @@ test('mute, club chips, and the layout notes from 75b6b7d', async ({ page }) => 
   await expect(page.getByTestId('hole-finish')).toBeVisible({ timeout: 30000 });
   await expect(page.getByTestId('hole-finish')).toHaveAttribute('role', 'button');
   await expect(page.getByTestId('hole-finish-pill')).toHaveAttribute('role', 'button');
+  const pillText = await page.getByTestId('hole-pill').innerText();
+  expect(pillText).not.toMatch(/HCP/);
+  const finishBox = await page.getByTestId('hole-finish').boundingBox();
+  expect(finishBox!.width).toBeGreaterThanOrEqual(44);
+  await page.goto('/scorecard');
+  const pen = await page.getByRole('button', { name: 'Pen +' }).first().boundingBox();
+  expect(pen).toBeTruthy();
+  expect(pen!.x + pen!.width).toBeLessThanOrEqual((page.viewportSize()?.width ?? 393) + 1);
+  await page.goto('/recap');
+  const done = await page.getByTestId('recap-done').boundingBox();
+  expect(done).toBeTruthy();
+  expect(done!.width).toBeGreaterThanOrEqual(44);
 });

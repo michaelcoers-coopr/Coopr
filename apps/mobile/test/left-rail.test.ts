@@ -13,7 +13,7 @@ describe('left rail hole screen', () => {
     expect(play).toContain('TEE SHOT ');
     expect(play).toContain('ellipseScale={1.2}');
     expect(play).toContain('labels={[]}');
-    expect(play).toContain('creditLeft={14}');
+    expect(play).toContain('creditLeft={windowWidth > windowHeight ? chrome.plate.x + chrome.plate.w + 16 : 14}');
     expect(play).toContain('aerialNote={plate ? aerialTreeNote(hole.holeNumber) : null}');
     expect(play).toContain('>WIND<');
     expect(play).toContain('>ELEV<');

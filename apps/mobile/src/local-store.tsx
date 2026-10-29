@@ -212,6 +212,7 @@ interface LocalStore {
   adjustLastShot: (delta: number) => void;
   setLastShotYards: (yards: number) => void;
   reassignLastShot: (clubId: string, clubLabel: string) => void;
+  reassignShot: (markId: string, clubId: string, clubLabel: string) => void;
   conditions: RoundConditions;
   setConditions: (patch: Partial<RoundConditions>) => void;
   startNewRound: () => void;
@@ -770,6 +771,17 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
             reviseMeasuredShot({ clubId: mark.clubId, yards: mark.yards }, { clubId, yards: mark.yards });
           }
           return current.map((item, itemIndex) => (itemIndex === at ? { ...item, clubId, clubLabel } : item));
+        });
+      },
+      reassignShot: (markId, clubId, clubLabel) => {
+        setMarks((current) => {
+          if (!clubId) return current;
+          const mark = current.find((item) => item.id === markId);
+          if (!mark) return current;
+          if (mark.yards != null && mark.clubId && mark.clubId !== clubId) {
+            reviseMeasuredShot({ clubId: mark.clubId, yards: mark.yards }, { clubId, yards: mark.yards });
+          }
+          return current.map((item) => (item.id === markId ? { ...item, clubId, clubLabel } : item));
         });
       },
       conditions,

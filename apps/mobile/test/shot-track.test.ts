@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { budgetAllows, budgetMonth, corsHeaders, MONTHLY_BUDGET_CENTS, secretOk, upstashAllow, upstashCharge } from '../src/api-guard';
-import { keepShot, measuredAverage, measuredLine, MIN_MEASURED_SHOTS, shouldSpeak, yardsBetween } from '../src/shots/track';
+import { clubCarryLine, keepShot, measuredAverage, measuredLine, MIN_MEASURED_SHOTS, shouldSpeak, yardsBetween } from '../src/shots/track';
 
 describe('shot distances', () => {
   it('measures about 122 yards for 0.001 degrees of latitude', () => {
@@ -19,6 +19,10 @@ describe('shot distances', () => {
     expect(ready?.yards).toBeGreaterThan(140);
     expect(ready?.yards).toBeLessThan(150);
     expect(measuredLine('7 iron', ready!)).toBe(`7 iron carries ${ready!.yards}, from ${ready!.count} shots.`);
+    const driver = Array.from({ length: 11 }, () => 294);
+    expect(clubCarryLine('5 iron', driver, 168)).toBe('5 iron carries 294, from 11 shots.');
+    expect(clubCarryLine('5 iron', [150], 168)).toBe('Estimated. 5 iron carries about 168.');
+    expect(clubCarryLine('Driver', driver, 230)).toBe('Driver carries 294, from 11 shots.');
   });
 
   it('does not speak a muted caddie', () => {
@@ -77,5 +81,6 @@ describe('caddie server guards', () => {
       throw new Error('upstash down');
     }) as typeof fetch;
     expect(await upstashCharge(broken, 'https://example.upstash.io', 'token', 'caddie-budget:2026-10', 2, MONTHLY_BUDGET_CENTS)).toBe(false);
+    expect(await upstashAllow(broken, 'https://example.upstash.io', 'token', 'caddie:1', 20)).toBe(false);
   });
 });

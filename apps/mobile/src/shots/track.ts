@@ -45,6 +45,21 @@ export function measuredLine(label: string, average: { yards: number; count: num
   return `${label} carries ${average.yards}, from ${average.count} shots.`;
 }
 
+/**
+ * The sentence for one club. Measured yards come only from that club.
+ * Fewer than five clean shots stays on that club's estimate.
+ */
+export function clubCarryLine(label: string, ownShots: readonly number[], estimateYards: number | null): string | null {
+  const name = label.trim();
+  if (!name) return null;
+  const average = measuredAverage(ownShots);
+  if (average) return measuredLine(name, average);
+  if (estimateYards != null && Number.isFinite(estimateYards) && estimateYards > 0) {
+    return `Estimated. ${name} carries about ${Math.round(estimateYards)}.`;
+  }
+  return null;
+}
+
 export function shouldSpeak(muted: boolean): boolean {
   return muted !== true;
 }

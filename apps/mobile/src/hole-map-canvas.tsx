@@ -647,7 +647,7 @@ export function HoleMap(props: HoleMapProps) {
               accessibilityLabel={[props.aerialNote, ...aerialPhotoCredit()].filter((line): line is string => line != null && line !== '').join('. ')}
               style={styles.creditPlate}
             >
-              {props.aerialNote ? <Text style={styles.creditNote}>{props.aerialNote}</Text> : null}
+              {props.aerialNote ? <Text testID="course-note" style={styles.creditNote}>{props.aerialNote}</Text> : null}
               {aerialPhotoCredit().map((line) => (
                 <Text key={line} style={styles.creditLine}>
                   {line}
@@ -655,7 +655,7 @@ export function HoleMap(props: HoleMapProps) {
               ))}
             </View>
           ) : (
-            <Text numberOfLines={1} style={styles.credit}>
+            <Text testID="course-note" numberOfLines={1} style={styles.credit}>
               {aerialMapCredit(Math.max(0, width - (props.creditLeft ?? MAP_CREDIT_LEFT) - (props.creditRight ?? MAP_CREDIT_RIGHT) - MAP_CREDIT_PAD * 2))}
             </Text>
           )}

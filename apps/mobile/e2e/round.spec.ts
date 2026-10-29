@@ -113,6 +113,7 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   await expect(page.getByRole('button', { name: /RESUME ROUND/ })).toBeVisible();
   await page.getByRole('button', { name: /RESUME ROUND/ }).click();
   await expect(page.getByTestId('hole-pill')).toBeVisible();
+  await page.waitForTimeout(1200);
   const holeBeforePan = await page.getByTestId('hole-pill').innerText();
   const transformBefore = await page.getByTestId('hole-map').evaluate((el) => getComputedStyle(el).transform);
   const map = await page.getByTestId('hole-map').boundingBox();
@@ -123,7 +124,8 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(dragX + 80, dragY + 36, { steps: 12 });
   await page.mouse.up();
-  await expect.poll(async () => page.getByTestId('map-offset').getAttribute('aria-label'), { timeout: 3000 }).not.toBe('0,0');
+  await expect.poll(async () => page.getByTestId('map-pan').getAttribute('data-offset'), { timeout: 3000 }).not.toBe('0,0');
+  await expect(page.getByText('0,0', { exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
   await expect(page.getByText('0,0', { exact: true })).toHaveCount(0);
   const transformAfter = await page.getByTestId('hole-map').evaluate((el) => getComputedStyle(el).transform);

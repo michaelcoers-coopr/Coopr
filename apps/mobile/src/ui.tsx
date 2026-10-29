@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@coopr/tokens';
@@ -7,12 +7,18 @@ import { colors } from '@coopr/tokens';
 export function Screen({ children, footer = null }: { children: ReactNode; footer?: ReactNode }) {
   const window = useWindowDimensions();
   const landscape = window.width > window.height;
+  const [footerHeight, setFooterHeight] = useState(footer ? 72 : 0);
+  const scrollMax = Math.max(120, window.height - footerHeight);
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom']}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <SafeAreaView style={[styles.screen, { height: window.height }]} edges={['bottom']}>
+      <ScrollView style={[styles.scroll, { maxHeight: scrollMax }]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {children}
       </ScrollView>
-      {footer ? <View style={[styles.footer, landscape && styles.footerRow]}>{footer}</View> : null}
+      {footer ? (
+        <View onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)} style={[styles.footer, landscape && styles.footerRow]}>
+          {footer}
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }

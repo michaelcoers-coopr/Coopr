@@ -75,22 +75,27 @@ export function clubKey(club: { slot: string; clubNumber?: string | null }): str
  */
 export function mergeStarter(existing: readonly ScanClub[], starter: readonly ScanClub[]): ScanClub[] {
   const kept = existing.filter((club) => club.source !== 'starter');
+  const starterIds = new Set(STARTER_SLOTS.map((slot) => slot.id));
   const taken = new Set(kept.map((club) => clubKey(club)));
-  let inPlay = kept.filter((club) => club.inPlay).length;
   const add: ScanClub[] = [];
   for (const club of starter) {
     const key = clubKey(club);
     if (taken.has(key)) continue;
     taken.add(key);
-    const play = inPlay < 14;
-    if (play) inPlay += 1;
-    add.push({ ...club, inPlay: play });
+    add.push({ ...club, inPlay: true });
   }
   const merged = [...kept, ...add];
-  const starterIds = new Set(STARTER_SLOTS.map((slot) => slot.id));
-  const outside = merged.filter((club) => !starterIds.has(club.id) && club.inPlay).length;
-  if (outside > 0) return merged;
-  return merged.map((club) => (starterIds.has(club.id) ? { ...club, inPlay: true } : club));
+  const starterCount = merged.filter((club) => club.source === 'starter' || starterIds.has(club.id)).length;
+  let room = Math.max(0, 14 - starterCount);
+  return merged.map((club) => {
+    const isStarter = club.source === 'starter' || starterIds.has(club.id);
+    if (isStarter) return { ...club, inPlay: true };
+    if (room > 0 && club.inPlay) {
+      room -= 1;
+      return club;
+    }
+    return { ...club, inPlay: false };
+  });
 }
 
 /** The starter or estimated club closest to the shot. Null when nothing has an estimated carry. */

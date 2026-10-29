@@ -42,6 +42,10 @@ export function ScoreDock({
   handsFree,
   onToggleMute,
   onToggleHandsFree,
+  holeShots = [],
+  reviewShotId = null,
+  onReviewShot,
+  onCycleShot,
   shotYards,
   onDeleteShot,
   onAdjustShot,
@@ -69,6 +73,10 @@ export function ScoreDock({
   handsFree?: boolean;
   onToggleMute?: () => void;
   onToggleHandsFree?: () => void;
+  holeShots?: { id: string; label: string; yards: number }[];
+  reviewShotId?: string | null;
+  onReviewShot?: (id: string) => void;
+  onCycleShot?: (id: string) => void;
   shotYards?: number | null;
   onDeleteShot?: () => void;
   onAdjustShot?: (delta: number) => void;
@@ -155,6 +163,22 @@ export function ScoreDock({
               <Text style={styles.wideText}>{handsFree ? 'Hands-free on' : 'Hands-free off'}</Text>
             </Pressable>
           ) : null}
+          {holeShots.map((shot) => (
+            <View key={shot.id}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Review ${shot.label} ${Math.round(shot.yards)} yards`}
+                testID="hole-shot"
+                onPress={() => onReviewShot?.(shot.id)}
+                style={[styles.wide, reviewShotId === shot.id && styles.choiceOn]}
+              >
+                <Text style={styles.wideText}>{`${Math.round(shot.yards)} yards · ${shot.label}`}</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Change club for ${shot.label}`} testID="reassign-shot" onPress={() => onCycleShot?.(shot.id)} style={styles.wide}>
+                <Text style={styles.wideText}>Change club</Text>
+              </Pressable>
+            </View>
+          ))}
           {shotYards != null ? (
             <View>
               <Text accessibilityLabel={`Shot ${Math.round(shotYards)} yards`} testID="shot-readout" style={styles.kicker}>{`Shot ${Math.round(shotYards)} yards`}</Text>
@@ -301,8 +325,8 @@ export function ScoreDock({
           <Text style={styles.primaryText}>Score</Text>
         </Pressable>
         {last ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="Finish" testID="hole-finish" onPress={show} style={styles.hit}>
-            <Text style={styles.finish}>Finish</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Finish" testID="hole-finish" onPress={show} style={styles.primary}>
+            <Text style={styles.primaryText}>Finish</Text>
           </Pressable>
         ) : (
           <Pressable accessibilityRole="button" accessibilityLabel="Score next hole" onPress={onNext} style={styles.hit}>

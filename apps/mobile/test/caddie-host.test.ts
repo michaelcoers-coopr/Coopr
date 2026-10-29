@@ -178,4 +178,16 @@ describe('caddie conversation host', () => {
     const refused = await serveCaddie(turn('203.0.113.72'), env, down);
     expect(await refused.text()).toContain('"mode":"sample"');
   });
+
+  it('turns an Upstash failure into a refusal instead of a server error', async () => {
+    const env = hostEnv({
+      UPSTASH_REDIS_REST_URL: 'https://example.upstash.io',
+      UPSTASH_REDIS_REST_TOKEN: 'token',
+    });
+    const down = (async () => {
+      throw new Error('upstash down');
+    }) as typeof fetch;
+    const response = await serveCaddie(turn('203.0.113.90'), env, down);
+    expect(response.status).toBe(429);
+  });
 });

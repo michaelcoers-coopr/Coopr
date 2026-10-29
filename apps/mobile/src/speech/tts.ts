@@ -39,6 +39,11 @@ export function subscribeSpeech(listener: (next: SpeechPhase) => void): () => vo
 }
 
 function holdSpeech(): boolean {
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('coopr.speech.hold') === '1') return true;
+  } catch {
+    /* Private mode can hide storage. */
+  }
   const flag = globalThis as { __cooprHoldSpeech?: boolean };
   return flag.__cooprHoldSpeech === true;
 }
@@ -86,11 +91,13 @@ export function deviceSpeaker(): CaddieSpeaker {
               finish();
             },
             onError: () => {
+              if (holdSpeech()) return;
               clearTimeout(timer);
               finish();
             },
           });
         } catch {
+          if (holdSpeech()) return;
           clearTimeout(timer);
           finish();
         }

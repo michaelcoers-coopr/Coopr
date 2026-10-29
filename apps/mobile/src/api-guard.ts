@@ -133,15 +133,19 @@ export async function upstashAllow(
   key: string,
   limit: number,
 ): Promise<boolean> {
-  const response = await fetchImpl(`${baseUrl.replace(/\/$/, '')}/pipeline`, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-    body: JSON.stringify([['INCR', key], ['EXPIRE', key, '70', 'NX']]),
-  });
-  if (!response.ok) return false;
-  const data = (await response.json()) as { result?: number }[];
-  const count = data[0]?.result;
-  return typeof count === 'number' && count <= limit;
+  try {
+    const response = await fetchImpl(`${baseUrl.replace(/\/$/, '')}/pipeline`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify([['INCR', key], ['EXPIRE', key, '70', 'NX']]),
+    });
+    if (!response.ok) return false;
+    const data = (await response.json()) as { result?: number }[];
+    const count = data[0]?.result;
+    return typeof count === 'number' && count <= limit;
+  } catch {
+    return false;
+  }
 }
 
 export function clientIp(request: Request): string {
