@@ -27,6 +27,9 @@ import { aerialPlate } from '../src/aerial/registry';
 import { AERIAL_CREDIT } from '../src/aerial/project';
 import { VECTOR_TILE_SOURCE } from '../src/tile-source';
 import { useLocalStore } from '../src/local-store';
+import { useBagScan } from '../src/bag-scan/session';
+import { starterBag } from '../src/clubs/starter';
+import { suggestedPath } from '../src/design/suggested-line';
 import { readWeather, type WeatherRead } from '../src/weather';
 import { Crest } from '../src/ui';
 
@@ -102,6 +105,7 @@ function foldBlocks(scroll: HTMLElement): { top: number; bottom: number }[] {
 
 export default function HomeScreen() {
   const { currentHole, score, clubs, displayName, onboarded, inProgress } = useLocalStore();
+  const bag = useBagScan();
   const display = useDisplayFace();
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -118,7 +122,11 @@ export default function HomeScreen() {
   const started = inProgress || score.holesEntered > 0 || currentHole > 1;
   const sticker = started ? 'RESUME ROUND' : 'START ROUND';
   const courseName = courseCall(pilot.record.name);
-  const viewHole = started ? currentHole : 1;
+  const [previewHole, setPreviewHole] = useState<number | null>(null);
+  const viewHoleRef = useRef(1);
+  const [flyPaused, setFlyPaused] = useState(false);
+  const viewHole = previewHole ?? (started ? currentHole : 1);
+  viewHoleRef.current = viewHole;
   const viewCard = pilot.record.scorecard.find((item) => item.holeNumber === viewHole);
   const overlay = holeOverlay(pilot.features, pilot.record.scorecard, viewHole);
   const pillLine = coursePill({ course: courseName, hole: viewHole, par: viewCard?.par ?? null });
@@ -145,6 +153,10 @@ export default function HomeScreen() {
   );
   const plate = aerialPlate(pilot.courseKey, viewHole);
   const sheetOpen = level !== 'peek';
+  const measured = bag.clubs.flatMap((club) => (club.estimatedCarry != null && club.estimatedCarry > 0 ? [club.estimatedCarry] : []));
+  const starterCarries = starterBag({ handicap: null, driverSpeed: null }).flatMap((club) => (club.estimatedCarry != null ? [club.estimatedCarry] : []));
+  const flight = suggestedPath(overlay.line, viewCard?.par ?? 4, measured.length > 0 ? measured : starterCarries);
+  const flyState = flight == null || reduceMotion ? 'still' : flyPaused ? 'paused' : 'playing';
 
   useEffect(() => {
     if (!onboarded) router.replace('/onboard');
@@ -198,6 +210,19 @@ export default function HomeScreen() {
     heightRef.current = height;
     sheetH.value = height;
   }, [sheets.peek, sheets.half, sheets.full, sheetH]);
+
+  const holePan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 18 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+      onPanResponderGrant: () => setFlyPaused(true),
+      onPanResponderRelease: (_, gesture) => {
+        setFlyPaused(false);
+        if (gesture.dx <= -48) setPreviewHole((hole) => Math.min(18, (hole ?? viewHoleRef.current) + 1));
+        else if (gesture.dx >= 48) setPreviewHole((hole) => Math.max(1, (hole ?? viewHoleRef.current) - 1));
+      },
+      onPanResponderTerminate: () => setFlyPaused(false),
+    }),
+  ).current;
 
   const sheetPan = useRef(
     PanResponder.create({
@@ -303,12 +328,27 @@ export default function HomeScreen() {
           aerial
           imagery={VECTOR_TILE_SOURCE}
           plate={plate}
+          flight={flight ?? undefined}
+          flightLoop={!reduceMotion}
+          flightPaused={flyPaused}
+          reduceMotion={reduceMotion}
           showCredit={false}
           creditLeft={14}
           creditRight={88}
           creditBottom={sheets.peek + bottomInset + 20}
         />
       </View>
+      <View
+        testID="flyover-layer"
+        {...holePan.panHandlers}
+        {...({ dataSet: { flyover: flyState } } as object)}
+        style={styles.flyover}
+      />
+      {flight ? (
+        <View testID="suggested-line" pointerEvents="none" style={[styles.suggested, { top: insets.top + 60 }]}>
+          <Text style={styles.suggestedText}>Suggested line · estimated</Text>
+        </View>
+      ) : null}
       <View accessibilityRole="header" accessibilityLabel={pillLine} testID="course-pill" style={[styles.pillHit, { top: insets.top + 8 }]}>
         <Glass radius={19} style={styles.pill} contentStyle={styles.pillFill}>
           <View style={styles.crestClip}>
@@ -489,6 +529,9 @@ function TeeRow({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: fieldNavy },
+  flyover: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 1 },
+  suggested: { position: 'absolute', left: 16, zIndex: 6, backgroundColor: '#02060E', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  suggestedText: { color: '#FFFFFF', fontFamily: font.family, fontSize: 12, lineHeight: 16, fontWeight: '700' },
   pillHit: { position: 'absolute', left: 12, right: 64, zIndex: 6, minHeight: 44, justifyContent: 'center' },
   pill: { minHeight: 44 },
   pillFill: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingVertical: 6 },

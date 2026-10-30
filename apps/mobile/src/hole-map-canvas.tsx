@@ -133,17 +133,25 @@ export function HoleMap(props: HoleMapProps) {
       setFlightT(1);
       return;
     }
-    const started = performance.now();
+    if (props.flightPaused) return;
+    let origin = performance.now();
     let frame = 0;
     const step = (now: number) => {
-      const next = Math.min(1, (now - started) / 700);
+      const next = Math.min(1, (now - origin) / 2800);
       setFlightT(next);
-      if (next < 1) frame = requestAnimationFrame(step);
+      if (next < 1) {
+        frame = requestAnimationFrame(step);
+        return;
+      }
+      if (!props.flightLoop) return;
+      origin = now;
+      setFlightT(0);
+      frame = requestAnimationFrame(step);
     };
     setFlightT(0);
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-  }, [flightKey, props.reduceMotion]);
+  }, [flightKey, props.reduceMotion, props.flightPaused, props.flightLoop]);
   const ovalOn = props.ellipse != null && props.ellipse.length > 2;
   useEffect(() => {
     if (!ovalOn || props.reduceMotion) {

@@ -16,6 +16,10 @@ export interface HoleMapProps {
   ellipseColor?: string | null;
   /** Aim curve between two real points. A drawing, not a measured flight. */
   flight?: readonly LatLon[] | null;
+  /** Home replays the suggested line. The hole screen plays it once. */
+  flightLoop?: boolean;
+  /** A finger on the map holds the flyover. */
+  flightPaused?: boolean;
   reduceMotion?: boolean;
   dispersionLine: readonly LatLon[];
   measure: readonly LatLon[];
