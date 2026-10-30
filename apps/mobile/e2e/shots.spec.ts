@@ -24,7 +24,7 @@ test('two mocked GPS marks make a shot you can edit and delete', async ({ page }
   });
   await page.goto('/');
   await dismissDevOverlay(page);
-  await page.getByRole('button', { name: 'Skip' }).click({ timeout: 30000 });
+  await page.getByRole('button', { name: 'Tee off' }).click({ timeout: 30000 });
   await page.getByRole('button', { name: /START ROUND/ }).click();
   await expect(page.getByTestId('mark-shot')).toBeVisible();
   await page.getByTestId('mark-shot').click();

@@ -89,9 +89,17 @@ test('primary buttons fit on every phone size', async ({ page }) => {
     new MutationObserver(arm).observe(document.documentElement, { childList: true, subtree: true });
   });
   await page.goto('/');
-  await expect(page.getByRole('button', { name: 'Skip' })).toBeVisible({ timeout: 30000 });
-  await assertPrimary(page, ['Skip', 'Save', 'Use a starter bag']);
-  await page.getByRole('button', { name: 'Skip' }).click();
+  await expect(page.getByRole('button', { name: 'Tee off' })).toBeVisible({ timeout: 30000 });
+  await expect(page.getByLabel('Handicap, your entry')).toHaveCount(0);
+  const name = page.getByLabel('Name, your entry');
+  await name.scrollIntoViewIfNeeded();
+  const nameBox = await name.boundingBox();
+  const tee = await page.getByRole('button', { name: 'Tee off' }).boundingBox();
+  expect(nameBox && tee).toBeTruthy();
+  const nameHitsTee = nameBox!.x < tee!.x + tee!.width - 1 && nameBox!.x + nameBox!.width > tee!.x + 1 && nameBox!.y < tee!.y + tee!.height - 1 && nameBox!.y + nameBox!.height > tee!.y + 1;
+  expect(nameHitsTee).toBe(false);
+  await assertPrimary(page, ['Tee off']);
+  await page.getByRole('button', { name: 'Tee off' }).click();
 
   const start = page.getByRole('button', { name: /START ROUND|RESUME ROUND/ });
   await expect(start).toBeVisible();

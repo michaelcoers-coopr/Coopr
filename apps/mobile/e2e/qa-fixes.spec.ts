@@ -34,21 +34,16 @@ test('mute, club chips, and the layout notes from 75b6b7d', async ({ page }) => 
   });
   await page.goto('/');
   await dismissDevOverlay(page);
-  const save = page.getByRole('button', { name: 'Save', exact: true });
+  const teeOff = page.getByRole('button', { name: 'Tee off' });
   await expect(page.getByLabel('Name, your entry')).toBeVisible({ timeout: 30000 });
-  for (const label of ['Name, your entry', 'Handicap, your entry', 'Driver speed, your entry']) {
-    const field = page.getByLabel(label);
-    await field.scrollIntoViewIfNeeded();
-    const box = await field.boundingBox();
-    const saveBox = await save.boundingBox();
-    const starterBox = await page.getByRole('button', { name: 'Use a starter bag' }).boundingBox();
-    const skipBox = await page.getByRole('button', { name: 'Skip', exact: true }).boundingBox();
-    expect(box && saveBox && starterBox && skipBox).toBeTruthy();
-    expect(overlaps(box!, saveBox!), label).toBe(false);
-    expect(overlaps(box!, starterBox!), label).toBe(false);
-    expect(overlaps(box!, skipBox!), label).toBe(false);
-  }
-  await page.getByRole('button', { name: 'Use a starter bag' }).click();
+  await expect(page.getByLabel('Handicap, your entry')).toHaveCount(0);
+  const field = page.getByLabel('Name, your entry');
+  await field.scrollIntoViewIfNeeded();
+  const box = await field.boundingBox();
+  const teeBox = await teeOff.boundingBox();
+  expect(box && teeBox).toBeTruthy();
+  expect(overlaps(box!, teeBox!), 'Name').toBe(false);
+  await teeOff.click();
   await page.getByRole('button', { name: 'Show more' }).click();
 
   await page.getByRole('button', { name: /Bag,/ }).click();

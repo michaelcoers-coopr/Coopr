@@ -65,7 +65,7 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   const viewport = page.viewportSize() ?? { width: 393, height: 852 };
   await page.goto('/');
   await dismissDevOverlay(page);
-  await page.getByRole('button', { name: 'Skip' }).click({ timeout: 30000 });
+  await page.getByRole('button', { name: 'Tee off' }).click({ timeout: 30000 });
   await expect(page.getByRole('button', { name: /START ROUND/ })).toBeVisible();
   await shot(page, 'home');
   await page.getByRole('button', { name: 'Show more' }).click();

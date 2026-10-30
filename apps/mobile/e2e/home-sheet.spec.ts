@@ -26,7 +26,7 @@ test('the course map stays clear and the round sheet keeps start in reach', asyn
   });
   const viewport = page.viewportSize() ?? { width: 393, height: 852 };
   await page.goto('/');
-  await page.getByRole('button', { name: 'Skip' }).click({ timeout: 30000 });
+  await page.getByRole('button', { name: 'Tee off' }).click({ timeout: 30000 });
   await expect(page.getByRole('button', { name: 'START ROUND' })).toBeVisible();
   await expect(page.getByText(/USDA NAIP/)).toHaveCount(0);
   await expect(page.getByText('TEE IT UP')).toBeVisible();

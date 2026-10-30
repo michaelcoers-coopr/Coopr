@@ -14,7 +14,7 @@ test('par is one tap and the extra hole notes stay in the drawer', async ({ page
   });
   const viewport = page.viewportSize() ?? { width: 393, height: 852 };
   await page.goto('/');
-  await page.getByRole('button', { name: 'Use a starter bag' }).click({ timeout: 30000 });
+  await page.getByRole('button', { name: 'Tee off' }).click({ timeout: 30000 });
   await page.getByRole('button', { name: /START ROUND/ }).click();
   await expect(page.getByTestId('hole-map')).toBeVisible();
   const par = page.getByTestId('par-next');
@@ -28,6 +28,9 @@ test('par is one tap and the extra hole notes stay in the drawer', async ({ page
   await expect(page.getByText('Fairway', { exact: true })).toHaveCount(0);
 
   await par.click();
+  const undoToast = page.getByTestId('par-undo-toast');
+  await expect(undoToast).toBeVisible();
+  await expect(undoToast).toContainText('Undo');
   await expect(page.getByTestId('hole-pill')).toHaveAttribute('aria-label', /Hole 2,/);
   const stored = await page.evaluate(() => {
     const raw = localStorage.getItem('coopr.round.v1');
@@ -36,8 +39,7 @@ test('par is one tap and the extra hole notes stay in the drawer', async ({ page
   });
   expect(stored).toBe(5);
 
-  await page.getByRole('button', { name: 'Round menu' }).click();
-  await page.getByRole('button', { name: 'Undo last score' }).click();
+  await page.getByRole('button', { name: 'Undo par' }).click();
   const undone = await page.evaluate(() => {
     const raw = localStorage.getItem('coopr.round.v1');
     const save = raw ? JSON.parse(raw) as { currentHole?: number; holes?: Array<number | null> } : {};

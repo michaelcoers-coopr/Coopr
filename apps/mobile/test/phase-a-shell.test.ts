@@ -10,7 +10,8 @@ describe('first run and the beta shell', () => {
     const onboard = readFileSync(join(here, '../app/onboard.tsx'), 'utf8');
     expect(onboard).toContain('Your entry');
     expect(onboard.toLowerCase()).not.toContain('official');
-    expect(onboard).toContain('Skip');
+    expect(onboard).toContain('Tee off');
+    expect(onboard).not.toContain('Handicap, your entry');
     const home = readFileSync(join(here, '../app/index.tsx'), 'utf8');
     expect(home).toContain("router.push('/games')");
     expect(home).not.toContain('Coming to the TestFlight build.');

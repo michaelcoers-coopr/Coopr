@@ -307,6 +307,7 @@ export default function PlayScreen() {
   const [justYards, setJustYards] = useState(false);
   const [batterySaver, setBatterySaver] = useState(false);
   const [undoHole, setUndoHole] = useState<number | null>(null);
+  const [parToast, setParToast] = useState(false);
   const [pendingScore, setPendingScore] = useState<number | null>(null);
   const [speechPhase, setSpeechPhase] = useState<'speaking' | 'silent'>('silent');
   useEffect(() => subscribeSpeech(setSpeechPhase), []);
@@ -1879,6 +1880,7 @@ export default function PlayScreen() {
           onToggleJustYards={() => setJustYards((value) => !value)}
           batterySaver={batterySaver}
           onToggleBattery={() => setBatterySaver((value) => !value)}
+          onQuickPar={() => setParToast(true)}
           canUndoScore={undoHole != null}
           onUndoScore={() => {
             if (undoHole == null) return;
@@ -1919,7 +1921,27 @@ export default function PlayScreen() {
         }}
       />
       {talk.overlay}
-      {saved ? (
+      {parToast ? (
+        <View testID="par-undo-toast" accessibilityLabel="Par saved" style={[styles.toast, { top: chrome.toast.y, left: chrome.toast.x, width: chrome.toast.w }]}>
+          <Text style={styles.toastText}>Par saved</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Undo par"
+            onPress={() => {
+              if (undoHole != null) {
+                setStrokes(undoHole, null);
+                setCurrentHole(undoHole);
+                setUndoHole(null);
+              }
+              setParToast(false);
+            }}
+            style={styles.toastUndo}
+          >
+            <Text style={styles.toastUndoText}>Undo</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {saved && !parToast ? (
         <View testID="marked-toast" accessibilityLabel="Marked" style={[styles.toast, { top: chrome.toast.y, left: chrome.toast.x, width: chrome.toast.w }]}>
           <Text style={styles.toastText}>Marked</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Undo last mark" onPress={() => { dropLastMark(); setSaved(null); }} style={styles.toastUndo}>
