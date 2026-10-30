@@ -7,6 +7,7 @@ import { bootDatabase } from '../src/boot-db';
 import { useLocalStore } from '../src/local-store';
 import { useTalkPrefs } from '../src/talk-prefs';
 import { AERIAL_CREDIT } from '../src/aerial/project';
+import { DISCLOSURE } from '@coopr/games';
 import { AI_ATTRIBUTION } from '../src/bag-scan/copy';
 
 export default function MoreScreen() {
@@ -36,6 +37,10 @@ export default function MoreScreen() {
         <Text style={styles.backText}>‹ Back</Text>
       </Pressable>
       <Title>More</Title>
+      <Card>
+        <Muted>About</Muted>
+        <Muted>{DISCLOSURE}</Muted>
+      </Card>
       <Muted>Setup and the card. The round starts from Play.</Muted>
       <Button label="Setup" tone="ghost" onPress={() => router.push('/setup')} />
       <Button label="Past rounds" tone="ghost" onPress={() => router.push('/rounds')} />

@@ -92,6 +92,25 @@ const GAME_LABEL: Record<GameKind, string> = {
   coins: 'Coins',
 };
 
+/** One line on the card. The question mark opens the longer rule. */
+const GAME_BLURB: Record<GameKind, { line: string; rules: string }> = {
+  stableford: { line: 'Points for the score against par.', rules: 'A net birdie is more points than a net par. The player with the most points takes the stake.' },
+  modified: { line: 'Stableford points, with a different table.', rules: 'Same idea as Stableford. The point table is the modified one. Highest points take the stake.' },
+  skins: { line: 'Low score wins the hole. A tie carries it.', rules: 'The lowest score on the hole wins the skin. If two players tie, the skin carries to the next hole.' },
+  nassau: { line: 'A match on the front, the back, and the round.', rules: 'Three parts: front nine, back nine, and all 18. A press is an extra stake from the next hole.' },
+  match: { line: 'Holes won, not strokes.', rules: 'The side that wins more holes is ahead. The match can end when one side cannot be caught.' },
+  wolf: { line: 'The wolf picks a partner or goes alone.', rules: 'On a hole the wolf chooses a partner, plays alone, or plays blind. Needs four players. Points settle in Birdie Bucks.' },
+  vegas: { line: 'Partners combine their scores into one number.', rules: 'Each side makes a two-digit number from its scores. The lower number wins the hole. Needs four players.' },
+  bbb: { line: 'Points for first on, closest, and first in.', rules: 'Bingo is first on the green, bango is closest to the pin, bongo is first in the hole.' },
+  coins: { line: 'A point for a greenie, sandie, arnie, or barkie.', rules: 'Call the coin when it happens. Each one is a point in Birdie Bucks.' },
+};
+
+function leaderboardMoment(pending: number, winners: readonly string[]): string {
+  if (pending > 0) return pending === 1 ? 'Skin carried' : `${pending} skins carried`;
+  if (winners.length === 1) return `Skin won · ${winners[0]}`;
+  return 'Leaderboard';
+}
+
 const COINS: CoinName[] = ['greenie', 'sandie', 'arnie', 'barkie'];
 
 interface Heard {
@@ -117,6 +136,7 @@ export default function GamesScreen() {
   const [players, setPlayers] = useState<SetupPlayer[]>(freshPlayers);
   const [ownerId, setOwnerId] = useState('');
   const [kinds, setKinds] = useState<GameKind[]>(['stableford']);
+  const [rulesKind, setRulesKind] = useState<GameKind | null>(null);
   const [stakes, setStakes] = useState<Record<string, StakeDraft>>({ stableford: emptyStake() });
   const [sides, setSides] = useState<Sides | null>(null);
   const [sidesTouched, setSidesTouched] = useState(false);
@@ -360,8 +380,8 @@ export default function GamesScreen() {
           <Text style={styles.backText}>Back</Text>
         </Pressable>
         <Text style={[styles.kicker, { fontFamily: display }]}>FOURSOME</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={DISCLOSURE} onPress={() => setInfo((open) => !open)} style={styles.info}>
-          <Text style={styles.infoText}>BB</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Birdie Bucks" onPress={() => setInfo((open) => !open)} style={styles.info}>
+          <Text style={styles.infoText}>Birdie Bucks</Text>
         </Pressable>
       </View>
       {info ? <Text style={styles.disclosure}>{DISCLOSURE}</Text> : null}
@@ -387,6 +407,9 @@ export default function GamesScreen() {
             </Pressable>
           </View>
           <Text accessibilityLabel="Birdie Bucks" style={styles.stripDisclosure}>{DISCLOSURE}</Text>
+          <Text accessibilityLabel="Live leaderboard" style={styles.meta}>
+            {leaderboardMoment(score.skinsPending, score.games.find((game) => game.kind === 'skins')?.winners ?? [])}
+          </Text>
           {stripOpen ? (
             <>
               {score.games.some((game) => game.kind === 'skins') ? (
@@ -423,8 +446,16 @@ export default function GamesScreen() {
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {step === 'setup' ? (
           <View style={styles.stack}>
-            <Text style={styles.disclosure}>{DISCLOSURE}</Text>
+            <Text style={styles.disclosure}>Birdie Bucks (BB) are points on this phone. They have no real-world value.</Text>
+            <Text style={styles.copy}>More than one game can run at the same time.</Text>
             {!course.siOk ? <Text style={styles.amber}>{SI_AMBER}</Text> : null}
+            <View style={styles.row}>
+              {players.map((player, index) => (
+                <View key={player.id} accessibilityLabel={`${player.name.trim() || `Player ${index + 1}`} chip`} style={styles.chip}>
+                  <Text style={styles.chipText}>{player.name.trim() || 'Name'}</Text>
+                </View>
+              ))}
+            </View>
             {players.map((player, index) => {
               const range = handicapError(player);
               return (
@@ -494,10 +525,16 @@ export default function GamesScreen() {
               ) : null}
             </View>
             <Text style={styles.label}>Games</Text>
-            <View style={styles.row}>
-              {offered.map((kind) => (
+            {!offered.includes('wolf') ? (
+              <View style={styles.card}>
+                <Text style={styles.label}>Wolf</Text>
+                <Text style={styles.copy}>{GAME_BLURB.wolf.line}</Text>
+                <Text style={styles.meta}>Needs four players.</Text>
+              </View>
+            ) : null}
+            {offered.map((kind) => (
+              <View key={kind} style={styles.card}>
                 <Pressable
-                  key={kind}
                   accessibilityRole="button"
                   accessibilityLabel={GAME_LABEL[kind]}
                   onPress={() => {
@@ -508,8 +545,13 @@ export default function GamesScreen() {
                 >
                   <Text style={styles.chipText}>{GAME_LABEL[kind]}</Text>
                 </Pressable>
-              ))}
-            </View>
+                <Text style={styles.copy}>{GAME_BLURB[kind].line}</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={`${GAME_LABEL[kind]} rules`} onPress={() => setRulesKind((current) => (current === kind ? null : kind))} style={styles.chip}>
+                  <Text style={styles.chipText}>?</Text>
+                </Pressable>
+                {rulesKind === kind ? <Text style={styles.copy}>{GAME_BLURB[kind].rules}</Text> : null}
+              </View>
+            ))}
             {chosenKinds.map((kind) => {
               const draft = stakes[kind] ?? emptyStake();
               const set = (patch: Partial<StakeDraft>) => setStakes((current) => ({ ...current, [kind]: { ...(current[kind] ?? emptyStake()), ...patch } }));
@@ -518,7 +560,7 @@ export default function GamesScreen() {
                 : ([['amount', `${GAME_LABEL[kind]} stake`]] as const);
               return (
                 <View key={kind} style={styles.card}>
-                  <Text style={styles.label}>{`${GAME_LABEL[kind]} stake, BB`}</Text>
+                  <Text style={styles.label}>{`${GAME_LABEL[kind]} stake, Birdie Bucks (BB)`}</Text>
                   {fields.map(([key, label]) => {
                     const value = draft[key];
                     return (
@@ -528,7 +570,7 @@ export default function GamesScreen() {
                           value={value}
                           onChangeText={(next) => set({ [key]: next })}
                           accessibilityLabel={kind === 'nassau' ? `${key} stake` : `${GAME_LABEL[kind]} stake`}
-                          placeholder="BB"
+                          placeholder="Birdie Bucks"
                           placeholderTextColor={play.muted}
                           keyboardType="decimal-pad"
                           style={styles.input}
@@ -587,6 +629,7 @@ export default function GamesScreen() {
               <Text style={styles.chipText}>{grossOnly ? 'Gross only' : 'Net scores'}</Text>
             </Pressable>
             {notices.map((line) => <Text key={line} style={styles.amber}>{line}</Text>)}
+            <Text accessibilityLabel="Follow along" style={styles.copy}>Follow along is not in this build. This phone has no accounts, so there is no read-only link.</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Start round" accessibilityHint={block ?? undefined} disabled={!!block} onPress={start} style={[styles.go, !!block && styles.goOff]}>
               <Text style={[styles.goText, { fontFamily: display }]}>START ROUND</Text>
             </Pressable>
@@ -598,7 +641,7 @@ export default function GamesScreen() {
               <Text style={styles.chipText}>Games</Text>
             </Pressable>
             <Text style={[styles.holeNo, { fontFamily: display }]}>{String(hole)}</Text>
-            <Text style={styles.meta}>{`Par ${course.holes[hole - 1]?.par ?? '—'} · BB`}</Text>
+            <Text style={styles.meta}>{`Par ${course.holes[hole - 1]?.par ?? '—'} · Birdie Bucks`}</Text>
             <View style={styles.row}>
               {save.holes.map((item) => (
                 <Pressable key={item.number} accessibilityRole="button" accessibilityLabel={`Hole ${item.number}`} onPress={() => openHole(item.number)} style={[styles.holeChip, item.number === hole && styles.chipOn]}>
@@ -937,7 +980,7 @@ const styles = StyleSheet.create({
   back: { minWidth: 64, minHeight: 44, justifyContent: 'center' },
   backText: { color: colors.white, fontFamily: font.family, fontSize: 16 },
   kicker: { color: colors.white, fontSize: 28, letterSpacing: 1 },
-  info: { minWidth: 44, minHeight: 44, borderRadius: 22, backgroundColor: '#102848', alignItems: 'center', justifyContent: 'center' },
+  info: { minWidth: 44, minHeight: 44, paddingHorizontal: 10, borderRadius: 22, backgroundColor: '#102848', alignItems: 'center', justifyContent: 'center' },
   infoText: { color: signal.go, fontFamily: font.family, fontWeight: '800' },
   body: { paddingBottom: 108, gap: 12 },
   stack: { gap: 12 },

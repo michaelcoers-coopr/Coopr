@@ -240,7 +240,7 @@ describe('foursome screens', () => {
     expect(screen).toContain('SHARE RECAP');
     expect(screen).toContain('DISCLOSURE');
     expect(screen).toContain('Share.share');
-    expect(screen).not.toMatch(/\b(invite|crew|wallet|leaderboard)\b/i);
+    expect(screen).not.toMatch(/\b(invite|crew|wallet)\b/i);
     const visible = (source: string) => source.replace(/\$\{[^}]*\}/g, '');
     expect(BANNED_WORD.test(visible(screen))).toBe(false);
     expect(BANNED_WORD.test(visible(home))).toBe(false);
