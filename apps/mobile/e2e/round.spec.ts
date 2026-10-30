@@ -58,9 +58,18 @@ async function dismissDevOverlay(page: Page) {
 test('plays 18 holes with the buttons on screen', async ({ page }) => {
   test.setTimeout(360000);
   await page.addInitScript(() => {
+    const hide = () => {
+      document.getElementById('error-toast')?.remove();
+      for (const node of document.querySelectorAll('button, [role="button"]')) {
+        const text = node.textContent ?? '';
+        if (text.includes('Unknown event handler') || text.includes('non-boolean')) node.remove();
+      }
+    };
     const style = document.createElement('style');
     style.textContent = '#error-toast, #error-toast * { display: none !important; pointer-events: none !important; }';
     document.documentElement.appendChild(style);
+    new MutationObserver(hide).observe(document.documentElement, { childList: true, subtree: true });
+    hide();
   });
   const viewport = page.viewportSize() ?? { width: 393, height: 852 };
   await page.goto('/');

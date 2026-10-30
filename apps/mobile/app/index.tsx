@@ -231,11 +231,26 @@ export default function HomeScreen() {
       if (start == null) return;
       nudgeHole(event.clientX - start);
     };
+    const touchStart = (event: TouchEvent) => {
+      setFlyPaused(true);
+      flyStart.current = event.changedTouches[0]?.clientX ?? null;
+    };
+    const touchEnd = (event: TouchEvent) => {
+      const start = flyStart.current;
+      flyStart.current = null;
+      setFlyPaused(false);
+      const end = event.changedTouches[0]?.clientX;
+      if (start != null && end != null) nudgeHole(end - start);
+    };
     node.addEventListener('mousedown', down);
     node.addEventListener('mouseup', up);
+    node.addEventListener('touchstart', touchStart);
+    node.addEventListener('touchend', touchEnd);
     return () => {
       node.removeEventListener('mousedown', down);
       node.removeEventListener('mouseup', up);
+      node.removeEventListener('touchstart', touchStart);
+      node.removeEventListener('touchend', touchEnd);
     };
   }, []);
 
@@ -356,17 +371,6 @@ export default function HomeScreen() {
       <View
         testID="flyover-layer"
         {...({ dataSet: { flyover: flyState } } as object)}
-        onTouchStart={(event) => {
-          setFlyPaused(true);
-          flyStart.current = event.nativeEvent.changedTouches?.[0]?.pageX ?? event.nativeEvent.pageX;
-        }}
-        onTouchEnd={(event) => {
-          const start = flyStart.current;
-          const end = event.nativeEvent.changedTouches?.[0]?.pageX ?? event.nativeEvent.pageX;
-          flyStart.current = null;
-          setFlyPaused(false);
-          if (start != null && end != null) nudgeHole(end - start);
-        }}
         style={styles.flyover}
       />
       {flight ? (
