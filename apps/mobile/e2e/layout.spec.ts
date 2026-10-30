@@ -29,6 +29,7 @@ async function boxes(page: Page, names: string[]): Promise<Box[]> {
   const found: Box[] = [];
   for (const name of names) {
     const locator = page.getByRole('button', { name, exact: true }).first();
+    await locator.scrollIntoViewIfNeeded();
     await expect(locator, name).toBeVisible();
     const raw = await locator.boundingBox();
     expect(raw, name).toBeTruthy();
@@ -96,10 +97,13 @@ test('primary buttons fit on every phone size', async ({ page }) => {
   const start = page.getByRole('button', { name: /START ROUND|RESUME ROUND/ });
   await expect(start).toBeVisible();
   const startName = (await start.getAttribute('aria-label')) ?? '';
+  await assertPrimary(page, [startName]);
+  await expect(page.getByText(/USDA NAIP/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show more' }).click();
   const bag = page.getByRole('button', { name: /Bag,/ });
   await expect(bag).toBeVisible();
   const bagName = (await bag.getAttribute('aria-label')) ?? '';
-  await assertPrimary(page, [startName, 'Past rounds', 'Foursome games', 'Ask COOPR', bagName]);
+  await assertPrimary(page, [startName, 'Past rounds', 'Games', 'Ask caddie', bagName]);
 
   await bag.click();
   await expect(page.getByRole('button', { name: 'Add to bag' })).toBeVisible();
@@ -122,8 +126,9 @@ test('primary buttons fit on every phone size', async ({ page }) => {
   await page.getByRole('button', { name: 'Close score' }).click();
 
   await page.getByRole('button', { name: 'Home' }).click();
-  await expect(page.getByRole('tab', { name: 'More' })).toBeVisible();
-  await page.getByRole('tab', { name: 'More' }).click();
+  await page.getByRole('button', { name: 'Show more' }).click();
+  await expect(page.getByRole('button', { name: 'More' })).toBeVisible();
+  await page.getByRole('button', { name: 'More' }).click();
   await expect(page.getByText('Bundling...')).toHaveCount(0, { timeout: 30000 });
   await expect(page.getByRole('button', { name: 'Past rounds' })).toBeVisible();
   await assertPrimary(page, ['Past rounds']);

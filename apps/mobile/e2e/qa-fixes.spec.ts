@@ -49,6 +49,7 @@ test('mute, club chips, and the layout notes from 75b6b7d', async ({ page }) => 
     expect(overlaps(box!, skipBox!), label).toBe(false);
   }
   await page.getByRole('button', { name: 'Use a starter bag' }).click();
+  await page.getByRole('button', { name: 'Show more' }).click();
 
   await page.getByRole('button', { name: /Bag,/ }).click();
   await expect(page.getByText('Starter').first()).toBeVisible();
@@ -76,7 +77,8 @@ test('mute, club chips, and the layout notes from 75b6b7d', async ({ page }) => 
   await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: 'Back' }).click();
 
-  await page.getByRole('tab', { name: 'More' }).click();
+  await page.getByRole('button', { name: 'Show more' }).click();
+  await page.getByRole('button', { name: 'More' }).click();
   await page.getByRole('button', { name: 'Course quality' }).click();
   await expect(page.getByText('‹ Back')).toBeVisible();
   await page.evaluate(() => {

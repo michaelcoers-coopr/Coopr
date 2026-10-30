@@ -68,6 +68,7 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   await page.getByRole('button', { name: 'Skip' }).click({ timeout: 30000 });
   await expect(page.getByRole('button', { name: /START ROUND/ })).toBeVisible();
   await shot(page, 'home');
+  await page.getByRole('button', { name: 'Show more' }).click();
 
   await expect(page.getByRole('button', { name: 'Past rounds' })).toBeVisible();
   await page.getByRole('button', { name: /Bag,/ }).click();
@@ -258,7 +259,8 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   await dismissDevOverlay(page);
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByRole('button', { name: /START ROUND/ })).toBeVisible();
-  await page.getByRole('tab', { name: 'More' }).click();
+  await page.getByRole('button', { name: 'Show more' }).click();
+  await page.getByRole('button', { name: 'More' }).click();
   await expect(page.getByRole('button', { name: 'Past rounds' })).toBeVisible();
   await page.goto('/');
   await page.getByRole('button', { name: /START ROUND/ }).click();

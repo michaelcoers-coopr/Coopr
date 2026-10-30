@@ -45,19 +45,54 @@ export function scorePanelBudget(screenHeight: number, screenWidth = 393): numbe
   return Math.min(room, 448);
 }
 
-/** Closed sheet leaves the start button on screen. Open sheet never exceeds the phone. */
-export function homeSheetHeights(width: number, height: number, safeBottom = 0): { closed: number; open: number } {
+export type HomeSheetStop = 'peek' | 'half' | 'full';
+
+export type HomeSheetHeights = {
+  peek: number;
+  half: number;
+  full: number;
+  /** Peek. Kept so older callers still read a closed height. */
+  closed: number;
+  /** Full. Kept so older callers still read an open height. */
+  open: number;
+};
+
+/**
+ * Peek holds the start button. Half and full open the rest of the round sheet.
+ * None of the three stops run off the phone, and peek stays under half the screen.
+ */
+export function homeSheetHeights(width: number, height: number, safeBottom = 0): HomeSheetHeights {
   const screen = Number.isFinite(height) && height > 0 ? height : 852;
   const wide = Number.isFinite(width) && width > 0 ? width : 393;
   const bottom = Math.max(0, safeBottom);
   const usable = Math.max(160, screen - bottom);
-  if (wide > screen) {
-    return { closed: Math.max(96, Math.round(usable * 0.28)), open: Math.round(usable * 0.7) };
+  const landscape = wide > screen;
+  const peek = landscape
+    ? Math.max(128, Math.min(148, Math.round(usable * 0.4)))
+    : Math.max(136, Math.min(168, Math.round(usable * 0.22)));
+  const full = landscape
+    ? Math.round(usable * 0.72)
+    : screen <= 700
+      ? Math.round(usable * 0.82)
+      : Math.min(620, Math.round(usable * 0.72));
+  const half = Math.round((peek + full) / 2);
+  return { peek, half, full, closed: peek, open: full };
+}
+
+/** Nearest stop after a drag. A fling (positive velocity grows the sheet) can pass the midpoint. */
+export function snapHomeSheet(height: number, stops: { peek: number; half: number; full: number }, velocity = 0): HomeSheetStop {
+  const projected = height + velocity * 90;
+  const order: HomeSheetStop[] = ['peek', 'half', 'full'];
+  let best: HomeSheetStop = 'peek';
+  let dist = Number.POSITIVE_INFINITY;
+  for (const name of order) {
+    const next = Math.abs(stops[name] - projected);
+    if (next < dist) {
+      dist = next;
+      best = name;
+    }
   }
-  if (screen <= 700) {
-    return { closed: Math.min(220, Math.round(usable * 0.32)), open: Math.round(usable * 0.82) };
-  }
-  return { closed: Math.min(268, Math.round(usable * 0.32)), open: Math.min(620, Math.round(usable * 0.72)) };
+  return best;
 }
 
 export function stickerHeight(width: number, height: number): number {

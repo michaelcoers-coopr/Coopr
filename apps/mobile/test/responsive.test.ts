@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionDockHeight, homeSheetHeights, PHONE_SIZES, scorePanelBudget, stickerHeight, tierFor } from '../src/design/responsive';
+import { actionDockHeight, homeSheetHeights, PHONE_SIZES, scorePanelBudget, snapHomeSheet, stickerHeight, tierFor } from '../src/design/responsive';
 
 describe('responsive phone sizes', () => {
   it('names the four portrait tiers and treats landscape as short', () => {
@@ -17,10 +17,16 @@ describe('responsive phone sizes', () => {
     expect(panel).toBeGreaterThanOrEqual(140);
     expect(panel + dock).toBeLessThanOrEqual(height);
     const sheets = homeSheetHeights(width, height, 0);
-    expect(sheets.closed).toBeGreaterThanOrEqual(96);
-    expect(sheets.open).toBeLessThanOrEqual(height);
-    expect(sheets.closed).toBeLessThan(sheets.open);
-    expect(sheets.closed).toBeLessThan(height * 0.5);
+    expect(sheets.closed).toBe(sheets.peek);
+    expect(sheets.open).toBe(sheets.full);
+    expect(sheets.peek).toBeGreaterThanOrEqual(96);
+    expect(sheets.peek).toBeLessThan(sheets.half);
+    expect(sheets.half).toBeLessThan(sheets.full);
+    expect(sheets.full).toBeLessThanOrEqual(height);
+    expect(sheets.peek).toBeLessThan(height * 0.5);
+    expect(snapHomeSheet(sheets.peek + 4, sheets, 0)).toBe('peek');
+    expect(snapHomeSheet(sheets.half, sheets, 0)).toBe('half');
+    expect(snapHomeSheet(sheets.full - 4, sheets, 0)).toBe('full');
     expect(stickerHeight(width, height)).toBeGreaterThanOrEqual(44);
   });
 });

@@ -35,6 +35,7 @@ test('fifteen shots keep the round menu controls on screen', async ({ page }) =>
   expect(overlaps(handicapBox!, saveBox!)).toBe(false);
   expect(handicapBox!.y + handicapBox!.height).toBeLessThanOrEqual(saveBox!.y + 1);
   await page.getByRole('button', { name: 'Use a starter bag' }).click();
+  await page.getByRole('button', { name: 'Show more' }).click();
   await page.getByRole('button', { name: /Bag,/ }).click();
   await page.getByRole('button', { name: 'Add to bag' }).click();
   await page.getByRole('button', { name: 'ADD IT FAST' }).click();

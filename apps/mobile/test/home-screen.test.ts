@@ -19,6 +19,9 @@ describe('home tee sheet', () => {
     expect(home).toContain("router.push('/more')");
     expect(home).toContain("router.push('/play')");
     expect(home).toContain("router.push('/bag')");
+    expect(home).toContain('showCredit={false}');
+    expect(home).toContain('Map credit');
+    expect(home).toContain('LAWYER');
     expect(home).toContain('labels={[]}');
     expect(home).toContain('coursePill(');
     expect(home).toContain("started ? 'NEXT HOLE' : 'FIRST HOLE'");
