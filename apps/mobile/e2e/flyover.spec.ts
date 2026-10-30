@@ -24,9 +24,10 @@ test('the home hole plays a suggested line and pauses when held', async ({ page 
   await expect(layer).toHaveAttribute('data-flyover', 'paused');
   await page.mouse.up();
   await expect(layer).toHaveAttribute('data-flyover', 'playing');
-  await page.mouse.move(420, 120);
+  const width = page.viewportSize()?.width ?? 393;
+  await page.mouse.move(width - 30, 120);
   await page.mouse.down();
-  await page.mouse.move(80, 120, { steps: 10 });
+  await page.mouse.move(30, 120, { steps: 10 });
   await page.mouse.up();
   await expect(page.getByTestId('course-pill')).toContainText('Hole 2');
   await expect(line).toBeVisible();

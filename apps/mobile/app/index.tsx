@@ -211,18 +211,33 @@ export default function HomeScreen() {
     sheetH.value = height;
   }, [sheets.peek, sheets.half, sheets.full, sheetH]);
 
-  const holePan = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 18 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
-      onPanResponderGrant: () => setFlyPaused(true),
-      onPanResponderRelease: (_, gesture) => {
-        setFlyPaused(false);
-        if (gesture.dx <= -48) setPreviewHole((hole) => Math.min(18, (hole ?? viewHoleRef.current) + 1));
-        else if (gesture.dx >= 48) setPreviewHole((hole) => Math.max(1, (hole ?? viewHoleRef.current) - 1));
-      },
-      onPanResponderTerminate: () => setFlyPaused(false),
-    }),
-  ).current;
+  const flyStart = useRef<number | null>(null);
+  const nudgeHole = (dx: number) => {
+    if (dx <= -48) setPreviewHole((hole) => Math.min(18, (hole ?? viewHoleRef.current) + 1));
+    else if (dx >= 48) setPreviewHole((hole) => Math.max(1, (hole ?? viewHoleRef.current) - 1));
+  };
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const node = document.querySelector('[data-testid="flyover-layer"]');
+    if (!(node instanceof HTMLElement)) return;
+    const down = (event: MouseEvent) => {
+      setFlyPaused(true);
+      flyStart.current = event.clientX;
+    };
+    const up = (event: MouseEvent) => {
+      const start = flyStart.current;
+      flyStart.current = null;
+      setFlyPaused(false);
+      if (start == null) return;
+      nudgeHole(event.clientX - start);
+    };
+    node.addEventListener('mousedown', down);
+    node.addEventListener('mouseup', up);
+    return () => {
+      node.removeEventListener('mousedown', down);
+      node.removeEventListener('mouseup', up);
+    };
+  }, []);
 
   const sheetPan = useRef(
     PanResponder.create({
@@ -340,8 +355,18 @@ export default function HomeScreen() {
       </View>
       <View
         testID="flyover-layer"
-        {...holePan.panHandlers}
         {...({ dataSet: { flyover: flyState } } as object)}
+        onTouchStart={(event) => {
+          setFlyPaused(true);
+          flyStart.current = event.nativeEvent.changedTouches?.[0]?.pageX ?? event.nativeEvent.pageX;
+        }}
+        onTouchEnd={(event) => {
+          const start = flyStart.current;
+          const end = event.nativeEvent.changedTouches?.[0]?.pageX ?? event.nativeEvent.pageX;
+          flyStart.current = null;
+          setFlyPaused(false);
+          if (start != null && end != null) nudgeHole(end - start);
+        }}
         style={styles.flyover}
       />
       {flight ? (
