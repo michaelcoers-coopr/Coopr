@@ -222,7 +222,7 @@ export default function HomeScreen() {
     }),
   ).current;
 
-  const sheetStyle = useAnimatedStyle(() => ({ height: sheetH.value }));
+  const sheetStyle = useAnimatedStyle(() => ({ height: sheetH.value, maxHeight: sheetH.value }));
 
   const sendAsk = () => {
     const text = askDraft.trim();
@@ -259,10 +259,8 @@ export default function HomeScreen() {
       if (Math.abs(scroll.scrollTop - placed) > 2) return;
       scroll.scrollTop = 0;
       const blocks = foldBlocks(scroll);
-      const next = blocks.length === 0 ? 0 : foldSnap(blocks, scroll.clientHeight);
-      const top = next > 0 ? Math.min(Math.max(0, scroll.scrollHeight - scroll.clientHeight), next) : 0;
-      scroll.scrollTop = top;
-      placed = top;
+      foldSnap(blocks, scroll.clientHeight);
+      placed = 0;
     };
     snap();
     const timers = [160, 420, 800].map((ms) => setTimeout(snap, ms));
@@ -369,6 +367,29 @@ export default function HomeScreen() {
             </Pressable>
           </View>
           {sheetOpen ? (
+            <View style={styles.actions}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Games" onPress={() => router.push('/games')} style={styles.action}>
+                <Text style={styles.rowTitle} numberOfLines={1}>Games</Text>
+                <Text style={styles.rowNote} numberOfLines={1}>Foursome games</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Bag, ${inPlay} clubs in play`} onPress={() => router.push('/bag')} style={styles.action}>
+                <Text style={styles.rowTitle} numberOfLines={1}>Bag</Text>
+                <Text style={styles.rowNote} numberOfLines={1}>{bagGlance(inPlay)}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Ask caddie"
+                onPress={() => setAskOn(true)}
+                style={styles.action}
+              >
+                <Text style={styles.rowTitle} numberOfLines={1}>Ask caddie</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Past rounds" onPress={() => router.push('/rounds')} style={styles.action}>
+                <Text style={styles.rowTitle} numberOfLines={1}>Past rounds</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {sheetOpen ? (
             <ScrollView
               ref={sheetScrollRef}
               testID="home-sheet-scroll"
@@ -380,35 +401,6 @@ export default function HomeScreen() {
               <Text style={styles.conditions} accessibilityLabel={weather ? `Conditions, ${weather}` : 'Waiting on the sky'}>
                 {weather ?? 'Waiting on the sky'}
               </Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Games" onPress={() => router.push('/games')} style={styles.row}>
-                <View style={styles.rowCopy}>
-                  <Text style={styles.rowTitle}>Games</Text>
-                  <Text style={styles.rowNote}>Foursome games</Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel={`Bag, ${inPlay} clubs in play`} onPress={() => router.push('/bag')} style={styles.row}>
-                <View style={styles.rowCopy}>
-                  <Text style={styles.rowTitle}>Bag</Text>
-                  <Text style={styles.rowNote}>{bagGlance(inPlay)}</Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Ask caddie"
-                onPress={() => {
-                  setAskOn(true);
-                  if (levelRef.current === 'peek') applyLevel('half');
-                }}
-                style={styles.row}
-              >
-                <View style={styles.rowCopy}>
-                  <Text style={styles.rowTitle}>Ask caddie</Text>
-                  <Text style={styles.rowNote}>A question before you tee off</Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </Pressable>
               {askOn ? (
                 <View style={styles.askBox}>
                   <TextInput
@@ -431,13 +423,6 @@ export default function HomeScreen() {
                   ) : null}
                 </View>
               ) : null}
-              <Pressable accessibilityRole="button" accessibilityLabel="Past rounds" onPress={() => router.push('/rounds')} style={styles.row}>
-                <View style={styles.rowCopy}>
-                  <Text style={styles.rowTitle}>Past rounds</Text>
-                  <Text style={styles.rowNote}>{summary.last ? `${summary.rows.length} on this phone` : 'No rounds yet. Your first one lands here.'}</Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </Pressable>
               <View style={styles.teeCard}>
                 <TeeRow label="COURSE" value={courseName.toUpperCase()} />
                 <TeeRow label="TEES" value="WHITE" />
@@ -534,11 +519,11 @@ const styles = StyleSheet.create({
   creditBody: { color: '#FFFFFF', fontFamily: font.family, fontSize: 14, lineHeight: 20 },
   sheet: { position: 'absolute', left: 12, right: 12 },
   sheetGlass: { flex: 1, minHeight: 0 },
-  sheetFill: { flex: 1, minHeight: 0, overflow: 'hidden' },
+  sheetFill: { flex: 1, minHeight: 0, overflow: 'hidden', flexDirection: 'column' },
   grab: { zIndex: 4 },
   handleHit: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   handle: { width: 44, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.72)' },
-  peek: { paddingHorizontal: 16, gap: 8, zIndex: 1 },
+  peek: { height: 92, paddingHorizontal: 16, gap: 4, zIndex: 1, flexShrink: 0, width: '100%', overflow: 'hidden', justifyContent: 'flex-end' },
   kicker: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 16, fontWeight: '800', letterSpacing: 1 },
   start: {
     minHeight: 56,
@@ -549,6 +534,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   startText: { color: colors.white, fontSize: 28, lineHeight: 32, letterSpacing: 1 },
+  actions: { flexDirection: 'row', flexWrap: 'nowrap', gap: 6, marginTop: 8, paddingHorizontal: 12, paddingBottom: 4, zIndex: 2, flexShrink: 0, width: '100%' },
+  action: { flex: 1, flexShrink: 1, minWidth: 44, height: 48, borderRadius: 14, paddingHorizontal: 4, justifyContent: 'center', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.08)' },
   pressed: { opacity: 0.9 },
   scroll: { flex: 1, minHeight: 0, zIndex: 1 },
   scrollBody: { paddingHorizontal: 14, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 48, gap: 12 },

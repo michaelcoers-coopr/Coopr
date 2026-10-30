@@ -25,10 +25,11 @@ export function isShortHeight(width: number, height: number): boolean {
 }
 
 /** The hole action row. Narrow phones wrap to two rows. Landscape stays one row. */
+/** Room for the one-tap Par row plus the mark, ask, and menu row. */
 export function actionDockHeight(width: number, height: number): number {
-  if (width > height) return 80;
-  if (width < 400) return 120;
-  return 112;
+  if (width > height) return 152;
+  if (width < 400) return 184;
+  return 176;
 }
 
 /**
@@ -71,7 +72,7 @@ export function homeSheetHeights(width: number, height: number, safeBottom = 0):
     ? Math.max(128, Math.min(148, Math.round(usable * 0.4)))
     : Math.max(136, Math.min(168, Math.round(usable * 0.22)));
   const full = landscape
-    ? Math.round(usable * 0.72)
+    ? Math.round(usable - 16)
     : screen <= 700
       ? Math.round(usable * 0.82)
       : Math.min(620, Math.round(usable * 0.72));

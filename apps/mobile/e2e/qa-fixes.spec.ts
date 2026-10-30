@@ -78,7 +78,7 @@ test('mute, club chips, and the layout notes from 75b6b7d', async ({ page }) => 
   await page.getByRole('button', { name: 'Back' }).click();
 
   await page.getByRole('button', { name: 'Show more' }).click();
-  await page.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('button', { name: 'More', exact: true }).click();
   await page.getByRole('button', { name: 'Course quality' }).click();
   await expect(page.getByText('‹ Back')).toBeVisible();
   await page.evaluate(() => {

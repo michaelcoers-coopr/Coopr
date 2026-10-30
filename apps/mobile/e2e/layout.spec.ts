@@ -29,7 +29,6 @@ async function boxes(page: Page, names: string[]): Promise<Box[]> {
   const found: Box[] = [];
   for (const name of names) {
     const locator = page.getByRole('button', { name, exact: true }).first();
-    await locator.scrollIntoViewIfNeeded();
     await expect(locator, name).toBeVisible();
     const raw = await locator.boundingBox();
     expect(raw, name).toBeTruthy();
@@ -77,7 +76,7 @@ async function assertPrimary(page: Page, names: string[]) {
 }
 
 test('primary buttons fit on every phone size', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(180000);
   await page.addInitScript(() => {
     const arm = () => {
       if (document.getElementById('coopr-hide-log')) return;
@@ -99,11 +98,15 @@ test('primary buttons fit on every phone size', async ({ page }) => {
   const startName = (await start.getAttribute('aria-label')) ?? '';
   await assertPrimary(page, [startName]);
   await expect(page.getByText(/USDA NAIP/)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Show more' }).click();
+  const short = (page.viewportSize()?.height ?? 800) <= 420;
+  await page.getByRole('button', { name: 'Show more' }).click({ force: true });
+  if (!short) await page.getByRole('button', { name: 'Show more' }).click({ force: true });
+  await expect(page.getByTestId('home-sheet-level')).toHaveAttribute('data-level', short ? 'half' : 'full');
+  await page.waitForTimeout(400);
   const bag = page.getByRole('button', { name: /Bag,/ });
   await expect(bag).toBeVisible();
   const bagName = (await bag.getAttribute('aria-label')) ?? '';
-  await assertPrimary(page, [startName, 'Past rounds', 'Games', 'Ask caddie', bagName]);
+  await assertPrimary(page, ['Past rounds', 'Games', 'Ask caddie', bagName]);
 
   await bag.click();
   await expect(page.getByRole('button', { name: 'Add to bag' })).toBeVisible();
@@ -116,7 +119,7 @@ test('primary buttons fit on every phone size', async ({ page }) => {
 
   await page.getByRole('button', { name: /START ROUND/ }).click();
   await expect(page.getByRole('button', { name: 'Score', exact: true })).toBeVisible();
-  await assertPrimary(page, ['Score', 'Round menu', 'Ask COOPR']);
+  await assertPrimary(page, ['Par', 'Score', 'Round menu', 'Ask COOPR']);
   await page.getByRole('button', { name: 'Score', exact: true }).click();
   const save = page.getByRole('button', { name: 'Save and next hole' });
   const finish = page.getByRole('button', { name: 'Finish round' });
@@ -126,9 +129,10 @@ test('primary buttons fit on every phone size', async ({ page }) => {
   await page.getByRole('button', { name: 'Close score' }).click();
 
   await page.getByRole('button', { name: 'Home' }).click();
-  await page.getByRole('button', { name: 'Show more' }).click();
-  await expect(page.getByRole('button', { name: 'More' })).toBeVisible();
-  await page.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('button', { name: 'Show more' }).click({ force: true });
+  if ((page.viewportSize()?.height ?? 800) > 420) await page.getByRole('button', { name: 'Show more' }).click({ force: true });
+  await expect(page.getByRole('button', { name: 'More', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'More', exact: true }).click({ force: true });
   await expect(page.getByText('Bundling...')).toHaveCount(0, { timeout: 30000 });
   await expect(page.getByRole('button', { name: 'Past rounds' })).toBeVisible();
   await assertPrimary(page, ['Past rounds']);

@@ -51,6 +51,12 @@ export function ScoreDock({
   onAdjustShot,
   onSetShotYards,
   scoreAsk = 0,
+  justYards = false,
+  onToggleJustYards,
+  batterySaver = false,
+  onToggleBattery,
+  canUndoScore = false,
+  onUndoScore,
 }: {
   hole: number;
   par: number | null;
@@ -82,6 +88,12 @@ export function ScoreDock({
   onAdjustShot?: (delta: number) => void;
   onSetShotYards?: (yards: number) => void;
   scoreAsk?: number;
+  justYards?: boolean;
+  onToggleJustYards?: () => void;
+  batterySaver?: boolean;
+  onToggleBattery?: () => void;
+  canUndoScore?: boolean;
+  onUndoScore?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -101,7 +113,11 @@ export function ScoreDock({
     setOpen(false);
     setMenu(false);
     setConfirmEnd(false);
-  }, [hole]);
+    const next = savedStrokes ?? par ?? 4;
+    setStrokes(next);
+    setPutts(clampPutts(next, savedPutts ?? 0));
+    setPenalties(savedPenalties ?? 0);
+  }, [hole, par, savedStrokes, savedPutts, savedPenalties]);
 
   useEffect(() => {
     if (shotYards == null) return;
@@ -161,6 +177,21 @@ export function ScoreDock({
           {onToggleHandsFree ? (
             <Pressable accessibilityRole="button" accessibilityLabel={handsFree ? 'Hands-free on' : 'Hands-free off'} onPress={onToggleHandsFree} style={styles.wide}>
               <Text style={styles.wideText}>{handsFree ? 'Hands-free on' : 'Hands-free off'}</Text>
+            </Pressable>
+          ) : null}
+          {onToggleJustYards ? (
+            <Pressable accessibilityRole="button" accessibilityLabel={justYards ? 'Just yards on' : 'Just yards'} onPress={onToggleJustYards} style={styles.wide}>
+              <Text style={styles.wideText}>{justYards ? 'Just yards on' : 'Just yards'}</Text>
+            </Pressable>
+          ) : null}
+          {onToggleBattery ? (
+            <Pressable accessibilityRole="button" accessibilityLabel={batterySaver ? 'Battery saver on' : 'Battery saver'} onPress={onToggleBattery} style={styles.wide}>
+              <Text style={styles.wideText}>{batterySaver ? 'Battery saver on' : 'Battery saver'}</Text>
+            </Pressable>
+          ) : null}
+          {canUndoScore && onUndoScore ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="Undo last score" onPress={onUndoScore} style={styles.wide}>
+              <Text style={styles.wideText}>Undo last score</Text>
             </Pressable>
           ) : null}
           {confirmEnd ? (
@@ -323,18 +354,34 @@ export function ScoreDock({
           </Pressable>
         </View>
       ) : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={last ? 'Finish' : strokes === floor ? 'Par' : 'Next'}
+        testID={last ? 'hole-finish' : 'par-next'}
+        onPress={() => {
+          onSave({ strokes, putts: clampPutts(strokes, putts), penalties, fairway, gir }, last);
+          setOpen(false);
+          setMenu(false);
+        }}
+        style={styles.par}
+      >
+        <Text style={styles.parText}>{last ? 'Finish' : strokes === floor ? 'Par' : 'Next'}</Text>
+      </Pressable>
       <View style={styles.bar}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Lower the score" onPress={() => writeStrokes(strokes - 1)} style={styles.hit}>
+          <Text style={styles.sign}>−</Text>
+        </Pressable>
+        <Text accessibilityLabel={`Score on the bar ${strokes}`} style={styles.big}>{String(strokes)}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Raise the score" onPress={() => writeStrokes(strokes + 1)} style={styles.hit}>
+          <Text style={styles.sign}>+</Text>
+        </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Score previous hole" onPress={onPrev} style={styles.hit}>
           <Text style={styles.sign}>‹</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Score" testID="open-score" onPress={show} style={styles.primary}>
           <Text style={styles.primaryText}>Score</Text>
         </Pressable>
-        {last ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="Finish" testID="hole-finish" onPress={show} style={styles.primary}>
-            <Text style={styles.primaryText}>Finish</Text>
-          </Pressable>
-        ) : (
+        {last ? null : (
           <Pressable accessibilityRole="button" accessibilityLabel="Score next hole" onPress={onNext} style={styles.hit}>
             <Text style={styles.sign}>›</Text>
           </Pressable>
@@ -372,6 +419,8 @@ const styles = StyleSheet.create({
   choiceOn: { backgroundColor: '#8AC926' },
   choiceText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
   choiceTextOn: { color: '#0B1F3A' },
+  par: { minHeight: 56, borderRadius: 14, backgroundColor: '#C8102E', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  parText: { color: '#FFFFFF', fontSize: 22, lineHeight: 26, fontWeight: '800' },
   primary: { minHeight: 48, minWidth: 88, paddingHorizontal: 12, borderRadius: 14, backgroundColor: '#8AC926', alignItems: 'center', justifyContent: 'center' },
   primaryText: { color: '#0B1F3A', fontSize: 16, fontWeight: '800' },
   wide: { minHeight: MIN_TAP, justifyContent: 'center', paddingHorizontal: 8 },

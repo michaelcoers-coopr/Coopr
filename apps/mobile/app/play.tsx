@@ -94,6 +94,7 @@ import { VECTOR_TILE_SOURCE } from '../src/tile-source';
 import { useTalkPrefs } from '../src/talk-prefs';
 import { readDevice, rememberMeasuredShot, subscribeDevice } from '../src/device-store';
 import { clubCarryLine } from '../src/shots/track';
+import { spokenStrokes } from '../src/design/spoken-score';
 
 const pilot = loadHighCedarsPilot();
 /** Tall enough for a wrapped caddie sentence and the mic. The locked HUD constant stays shorter. */
@@ -303,6 +304,10 @@ export default function PlayScreen() {
     setReviewShotId(id);
   };
   const [scoreAsk, setScoreAsk] = useState(0);
+  const [justYards, setJustYards] = useState(false);
+  const [batterySaver, setBatterySaver] = useState(false);
+  const [undoHole, setUndoHole] = useState<number | null>(null);
+  const [pendingScore, setPendingScore] = useState<number | null>(null);
   const [speechPhase, setSpeechPhase] = useState<'speaking' | 'silent'>('silent');
   useEffect(() => subscribeSpeech(setSpeechPhase), []);
   useEffect(() => {
@@ -635,8 +640,8 @@ export default function PlayScreen() {
         if (current && current.lat === fix.lat && current.lon === fix.lon) return current;
         return fix;
       });
-    }, (stored) => (typeof stored === 'string' ? gpsPreset(stored, geometry.line, ring) : stored));
-  }, [currentHole]);
+    }, (stored) => (typeof stored === 'string' ? gpsPreset(stored, geometry.line, ring) : stored), batterySaver);
+  }, [currentHole, batterySaver]);
 
   useEffect(() => {
     const geometry = holeOverlay(pilot.features, pilot.record.scorecard, currentHole);
@@ -1471,7 +1476,7 @@ export default function PlayScreen() {
           </Glass>
         </View>
       ) : null}
-      <Animated.View testID="coach-sheet" style={[styles.sheet, sheetStyle, { bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + (sheetOpen ? keyboard : 0), zIndex: sheetOpen ? 8 : 2 }]}>
+      <Animated.View testID="coach-sheet" style={[styles.sheet, sheetStyle, justYards ? { display: 'none' } : null, { bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + (sheetOpen ? keyboard : 0), zIndex: sheetOpen ? 8 : 2 }]}>
         <Glass radius={28} style={styles.sheetGlass} contentStyle={styles.sheetFill}>
           <SheetBall reduceMotion={reduceMotion} compact />
           <View style={styles.grab}>
@@ -1618,8 +1623,13 @@ export default function PlayScreen() {
                 style={styles.askInput}
                 accessibilityLabel="Typed ask"
                 onSubmitEditing={() => {
-                  const text = talk.draft;
+                  const text = talk.draft.trim();
                   talk.setDraft('');
+                  const heard = spokenStrokes(text, par ?? 4);
+                  if (heard != null) {
+                    setPendingScore(heard);
+                    return;
+                  }
                   void talk.ask(text, 'typed');
                 }}
               />
@@ -1628,8 +1638,13 @@ export default function PlayScreen() {
                 accessibilityLabel="Send question"
                 style={styles.coachPeekHit}
                 onPress={() => {
-                  const text = talk.draft;
+                  const text = talk.draft.trim();
                   talk.setDraft('');
+                  const heard = spokenStrokes(text, par ?? 4);
+                  if (heard != null) {
+                    setPendingScore(heard);
+                    return;
+                  }
                   void talk.ask(text, 'typed');
                 }}
               >
@@ -1764,7 +1779,7 @@ export default function PlayScreen() {
           ) : null}
         </Glass>
       </Animated.View>
-      {playableClubs.length > 0 ? (
+      {!justYards && playableClubs.length > 0 ? (
         <View testID="club-chip-panel" style={[styles.clubChipWrap, { bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + (windowWidth > windowHeight ? chrome.coachPeek + 8 : 4) }]} pointerEvents="box-none">
           <Text testID="club-chip-hint" accessibilityLabel="Swipe for more clubs" style={styles.chipHint}>Swipe for clubs</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="club-chips" contentContainerStyle={styles.clubChipRow}>
@@ -1795,6 +1810,31 @@ export default function PlayScreen() {
         </View>
       ) : null}
       <View pointerEvents="box-none" style={[styles.actionDock, { bottom: Math.max(insets.bottom, 8) }]}>
+        {pendingScore != null ? (
+          <View style={styles.confirmScore}>
+            <Text style={styles.confirmScoreText}>{`Save ${pendingScore}?`}</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Confirm score"
+              onPress={() => {
+                const strokes = pendingScore;
+                setPendingScore(null);
+                if (strokes == null) return;
+                writeStrokes(strokes);
+                setPutts(hole.holeNumber, 0);
+                setPenalties(hole.holeNumber, 0);
+                setUndoHole(hole.holeNumber);
+                if (hole.holeNumber >= 18) {
+                  finishRound({ hole: hole.holeNumber, strokes, putts: 0, penalties: 0, fairway: null, gir: null });
+                  router.push('/recap');
+                } else leaveHole();
+              }}
+              style={styles.confirmScoreHit}
+            >
+              <Text style={styles.confirmScoreText}>Confirm</Text>
+            </Pressable>
+          </View>
+        ) : null}
         <ScoreDock
           scoreAsk={scoreAsk}
           hole={hole.holeNumber}
@@ -1835,6 +1875,17 @@ export default function PlayScreen() {
             finishRound();
             router.push('/recap');
           }}
+          justYards={justYards}
+          onToggleJustYards={() => setJustYards((value) => !value)}
+          batterySaver={batterySaver}
+          onToggleBattery={() => setBatterySaver((value) => !value)}
+          canUndoScore={undoHole != null}
+          onUndoScore={() => {
+            if (undoHole == null) return;
+            setStrokes(undoHole, null);
+            setCurrentHole(undoHole);
+            setUndoHole(null);
+          }}
           onSave={(draft, finish) => {
             const puttsSaved = Math.min(draft.strokes, draft.putts ?? 0);
             writeStrokes(draft.strokes);
@@ -1842,6 +1893,7 @@ export default function PlayScreen() {
             setPenalties(hole.holeNumber, draft.penalties ?? 0);
             setFairway(hole.holeNumber, draft.fairway);
             setGir(hole.holeNumber, draft.gir);
+            if (!finish) setUndoHole(hole.holeNumber);
             if (finish) {
               finishRound({
                 hole: hole.holeNumber,
@@ -2162,6 +2214,9 @@ const styles = StyleSheet.create({
   pillPair: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   pillStack: { alignItems: 'center', justifyContent: 'center', minWidth: 28 },
   actionDock: { position: 'absolute', left: 8, right: 8, zIndex: 9 },
+  confirmScore: { minHeight: 56, borderRadius: 14, backgroundColor: '#041018', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, marginBottom: 6 },
+  confirmScoreText: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
+  confirmScoreHit: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   toast: {
     position: 'absolute',
     zIndex: 100,

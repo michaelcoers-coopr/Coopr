@@ -60,11 +60,12 @@ test('the course map stays clear and the round sheet keeps start in reach', asyn
   await page.mouse.up();
   await expect(page.getByTestId('home-sheet-level')).toHaveAttribute('data-level', /half|full/);
 
+  const startAfter = await box(page, 'START ROUND');
   for (const name of ['Games', 'Ask caddie', 'Past rounds', /Bag,/]) {
     const item = await box(page, name);
     expect(item.raw.height).toBeGreaterThanOrEqual(44);
     expect(item.raw.y).toBeGreaterThanOrEqual(-1);
     expect(item.raw.y + item.raw.height).toBeLessThanOrEqual(viewport.height + 1);
-    expect(overlaps(item.raw, start.raw)).toBe(false);
+    expect(overlaps(item.raw, startAfter.raw)).toBe(false);
   }
 });
