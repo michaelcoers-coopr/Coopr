@@ -37,22 +37,19 @@ export default function MoreScreen() {
         <Text style={styles.backText}>‹ Back</Text>
       </Pressable>
       <Title>More</Title>
-      <Card>
-        <Muted>About</Muted>
-        <Muted>{DISCLOSURE}</Muted>
-      </Card>
-      <Muted>Setup and the card. The round starts from Play.</Muted>
+      <Muted>The round starts from the course. One filled button. The rest are grouped.</Muted>
+      <Text style={styles.group}>Round</Text>
+      <Button label="Past rounds" onPress={() => router.push('/rounds')} />
       <Button label="Setup" tone="ghost" onPress={() => router.push('/setup')} />
-      <Button label="Past rounds" tone="ghost" onPress={() => router.push('/rounds')} />
-      <Button label="Send feedback" tone="ghost" onPress={() => router.push('/feedback')} />
-      <Button label="Privacy" tone="ghost" onPress={() => router.push('/privacy')} />
-      <Button label="Game plan" tone="ghost" onPress={() => router.push('/plan')} />
       <Button label="Scorecard" tone="ghost" onPress={() => router.push('/scorecard')} />
       <Button label="Analysis" tone="ghost" onPress={() => router.push('/analysis')} />
       <Button label="Debrief" tone="ghost" onPress={() => router.push('/debrief')} />
+      <Button label="Game plan" tone="ghost" onPress={() => router.push('/plan')} />
+      <Text style={styles.group}>Practice</Text>
       <Button label="Bag" tone="ghost" onPress={() => router.push('/bag')} />
       <Button label="Wedge matrix" tone="ghost" onPress={() => router.push('/wedges')} />
       <Button label="Add from photos" tone="ghost" onPress={() => router.push('/import')} />
+      <Text style={styles.group}>Caddie</Text>
       <Button label="Caddie" tone="ghost" onPress={() => router.push('/caddie')} />
       <Card>
         <Muted>Caddie voice. Chirpy is the default. Chill keeps the quieter line. Both use the numbers you actually have.</Muted>
@@ -71,7 +68,9 @@ export default function MoreScreen() {
         onPress={() => setConditions({ usePlaysLike: !conditions.usePlaysLike })}
       />
       <Button label={unit === 'yd' ? 'Showing yards' : 'Showing meters'} tone="ghost" onPress={() => setUnit(unit === 'yd' ? 'm' : 'yd')} />
+      <Text style={styles.group}>About</Text>
       <Card>
+        <Muted>{DISCLOSURE}</Muted>
         <Muted>High Cedars, Orting, is the only course on this phone. The hole uses the phone position. Wind and temperature come from the course, and plays-like can be switched off here.</Muted>
         <Muted>{AERIAL_CREDIT}</Muted>
         <Muted>Every hole uses a stylized 2023 aerial. It is not a true-colour photo and not current conditions. Sample numbers stay labeled Sample.</Muted>
@@ -79,6 +78,8 @@ export default function MoreScreen() {
         <Muted>{dbStatus}</Muted>
         {founderTools ? <Muted>{`${displayName}. Caddie ${caddieName}, ${personalityLabel}.`}</Muted> : <Muted>Public shell.</Muted>}
       </Card>
+      <Button label="Send feedback" tone="ghost" onPress={() => router.push('/feedback')} />
+      <Button label="Privacy" tone="ghost" onPress={() => router.push('/privacy')} />
       {founderTools ? <Button label="Founder verification" tone="ghost" onPress={() => router.push('/founder')} /> : null}
       <Button
         label={armed ? 'Clear scores' : 'New round'}
@@ -101,4 +102,5 @@ export default function MoreScreen() {
 const styles = StyleSheet.create({
   back: { alignSelf: 'flex-start', minWidth: 44, minHeight: 44, justifyContent: 'center', paddingRight: 12 },
   backText: { color: colors.navy, fontSize: 17, fontWeight: '800' },
+  group: { color: colors.navy, fontSize: 16, fontWeight: '800', marginTop: 16, marginBottom: 8 },
 });
