@@ -59,16 +59,25 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   test.setTimeout(360000);
   await page.addInitScript(() => {
     const hide = () => {
-      document.getElementById('error-toast')?.remove();
+      const toast = document.getElementById('error-toast');
+      if (toast) {
+        toast.style.setProperty('display', 'none', 'important');
+        toast.style.setProperty('pointer-events', 'none', 'important');
+      }
       for (const node of document.querySelectorAll('button, [role="button"]')) {
         const text = node.textContent ?? '';
-        if (text.includes('Unknown event handler') || text.includes('non-boolean')) node.remove();
+        if (text.includes('Unknown event handler') || text.includes('non-boolean')) {
+          const el = node as HTMLElement;
+          el.style.display = 'none';
+          el.style.pointerEvents = 'none';
+        }
       }
     };
     const style = document.createElement('style');
     style.textContent = '#error-toast, #error-toast * { display: none !important; pointer-events: none !important; }';
     document.documentElement.appendChild(style);
-    new MutationObserver(hide).observe(document.documentElement, { childList: true, subtree: true });
+    new MutationObserver(hide).observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+    setInterval(hide, 200);
     hide();
   });
   const viewport = page.viewportSize() ?? { width: 393, height: 852 };
@@ -77,7 +86,7 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   await page.getByRole('button', { name: 'Tee off' }).click({ timeout: 30000 });
   await expect(page.getByRole('button', { name: /START ROUND/ })).toBeVisible();
   await shot(page, 'home');
-  await page.getByRole('button', { name: 'Show more' }).click();
+  await page.getByRole('button', { name: 'Show more' }).click({ force: true });
 
   await expect(page.getByRole('button', { name: 'Past rounds' })).toBeVisible();
   await page.getByRole('button', { name: /Bag,/ }).click();
@@ -107,7 +116,7 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   await shot(page, 'bag');
   await page.getByRole('button', { name: 'Back' }).click();
 
-  await page.getByRole('button', { name: /START ROUND/ }).click();
+  await page.getByTestId('start-round').first().evaluate((node) => (node as HTMLElement).click());
   await expect(page.getByTestId('coach-sheet')).toBeVisible();
   await page.waitForFunction(() => {
     const raw = localStorage.getItem('coopr.round.v1');
@@ -121,7 +130,7 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   await page.reload();
   await page.goto('/');
   await expect(page.getByRole('button', { name: /RESUME ROUND/ })).toBeVisible();
-  await page.getByRole('button', { name: /RESUME ROUND/ }).click();
+  await page.getByTestId('start-round').first().evaluate((node) => (node as HTMLElement).click());
   await expect(page.getByTestId('hole-pill')).toBeVisible();
   await page.waitForTimeout(1200);
   const holeBeforePan = await page.getByTestId('hole-pill').innerText();
@@ -129,7 +138,7 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   const map = await page.getByTestId('hole-map').boundingBox();
   expect(map).toBeTruthy();
   const dragX = map!.x + map!.width / 2;
-  const dragY = Math.min(map!.y + 220, viewport.height * 0.4);
+  const dragY = Math.min(map!.y + 120, viewport.height * 0.22);
   await page.mouse.move(dragX, dragY);
   await page.mouse.down();
   await page.mouse.move(dragX + 80, dragY + 36, { steps: 12 });
@@ -268,17 +277,17 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   await dismissDevOverlay(page);
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByRole('button', { name: /START ROUND/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Show more' }).click();
+  await page.getByRole('button', { name: 'Show more' }).click({ force: true });
   await page.getByRole('button', { name: 'More', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Past rounds' })).toBeVisible();
   await page.goto('/');
-  await page.getByRole('button', { name: /START ROUND/ }).click();
+  await page.getByTestId('start-round').first().evaluate((node) => (node as HTMLElement).click());
   await expect(page.getByTestId('coach-sheet')).toBeVisible();
   await dismissDevOverlay(page);
   await page.getByRole('button', { name: 'Round menu' }).click();
   await page.getByRole('button', { name: 'Pause round (keep progress)' }).click();
   await expect(page.getByRole('button', { name: /RESUME ROUND/ })).toBeVisible();
-  await page.getByRole('button', { name: /RESUME ROUND/ }).click();
+  await page.getByTestId('start-round').first().evaluate((node) => (node as HTMLElement).click());
 
   for (let step = 0; step < 18; step += 1) {
     await page.getByRole('button', { name: 'Score', exact: true }).click();

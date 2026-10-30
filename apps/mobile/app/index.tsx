@@ -211,46 +211,34 @@ export default function HomeScreen() {
     sheetH.value = height;
   }, [sheets.peek, sheets.half, sheets.full, sheetH]);
 
-  const flyStart = useRef<number | null>(null);
+  const flyStart = useRef<{ x: number; y: number } | null>(null);
   const nudgeHole = (dx: number) => {
-    if (dx <= -48) setPreviewHole((hole) => Math.min(18, (hole ?? viewHoleRef.current) + 1));
-    else if (dx >= 48) setPreviewHole((hole) => Math.max(1, (hole ?? viewHoleRef.current) - 1));
+    if (dx <= -120) setPreviewHole((hole) => Math.min(18, (hole ?? viewHoleRef.current) + 1));
+    else if (dx >= 120) setPreviewHole((hole) => Math.max(1, (hole ?? viewHoleRef.current) - 1));
   };
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const node = document.querySelector('[data-testid="flyover-layer"]');
-    if (!(node instanceof HTMLElement)) return;
     const down = (event: MouseEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest('[role="button"], input, textarea, a')) return;
       setFlyPaused(true);
-      flyStart.current = event.clientX;
+      flyStart.current = { x: event.clientX, y: event.clientY };
     };
     const up = (event: MouseEvent) => {
       const start = flyStart.current;
       flyStart.current = null;
       setFlyPaused(false);
       if (start == null) return;
-      nudgeHole(event.clientX - start);
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      if (Math.abs(dx) < 120 || Math.abs(dx) < Math.abs(dy)) return;
+      nudgeHole(dx);
     };
-    const touchStart = (event: TouchEvent) => {
-      setFlyPaused(true);
-      flyStart.current = event.changedTouches[0]?.clientX ?? null;
-    };
-    const touchEnd = (event: TouchEvent) => {
-      const start = flyStart.current;
-      flyStart.current = null;
-      setFlyPaused(false);
-      const end = event.changedTouches[0]?.clientX;
-      if (start != null && end != null) nudgeHole(end - start);
-    };
-    node.addEventListener('mousedown', down);
-    node.addEventListener('mouseup', up);
-    node.addEventListener('touchstart', touchStart);
-    node.addEventListener('touchend', touchEnd);
+    document.addEventListener('mousedown', down);
+    document.addEventListener('mouseup', up);
     return () => {
-      node.removeEventListener('mousedown', down);
-      node.removeEventListener('mouseup', up);
-      node.removeEventListener('touchstart', touchStart);
-      node.removeEventListener('touchend', touchEnd);
+      document.removeEventListener('mousedown', down);
+      document.removeEventListener('mouseup', up);
     };
   }, []);
 
@@ -558,7 +546,7 @@ function TeeRow({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: fieldNavy },
-  flyover: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 1 },
+  flyover: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 1, pointerEvents: 'none' },
   suggested: { position: 'absolute', left: 16, zIndex: 6, backgroundColor: '#02060E', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   suggestedText: { color: '#FFFFFF', fontFamily: font.family, fontSize: 12, lineHeight: 16, fontWeight: '700' },
   pillHit: { position: 'absolute', left: 12, right: 64, zIndex: 6, minHeight: 44, justifyContent: 'center' },
