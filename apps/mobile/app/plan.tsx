@@ -47,8 +47,8 @@ export default function PlanScreen() {
 
 const styles = StyleSheet.create({
   hole: { color: colors.navy, fontSize: 22, fontWeight: '800' },
-  row: { flexDirection: 'row', gap: 8 },
-  half: { flex: 1 },
+  row: { flexDirection: 'row', gap: 8, width: '100%' },
+  half: { flex: 1, minWidth: 0 },
   input: {
     color: colors.navy,
     backgroundColor: colors.white,

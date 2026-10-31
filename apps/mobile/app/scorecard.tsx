@@ -19,11 +19,18 @@ function lastMark(tagged: readonly { hole: number; result: string }[], hole: num
   return hits.length === 0 ? '—' : hits[hits.length - 1]!.result;
 }
 
+function stepCount(current: number | null, direction: 'down' | 'up'): number | null {
+  if (direction === 'down') return current == null || current <= 0 ? null : current - 1;
+  return current == null ? 1 : Math.min(99, current + 1);
+}
+
 export default function ScorecardScreen() {
-  const { holes, setStrokes, score, photoScorecards, putts, setPutts, tagged } = useLocalStore();
+  const { holes, setStrokes, score, photoScorecards, putts, setPutts, penalties, setPenalties, tagged } = useLocalStore();
   const pars = pilot.record.scorecard;
   const knownPutts = putts.filter((count): count is number => count != null);
   const puttSum = knownPutts.reduce((sum, count) => sum + count, 0);
+  const knownPenalties = penalties.filter((count): count is number => count != null);
+  const penaltySum = knownPenalties.reduce((sum, count) => sum + count, 0);
 
   return (
     <Screen>
@@ -33,7 +40,8 @@ export default function ScorecardScreen() {
         <Text style={styles.gross}>{score.holesEntered === 0 ? 'No strokes entered' : `Gross ${score.gross}`}</Text>
         <Muted>{`Front ${holes.slice(0, 9).some((strokes) => strokes != null) ? score.front : '—'} · Back ${holes.slice(9).some((strokes) => strokes != null) ? score.back : '—'} · Holes with a score ${score.holesEntered}`}</Muted>
         <Muted>{knownPutts.length === 0 ? 'Putts —' : `Putts ${puttSum} over ${knownPutts.length} holes`}</Muted>
-        <Muted>Putts are not added to the score. A blank putt is not zero. The last result is the last tag on that hole.</Muted>
+        <Muted>{knownPenalties.length === 0 ? 'Penalties —' : `Penalties ${penaltySum} over ${knownPenalties.length} holes`}</Muted>
+        <Muted>Putts and penalties are not added to the score. A blank is not zero. The last result is the last tag on that hole.</Muted>
         <Muted>Handicap is unknown. An estimate is not an official GHIN Handicap Index.</Muted>
       </Card>
       {photoScorecards.map((card) => (
@@ -58,14 +66,12 @@ export default function ScorecardScreen() {
               <Choice label="−" accessibilityLabel={`Hole ${index + 1} score minus`} selected={false} onPress={() => setStrokes(index + 1, strokes == null || strokes <= 1 ? null : strokes - 1)} />
               <Choice label="+" accessibilityLabel={`Hole ${index + 1} score plus`} selected={false} onPress={() => setStrokes(index + 1, (strokes ?? 0) + 1)} />
             </View>
-            <Text style={styles.extra}>{`Putts ${putts[index] ?? '—'} · ${lastMark(tagged, index + 1)}`}</Text>
+            <Text style={styles.extra}>{`Putts ${putts[index] ?? '—'} · Pen ${penalties[index] ?? '—'} · ${lastMark(tagged, index + 1)}`}</Text>
             <View style={styles.row}>
-              <Choice
-                label="Putt −"
-                selected={false}
-                onPress={() => setPutts(index + 1, putts[index] == null ? null : putts[index]! <= 0 ? null : putts[index]! - 1)}
-              />
-              <Choice label="Putt +" selected={false} onPress={() => setPutts(index + 1, putts[index] == null ? 1 : Math.min(99, putts[index]! + 1))} />
+              <Choice label="Putt −" selected={false} onPress={() => setPutts(index + 1, stepCount(putts[index] ?? null, 'down'))} />
+              <Choice label="Putt +" selected={false} onPress={() => setPutts(index + 1, stepCount(putts[index] ?? null, 'up'))} />
+              <Choice label="Pen −" selected={false} onPress={() => setPenalties(index + 1, stepCount(penalties[index] ?? null, 'down'))} />
+              <Choice label="Pen +" selected={false} onPress={() => setPenalties(index + 1, stepCount(penalties[index] ?? null, 'up'))} />
             </View>
           </View>
         );
@@ -85,20 +91,12 @@ export default function ScorecardScreen() {
               <Choice label="−" accessibilityLabel={`Hole ${holeNumber} score minus`} selected={false} onPress={() => setStrokes(holeNumber, strokes == null || strokes <= 1 ? null : strokes - 1)} />
               <Choice label="+" accessibilityLabel={`Hole ${holeNumber} score plus`} selected={false} onPress={() => setStrokes(holeNumber, (strokes ?? 0) + 1)} />
             </View>
-            <Text style={styles.extra}>{`Putts ${putts[holeNumber - 1] ?? '—'} · ${lastMark(tagged, holeNumber)}`}</Text>
+            <Text style={styles.extra}>{`Putts ${putts[holeNumber - 1] ?? '—'} · Pen ${penalties[holeNumber - 1] ?? '—'} · ${lastMark(tagged, holeNumber)}`}</Text>
             <View style={styles.row}>
-              <Choice
-                label="Putt −"
-                selected={false}
-                onPress={() =>
-                  setPutts(holeNumber, putts[holeNumber - 1] == null ? null : putts[holeNumber - 1]! <= 0 ? null : putts[holeNumber - 1]! - 1)
-                }
-              />
-              <Choice
-                label="Putt +"
-                selected={false}
-                onPress={() => setPutts(holeNumber, putts[holeNumber - 1] == null ? 1 : Math.min(99, putts[holeNumber - 1]! + 1))}
-              />
+              <Choice label="Putt −" selected={false} onPress={() => setPutts(holeNumber, stepCount(putts[holeNumber - 1] ?? null, 'down'))} />
+              <Choice label="Putt +" selected={false} onPress={() => setPutts(holeNumber, stepCount(putts[holeNumber - 1] ?? null, 'up'))} />
+              <Choice label="Pen −" selected={false} onPress={() => setPenalties(holeNumber, stepCount(penalties[holeNumber - 1] ?? null, 'down'))} />
+              <Choice label="Pen +" selected={false} onPress={() => setPenalties(holeNumber, stepCount(penalties[holeNumber - 1] ?? null, 'up'))} />
             </View>
           </View>
         );
@@ -111,7 +109,7 @@ export default function ScorecardScreen() {
 const styles = StyleSheet.create({
   gross: { color: colors.navy, fontSize: 36, fontWeight: '800' },
   nine: { color: colors.navy, fontSize: 24, fontWeight: '800', marginTop: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingVertical: 4, maxWidth: '100%' },
   hole: { color: colors.navy, width: 28, fontSize: 20, fontWeight: '800' },
   par: { color: colors.muted, width: 64, fontSize: 16 },
   strokes: { color: colors.navy, width: 36, fontSize: 28, fontWeight: '800', textAlign: 'center' },

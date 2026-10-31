@@ -25,13 +25,15 @@ function blank(value: string | null): string {
 }
 
 export default function ImportScreen() {
-  const { photoExisting, savePhotoImport } = useLocalStore();
+  const { photoExisting, savePhotoImport, founderTools } = useLocalStore();
   const [items, setItems] = useState<PhotoReviewItem[] | null>(null);
   const [notes, setNotes] = useState<string[]>([]);
   const [banner, setBanner] = useState(
     extractionUrl()
       ? 'Photos go to the extraction server and are not kept there. You review every number before it is saved.'
-      : 'No extraction server is set. Camera and library will not pretend to read a photo. The sample below is a fixture.',
+      : founderTools
+        ? 'No extraction server is set. Camera and library will not pretend to read a photo. The sample below is a fixture.'
+        : 'No extraction server is set. Camera and library will not pretend to read a photo. The photo stays on this phone.',
   );
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
@@ -58,7 +60,11 @@ export default function ImportScreen() {
   const pick = async (kind: 'camera' | 'library') => {
     setSaved('');
     if (!extractionUrl()) {
-      setBanner('No extraction server is set on this build. The photo stays on this phone and was not read. Use Review a sample extraction to try the screen.');
+      setBanner(
+        founderTools
+          ? 'No extraction server is set on this build. The photo stays on this phone and was not read. Use Review a sample extraction to try the screen.'
+          : 'No extraction server is set on this build. The photo stays on this phone and was not read.',
+      );
       return;
     }
     setBusy(true);
@@ -175,7 +181,7 @@ export default function ImportScreen() {
       </Card>
       <Button label={busy ? 'Reading…' : 'Take a photo'} onPress={() => void pick('camera')} />
       <Button label="Choose from the library" tone="ghost" onPress={() => void pick('library')} />
-      <Button label="Review a sample extraction" tone="ghost" onPress={openSample} />
+      {founderTools ? <Button label="Review a sample extraction" tone="ghost" onPress={openSample} /> : null}
       {saved ? (
         <Card>
           <Muted>{saved}</Muted>

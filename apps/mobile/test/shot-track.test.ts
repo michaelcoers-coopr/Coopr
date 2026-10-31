@@ -1,0 +1,86 @@
+import { describe, expect, it } from 'vitest';
+import { budgetAllows, budgetMonth, corsHeaders, MONTHLY_BUDGET_CENTS, secretOk, upstashAllow, upstashCharge } from '../src/api-guard';
+import { clubCarryLine, keepShot, measuredAverage, measuredLine, MIN_MEASURED_SHOTS, shouldSpeak, yardsBetween } from '../src/shots/track';
+
+describe('shot distances', () => {
+  it('measures about 122 yards for 0.001 degrees of latitude', () => {
+    const yards = yardsBetween({ lat: 47.11, lon: -122.24 }, { lat: 47.111, lon: -122.24 });
+    expect(yards).toBeGreaterThan(100);
+    expect(yards).toBeLessThan(140);
+  });
+
+  it('drops an outlier and waits for five clean shots before a measured average', () => {
+    expect(keepShot(10, [])).toBe(false);
+    expect(keepShot(150, [140, 145, 150])).toBe(true);
+    expect(keepShot(400, [140, 145, 150])).toBe(false);
+    expect(measuredAverage([140, 145, 150, 148])).toBeNull();
+    const ready = measuredAverage([140, 145, 150, 148, 142, 400]);
+    expect(ready?.count).toBe(MIN_MEASURED_SHOTS);
+    expect(ready?.yards).toBeGreaterThan(140);
+    expect(ready?.yards).toBeLessThan(150);
+    expect(measuredLine('7 iron', ready!)).toBe(`7 iron carries ${ready!.yards}, from ${ready!.count} shots.`);
+    const driver = Array.from({ length: 11 }, () => 294);
+    expect(clubCarryLine('5 iron', driver, 168)).toBe('5 iron carries 294, from 11 shots.');
+    expect(clubCarryLine('5 iron', [150], 168)).toBe('Estimated. 5 iron carries about 168.');
+    expect(clubCarryLine('Driver', driver, 230)).toBe('Driver carries 294, from 11 shots.');
+  });
+
+  it('does not speak a muted caddie', () => {
+    expect(shouldSpeak(false)).toBe(true);
+    expect(shouldSpeak(true)).toBe(false);
+  });
+});
+
+describe('caddie server guards', () => {
+  it('matches a shared secret only when one is configured', () => {
+    expect(secretOk(null, undefined)).toBe(false);
+    expect(secretOk(null, '')).toBe(false);
+    expect(secretOk('nope', 'desk-secret')).toBe(false);
+    expect(secretOk('desk-secret', 'desk-secret')).toBe(true);
+    expect(secretOk('desk-secret-long', 'desk-secret')).toBe(false);
+  });
+
+  it('echoes an allowed origin and never a wildcard', () => {
+    const headers = corsHeaders('https://play.coopr.app', 'https://play.coopr.app, http://localhost:8081');
+    expect(headers['access-control-allow-origin']).toBe('https://play.coopr.app');
+    expect(JSON.stringify(headers)).not.toContain('*');
+    expect(corsHeaders('https://evil.example', 'https://play.coopr.app')['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('stops the month at 100 dollars', () => {
+    expect(budgetAllows(0)).toBe(true);
+    expect(budgetAllows(MONTHLY_BUDGET_CENTS - 1)).toBe(false);
+    expect(budgetAllows(MONTHLY_BUDGET_CENTS)).toBe(false);
+    expect(budgetMonth(new Date('2026-10-29T00:00:00Z'))).toBe('2026-10');
+  });
+
+  it('refuses the 21st Upstash increment', async () => {
+    const calls: string[] = [];
+    const fetchImpl = (async (url: string) => {
+      calls.push(String(url));
+      return new Response(JSON.stringify([{ result: 21 }]), { status: 200 });
+    }) as typeof fetch;
+    expect(await upstashAllow(fetchImpl, 'https://example.upstash.io', 'token', 'caddie:1', 20)).toBe(false);
+    expect(calls[0]).toContain('/pipeline');
+  });
+
+  it('keeps the hundred-dollar month in Upstash and fails closed', async () => {
+    const bodies: string[] = [];
+    const fetchImpl = (async (_url: string, init?: RequestInit) => {
+      bodies.push(String(init?.body ?? ''));
+      return new Response(JSON.stringify([{ result: 2 }]), { status: 200 });
+    }) as typeof fetch;
+    expect(await upstashCharge(fetchImpl, 'https://example.upstash.io/', 'token', 'caddie-budget:2026-10', 2, MONTHLY_BUDGET_CENTS)).toBe(true);
+    expect(bodies[0]).toContain('INCRBY');
+    expect(bodies[0]).toContain('caddie-budget:2026-10');
+    const over = (async () => new Response(JSON.stringify([{ result: MONTHLY_BUDGET_CENTS + 2 }]), { status: 200 })) as typeof fetch;
+    expect(await upstashCharge(over, 'https://example.upstash.io', 'token', 'caddie-budget:2026-10', 2, MONTHLY_BUDGET_CENTS)).toBe(false);
+    const down = (async () => new Response('no', { status: 500 })) as typeof fetch;
+    expect(await upstashCharge(down, 'https://example.upstash.io', 'token', 'caddie-budget:2026-10', 2, MONTHLY_BUDGET_CENTS)).toBe(false);
+    const broken = (async () => {
+      throw new Error('upstash down');
+    }) as typeof fetch;
+    expect(await upstashCharge(broken, 'https://example.upstash.io', 'token', 'caddie-budget:2026-10', 2, MONTHLY_BUDGET_CENTS)).toBe(false);
+    expect(await upstashAllow(broken, 'https://example.upstash.io', 'token', 'caddie:1', 20)).toBe(false);
+  });
+});

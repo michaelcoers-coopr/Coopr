@@ -24,6 +24,21 @@
         "APP_VARIANT": "production",
         "EXPO_PUBLIC_FOUNDER_TOOLS": "0"
       }
+    },
+    "beta": {
+      "distribution": "store",
+      "channel": "beta",
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "production",
+        "EXPO_PUBLIC_FOUNDER_TOOLS": "0",
+        "EXPO_PUBLIC_EXTRACT_URL": "https://REPLACE-WITH-EAS-HOSTING-ORIGIN.expo.app",
+        "EXPO_PUBLIC_CADDIE_SECRET": "REPLACE-WITH-CADDIE-SECRET",
+        "EXPO_PUBLIC_FEEDBACK_EMAIL": "REPLACE-WITH-FEEDBACK-EMAIL@example.com"
+      },
+      "ios": {
+        "simulator": false
+      }
     }
   },
   "submit": {
@@ -31,6 +46,9 @@
       "ios": {}
     },
     "production": {
+      "ios": {}
+    },
+    "beta": {
       "ios": {}
     }
   }

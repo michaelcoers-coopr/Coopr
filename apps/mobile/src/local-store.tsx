@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { PERSONALITY_LABELS, type CaddiePersonality, type EnvironmentName } from '@coopr/domain';
 import {
   buildProfiles,
@@ -16,10 +16,19 @@ import {
   type PhotoReviewItem,
   type WedgeLength,
 } from '@coopr/engine';
+import { analyze } from '@coopr/analysis';
+import { calendarDate } from '@coopr/games';
+import { loadHighCedarsPilot } from '@coopr/course';
 import { loadFounderDataset, profilesFromFounder } from '@coopr/seed';
+import { archiveRound, readArchive, readLastFix, writeLastFix } from './analysis/archive';
+import { openRound, storedShots, toEngine } from './analysis/from-round';
+import { DEFAULT_VOICE, parseVoice, VOICE_LABELS, type CaddieVoice } from './design/caddie-voice';
+import { bagSubscriptionUpdate } from './device/bag-sync';
+import { dropLastMeasuredShot, hydrateDevice, readDevice, readPlayerFit, reviseMeasuredShot, subscribeDevice, writePlayerBag, writePlayerFit, writePlayerSettings } from './device-store';
+import { playingFromBag, type PlayingClubView } from './device/snapshot';
 import { FOUNDER_TOOLS_ENABLED } from './founder-flag';
 import { hasWebStorage, readRound, readRoundSync, writeRound } from './round-save-io';
-import { EMPTY_PUTTS, FRESH_CONDITIONS, type RoundConditions, type RoundSave, type SavedLie, type SavedMark } from './round-save';
+import { EMPTY_FAIRWAYS, EMPTY_GIRS, EMPTY_PUTTS, FRESH_CONDITIONS, type RoundConditions, type RoundSave, type SavedLie, type SavedMark } from './round-save';
 
 export type { DistanceUnit };
 export type LandingResult = 'fairway' | 'left' | 'right' | 'short' | 'rough' | 'green' | 'hazard';
@@ -102,7 +111,13 @@ interface FounderShell {
 
 function loadShell(): FounderShell | null {
   if (!FOUNDER_TOOLS_ENABLED) return null;
-  const dataset = loadFounderDataset();
+  let dataset: ReturnType<typeof loadFounderDataset>;
+  try {
+    dataset = loadFounderDataset();
+  } catch {
+    // A friend web bundle stubs this module. The home screen still renders.
+    return null;
+  }
   const inPlay = dataset.bags.find((bag) => bag.kind === 'in_play');
   const testing = dataset.bags.find((bag) => bag.kind === 'testing');
   const clubs: PlayingClub[] = [];
@@ -134,6 +149,7 @@ function loadShell(): FounderShell | null {
 }
 
 const SHELL = loadShell();
+const analysisCourse = loadHighCedarsPilot();
 
 interface LocalStore {
   founderTools: boolean;
@@ -141,6 +157,9 @@ interface LocalStore {
   caddieName: string;
   personality: CaddiePersonality;
   personalityLabel: string;
+  voice: CaddieVoice;
+  voiceLabel: string;
+  setVoice: (voice: CaddieVoice) => void;
   bagStatus: 'provisional' | 'confirmed' | null;
   bagNote: string | null;
   clubs: PlayingClub[];
@@ -164,7 +183,7 @@ interface LocalStore {
   unit: DistanceUnit;
   setUnit: (unit: DistanceUnit) => void;
   currentHole: number;
-  setCurrentHole: (hole: number) => void;
+  setCurrentHole: (hole: number | ((current: number) => number)) => void;
   manualYards: Readonly<Record<number, number | null>>;
   setManualYards: (hole: number, yards: number | null) => void;
   tagged: readonly TaggedShot[];
@@ -180,11 +199,30 @@ interface LocalStore {
   setWedgeCarry: (clubId: string, length: WedgeLength, yards: number | null) => void;
   putts: readonly (number | null)[];
   setPutts: (hole: number, count: number | null) => void;
+  penalties: readonly (number | null)[];
+  setPenalties: (hole: number, count: number | null) => void;
+  fairways: readonly ('hit' | 'left' | 'right' | 'short' | 'long' | null)[];
+  setFairway: (hole: number, result: 'hit' | 'left' | 'right' | 'short' | 'long' | null) => void;
+  girs: readonly (boolean | null)[];
+  setGir: (hole: number, hit: boolean | null) => void;
   marks: readonly SavedMark[];
   recordMark: (mark: { hole: number; lat: number; lon: number; clubId: string | null; clubLabel: string | null; close: { yards: number; lie: SavedLie | null } | null }) => void;
+  dropLastMark: () => void;
+  deleteLastShot: () => void;
+  adjustLastShot: (delta: number) => void;
+  setLastShotYards: (yards: number) => void;
+  reassignLastShot: (clubId: string, clubLabel: string) => void;
+  reassignShot: (markId: string, clubId: string, clubLabel: string) => void;
   conditions: RoundConditions;
   setConditions: (patch: Partial<RoundConditions>) => void;
   startNewRound: () => void;
+  /** Stores the open card in Past rounds without clearing the hole. */
+  finishRound: (patch?: { hole: number; strokes: number; putts: number; penalties: number; fairway: 'hit' | 'left' | 'right' | 'short' | 'long' | null; gir: boolean | null }) => void;
+  inProgress: boolean;
+  /** Remember that a round was opened, even on hole 1 with no score. */
+  markRoundStarted: () => void;
+  onboarded: boolean;
+  finishOnboarding: (entry: { name: string; handicap: number | null; driverSpeed: number | null }) => void;
 }
 
 const Ctx = createContext<LocalStore | null>(null);
@@ -312,6 +350,13 @@ function applyConfirmed(
   };
 }
 
+function samePlaying(current: readonly PlayingClub[], next: readonly PlayingClubView[]): boolean {
+  return current.length === next.length && current.every((club, index) => {
+    const other = next[index];
+    return !!other && club.id === other.id && club.label === other.label && club.slot === other.slot && club.note === other.note;
+  });
+}
+
 function placeClub(current: PlayingClub[], club: PlayingClub): PlayingClub[] {
   if (current.some((item) => item.id === club.id)) return current;
   const inPlay = current.filter((item) => item.slot === 'in_play').length;
@@ -330,30 +375,84 @@ function plansFrom(save: RoundSave | null): Record<number, { clubLabel: string; 
   return Object.fromEntries(Object.entries(save.plans).map(([hole, plan]) => [Number(hole), plan]));
 }
 
-export function LocalStoreProvider({ children }: { children: ReactNode }) {
-  const [boot] = useState(readRoundSync);
-  const [hydrated, setHydrated] = useState(hasWebStorage());
-  const [shots, setShots] = useState<LocalShot[]>(boot?.localShots ?? []);
+function applySavedRound(
+  save: RoundSave | null,
+  apply: {
+    setShots: (shots: LocalShot[]) => void;
+    setHoles: (holes: Array<number | null>) => void;
+    setUnit: (unit: DistanceUnit) => void;
+    setCurrentHole: (hole: number) => void;
+    setManual: (yards: Record<number, number | null>) => void;
+    setTagged: (shots: TaggedShot[]) => void;
+    setPlans: (plans: Record<number, { clubLabel: string; target: string }>) => void;
+    setDebriefs: (debriefs: Array<{ hole: number; choice: 'plan' | 'swing'; note: string }>) => void;
+    setWedges: (wedges: Record<string, Partial<Record<WedgeLength, number | null>>>) => void;
+    setPutts: (putts: Array<number | null>) => void;
+    setPenalties: (penalties: Array<number | null>) => void;
+    setFairways: (fairways: RoundSave['fairways']) => void;
+    setGirs: (girs: RoundSave['girs']) => void;
+    setMarks: (marks: SavedMark[]) => void;
+    setConditionsState: (conditions: RoundConditions) => void;
+    setInProgress: (started: boolean) => void;
+  },
+) {
+  if (!save) return;
+  apply.setShots(save.localShots);
+  apply.setHoles(save.holes);
+  apply.setUnit(save.unit);
+  apply.setCurrentHole(save.currentHole);
+  apply.setManual(manualFrom(save));
+  apply.setTagged(save.tagged);
+  apply.setPlans(plansFrom(save));
+  apply.setDebriefs(save.debriefs);
+  apply.setWedges(save.wedges);
+  apply.setPutts(save.putts);
+  apply.setPenalties(save.penalties);
+  apply.setFairways(save.fairways);
+  apply.setGirs(save.girs);
+  apply.setMarks(save.marks);
+  apply.setConditionsState(save.conditions);
+  apply.setInProgress(save.inProgress);
+}
+
+export function LocalStoreProvider({ children, fallback = null }: { children: ReactNode; fallback?: ReactNode }) {
+  // Server rendering has no localStorage. Reading it in useState made the
+  // server paint nothing and the browser paint the round, which is the
+  // hydration mismatch. Both sides start empty; the effect fills the round.
+  const [hydrated, setHydrated] = useState(false);
+  const [shots, setShots] = useState<LocalShot[]>([]);
   const [reportedAverages, setReportedAverages] = useState<ReportedAverage[]>([]);
   const [photoScorecards, setPhotoScorecards] = useState<PhotoScorecard[]>([]);
   const [keptPhotos, setKeptPhotos] = useState<KeptPhoto[]>([]);
   const [knownClubs, setKnownClubs] = useState<ExistingPhotoRecords['clubs']>([]);
-  const [holes, setHoles] = useState<Array<number | null>>(boot?.holes ?? EMPTY_HOLES);
+  const [holes, setHoles] = useState<Array<number | null>>(EMPTY_HOLES);
   const [clubs, setClubs] = useState<PlayingClub[]>(SHELL?.clubs ?? []);
+  const [displayName, setDisplayName] = useState(SHELL?.displayName ?? '');
+  const [onboarded, setOnboarded] = useState(false);
   const [bagMessage, setBagMessage] = useState('');
   const [courseReviews, setCourseReviews] = useState<Record<number, 'verified' | 'rejected'>>({});
-  const [unit, setUnit] = useState<DistanceUnit>(boot?.unit ?? 'yd');
-  const [currentHole, setCurrentHole] = useState(boot?.currentHole ?? 1);
-  const [manualYards, setManual] = useState<Record<number, number | null>>(manualFrom(boot));
-  const [tagged, setTagged] = useState<TaggedShot[]>(boot?.tagged ?? []);
+  const [unit, setUnit] = useState<DistanceUnit>('yd');
+  const [currentHole, setCurrentHole] = useState(1);
+  const [manualYards, setManual] = useState<Record<number, number | null>>({});
+  const [tagged, setTagged] = useState<TaggedShot[]>([]);
   const [caddieName, setCaddieName] = useState(SHELL?.caddieName ?? 'COOPR');
   const [personality, setPersonality] = useState<CaddiePersonality>(SHELL?.personality ?? 'funny_knowledgeable');
-  const [plans, setPlans] = useState<Record<number, { clubLabel: string; target: string }>>(plansFrom(boot));
-  const [debriefs, setDebriefs] = useState<Array<{ hole: number; choice: 'plan' | 'swing'; note: string }>>(boot?.debriefs ?? []);
-  const [wedges, setWedges] = useState<Record<string, Partial<Record<WedgeLength, number | null>>>>(boot?.wedges ?? {});
-  const [putts, setPutts] = useState<Array<number | null>>(boot?.putts ?? [...EMPTY_PUTTS]);
-  const [marks, setMarks] = useState<SavedMark[]>(boot?.marks ?? []);
-  const [conditions, setConditionsState] = useState<RoundConditions>(boot?.conditions ?? { ...FRESH_CONDITIONS });
+  const [voice, setVoiceState] = useState<CaddieVoice>(DEFAULT_VOICE);
+  const [plans, setPlans] = useState<Record<number, { clubLabel: string; target: string }>>({});
+  const [debriefs, setDebriefs] = useState<Array<{ hole: number; choice: 'plan' | 'swing'; note: string }>>([]);
+  const [wedges, setWedges] = useState<Record<string, Partial<Record<WedgeLength, number | null>>>>({});
+  const [putts, setPutts] = useState<Array<number | null>>([...EMPTY_PUTTS]);
+  const [penalties, setPenalties] = useState<Array<number | null>>([...EMPTY_PUTTS]);
+  const [fairways, setFairways] = useState<RoundSave['fairways']>([...EMPTY_FAIRWAYS]);
+  const [girs, setGirs] = useState<RoundSave['girs']>([...EMPTY_GIRS]);
+  const [marks, setMarks] = useState<SavedMark[]>([]);
+  const [conditions, setConditionsState] = useState<RoundConditions>({ ...FRESH_CONDITIONS });
+  const [inProgress, setInProgress] = useState(false);
+  const roundArchived = useRef(false);
+
+  const markRoundStarted = useCallback(() => {
+    setInProgress((current) => (current ? current : true));
+  }, []);
 
   const value = useMemo<LocalStore>(() => {
     const observations: DistanceObservation[] = [];
@@ -373,10 +472,17 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
     const entered = holes.flatMap((strokes, index) => (strokes == null ? [] : [{ hole: index + 1, strokes }]));
     return {
       founderTools: FOUNDER_TOOLS_ENABLED,
-      displayName: SHELL?.displayName ?? '',
+      displayName,
       caddieName,
       personality,
       personalityLabel: PERSONALITY_LABELS[personality],
+      voice,
+      voiceLabel: VOICE_LABELS[voice],
+      setVoice: (next) => {
+        const parsed = parseVoice(next);
+        setVoiceState(parsed);
+        writePlayerSettings({ voice: parsed });
+      },
       bagStatus: SHELL?.bagStatus ?? null,
       bagNote: SHELL?.bagNote ?? null,
       clubs,
@@ -390,22 +496,24 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
           return;
         }
         setBagMessage('');
-        setClubs((current) => current.map((club) => (club.id === id ? { ...club, slot } : club)));
+        const next = clubs.map((club) => (club.id === id ? { ...club, slot } : club));
+        setClubs(next);
+        writePlayerBag(next);
       },
       addClub: (label) => {
         const trimmed = label.trim();
         if (!trimmed) return;
-        setClubs((current) => {
-          if (current.some((club) => club.label.toLowerCase() === trimmed.toLowerCase())) {
-            setBagMessage(`${trimmed} is already in the bag.`);
-            return current;
-          }
-          const inPlay = current.filter((club) => club.slot === 'in_play').length;
-          if (inPlay >= 14) {
-            setBagMessage('In-play bag is limited to 14 clubs. The new club was set aside for testing.');
-          } else setBagMessage('');
-          return placeClub(current, { id: trimmed, label: trimmed, slot: 'in_play', note: 'Added on this device' });
-        });
+        if (clubs.some((club) => club.label.toLowerCase() === trimmed.toLowerCase())) {
+          setBagMessage(`${trimmed} is already in the bag.`);
+          return;
+        }
+        const inPlay = clubs.filter((club) => club.slot === 'in_play').length;
+        if (inPlay >= 14) {
+          setBagMessage('In-play bag is limited to 14 clubs. The new club was set aside for testing.');
+        } else setBagMessage('');
+        const next = placeClub(clubs, { id: trimmed, label: trimmed, slot: 'in_play', note: 'Added on this device' });
+        setClubs(next);
+        writePlayerBag(next);
       },
       shots,
       addShot: (shot) =>
@@ -438,13 +546,12 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
             capturedOn: null,
           })),
         ]);
-        setClubs((current) => {
-          let next = current;
-          for (const shot of result.shots) {
-            next = placeClub(next, { id: shot.clubLabel, label: shot.clubLabel, slot: 'in_play', note: 'CSV import on this device' });
-          }
-          return next;
-        });
+        const nextClubs = result.shots.reduce(
+          (next, shot) => placeClub(next, { id: shot.clubLabel, label: shot.clubLabel, slot: 'in_play', note: 'CSV import on this device' }),
+          clubs,
+        );
+        setClubs(nextClubs);
+        writePlayerBag(nextClubs);
         const imported = `${result.shots.length} shot${result.shots.length === 1 ? '' : 's'} imported.`;
         return [imported, ...result.warnings].join(' ');
       },
@@ -478,7 +585,9 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
         setPhotoScorecards((current) => [...current, ...saved.scorecards]);
         setKeptPhotos((current) => [...current, ...saved.photos]);
         setKnownClubs((current) => [...current, ...saved.clubKeys]);
-        setClubs((current) => saved.clubs.reduce((next, club) => placeClub(next, club), current));
+        const nextClubs = saved.clubs.reduce((next, club) => placeClub(next, club), clubs);
+        setClubs(nextClubs);
+        writePlayerBag(nextClubs);
         if (saved.strokes) setHoles(saved.strokes);
         if (saved.bagMessage) setBagMessage(saved.bagMessage);
         return { saved: true, message: saved.message };
@@ -515,7 +624,12 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
       unit,
       setUnit,
       currentHole,
-      setCurrentHole: (hole) => setCurrentHole(Math.min(18, Math.max(1, hole))),
+      setCurrentHole: (hole) =>
+        setCurrentHole((current) => {
+          const next = typeof hole === 'function' ? hole(current) : hole;
+          if (!Number.isFinite(next)) return current;
+          return Math.min(18, Math.max(1, Math.round(next)));
+        }),
       manualYards,
       setManualYards: (hole, yards) => setManual((current) => ({ ...current, [hole]: yards })),
       tagged,
@@ -562,6 +676,18 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
       setPutts: (hole, count) => {
         setPutts((current) => current.map((value, index) => (index === hole - 1 ? count : value)));
       },
+      penalties,
+      setPenalties: (hole, count) => {
+        setPenalties((current) => current.map((value, index) => (index === hole - 1 ? count : value)));
+      },
+      fairways,
+      setFairway: (hole, result) => {
+        setFairways((current) => current.map((value, index) => (index === hole - 1 ? result : value)));
+      },
+      girs,
+      setGir: (hole, hit) => {
+        setGirs((current) => current.map((value, index) => (index === hole - 1 ? hit : value)));
+      },
       marks,
       recordMark: (mark) => {
         setMarks((current) => {
@@ -588,9 +714,148 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
           return next;
         });
       },
+      dropLastMark: () => {
+        setMarks((current) => current.slice(0, -1));
+      },
+      deleteLastShot: () => {
+        setMarks((current) => {
+          if (current.length === 0) return current;
+          const last = current[current.length - 1]!;
+          const rest = current.slice(0, -1);
+          if (last.yards != null && last.clubId) dropLastMeasuredShot(last.clubId);
+          if (last.yards == null && rest.length > 0) {
+            const prior = rest[rest.length - 1]!;
+            if (prior.hole === last.hole && prior.yards != null) {
+              if (prior.clubId) dropLastMeasuredShot(prior.clubId);
+              rest[rest.length - 1] = { ...prior, yards: null, lie: null };
+            }
+          }
+          return rest;
+        });
+      },
+      adjustLastShot: (delta) => {
+        setMarks((current) => {
+          const index = [...current].reverse().findIndex((mark) => mark.yards != null);
+          if (index < 0) return current;
+          const at = current.length - 1 - index;
+          const mark = current[at];
+          if (!mark || mark.yards == null) return current;
+          const yards = Math.max(1, Math.min(400, Math.round(mark.yards + delta)));
+          if (mark.clubId) reviseMeasuredShot({ clubId: mark.clubId, yards: mark.yards }, { clubId: mark.clubId, yards });
+          return current.map((item, itemIndex) => (itemIndex === at ? { ...item, yards } : item));
+        });
+      },
+      setLastShotYards: (yards) => {
+        setMarks((current) => {
+          const index = [...current].reverse().findIndex((mark) => mark.yards != null);
+          if (index < 0) return current;
+          const at = current.length - 1 - index;
+          const mark = current[at];
+          if (!mark || mark.yards == null) return current;
+          const next = Math.max(1, Math.min(400, Math.round(yards)));
+          if (mark.clubId) reviseMeasuredShot({ clubId: mark.clubId, yards: mark.yards }, { clubId: mark.clubId, yards: next });
+          return current.map((item, itemIndex) => (itemIndex === at ? { ...item, yards: next } : item));
+        });
+      },
+      reassignLastShot: (clubId, clubLabel) => {
+        setMarks((current) => {
+          if (!clubId) return current;
+          const openIndex = [...current].reverse().findIndex((mark) => mark.yards == null);
+          const closedIndex = [...current].reverse().findIndex((mark) => mark.yards != null);
+          const index = openIndex >= 0 ? openIndex : closedIndex;
+          if (index < 0) return current;
+          const at = current.length - 1 - index;
+          const mark = current[at];
+          if (!mark) return current;
+          if (mark.yards != null && mark.clubId && mark.clubId !== clubId) {
+            reviseMeasuredShot({ clubId: mark.clubId, yards: mark.yards }, { clubId, yards: mark.yards });
+          }
+          return current.map((item, itemIndex) => (itemIndex === at ? { ...item, clubId, clubLabel } : item));
+        });
+      },
+      reassignShot: (markId, clubId, clubLabel) => {
+        setMarks((current) => {
+          if (!clubId) return current;
+          const mark = current.find((item) => item.id === markId);
+          if (!mark) return current;
+          if (mark.yards != null && mark.clubId && mark.clubId !== clubId) {
+            reviseMeasuredShot({ clubId: mark.clubId, yards: mark.yards }, { clubId, yards: mark.yards });
+          }
+          return current.map((item) => (item.id === markId ? { ...item, clubId, clubLabel } : item));
+        });
+      },
       conditions,
       setConditions: (patch) => setConditionsState((current) => ({ ...current, ...patch })),
+      onboarded,
+      finishOnboarding: (entry) => {
+        const name = entry.name.trim();
+        writePlayerSettings({ onboarded: true, ...(name ? { displayName: name } : {}) });
+        setOnboarded(true);
+        if (name) setDisplayName(name);
+        if (entry.handicap == null && entry.driverSpeed == null) return;
+        const fit = readPlayerFit();
+        writePlayerFit({
+          ...fit,
+          handicapIndex: entry.handicap ?? fit.handicapIndex,
+          handicapQuality: entry.handicap == null ? fit.handicapQuality : 'user_confirmed',
+          driverSpeedMph: entry.driverSpeed ?? fit.driverSpeedMph,
+          speedQuality: entry.driverSpeed == null ? fit.speedQuality : 'user_confirmed',
+        });
+      },
+      inProgress,
+      markRoundStarted,
+      finishRound: (patch) => {
+        if (roundArchived.current) return;
+        const open = openRound({
+          holes: patch ? holes.map((value, index) => (index === patch.hole - 1 ? patch.strokes : value)) : holes,
+          putts: patch ? putts.map((value, index) => (index === patch.hole - 1 ? patch.putts : value)) : putts,
+          penalties: patch ? penalties.map((value, index) => (index === patch.hole - 1 ? patch.penalties : value)) : penalties,
+          fairways: patch ? fairways.map((value, index) => (index === patch.hole - 1 ? patch.fairway : value)) : fairways,
+          girs: patch ? girs.map((value, index) => (index === patch.hole - 1 ? patch.gir : value)) : girs,
+          playedOn: calendarDate(new Date()),
+          courseName: analysisCourse.record.name,
+          card: analysisCourse.record.scorecard.map((hole) => ({
+            holeNumber: hole.holeNumber,
+            par: hole.par,
+            strokeIndex: hole.strokeIndex,
+            yards: hole.yardagesByTee.white ?? null,
+          })),
+        });
+        if (!open) return;
+        archiveRound(open);
+        roundArchived.current = true;
+        const engine = toEngine(readArchive(), storedShots(shots));
+        const result = analyze({ rounds: engine.rounds, shots: engine.shots, lastFix: readLastFix() });
+        const fix = result.oneFix.status === 'ready' ? result.oneFix.value?.fix : null;
+        if (fix && !result.meta.sample) writeLastFix({ id: fix.id, strokesPer18: fix.strokesPer18 });
+      },
       startNewRound: () => {
+        if (!roundArchived.current) {
+          const open = openRound({
+            holes,
+            putts,
+            penalties,
+            fairways,
+            girs,
+            playedOn: calendarDate(new Date()),
+            courseName: analysisCourse.record.name,
+            card: analysisCourse.record.scorecard.map((hole) => ({
+              holeNumber: hole.holeNumber,
+              par: hole.par,
+              strokeIndex: hole.strokeIndex,
+              yards: hole.yardagesByTee.white ?? null,
+            })),
+          });
+          if (open) {
+            archiveRound(open);
+            const engine = toEngine(readArchive(), storedShots(shots));
+            const result = analyze({ rounds: engine.rounds, shots: engine.shots, lastFix: readLastFix() });
+            const fix = result.oneFix.status === 'ready' ? result.oneFix.value?.fix : null;
+            if (fix && !result.meta.sample) writeLastFix({ id: fix.id, strokesPer18: fix.strokesPer18 });
+          }
+        }
+        roundArchived.current = false;
+        setInProgress(false);
         setHoles(EMPTY_HOLES);
         setCurrentHole(1);
         setManual({});
@@ -601,36 +866,88 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
         setShots((current) => current.filter((shot) => shot.origin !== 'tag'));
         setUnit('yd');
         setPutts([...EMPTY_PUTTS]);
+        setPenalties([...EMPTY_PUTTS]);
+        setFairways([...EMPTY_FAIRWAYS]);
+        setGirs([...EMPTY_GIRS]);
         setConditionsState({ ...FRESH_CONDITIONS });
       },
     };
-  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, plans, debriefs, wedges, putts, conditions, marks]);
+  }, [shots, reportedAverages, photoScorecards, keptPhotos, knownClubs, holes, clubs, bagMessage, courseReviews, unit, currentHole, manualYards, tagged, caddieName, personality, voice, plans, debriefs, wedges, putts, penalties, fairways, girs, conditions, marks, displayName, onboarded, inProgress, markRoundStarted]);
 
   useEffect(() => {
-    if (hasWebStorage()) return;
     let cancel = false;
-    readRound()
-      .then((save) => {
-        if (cancel || !save) return;
-        setShots(save.localShots);
-        setHoles(save.holes);
-        setUnit(save.unit);
-        setCurrentHole(save.currentHole);
-        setManual(manualFrom(save));
-        setTagged(save.tagged);
-        setPlans(plansFrom(save));
-        setDebriefs(save.debriefs);
-        setWedges(save.wedges);
-        setPutts(save.putts);
-        setMarks(save.marks);
-        setConditionsState(save.conditions);
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        if (!cancel) setHydrated(true);
+    const apply = (save: RoundSave | null) => {
+      if (cancel) return;
+      applySavedRound(save, {
+        setShots,
+        setHoles,
+        setUnit,
+        setCurrentHole,
+        setManual,
+        setTagged,
+        setPlans,
+        setDebriefs,
+        setWedges,
+        setPutts,
+        setPenalties,
+        setFairways,
+        setGirs,
+        setMarks,
+        setConditionsState,
+        setInProgress,
       });
+    };
+    const applyDevice = () => {
+      if (cancel) return;
+      const snap = readDevice();
+      setVoiceState(snap.settings.voice || DEFAULT_VOICE);
+      setOnboarded(snap.settings.onboarded);
+      if (snap.settings.displayName) setDisplayName(snap.settings.displayName);
+      if (snap.bag.length > 0) setClubs(playingFromBag(snap.bag));
+      else if (!FOUNDER_TOOLS_ENABLED) setClubs([]);
+    };
+    let sawBag = readDevice().bag.length > 0;
+    const unsub = subscribeDevice(() => {
+      if (cancel) return;
+      const snap = readDevice();
+      const next = bagSubscriptionUpdate({ bagLength: snap.bag.length, founderTools: FOUNDER_TOOLS_ENABLED, sawBag });
+      sawBag = next.sawBag;
+      if (next.clear) {
+        setClubs([]);
+        setWedges({});
+        return;
+      }
+      if (!next.clear && snap.bag.length === 0) return;
+      const playing = playingFromBag(snap.bag);
+      setClubs((current) => (samePlaying(current, playing) ? current : playing));
+      setWedges((current) => {
+        const ids = new Set(playing.map((club) => club.id));
+        let changed = false;
+        const kept: typeof current = {};
+        for (const [id, cells] of Object.entries(current)) {
+          if (!ids.has(id)) {
+            changed = true;
+            continue;
+          }
+          kept[id] = cells;
+        }
+        return changed ? kept : current;
+      });
+    });
+    void (async () => {
+      await hydrateDevice();
+      if (cancel) return;
+      try {
+        apply(hasWebStorage() ? readRoundSync() : await readRound());
+      } catch {
+        apply(null);
+      }
+      applyDevice();
+      if (!cancel) setHydrated(true);
+    })();
     return () => {
       cancel = true;
+      unsub();
     };
   }, []);
 
@@ -662,12 +979,16 @@ export function LocalStoreProvider({ children }: { children: ReactNode }) {
       plans: planSave,
       localShots: shots,
       putts,
+      penalties,
+      fairways,
+      girs,
       conditions,
       marks,
+      inProgress,
     });
-  }, [hydrated, holes, currentHole, manualYards, tagged, debriefs, wedges, unit, plans, shots, putts, conditions, marks]);
+  }, [hydrated, holes, currentHole, manualYards, tagged, debriefs, wedges, unit, plans, shots, putts, penalties, fairways, girs, conditions, marks, inProgress]);
 
-  if (!hydrated) return null;
+  if (!hydrated) return fallback;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

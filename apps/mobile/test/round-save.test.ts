@@ -38,9 +38,19 @@ describe('round save', () => {
     expect(round?.plans['1']?.target).toBe('Left center');
     expect(round?.holes).not.toContain(0);
     expect(round?.putts.every((putt) => putt == null)).toBe(true);
+    expect(round?.penalties.every((count) => count == null)).toBe(true);
     expect(round?.conditions.usePlaysLike).toBe(false);
     expect(round?.conditions.wind).toBe('');
     expect(round?.marks).toEqual([]);
+    expect(round?.inProgress).toBe(true);
+  });
+
+  it('remembers a round that was opened before any score', () => {
+    const blank = Array.from({ length: 18 }, () => null);
+    const started = parseRoundSave(save({ holes: blank, currentHole: 1, inProgress: true }));
+    expect(started?.inProgress).toBe(true);
+    expect(started?.holes.every((strokes) => strokes == null)).toBe(true);
+    expect(parseRoundSave(save({ inProgress: false }))?.inProgress).toBe(false);
   });
 
   it('keeps a GPS mark and drops a mark with no position', () => {
@@ -94,6 +104,13 @@ describe('round save', () => {
     );
     expect(gross.gross).toBe(12);
     expect(gross.gross).not.toBe(14);
+    const logged = parseRoundSave(
+      save({ penalties: [0, 1, -1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null] }),
+    );
+    expect(logged?.penalties[0]).toBe(0);
+    expect(logged?.penalties[1]).toBe(1);
+    expect(logged?.penalties[2]).toBeNull();
+    expect(logged?.penalties[3]).toBeNull();
   });
 
   it('refuses a scorecard that is not 18 holes or has a zero', () => {

@@ -23,6 +23,15 @@ export default function CourseHole() {
   const [gpsLine, setGpsLine] = useState<string | null>(null);
   const [player, setPlayer] = useState<LatLon | null>(null);
 
+  if (!founderTools) {
+    return (
+      <Screen>
+        <Title>Course quality</Title>
+        <Muted>This screen is not in this build.</Muted>
+      </Screen>
+    );
+  }
+
   if (!hole) {
     return (
       <Screen>

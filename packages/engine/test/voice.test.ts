@@ -2,12 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { DistanceProfile } from '@coopr/engine';
 import {
   answerAsk,
+  conditionAnswer,
   cycleAskChip,
-  handleVoiceBuffer,
-  handleVoiceRequest,
   lieEstimateYards,
   parseAsk,
-  SAMPLE_VOICE_TRANSCRIPT,
   type AskIntent,
 } from '@coopr/engine';
 
@@ -77,6 +75,10 @@ const phrases: Array<{ text: string; expect: Partial<AskIntent> & { hazard?: str
   { text: '30 yards from the pin in the sand', expect: { distanceYards: 30, lie: 'sand', question: 'club' } },
   { text: 'what club from the fairway, 175 yards', expect: { lie: 'fairway', distanceYards: 175, question: 'club' } },
   { text: 'how does it play', expect: { question: 'plays_like' } },
+  { text: "what's the wind doing?", expect: { question: 'wind', distanceYards: null, command: null } },
+  { text: "what's the elevation?", expect: { question: 'elevation', distanceYards: null } },
+  { text: 'how hot is it?', expect: { question: 'temperature' } },
+  { text: 'how far is it?', expect: { question: 'distance', distanceYards: null } },
   { text: 'I made five', expect: { command: { kind: 'score', strokes: 5 }, distanceYards: null } },
   { text: 'two putt', expect: { command: { kind: 'putts', putts: 2 } } },
   { text: 'next', expect: { command: { kind: 'next' } } },
@@ -204,6 +206,17 @@ describe('lie estimate and the caddie line', () => {
     expect(answer.line).not.toMatch(/7-iron|6-iron/);
   });
 
+  it('speaks one unit in the singular', () => {
+    expect(conditionAnswer('wind', { windMph: 1 })).toBe('Wind 1 mile per hour.');
+    expect(conditionAnswer('wind', { windMph: 6, headwindMph: 6, windYards: 1 })).toBe('Wind 6 miles per hour. Into you by 1 yard.');
+    expect(conditionAnswer('wind', { windMph: 8, headwindMph: 3, windYards: 5.5 })).toBe('Wind 8 miles per hour. Into you by 5.5 yards.');
+    expect(conditionAnswer('elevation', { elevationFeet: 1 })).toBe('Elevation is 1 foot up.');
+    expect(conditionAnswer('elevation', { elevationFeet: -1 })).toBe('Elevation is 1 foot down.');
+    expect(conditionAnswer('temperature', { temperatureF: 1 })).toBe('1 degree.');
+    expect(conditionAnswer('distance', { distanceYards: 1 })).toBe('1 yard.');
+    expect(conditionAnswer('distance', { distanceYards: 158 })).toBe('158 yards.');
+  });
+
   it('says plays-like is blank until the three inputs exist', () => {
     const blank = answerAsk({
       intent: { language: 'en', distanceYards: null, lie: null, hazards: [], question: 'plays_like', command: null, usedModel: false },
@@ -261,60 +274,5 @@ describe('lie estimate and the caddie line', () => {
     const answer = answerAsk({ intent: sand, gpsYards: null, profiles: irons });
     expect(answer.line).toMatch(/Sand takes/);
     expect(answer.estimate).toBe(true);
-  });
-});
-
-describe('voice transcription', () => {
-  it('returns the canned transcript when there is no key and does not echo the audio', async () => {
-    const secret = 'abc123audiobytes';
-    const body = new TextEncoder().encode(JSON.stringify({ audioBase64: secret, mediaType: 'audio/m4a' }));
-    const result = await handleVoiceBuffer(body, null, {});
-    expect(result.status).toBe(200);
-    if (!('transcript' in result.body)) throw new Error('expected a transcript');
-    expect(result.body.transcript).toBe(SAMPLE_VOICE_TRANSCRIPT);
-    expect(result.body.mode).toBe('sample');
-    expect(result.body.heard).toBe(false);
-    expect(result.body.audioRetained).toBe(false);
-    expect(JSON.stringify(result.body).includes(secret)).toBe(false);
-    expect(body.every((byte) => byte === 0)).toBe(true);
-  });
-
-  it('sends audio to Scribe only with a key and refuses to return those bytes', async () => {
-    let sawKey = false;
-    let sawModel = false;
-    const secret = 'echo-me-not-audio';
-    const denied = await handleVoiceRequest({
-      authorization: 'Bearer wrong',
-      payload: { audioBase64: secret },
-      env: { EXTRACT_TOKEN: 'right', ELEVENLABS_API_KEY: 'server-key' },
-    });
-    expect(denied.status).toBe(401);
-
-    const live = await handleVoiceRequest({
-      authorization: 'Bearer right',
-      payload: { audioBase64: Buffer.from('clip').toString('base64'), mediaType: 'audio/m4a' },
-      env: { EXTRACT_TOKEN: 'right', ELEVENLABS_API_KEY: 'server-key', ELEVENLABS_STT_MODEL: 'scribe_v1' },
-      fetchImpl: async (_url, init) => {
-        sawKey = init.headers['xi-api-key'] === 'server-key';
-        sawModel = String(init.body).includes('scribe_v1') || init.body instanceof FormData;
-        return { ok: true, status: 200, json: async () => ({ text: '150 out' }) };
-      },
-    });
-    expect(sawKey).toBe(true);
-    expect(sawModel).toBe(true);
-    if (!('transcript' in live.body)) throw new Error('expected a transcript');
-    expect(live.body.mode).toBe('live');
-    expect(live.body.heard).toBe(true);
-    expect(live.body.transcript).toBe('150 out');
-
-    const clip = Buffer.from('clip-secret').toString('base64');
-    const leaked = await handleVoiceRequest({
-      authorization: null,
-      payload: { audioBase64: clip },
-      env: { ELEVENLABS_API_KEY: 'server-key' },
-      fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ text: clip }) }),
-    });
-    expect(leaked.status).toBe(500);
-    expect(JSON.stringify(leaked.body).includes(clip)).toBe(false);
   });
 });

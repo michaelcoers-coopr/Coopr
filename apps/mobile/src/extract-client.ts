@@ -1,9 +1,27 @@
 import { parsePhotoExtraction, type PhotoExtraction } from '@coopr/engine';
 
-/** Publish-time URL only. Never an API key. */
+/** Marked stand-in in eas.json until Mike puts the real EAS Hosting origin here. */
+export const EXTRACT_URL_PLACEHOLDER = 'https://REPLACE-WITH-EAS-HOSTING-ORIGIN.expo.app';
+
+/** Marked stand-in until Mike puts a real inbox here. A placeholder does not send mail. */
+export const FEEDBACK_EMAIL_PLACEHOLDER = 'REPLACE-WITH-FEEDBACK-EMAIL@example.com';
+
+/** A blank value or a REPLACE placeholder is not a real address. */
+export function configuredAddress(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed || /REPLACE/i.test(trimmed)) return null;
+  return trimmed;
+}
+
+/** Publish-time URL only. Never an API key. A placeholder is treated as unset. */
 export function extractionUrl(): string | null {
-  const url = process.env.EXPO_PUBLIC_EXTRACT_URL?.trim();
+  const url = configuredAddress(process.env.EXPO_PUBLIC_EXTRACT_URL);
   return url ? url.replace(/\/$/, '') : null;
+}
+
+/** Inbox for the feedback screen. A placeholder stays unset so mail is not opened. */
+export function feedbackEmail(): string | null {
+  return configuredAddress(process.env.EXPO_PUBLIC_FEEDBACK_EMAIL);
 }
 
 export async function requestExtraction(input: {

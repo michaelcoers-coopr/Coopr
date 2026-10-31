@@ -7,16 +7,24 @@
     "version": "2.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "backgroundColor": "#0A1020",
+    "icon": "./assets/brand/icon.png",
     "web": {
       "bundler": "metro",
       "output": "server"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.coopr.mobile"
+      "bundleIdentifier": "app.coopr.mobile",
+      "icon": "./assets/brand/icon.png"
     },
     "android": {
-      "package": "app.coopr.mobile"
+      "package": "app.coopr.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/brand/adaptive-icon.png",
+        "backgroundColor": "#0A1020",
+        "monochromeImage": "./assets/brand/adaptive-monochrome.png"
+      }
     },
     "experiments": {
       "typedRoutes": false
@@ -24,23 +32,43 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
+      "expo-updates",
       [
-        "expo-audio",
+        "expo-speech-recognition",
         {
-          "microphonePermission": "COOPR listens while you hold Ask COOPR. The recording goes to the server to be transcribed and is not kept."
+          "microphonePermission": "COOPR listens while you hold Ask, or while hands-free is on. On this iPhone, speech is turned into text on the device and the audio is not kept.",
+          "speechRecognitionPermission": "COOPR turns your question into text on this iPhone. The audio is not kept."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "COOPR uses your location to measure ground distance to a green you have verified. That distance is not saved as a shot."
+          "locationWhenInUsePermission": "COOPR uses your location while the app is open to show your distance to the green and to measure a shot you mark. The shot stays on this phone.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "motionUsagePermission": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "COOPR reads a photo you choose so a server can extract golf numbers. The photo is not kept on the server. You review every number before it is saved.",
-          "cameraPermission": "COOPR uses the camera for a photo of a screen, scorecard, or club. The photo is not kept on the server. You review every number before it is saved."
+          "photosPermission": "COOPR reads a photo you choose. A bag photo stays on this phone. Add from photos sends that picture to the COOPR extract server to read the club details, shots, scores, or distances in the photo, when a server is set.",
+          "cameraPermission": "COOPR uses the camera for a bag photo or a scorecard. A bag or club photo stays on this phone and is not sent. A scorecard photo is sent to the COOPR extract server to read the shots, scores, or distances in the photo, when a server is set."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0A1020",
+          "image": "./assets/brand/splash.png",
+          "resizeMode": "contain",
+          "enableFullScreenImage_legacy": true,
+          "android": {
+            "backgroundColor": "#0A1020",
+            "image": "./assets/brand/splash-mark.png",
+            "resizeMode": "contain",
+            "imageWidth": 152
+          }
         }
       ]
     ],

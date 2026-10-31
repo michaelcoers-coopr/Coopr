@@ -1,12 +1,12 @@
 import type { LatLon } from '@coopr/domain';
+import { webStore } from './web-storage';
 
 /** Desk rounds write a preset name or a lat/lon here. The phone ignores it. */
 export const GPS_SIM_KEY = 'coopr.gps.sim';
 
 export function readStoredFix(): LatLon | 'tee' | 'approach' | 'green' | null {
   try {
-    if (typeof localStorage === 'undefined') return null;
-    const raw = localStorage.getItem(GPS_SIM_KEY);
+    const raw = webStore()?.getItem(GPS_SIM_KEY) ?? null;
     if (!raw) return null;
     if (raw === 'tee' || raw === 'approach' || raw === 'green') return raw;
     const parsed = JSON.parse(raw) as { lat?: unknown; lon?: unknown };
@@ -18,8 +18,17 @@ export function readStoredFix(): LatLon | 'tee' | 'approach' | 'green' | null {
   }
 }
 
+/** Desk poll. Battery saver waits longer so a round does not ask for a fix every second. */
+export function gpsPollMs(saver: boolean): number {
+  return saver ? 8000 : 700;
+}
+
 /** Phone GPS, or the desk fix when one is stored. A failure stays null. */
-export function subscribeGps(onFix: (fix: LatLon | null) => void, resolve: (stored: LatLon | 'tee' | 'approach' | 'green') => LatLon | null): () => void {
+export function subscribeGps(
+  onFix: (fix: LatLon | null) => void,
+  resolve: (stored: LatLon | 'tee' | 'approach' | 'green') => LatLon | null,
+  saver = false,
+): () => void {
   let stopped = false;
   const stored = readStoredFix();
   if (stored) {
@@ -30,7 +39,7 @@ export function subscribeGps(onFix: (fix: LatLon | null) => void, resolve: (stor
     emit();
     const timer = setInterval(() => {
       if (!stopped) emit();
-    }, 700);
+    }, gpsPollMs(saver));
     return () => {
       stopped = true;
       clearInterval(timer);
@@ -46,7 +55,9 @@ export function subscribeGps(onFix: (fix: LatLon | null) => void, resolve: (stor
         return;
       }
       subscription = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.BestForNavigation, distanceInterval: 1, timeInterval: 1500 },
+        saver
+          ? { accuracy: Location.Accuracy.Balanced, distanceInterval: 25, timeInterval: gpsPollMs(true) }
+          : { accuracy: Location.Accuracy.BestForNavigation, distanceInterval: 1, timeInterval: 1500 },
         (position) => {
           if (!stopped) onFix({ lat: position.coords.latitude, lon: position.coords.longitude });
         },

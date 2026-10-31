@@ -35,7 +35,7 @@ const extractOrigin = readExtractOrigin({
 if (!extractOrigin) {
   fail(`No Ask COOPR origin is set.
 
-Export EXPO_PUBLIC_EXTRACT_URL, or run scripts/deploy-voice.sh so it writes apps/mobile/extract-origin.txt.
+Export EXPO_PUBLIC_EXTRACT_URL, or put an https origin in apps/mobile/extract-origin.txt. See docs/CADDIE_SERVER.md. Do not deploy from this script.
 That origin is the EAS Hosting URL. It is not the ElevenLabs key.`);
 }
 

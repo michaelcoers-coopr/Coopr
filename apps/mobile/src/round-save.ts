@@ -82,11 +82,22 @@ export interface RoundSave {
   localShots: SavedShot[];
   /** Putts beside the score. 0 is a chip-in. Null means unknown. Never added to strokes. */
   putts: Array<number | null>;
+  /** Penalty strokes beside the score. 0 is a logged zero. Null means not logged. Never added to strokes. */
+  penalties: Array<number | null>;
   /** Wind, elevation, temperature, and the plays-like switch for this round. */
   conditions: RoundConditions;
   /** GPS marks. Absent on older saves. */
   marks: SavedMark[];
+  /** Fairway result per hole. Null means not logged. */
+  fairways: Array<'hit' | 'left' | 'right' | 'short' | 'long' | null>;
+  /** Green in regulation per hole. Null means not logged. */
+  girs: Array<boolean | null>;
+  /** True once the player opens the hole, even before a score. Older saves infer this from a score or a hole past 1. */
+  inProgress: boolean;
 }
+
+export const EMPTY_FAIRWAYS = Array.from({ length: 18 }, () => null) as RoundSave['fairways'];
+export const EMPTY_GIRS = Array.from({ length: 18 }, () => null) as RoundSave['girs'];
 
 function holeNumber(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 18) return null;
@@ -229,6 +240,18 @@ function yardsOf(value: unknown): Record<string, number> {
   return yards;
 }
 
+const FAIRWAY = ['hit', 'left', 'right', 'short', 'long'] as const;
+
+function fairwaysOf(value: unknown): RoundSave['fairways'] {
+  if (!Array.isArray(value) || value.length !== 18) return [...EMPTY_FAIRWAYS];
+  return value.map((item) => (typeof item === 'string' && (FAIRWAY as readonly string[]).includes(item) ? (item as RoundSave['fairways'][number]) : null));
+}
+
+function girsOf(value: unknown): RoundSave['girs'] {
+  if (!Array.isArray(value) || value.length !== 18) return [...EMPTY_GIRS];
+  return value.map((item) => (typeof item === 'boolean' ? item : null));
+}
+
 function puttsOf(value: unknown): Array<number | null> {
   if (!Array.isArray(value) || value.length !== 18) return [...EMPTY_PUTTS];
   return value.map((item) => {
@@ -315,6 +338,7 @@ export function parseRoundSave(raw: string | null): RoundSave | null {
   const currentHole = holeNumber(row.currentHole);
   if (!holes || !currentHole) return null;
   if (row.unit !== 'yd' && row.unit !== 'm') return null;
+  const started = holes.some((strokes) => strokes != null) || currentHole > 1;
   return {
     version: 1,
     holes,
@@ -327,8 +351,12 @@ export function parseRoundSave(raw: string | null): RoundSave | null {
     plans: plansOf(row.plans),
     localShots: shotsOf(row.localShots),
     putts: puttsOf(row.putts),
+    penalties: puttsOf(row.penalties),
     conditions: conditionsOf(row.conditions),
     marks: marksOf(row.marks),
+    fairways: fairwaysOf(row.fairways),
+    girs: girsOf(row.girs),
+    inProgress: row.inProgress === true || (row.inProgress !== false && started),
   };
 }
 

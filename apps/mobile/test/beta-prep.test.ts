@@ -1,0 +1,217 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { buildTalkContext } from '@coopr/engine';
+import { describe, expect, it } from 'vitest';
+import { EXTRACT_URL_PLACEHOLDER, FEEDBACK_EMAIL_PLACEHOLDER, configuredAddress, extractionUrl, feedbackEmail } from '../src/extract-client';
+import { feedbackBody, feedbackMailto } from '../src/feedback-note';
+import { rememberScreen, rememberedScreen } from '../src/screen-name';
+import { CADDIE_SECRET_PLACEHOLDER, requestTalk, SAMPLE_ANSWER_LABEL } from '../src/talk-client';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const read = (path: string) => readFileSync(join(here, path), 'utf8');
+
+describe('beta profile and permission strings', () => {
+  it('keeps preview as it was and ships founder tools off on beta', () => {
+    const eas = JSON.parse(read('../eas.json')) as {
+      build: {
+        preview: { channel: string; env: Record<string, string> };
+        production: { env: Record<string, string> };
+        beta: { distribution: string; channel: string; env: Record<string, string>; ios: { simulator: boolean } };
+      };
+      submit: { beta: { ios: Record<string, never> } };
+    };
+    expect(eas.build.preview.env).toEqual({ APP_VARIANT: 'preview', EXPO_PUBLIC_FOUNDER_TOOLS: '1' });
+    expect(eas.build.preview.channel).toBe('preview');
+    expect(eas.build.production.env).toEqual({ APP_VARIANT: 'production', EXPO_PUBLIC_FOUNDER_TOOLS: '0' });
+    expect(eas.build.beta).toMatchObject({
+      distribution: 'store',
+      channel: 'beta',
+      ios: { simulator: false },
+    });
+    expect(eas.build.beta.env).toEqual({
+      APP_VARIANT: 'production',
+      EXPO_PUBLIC_FOUNDER_TOOLS: '0',
+      EXPO_PUBLIC_EXTRACT_URL: EXTRACT_URL_PLACEHOLDER,
+      EXPO_PUBLIC_CADDIE_SECRET: CADDIE_SECRET_PLACEHOLDER,
+      EXPO_PUBLIC_FEEDBACK_EMAIL: FEEDBACK_EMAIL_PLACEHOLDER,
+    });
+    expect(eas.submit.beta).toEqual({ ios: {} });
+    expect(EXTRACT_URL_PLACEHOLDER).toContain('REPLACE');
+    expect(CADDIE_SECRET_PLACEHOLDER).toContain('REPLACE');
+    expect(FEEDBACK_EMAIL_PLACEHOLDER).toContain('REPLACE');
+  });
+
+  it('describes on-device speech and drops Always, motion, and background audio', () => {
+    const app = JSON.parse(read('../app.json')) as { expo: { icon?: string; plugins: unknown[] } };
+    expect(app.expo.icon).toBe('./assets/brand/icon.png');
+    const plugins = app.expo.plugins;
+    const speech = plugins.find((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-speech-recognition') as [string, Record<string, string>];
+    const location = plugins.find((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-location') as [string, Record<string, unknown>];
+    expect(speech[1].microphonePermission).toBe(
+      'COOPR listens while you hold Ask, or while hands-free is on. On this iPhone, speech is turned into text on the device and the audio is not kept.',
+    );
+    expect(speech[1].speechRecognitionPermission).toBe('COOPR turns your question into text on this iPhone. The audio is not kept.');
+    expect(plugins.some((plugin) => plugin === 'expo-audio' || (Array.isArray(plugin) && plugin[0] === 'expo-audio'))).toBe(false);
+    expect(plugins.some((plugin) => plugin === 'expo-notifications' || (Array.isArray(plugin) && plugin[0] === 'expo-notifications'))).toBe(false);
+    expect(plugins).toContain('expo-updates');
+    expect(location[1].locationWhenInUsePermission).toBe(
+      'COOPR uses your location while the app is open to show your distance to the green and to measure a shot you mark. The shot stays on this phone.',
+    );
+    expect(location[1].locationAlwaysAndWhenInUsePermission).toBe(false);
+    expect(location[1].locationAlwaysPermission).toBe(false);
+    expect(location[1].motionUsagePermission).toBe(false);
+    expect(JSON.stringify(app)).not.toContain('goes to the server to be transcribed');
+    expect(JSON.stringify(app)).not.toContain('UIBackgroundModes');
+  });
+});
+
+describe('on-device voice and labeled samples', () => {
+  it('requires on-device recognition and no longer posts audio', () => {
+    const recognize = read('../src/speech/recognize.ts');
+    expect(recognize).toContain('supportsOnDeviceRecognition()');
+    expect(recognize).toContain('requiresOnDeviceRecognition: true');
+    expect(recognize.indexOf('supportsOnDeviceRecognition()')).toBeLessThan(recognize.indexOf('speech.start('));
+    const ask = read('../src/ask-coopr.tsx');
+    expect(ask).not.toContain('useAudioRecorder');
+    expect(ask).not.toContain('requestTranscript');
+    expect(ask).not.toContain('audioUriToBase64');
+    expect(ask).not.toContain('/v1/voice');
+    expect(ask).toContain('onAsk?.()');
+    expect(existsSync(join(here, '../src/voice-client.ts'))).toBe(false);
+    expect(existsSync(join(here, '../src/voice-host.ts'))).toBe(false);
+    expect(existsSync(join(here, '../app/v1/voice+api.ts'))).toBe(false);
+    expect(existsSync(join(here, '../../../packages/engine/src/voice-http.ts'))).toBe(false);
+  });
+
+  it('uses the hosted origin and labels a sample when that origin is unset', async () => {
+    const previousExtract = process.env.EXPO_PUBLIC_EXTRACT_URL;
+    const previousMail = process.env.EXPO_PUBLIC_FEEDBACK_EMAIL;
+    const previousSecret = process.env.EXPO_PUBLIC_CADDIE_SECRET;
+    const calls: string[] = [];
+    const secrets: string[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      calls.push(String(url));
+      secrets.push(new Headers(init?.headers).get('x-coopr-secret') ?? '');
+      return new Response('not json', { status: 500 });
+    }) as typeof fetch;
+    try {
+      delete process.env.EXPO_PUBLIC_EXTRACT_URL;
+      delete process.env.EXPO_PUBLIC_FEEDBACK_EMAIL;
+      expect(extractionUrl()).toBeNull();
+      expect(feedbackEmail()).toBeNull();
+      const context = buildTalkContext({ hole: 1, par: 4, gpsYards: null, profiles: [] });
+      const quiet = await requestTalk('How far is it?', context);
+      expect(quiet.mode).toBe('sample');
+      expect(calls).toEqual([]);
+      process.env.EXPO_PUBLIC_EXTRACT_URL = EXTRACT_URL_PLACEHOLDER;
+      process.env.EXPO_PUBLIC_FEEDBACK_EMAIL = FEEDBACK_EMAIL_PLACEHOLDER;
+      expect(configuredAddress(EXTRACT_URL_PLACEHOLDER)).toBeNull();
+      expect(extractionUrl()).toBeNull();
+      expect(feedbackEmail()).toBeNull();
+      const placeholder = await requestTalk('How far is it?', context);
+      expect(placeholder.mode).toBe('sample');
+      expect(calls).toEqual([]);
+      process.env.EXPO_PUBLIC_EXTRACT_URL = 'https://caddie.example';
+      process.env.EXPO_PUBLIC_CADDIE_SECRET = CADDIE_SECRET_PLACEHOLDER;
+      await requestTalk('How far is it?', context);
+      expect(calls).toEqual(['https://caddie.example/v1/caddie']);
+      expect(secrets.at(-1)).toBe('');
+      process.env.EXPO_PUBLIC_CADDIE_SECRET = 'desk-secret';
+      await requestTalk('How far is it?', context);
+      expect(calls.at(-1)).toBe('https://caddie.example/v1/caddie');
+      expect(secrets.at(-1)).toBe('desk-secret');
+    } finally {
+      globalThis.fetch = original;
+      if (previousExtract === undefined) delete process.env.EXPO_PUBLIC_EXTRACT_URL;
+      else process.env.EXPO_PUBLIC_EXTRACT_URL = previousExtract;
+      if (previousMail === undefined) delete process.env.EXPO_PUBLIC_FEEDBACK_EMAIL;
+      else process.env.EXPO_PUBLIC_FEEDBACK_EMAIL = previousMail;
+      if (previousSecret === undefined) delete process.env.EXPO_PUBLIC_CADDIE_SECRET;
+      else process.env.EXPO_PUBLIC_CADDIE_SECRET = previousSecret;
+    }
+    expect(SAMPLE_ANSWER_LABEL).toMatch(/^Sample answer/);
+    const play = read('../app/play.tsx');
+    const home = read('../app/index.tsx');
+    const overlay = read('../src/talk-overlay.tsx');
+    expect(play).toContain('SAMPLE_ANSWER_LABEL');
+    expect(home).toContain('SAMPLE_ANSWER_LABEL');
+    expect(overlay).toContain('SAMPLE_ANSWER_LABEL');
+    expect(read('../src/talk-client.ts')).not.toContain("fetch('/v1/caddie'");
+  });
+});
+
+describe('feedback, privacy, and a founder-off first run', () => {
+  it('shows the note before mail and leaves out location', () => {
+    rememberScreen('play');
+    rememberScreen('more');
+    rememberScreen('feedback');
+    rememberScreen('privacy');
+    expect(rememberedScreen()).toBe('play');
+    const body = feedbackBody({
+      category: 'Wrong data',
+      note: 'Hole 3 yardage looked short',
+      contact: '',
+      facts: { version: '2.0.0', build: '1', model: 'iPhone', os: 'iOS 18.0', screen: rememberedScreen() },
+    });
+    expect(body).toContain('Category: Wrong data');
+    expect(body).toContain('Hole 3 yardage looked short');
+    expect(body).toContain('Contact: not given');
+    expect(body).toContain('App version: 2.0.0');
+    expect(body).toContain('Build: 1');
+    expect(body).toContain('Device: iPhone');
+    expect(body).toContain('System: iOS 18.0');
+    expect(body).toContain('Screen: play');
+    expect(body.toLowerCase()).not.toMatch(/latitude|longitude|\bgps\b|location/);
+    const mail = feedbackMailto('friend@example.com', body);
+    expect(mail.startsWith('mailto:friend@example.com?')).toBe(true);
+    expect(decodeURIComponent(mail)).toContain('COOPR beta feedback');
+    expect(decodeURIComponent(mail)).toContain('Screen: play');
+    const screen = read('../app/feedback.tsx');
+    expect(screen).toContain('This is the note that will be sent');
+    expect(screen.indexOf('feedbackBody(')).toBeLessThan(screen.indexOf('Linking.openURL'));
+    expect(screen).toContain('Feedback email is not set');
+    const privacy = read('../app/privacy.tsx');
+    expect(privacy).toContain('DRAFT for lawyer review');
+    expect(privacy).toContain('Open-Meteo');
+    expect(privacy).toContain('on the device');
+    expect(privacy).toContain('stay on this phone');
+    expect(privacy).toContain('transcript');
+    expect(privacy).toContain('distance profiles');
+    expect(privacy).toContain('prior conversation turns');
+    expect(privacy).toContain('OpenAI');
+    expect(privacy).toContain('green centre');
+    expect(privacy).toContain('IP address');
+    expect(privacy).toContain('https://api.openai.com/v1');
+    const more = read('../app/more.tsx');
+    const home = read('../app/index.tsx');
+    const importer = read('../app/import.tsx');
+    const course = read('../app/course/index.tsx');
+    expect(more).toContain("router.push('/feedback')");
+    expect(more).toContain("router.push('/privacy')");
+    expect(more).toContain('founderTools ? <Button label="Course quality"');
+    expect(importer).toContain('founderTools ? <Button label="Review a sample extraction"');
+    expect(course).toContain('This screen is not in this build.');
+    expect(course.indexOf('!founderTools')).toBeLessThan(course.indexOf('admin-verified'));
+    expect(home).toContain("router.push('/more')");
+  });
+
+  it('labels an empty bag and does not load founder history when tools are off', () => {
+    const store = read('../src/local-store.tsx');
+    expect(store).toContain('if (!FOUNDER_TOOLS_ENABLED) return null');
+    expect(store).toContain("useState(SHELL?.displayName ?? '')");
+    expect(store).toContain('if (snap.bag.length > 0) setClubs(playingFromBag(snap.bag));');
+    expect(store).toContain('else if (!FOUNDER_TOOLS_ENABLED) setClubs([]);');
+    const bag = read('../app/bag/index.tsx');
+    const setup = read('../app/setup.tsx');
+    expect(bag).toContain('No clubs in the bag yet. Nothing was filled in for you.');
+    expect(bag).not.toContain('Add one in Setup');
+    expect(setup).toContain('No clubs yet. Add a name below, or import a CSV. This build does not include a sample bag.');
+    const stub = read('../../../packages/seed/src/store-stub.ts');
+    expect(stub).toContain('Founder tools are off in this build');
+    expect(stub).not.toMatch(/Coers|TrackMan/);
+    const flag = read('../src/founder-flag.ts');
+    expect(flag).toContain("process.env.EXPO_PUBLIC_FOUNDER_TOOLS !== '0'");
+  });
+});

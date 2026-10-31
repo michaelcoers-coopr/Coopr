@@ -1,0 +1,10 @@
+{
+  "roster": [
+    {"id": "p_mike", "name": "Mike", "aliases": ["Mikey"], "isDeviceOwner": true},
+    {"id": "p_dave", "name": "Dave", "aliases": ["Davey"]},
+    {"id": "p_tony", "name": "Tony", "aliases": ["Tone"]},
+    {"id": "p_josh", "name": "Josh", "aliases": ["Joshy"]}
+  ],
+  "hole1": {"hole": 1, "par": 5, "strokeIndex": 7, "strokes": {"p_mike": 0, "p_dave": 0, "p_tony": 1, "p_josh": 1}},
+  "note": "Strokes are SAMPLE, strokes off the low man (Dave PH 9; Mike 5, Tony 9, Josh 13) on hole 1, SI 7. Tests that need strokes pass them in; tests without strokes must produce an 'unresolved' net question."
+}
