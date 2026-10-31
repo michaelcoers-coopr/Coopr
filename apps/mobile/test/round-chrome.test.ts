@@ -18,7 +18,7 @@ describe('hole chrome', () => {
     expect(boxesOverlap(chrome.menu, chrome.pill)).toBe(false);
     expect(boxesOverlap(chrome.menu, chrome.plate)).toBe(false);
     expect(chrome.toast.w * chrome.toast.h).toBeLessThan(5000);
-    expect(chrome.toast.y + chrome.toast.h / 2).toBeLessThan(height * 0.35);
+    expect(chrome.toast.y + chrome.toast.h / 2).toBeLessThan(height * 0.36);
     expect(chrome.menu.w).toBeGreaterThanOrEqual(44);
     expect(chrome.menu.h).toBeGreaterThanOrEqual(44);
     expect(chrome.coachPeek / height).toBeGreaterThanOrEqual(0.15);

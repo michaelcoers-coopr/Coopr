@@ -42,7 +42,7 @@ export function scorePanelBudget(screenHeight: number, screenWidth = 393): numbe
   const dock = actionDockHeight(width, height);
   const room = Math.max(140, height - dock - 16);
   if (width > height) return Math.max(220, Math.min(room, height - dock - 8));
-  if (height <= 700) return Math.min(room, 420);
+  if (height <= 700) return Math.min(room, 260);
   return Math.min(room, 448);
 }
 
@@ -76,7 +76,9 @@ export function homeSheetHeights(width: number, height: number, safeBottom = 0):
     : screen <= 700
       ? Math.round(usable * 0.82)
       : Math.min(620, Math.round(usable * 0.72));
-  const half = Math.round((peek + full) / 2);
+  const half = landscape
+    ? Math.round(peek + (full - peek) * 0.78)
+    : Math.round((peek + full) / 2);
   return { peek, half, full, closed: peek, open: full };
 }
 

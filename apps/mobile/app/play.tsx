@@ -1781,7 +1781,16 @@ export default function PlayScreen() {
         </Glass>
       </Animated.View>
       {!justYards && playableClubs.length > 0 ? (
-        <View testID="club-chip-panel" style={[styles.clubChipWrap, { bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + (windowWidth > windowHeight ? chrome.coachPeek + 8 : 4) }]} pointerEvents="box-none">
+        <View
+          testID="club-chip-panel"
+          pointerEvents="box-none"
+          style={[
+            styles.clubChipWrap,
+            windowWidth > windowHeight
+              ? { top: chrome.plate.y, left: chrome.pill.x + chrome.pill.w + 8, right: 8, maxHeight: 96 }
+              : { bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + 8, left: 8, right: 8 },
+          ]}
+        >
           <Text testID="club-chip-hint" accessibilityLabel="Swipe for more clubs" style={styles.chipHint}>Swipe for clubs</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} testID="club-chips" contentContainerStyle={styles.clubChipRow}>
             {playableClubs.map((club) => {
@@ -2085,7 +2094,7 @@ const styles = StyleSheet.create({
   typeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, minHeight: 52 },
   askInput: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 48,
     color: '#FFFFFF',
     fontFamily: font.family,
     fontSize: 15,
@@ -2225,9 +2234,9 @@ const styles = StyleSheet.create({
   draftDismissText: { color: '#8AC926', fontFamily: font.family, fontSize: 13, fontWeight: '800' },
   heroScrim: { position: 'absolute', left: 0, width: 220, height: 250, zIndex: 3 },
   holePill: { position: 'absolute', left: 12, zIndex: 6 },
-  holePillGlass: { minHeight: 44 },
+  holePillGlass: { minHeight: 56 },
   holePillFill: {
-    minHeight: 44,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -2238,7 +2247,7 @@ const styles = StyleSheet.create({
   actionDock: { position: 'absolute', left: 8, right: 8, zIndex: 9 },
   confirmScore: { minHeight: 56, borderRadius: 14, backgroundColor: '#041018', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, marginBottom: 6 },
   confirmScoreText: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
-  confirmScoreHit: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  confirmScoreHit: { minWidth: 56, minHeight: 56, alignItems: 'center', justifyContent: 'center' },
   toast: {
     position: 'absolute',
     zIndex: 100,
@@ -2253,26 +2262,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   toastText: { color: '#0B1F3A', fontSize: 16, lineHeight: 20, fontWeight: '800' },
-  toastUndo: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  toastUndo: { minWidth: 56, minHeight: 56, alignItems: 'center', justifyContent: 'center' },
   toastUndoText: { color: '#0B1F3A', fontSize: 16, fontWeight: '800' },
   thruChip: { position: 'absolute', zIndex: 20, maxWidth: 150, minHeight: 28, justifyContent: 'center', backgroundColor: 'rgba(2,6,14,0.88)', borderRadius: 8, paddingHorizontal: 8 },
   thruText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
   mapOffset: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', left: -20, top: 0 },
   speechProbe: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', left: -20, top: 0 },
-  clubChipWrap: { position: 'absolute', left: 8, right: 8, zIndex: 8, gap: 2, backgroundColor: '#041018', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 6 },
+  clubChipWrap: { position: 'absolute', zIndex: 6, gap: 2, backgroundColor: '#041018', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 6 },
   chipHint: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', alignSelf: 'flex-end' },
   clubChipRow: { gap: 6, alignItems: 'center', paddingRight: 8 },
   finishPill: { minWidth: 64, minHeight: 44, borderRadius: 12, backgroundColor: '#8AC926', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   finishPillText: { color: '#0B1F3A', fontSize: 13, fontWeight: '800' },
-  clubChip: { minHeight: 44, minWidth: 44, paddingHorizontal: 10, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2,6,14,0.88)' },
+  clubChip: { minHeight: 56, minWidth: 56, paddingHorizontal: 10, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2,6,14,0.88)' },
   clubChipOn: { backgroundColor: '#8AC926' },
   clubChipText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
   clubChipTextOn: { color: '#0B1F3A' },
   answerScroll: { maxHeight: 72, flexGrow: 0 },
   coachPeekHit: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
   sendHit: { minWidth: 44, minHeight: 44, textAlign: 'center', lineHeight: 44 },
-  pillArrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  pillArrowText: { color: 'rgba(255,255,255,0.9)', fontSize: 18, lineHeight: 20, fontWeight: '700' },
+  pillArrow: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  pillArrowText: { color: '#FFFFFF', fontSize: 28, lineHeight: 32, fontWeight: '800' },
   pillBallHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   pillBall: {
     width: 30,
@@ -2283,7 +2292,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pillBallNum: { color: '#06101C', fontSize: 22, lineHeight: 22, fontWeight: '700' },
-  hero: { position: 'absolute', left: 12, zIndex: 4, alignItems: 'flex-start', maxWidth: 176 },
+  hero: { position: 'absolute', left: 12, zIndex: 8, alignItems: 'flex-start', maxWidth: 176 },
   heroPlate: {
     maxWidth: 176,
     backgroundColor: '#02060E',

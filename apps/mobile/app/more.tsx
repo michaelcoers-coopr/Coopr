@@ -37,7 +37,6 @@ export default function MoreScreen() {
         <Text style={styles.backText}>‹ Back</Text>
       </Pressable>
       <Title>More</Title>
-      <Muted>The round starts from the course. One filled button. The rest are grouped.</Muted>
       <Text style={styles.group}>Round</Text>
       <Button label="Past rounds" onPress={() => router.push('/rounds')} />
       <Button label="Setup" tone="ghost" onPress={() => router.push('/setup')} />

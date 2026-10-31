@@ -26,8 +26,12 @@ test('first launch asks for a name and setup keeps handicap', async ({ page }) =
   expect(teeBox!.y + teeBox!.height).toBeLessThanOrEqual(viewport.height + 1);
   await tee.click();
   await expect(page.getByRole('button', { name: /START ROUND/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Show more' }).click({ force: true });
-  await page.getByRole('button', { name: 'Show more' }).click({ force: true });
+  for (let step = 0; step < 3; step += 1) {
+    if ((await page.getByTestId('home-sheet-level').getAttribute('data-level')) === 'full') break;
+    const showMore = page.getByRole('button', { name: 'Show more' });
+    if ((await showMore.count()) === 0) break;
+    await showMore.click({ force: true });
+  }
   await expect(page.getByTestId('home-sheet-level')).toHaveAttribute('data-level', 'full');
   await page.waitForTimeout(400);
   const more = page.getByRole('button', { name: 'More', exact: true });

@@ -53,7 +53,11 @@ export default function SetupScreen() {
         <Text style={styles.backText}>‹ Back</Text>
       </Pressable>
       <Title>Setup</Title>
-      <Muted>Your name is already saved. Handicap, driver speed, and flex live here, once.</Muted>
+      <Muted>
+        {displayName.trim()
+          ? 'Your name is already saved. Handicap, driver speed, and flex live here.'
+          : 'Add your name. Handicap, driver speed, and flex live here.'}
+      </Muted>
       {starter ? <Muted>Starter bag is on. Those carries are estimated.</Muted> : null}
       {inPlay.length === 0 ? <Muted>No clubs yet. Add a name below, or import a CSV. This build does not include a sample bag.</Muted> : null}
       <View style={styles.field}>

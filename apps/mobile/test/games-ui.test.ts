@@ -701,7 +701,7 @@ describe('foursome QA', () => {
     expect(handicaps.some((line) => line.includes('handicap'))).toBe(true);
     expect(nets).not.toEqual(handicaps);
     expect(nets.join('\n')).not.toContain('on the line');
-    expect(screen.split('{DISCLOSURE}').length - 1).toBeGreaterThanOrEqual(5);
+    expect(screen.split('{DISCLOSURE}').length - 1).toBe(1);
     expect(nets.some((line) => /takes the day|share the day|All square/.test(line))).toBe(true);
     expect(nets.join('\n')).not.toMatch(/[$€£¥]|\b(money|cash|dollars)\b/i);
     expect(screen).toContain('accessibilityLabel="Day amount"');
@@ -755,13 +755,15 @@ describe('foursome QA', () => {
     expect(screen).toContain("'▴'");
   });
 
-  it('keeps the Birdie Bucks line visible while the live strip is collapsed', () => {
+  it('shows the Birdie Bucks disclaimer once and not on the live strip', () => {
     const live = screen.slice(screen.indexOf('accessibilityLabel="Live strip"'), screen.indexOf("step === 'setup'"));
-    const disclosure = live.indexOf('accessibilityLabel="Birdie Bucks"');
-    const gate = live.indexOf('{stripOpen ? (');
-    expect(disclosure).toBeGreaterThan(-1);
-    expect(gate).toBeGreaterThan(disclosure);
-    expect(live.slice(disclosure, gate)).toContain('{DISCLOSURE}');
+    expect(live).not.toContain('{DISCLOSURE}');
+    expect(live).toContain('accessibilityLabel="Live leaderboard"');
+    expect(screen.split('{DISCLOSURE}').length - 1).toBe(1);
+    expect(screen).toContain('Birdie Bucks (BB) are points on this phone. They have no real-world value.');
+    expect(screen).toContain('played > 0 && pending > 0');
+    expect(screen).toContain("useState<GameKind[]>(() => setupDraft?.kinds ?? ['skins'])");
+    expect(screen).toContain('accessibilityState={{ selected: chosenKinds.includes(kind) }}');
   });
 
   it('names the corrected hole instead of this hole', () => {

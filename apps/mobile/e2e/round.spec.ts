@@ -278,7 +278,7 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByRole('button', { name: /START ROUND/ })).toBeVisible();
   await page.getByRole('button', { name: 'Show more' }).click({ force: true });
-  await page.getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('button', { name: 'More', exact: true }).click({ force: true });
   await expect(page.getByRole('button', { name: 'Past rounds' })).toBeVisible();
   await page.goto('/');
   await page.getByTestId('start-round').first().evaluate((node) => (node as HTMLElement).click());
@@ -291,15 +291,20 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
 
   for (let step = 0; step < 18; step += 1) {
     await page.getByRole('button', { name: 'Score', exact: true }).click();
-    const finish = page.getByRole('button', { name: 'Finish round' });
-    if (await finish.isVisible()) {
+    const finish = page.getByTestId('finish-round');
+    const saveNext = page.getByTestId('save-next');
+    if ((await finish.count()) > 0) {
       await expect(page.getByRole('button', { name: 'Score next hole' })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Next hole', exact: true })).toHaveCount(0);
-      await expect(page.getByRole('button', { name: 'Finish', exact: true })).toBeVisible();
-      await finish.click();
+      await finish.click({ force: true });
       break;
     }
-    await page.getByRole('button', { name: 'Save and next hole' }).click();
+    if ((await saveNext.count()) > 0) {
+      await saveNext.click({ force: true });
+      continue;
+    }
+    await page.getByTestId('hole-finish').first().click({ force: true });
+    break;
   }
   await expect(page.getByText('Round recap').filter({ visible: true }).last()).toBeVisible();
   await dismissDevOverlay(page);

@@ -100,8 +100,9 @@ test('mute, club chips, and the layout notes from 75b6b7d', async ({ page }) => 
   const before = await page.getByTestId('hole-map').evaluate((el) => getComputedStyle(el).transform);
   const map = await page.getByTestId('hole-map').boundingBox();
   const viewport = page.viewportSize() ?? { width: 393, height: 852 };
-  const dragX = map!.x + map!.width / 2;
-  const dragY = Math.min(map!.y + 180, viewport.height * 0.42);
+  const landscape = viewport.width > viewport.height;
+  const dragX = landscape ? 220 : map!.x + map!.width / 2;
+  const dragY = landscape ? 110 : Math.min(map!.y + 180, viewport.height * 0.42);
   await page.mouse.move(dragX, dragY);
   await page.mouse.down();
   await page.mouse.move(dragX + 70, dragY + 24, { steps: 8 });

@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { scorePanelBudget } from './responsive';
 import { MIN_TAP } from './round-chrome';
 
@@ -108,11 +108,16 @@ export function ScoreDock({
   const [gir, setGir] = useState<boolean | null>(savedGir);
   const window = useWindowDimensions();
   const [yardDraft, setYardDraft] = useState(shotYards == null ? '' : String(Math.round(shotYards)));
+  const edited = useRef(false);
   const last = hole >= 18;
   const floor = par ?? 4;
   const budget = scorePanelBudget(window.height || screenHeight, window.width);
+  const compactMenu = window.height < 420;
+  const menuHit = compactMenu ? styles.menuCell : styles.wide;
 
+  // A new hole loads that hole's score. Opening Score must not.
   useEffect(() => {
+    edited.current = false;
     setOpen(false);
     setMenu(false);
     setConfirmEnd(false);
@@ -120,7 +125,17 @@ export function ScoreDock({
     setStrokes(next);
     setPutts(clampPutts(next, savedPutts ?? 0));
     setPenalties(savedPenalties ?? 0);
-  }, [hole, par, savedStrokes, savedPutts, savedPenalties]);
+    setFairway(savedFairway);
+    setGir(savedGir);
+  }, [hole]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (edited.current) return;
+    const next = savedStrokes ?? par ?? 4;
+    setStrokes(next);
+    setPutts(clampPutts(next, savedPutts ?? 0));
+    setPenalties(savedPenalties ?? 0);
+  }, [savedStrokes, savedPutts, savedPenalties, par]);
 
   useEffect(() => {
     if (shotYards == null) return;
@@ -129,28 +144,27 @@ export function ScoreDock({
 
   useEffect(() => {
     if (!scoreAsk) return;
-    const nextStrokes = savedStrokes ?? floor;
-    setStrokes(nextStrokes);
-    setPutts(clampPutts(nextStrokes, savedPutts ?? 0));
-    setPenalties(savedPenalties ?? 0);
-    setFairway(savedFairway);
-    setGir(savedGir);
     setMenu(false);
     setConfirmEnd(false);
     setOpen(true);
-  }, [scoreAsk, savedStrokes, savedPutts, savedPenalties, savedFairway, savedGir, floor]);
+  }, [scoreAsk]);
+
+  useEffect(() => {
+    if (!menu || Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const close = (event: Event) => {
+      const target = event.target as { closest?: (selector: string) => unknown } | null;
+      if (target?.closest?.('[data-testid="round-menu-panel"], [data-testid="round-menu"]')) return;
+      setMenu(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [menu]);
 
   const show = () => {
     if (open) {
       setOpen(false);
       return;
     }
-    const nextStrokes = savedStrokes ?? floor;
-    setStrokes(nextStrokes);
-    setPutts(clampPutts(nextStrokes, savedPutts ?? 0));
-    setPenalties(savedPenalties ?? 0);
-    setFairway(savedFairway);
-    setGir(savedGir);
     setMenu(false);
     setConfirmEnd(false);
     setOpen(true);
@@ -160,47 +174,49 @@ export function ScoreDock({
     : 'End the round? Holes you already saved stay on this phone.';
 
   const writeStrokes = (next: number) => {
+    edited.current = true;
     const score = Math.max(1, next);
     setStrokes(score);
     setPutts((current) => clampPutts(score, current));
   };
+  const closeMenu = () => setMenu(false);
 
   return (
-    <View pointerEvents="box-none" style={styles.wrap}>
+    <View pointerEvents="box-none" style={[styles.wrap, menu && styles.wrapOpen]}>
       {menu ? (
-        <View style={[styles.panel, { maxHeight: Math.max(200, window.height - 96) }]} accessibilityLabel="Round menu" testID="round-menu-panel">
-          <Pressable accessibilityRole="button" accessibilityLabel="Pause round (keep progress)" onPress={onPause} style={styles.wide}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss menu"
+          testID="round-menu-backdrop"
+          onPress={closeMenu}
+          style={styles.backdrop}
+        />
+      ) : null}
+      <View pointerEvents="box-none" style={styles.dock}>
+      {menu ? (
+        <View accessibilityLabel="Round menu" testID="round-menu-panel" style={[styles.panel, compactMenu && styles.menuGrid, { maxHeight: window.height - 16 }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Pause round (keep progress)" onPress={onPause} style={menuHit}>
             <Text style={styles.wideText}>Pause round (keep progress)</Text>
           </Pressable>
           {onToggleMute ? (
-            <Pressable accessibilityRole="button" accessibilityLabel={voiceMuted ? 'Caddie voice on' : 'Mute caddie'} onPress={onToggleMute} style={styles.wide}>
+            <Pressable accessibilityRole="button" accessibilityLabel={voiceMuted ? 'Caddie voice on' : 'Mute caddie'} onPress={onToggleMute} style={menuHit}>
               <Text style={styles.wideText}>{voiceMuted ? 'Caddie voice on' : 'Mute caddie'}</Text>
             </Pressable>
           ) : null}
           {onToggleHandsFree ? (
-            <Pressable accessibilityRole="button" accessibilityLabel={handsFree ? 'Hands-free on' : 'Hands-free off'} onPress={onToggleHandsFree} style={styles.wide}>
+            <Pressable accessibilityRole="button" accessibilityLabel={handsFree ? 'Hands-free on' : 'Hands-free off'} onPress={onToggleHandsFree} style={menuHit}>
               <Text style={styles.wideText}>{handsFree ? 'Hands-free on' : 'Hands-free off'}</Text>
             </Pressable>
           ) : null}
-          {onToggleJustYards ? (
-            <Pressable accessibilityRole="button" accessibilityLabel={justYards ? 'Just yards on' : 'Just yards'} onPress={onToggleJustYards} style={styles.wide}>
-              <Text style={styles.wideText}>{justYards ? 'Just yards on' : 'Just yards'}</Text>
-            </Pressable>
-          ) : null}
-          {onToggleBattery ? (
-            <Pressable accessibilityRole="button" accessibilityLabel={batterySaver ? 'Battery saver on' : 'Battery saver'} onPress={onToggleBattery} style={styles.wide}>
-              <Text style={styles.wideText}>{batterySaver ? 'Battery saver on' : 'Battery saver'}</Text>
-            </Pressable>
-          ) : null}
           {canUndoScore && onUndoScore ? (
-            <Pressable accessibilityRole="button" accessibilityLabel="Undo last score" onPress={onUndoScore} style={styles.wide}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Undo last score" onPress={onUndoScore} style={menuHit}>
               <Text style={styles.wideText}>Undo last score</Text>
             </Pressable>
           ) : null}
           {confirmEnd ? (
             <View>
               <Text style={styles.kicker}>{endSummary}</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Confirm end round" onPress={onEnd} style={styles.wide}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Confirm end round" onPress={onEnd} style={menuHit}>
                 <Text style={styles.wideText}>End round</Text>
               </Pressable>
               <Pressable
@@ -210,21 +226,31 @@ export function ScoreDock({
                   setConfirmEnd(false);
                   setMenu(false);
                 }}
-                style={styles.wide}
+                style={menuHit}
               >
                 <Text style={styles.wideText}>Keep playing</Text>
               </Pressable>
             </View>
           ) : (
-            <Pressable accessibilityRole="button" accessibilityLabel="End round" onPress={() => setConfirmEnd(true)} style={styles.wide}>
+            <Pressable accessibilityRole="button" accessibilityLabel="End round" onPress={() => setConfirmEnd(true)} style={menuHit}>
               <Text style={styles.wideText}>End round</Text>
             </Pressable>
           )}
           <ScrollView
             testID="shot-list"
-            style={{ maxHeight: Math.max(72, Math.min(180, window.height - 280)) }}
+            style={{ maxHeight: compactMenu ? 56 : 88, width: '100%' }}
             keyboardShouldPersistTaps="handled"
           >
+          {onToggleJustYards ? (
+            <Pressable accessibilityRole="button" accessibilityLabel={justYards ? 'Just yards on' : 'Just yards'} accessibilityState={{ checked: justYards }} {...({ 'aria-checked': justYards } as object)} onPress={onToggleJustYards} style={styles.wide}>
+              <Text style={styles.wideText}>{justYards ? 'Just yards on' : 'Just yards'}</Text>
+            </Pressable>
+          ) : null}
+          {onToggleBattery ? (
+            <Pressable accessibilityRole="button" accessibilityLabel={batterySaver ? 'Battery saver on' : 'Battery saver'} accessibilityState={{ checked: batterySaver }} {...({ 'aria-checked': batterySaver } as object)} onPress={onToggleBattery} style={styles.wide}>
+              <Text style={styles.wideText}>{batterySaver ? 'Battery saver on' : 'Battery saver'}</Text>
+            </Pressable>
+          ) : null}
           {holeShots.map((shot) => (
             <View key={shot.id}>
               <Pressable
@@ -362,50 +388,63 @@ export function ScoreDock({
         accessibilityLabel={last ? 'Finish' : strokes === floor ? 'Par' : 'Next'}
         testID={last ? 'hole-finish' : 'par-next'}
         onPress={() => {
+          closeMenu();
           onSave({ strokes, putts: clampPutts(strokes, putts), penalties, fairway, gir }, last);
           if (!last && strokes === floor) onQuickPar?.();
           setOpen(false);
-          setMenu(false);
         }}
         style={styles.par}
       >
         <Text style={styles.parText}>{last ? 'Finish' : strokes === floor ? 'Par' : 'Next'}</Text>
       </Pressable>
       <View style={styles.bar}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Lower the score" onPress={() => writeStrokes(strokes - 1)} style={styles.hit}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Lower the score" onPress={() => { closeMenu(); writeStrokes(strokes - 1); }} style={styles.hit}>
           <Text style={styles.sign}>−</Text>
         </Pressable>
         <Text accessibilityLabel={`Score on the bar ${strokes}`} style={styles.big}>{String(strokes)}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Raise the score" onPress={() => writeStrokes(strokes + 1)} style={styles.hit}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Raise the score" onPress={() => { closeMenu(); writeStrokes(strokes + 1); }} style={styles.hit}>
           <Text style={styles.sign}>+</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Score previous hole" onPress={onPrev} style={styles.hit}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Score previous hole" onPress={() => { closeMenu(); onPrev(); }} style={styles.hit}>
           <Text style={styles.sign}>‹</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Score" testID="open-score" onPress={show} style={styles.primary}>
           <Text style={styles.primaryText}>Score</Text>
         </Pressable>
         {last ? null : (
-          <Pressable accessibilityRole="button" accessibilityLabel="Score next hole" onPress={onNext} style={styles.hit}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Score next hole" onPress={() => { closeMenu(); onNext(); }} style={styles.hit}>
             <Text style={styles.sign}>›</Text>
           </Pressable>
         )}
-        <Pressable accessibilityRole="button" accessibilityLabel={`Mark shot, ${markCount} ${markCount === 1 ? 'mark' : 'marks'}`} testID="mark-shot" onPress={onMark} style={styles.mark}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Mark shot, ${markCount} ${markCount === 1 ? 'mark' : 'marks'}`} testID="mark-shot" onPress={() => { closeMenu(); onMark(); }} style={styles.mark}>
           <Text style={styles.markText}>MARK</Text>
           <Text style={styles.markCount}>{markCount}</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Round menu" testID="round-menu" onPress={() => { setOpen(false); setMenu((value) => !value); }} style={styles.hit}>
           <Text style={styles.sign}>Menu</Text>
         </Pressable>
-        {ask}
+        <View
+          {...({
+            onMouseDown: closeMenu,
+            onTouchStart: closeMenu,
+          } as object)}
+        >
+          {ask}
+        </View>
+      </View>
       </View>
     </View>
   );
 }
 
+const TAP = 56;
+
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
-  panel: { backgroundColor: '#041018', borderRadius: 16, padding: 6, gap: 4, overflow: 'hidden' },
+  wrapOpen: { position: 'absolute', left: -8, right: -8, bottom: 0, top: -1600 },
+  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 },
+  dock: { marginTop: 'auto', gap: 6, zIndex: 2 },
+  panel: { backgroundColor: '#041018', borderRadius: 16, padding: 6, gap: 4, overflow: 'hidden', zIndex: 2 },
   fields: { gap: 4 },
   block: { gap: 2 },
   bar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, minHeight: MIN_TAP },
@@ -414,22 +453,24 @@ const styles = StyleSheet.create({
   label: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', minWidth: 72 },
   stepRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  hit: { minWidth: MIN_TAP, minHeight: MIN_TAP, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  hit: { minWidth: TAP, minHeight: TAP, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   sign: { color: '#FFFFFF', fontSize: 22, fontWeight: '700' },
   finish: { color: '#8AC926', fontSize: 14, fontWeight: '800' },
   big: { color: '#FFFFFF', fontSize: 28, lineHeight: 32, fontWeight: '700', minWidth: 36, textAlign: 'center' },
   mid: { color: '#FFFFFF', fontSize: 20, lineHeight: 24, fontWeight: '700', minWidth: 24, textAlign: 'center' },
-  choice: { minHeight: MIN_TAP, minWidth: MIN_TAP, paddingHorizontal: 8, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' },
+  choice: { minHeight: TAP, minWidth: TAP, paddingHorizontal: 8, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' },
   choiceOn: { backgroundColor: '#8AC926' },
   choiceText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
   choiceTextOn: { color: '#0B1F3A' },
   par: { minHeight: 56, borderRadius: 14, backgroundColor: '#C8102E', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   parText: { color: '#FFFFFF', fontSize: 22, lineHeight: 26, fontWeight: '800' },
-  primary: { minHeight: 48, minWidth: 88, paddingHorizontal: 12, borderRadius: 14, backgroundColor: '#8AC926', alignItems: 'center', justifyContent: 'center' },
+  primary: { minHeight: TAP, minWidth: 88, paddingHorizontal: 12, borderRadius: 14, backgroundColor: '#8AC926', alignItems: 'center', justifyContent: 'center' },
   primaryText: { color: '#0B1F3A', fontSize: 16, fontWeight: '800' },
-  wide: { minHeight: MIN_TAP, justifyContent: 'center', paddingHorizontal: 8 },
+  wide: { minHeight: TAP, justifyContent: 'center', paddingHorizontal: 8 },
+  menuGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  menuCell: { width: '48%', minHeight: TAP, justifyContent: 'center', paddingHorizontal: 8 },
   wideText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-  mark: { minWidth: 64, minHeight: MIN_TAP, alignItems: 'center', justifyContent: 'center' },
+  mark: { minWidth: TAP, minHeight: TAP, alignItems: 'center', justifyContent: 'center' },
   markText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', letterSpacing: 0.6 },
   markCount: { color: '#8AC926', fontSize: 16, fontWeight: '800' },
 });

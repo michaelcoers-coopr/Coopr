@@ -99,7 +99,7 @@ export function playChrome(input: { screenWidth: number; screenHeight: number; s
   const safe = input.safe;
   const gap = 8;
   const menu: Box = { x: width - safe.right - 12 - MIN_TAP, y: safe.top + 8, w: MIN_TAP, h: MIN_TAP };
-  const pillH = MIN_TAP;
+  const pillH = 56;
   const maxPill = menu.x - gap - (safe.left + 12);
   const pill: Box = { x: safe.left + 12, y: safe.top + 8, w: Math.max(160, Math.min(236, maxPill)), h: pillH };
   const plate: Box = {

@@ -293,32 +293,10 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!sheetOpen || Platform.OS !== 'web') return;
-    let stopped = false;
-    let placed = 0;
-    const snap = () => {
-      if (stopped) return;
-      const scroll = sheetScrollElement(sheetScrollRef.current);
-      if (!scroll || scroll.clientHeight < 80) return;
-      if (Math.abs(scroll.scrollTop - placed) > 2) return;
-      scroll.scrollTop = 0;
-      const blocks = foldBlocks(scroll);
-      foldSnap(blocks, scroll.clientHeight);
-      placed = 0;
-    };
-    snap();
-    const timers = [160, 420, 800].map((ms) => setTimeout(snap, ms));
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(snap);
     const scroll = sheetScrollElement(sheetScrollRef.current);
-    if (observer && scroll) {
-      observer.observe(scroll);
-      if (scroll.parentElement) observer.observe(scroll.parentElement);
-    }
-    return () => {
-      stopped = true;
-      for (const timer of timers) clearTimeout(timer);
-      observer?.disconnect();
-    };
-  }, [sheetOpen, askOn, askReply, askDraft, started, firstHole]);
+    if (!scroll) return;
+    foldSnap(foldBlocks(scroll), scroll.clientHeight);
+  }, [sheetOpen]);
 
   const bottomInset = Math.max(insets.bottom, 8);
 
@@ -424,25 +402,25 @@ export default function HomeScreen() {
             </Pressable>
           </View>
           {sheetOpen ? (
-            <View style={styles.actions}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Games" onPress={() => router.push('/games')} style={styles.action}>
-                <Text style={styles.rowTitle} numberOfLines={1}>Games</Text>
-                <Text style={styles.rowNote} numberOfLines={1}>Foursome games</Text>
+            <View testID="home-actions" style={[styles.actions, (windowWidth > windowHeight || windowWidth >= 640) && styles.actionsRow]}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Games" onPress={() => router.push('/games')} style={[styles.action, (windowWidth > windowHeight || windowWidth >= 640) && styles.actionRow]}>
+                <Text style={styles.rowTitle}>Games</Text>
+                <Text style={styles.rowNote}>Foursome games</Text>
               </Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel={`Bag, ${inPlay} clubs in play`} onPress={() => router.push('/bag')} style={styles.action}>
-                <Text style={styles.rowTitle} numberOfLines={1}>Bag</Text>
-                <Text style={styles.rowNote} numberOfLines={1}>{bagGlance(inPlay)}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Bag, ${inPlay} clubs in play`} onPress={() => router.push('/bag')} style={[styles.action, (windowWidth > windowHeight || windowWidth >= 640) && styles.actionRow]}>
+                <Text style={styles.rowTitle}>Bag</Text>
+                <Text style={styles.rowNote}>{bagGlance(inPlay)}</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Ask caddie"
                 onPress={() => setAskOn(true)}
-                style={styles.action}
+                style={[styles.action, (windowWidth > windowHeight || windowWidth >= 640) && styles.actionRow]}
               >
-                <Text style={styles.rowTitle} numberOfLines={1}>Ask caddie</Text>
+                <Text style={styles.rowTitle}>Ask caddie</Text>
               </Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel="Past rounds" onPress={() => router.push('/rounds')} style={styles.action}>
-                <Text style={styles.rowTitle} numberOfLines={1}>Past rounds</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Past rounds" onPress={() => router.push('/rounds')} style={[styles.action, (windowWidth > windowHeight || windowWidth >= 640) && styles.actionRow]}>
+                <Text style={styles.rowTitle}>Past rounds</Text>
               </Pressable>
             </View>
           ) : null}
@@ -480,28 +458,7 @@ export default function HomeScreen() {
                   ) : null}
                 </View>
               ) : null}
-              <View style={styles.teeCard}>
-                <TeeRow label="COURSE" value={courseName.toUpperCase()} />
-                <TeeRow label="TEES" value="WHITE" />
-                <TeeRow label={started ? 'NEXT HOLE' : 'FIRST HOLE'} value={firstHole} />
-                <TeeRow label="BAG" value={bagGlance(inPlay).toUpperCase()} />
-                <TeeRow label="WIND" value={windCell(sky)} />
-                <TeeRow label="TEMP" value={tempCell(sky)} />
-              </View>
-              <View style={styles.tiles}>
-                <View style={styles.tile}>
-                  <Text style={styles.tileLabel}>GROSS</Text>
-                  <Text style={[styles.tileValue, { fontFamily: display }]}>{grossShown}</Text>
-                  {progress.filled < 3 ? <Text style={styles.tileNote}>{progress.gross}</Text> : null}
-                </View>
-                <View style={styles.tile}>
-                  <Text style={styles.tileLabel}>LAST 3 TO PAR</Text>
-                  <Text style={[styles.tileValue, summary.trend ? styles.tileTrend : null, { fontFamily: display }]}>{summary.trend ?? '—'}</Text>
-                  <Text style={styles.tileNote}>{summary.handicap}</Text>
-                  {summary.disclaimer ? <Text style={styles.tileDisclaimer}>{summary.disclaimer}</Text> : null}
-                </View>
-              </View>
-              <Text style={styles.section}>RECENT ROUNDS</Text>
+              <Text testID="recent-rounds" style={styles.section}>RECENT ROUNDS</Text>
               <View style={styles.empty}>
                 {summary.last ? (
                   <Pressable accessibilityRole="button" accessibilityLabel="Rounds" onPress={() => router.push('/rounds')}>
@@ -527,6 +484,27 @@ export default function HomeScreen() {
                 </View>
                 <Text style={styles.chevron}>›</Text>
               </Pressable>
+              <View style={styles.teeCard}>
+                <TeeRow label="COURSE" value={courseName.toUpperCase()} />
+                <TeeRow label="TEES" value="WHITE" />
+                <TeeRow label={started ? 'NEXT HOLE' : 'FIRST HOLE'} value={firstHole} />
+                <TeeRow label="BAG" value={bagGlance(inPlay).toUpperCase()} />
+                <TeeRow label="WIND" value={windCell(sky)} />
+                <TeeRow label="TEMP" value={tempCell(sky)} />
+              </View>
+              <View testID="gross-tile" style={styles.tiles}>
+                <View style={styles.tile}>
+                  <Text style={styles.tileLabel}>GROSS</Text>
+                  <Text style={[styles.tileValue, { fontFamily: display }]}>{grossShown}</Text>
+                  {progress.filled < 3 ? <Text style={styles.tileNote}>{progress.gross}</Text> : null}
+                </View>
+                <View style={styles.tile}>
+                  <Text style={styles.tileLabel}>LAST 3 TO PAR</Text>
+                  <Text style={[styles.tileValue, summary.trend ? styles.tileTrend : null, { fontFamily: display }]}>{summary.trend ?? '—'}</Text>
+                  <Text style={styles.tileNote}>{summary.handicap}</Text>
+                  {summary.disclaimer ? <Text style={styles.tileDisclaimer}>{summary.disclaimer}</Text> : null}
+                </View>
+              </View>
             </ScrollView>
           ) : null}
         </Glass>
@@ -594,8 +572,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   startText: { color: colors.white, fontSize: 28, lineHeight: 32, letterSpacing: 1 },
-  actions: { flexDirection: 'row', flexWrap: 'nowrap', gap: 6, marginTop: 8, paddingHorizontal: 12, paddingBottom: 4, zIndex: 2, flexShrink: 0, width: '100%' },
-  action: { flex: 1, flexShrink: 1, minWidth: 44, height: 48, borderRadius: 14, paddingHorizontal: 4, justifyContent: 'center', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.08)' },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8, paddingHorizontal: 12, paddingBottom: 8, zIndex: 2, flexShrink: 0, width: '100%' },
+  action: { flexGrow: 1, flexBasis: '46%', minWidth: 140, minHeight: 56, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 8, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' },
+  actionsRow: { flexWrap: 'nowrap' },
+  actionRow: { flexBasis: '22%', minWidth: 72 },
   pressed: { opacity: 0.9 },
   scroll: { flex: 1, minHeight: 0, zIndex: 1 },
   scrollBody: { paddingHorizontal: 14, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 48, gap: 12 },

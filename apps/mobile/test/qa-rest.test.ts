@@ -220,9 +220,14 @@ describe('rest of PR 5', () => {
     expect(readPlayNote()).toBeNull();
   });
 
-  it('gives hole navigation 44 point targets, a bag back control, and a readable start button', () => {
+  it('gives hole navigation 56 point targets, a bag back control, and a readable start button', () => {
     const play = read('../app/play.tsx');
-    expect(play).toContain('pillArrow: { width: 44, height: 44');
+    expect(play).toContain('pillArrow: { width: 56, height: 56');
+    const setup = read('../app/setup.tsx');
+    expect(setup).toContain('displayName.trim()');
+    expect(setup).toContain('Add your name. Handicap, driver speed, and flex live here.');
+    expect(setup).not.toContain('live here, once.');
+    expect(read('../app/more.tsx')).not.toContain('One filled button');
     expect(play).toContain('pillBallHit: { width: 44, height: 44');
     expect(read('../src/design/floating-ask.tsx')).toContain("root === 'onboard'");
     expect(read('../src/bag-scan/chrome.tsx')).toContain('paddingRight: 20');
