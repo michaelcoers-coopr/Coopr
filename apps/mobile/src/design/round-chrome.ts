@@ -98,10 +98,11 @@ export function playChrome(input: { screenWidth: number; screenHeight: number; s
   const height = Number.isFinite(input.screenHeight) && input.screenHeight > 0 ? input.screenHeight : 852;
   const safe = input.safe;
   const gap = 8;
-  const menu: Box = { x: width - safe.right - 12 - MIN_TAP, y: safe.top + 8, w: MIN_TAP, h: MIN_TAP };
+  const askW = 56;
+  const menu: Box = { x: width - safe.right - 8 - askW, y: safe.top + 8, w: askW, h: askW };
   const pillH = 56;
   const maxPill = menu.x - gap - (safe.left + 12);
-  const pill: Box = { x: safe.left + 12, y: safe.top + 8, w: Math.max(160, Math.min(236, maxPill)), h: pillH };
+  const pill: Box = { x: safe.left + 12, y: safe.top + 8, w: Math.max(160, Math.min(320, maxPill)), h: pillH };
   const plate: Box = {
     x: pill.x,
     y: pill.y + pill.h + gap,

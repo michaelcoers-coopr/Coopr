@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { scorePanelBudget } from './responsive';
+import { DOCK_GAP, DOCK_PAD, DOCK_ROW, scorePanelBudget } from './responsive';
 import { MIN_TAP } from './round-chrome';
 
 export type FairwayPick = 'hit' | 'left' | 'right' | 'short' | 'long' | null;
@@ -29,12 +29,9 @@ export function ScoreDock({
   savedFairway,
   savedGir,
   markCount,
-  ask,
   screenHeight,
   thruLabel,
   onSave,
-  onPrev,
-  onNext,
   onMark,
   onPause,
   onEnd,
@@ -67,12 +64,9 @@ export function ScoreDock({
   savedFairway: FairwayPick;
   savedGir: boolean | null;
   markCount: number;
-  ask: ReactNode;
   screenHeight: number;
   thruLabel: string | null;
   onSave: (draft: ScoreDraft, finish: boolean) => void;
-  onPrev: () => void;
-  onNext: () => void;
   onMark: () => void;
   onPause: () => void;
   onEnd: () => void;
@@ -188,6 +182,7 @@ export function ScoreDock({
           accessibilityRole="button"
           accessibilityLabel="Dismiss menu"
           testID="round-menu-backdrop"
+          pointerEvents="none"
           onPress={closeMenu}
           style={styles.backdrop}
         />
@@ -383,15 +378,7 @@ export function ScoreDock({
           </Pressable>
         </View>
       ) : null}
-      <Pressable accessibilityRole="button" accessibilityLabel="Score previous hole" onPress={() => { closeMenu(); onPrev(); }} style={[styles.edge, styles.edgeLeft]}>
-        <Text style={styles.edgeText}>‹</Text>
-      </Pressable>
-      {last ? null : (
-        <Pressable accessibilityRole="button" accessibilityLabel="Score next hole" onPress={() => { closeMenu(); onNext(); }} style={[styles.edge, styles.edgeRight]}>
-          <Text style={styles.edgeText}>›</Text>
-        </Pressable>
-      )}
-      <View style={styles.bar}>
+      <View testID="score-dock" style={styles.bar}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={last ? 'Finish' : strokes === floor ? 'Par' : 'Next'}
@@ -406,31 +393,26 @@ export function ScoreDock({
         >
           <Text style={styles.parText}>{last ? 'Finish' : strokes === floor ? 'Par' : 'Next'}</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Lower the score" onPress={() => { closeMenu(); writeStrokes(strokes - 1); }} style={styles.step}>
-          <Text style={styles.sign}>−</Text>
-        </Pressable>
-        <Text accessibilityLabel={`Score on the bar ${strokes}`} style={styles.big}>{String(strokes)}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Raise the score" onPress={() => { closeMenu(); writeStrokes(strokes + 1); }} style={styles.step}>
-          <Text style={styles.sign}>+</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Score" testID="open-score" onPress={show} style={styles.scoreBtn}>
-          <Text style={styles.primaryText}>Score</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Mark shot, ${markCount} ${markCount === 1 ? 'mark' : 'marks'}`} testID="mark-shot" onPress={() => { closeMenu(); onMark(); }} style={styles.mark}>
-          <Text style={styles.markText}>MARK</Text>
-          <Text style={styles.markCount}>{markCount}</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Round menu" testID="round-menu" onPress={() => { setOpen(false); setMenu((value) => !value); }} style={styles.menuBtn}>
-          <Text style={styles.menuText}>Menu</Text>
-        </Pressable>
-        <View
-          style={styles.askSlot}
-          {...({
-            onMouseDown: closeMenu,
-            onTouchStart: closeMenu,
-          } as object)}
-        >
-          {ask}
+        <View style={styles.row}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Lower the score" onPress={() => { closeMenu(); writeStrokes(strokes - 1); }} style={styles.cell}>
+            <Text style={styles.sign}>−</Text>
+          </Pressable>
+          <View accessibilityLabel={`Score on the bar ${strokes}`} style={styles.cell}>
+            <Text style={styles.big}>{String(strokes)}</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Raise the score" onPress={() => { closeMenu(); writeStrokes(strokes + 1); }} style={styles.cell}>
+            <Text style={styles.sign}>+</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Score" testID="open-score" onPress={show} style={[styles.cell, styles.scoreBtn]}>
+            <Text style={styles.primaryText}>Score</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Mark shot, ${markCount} ${markCount === 1 ? 'mark' : 'marks'}`} testID="mark-shot" onPress={() => { closeMenu(); onMark(); }} style={styles.cell}>
+            <Text style={styles.markText}>MARK</Text>
+            <Text style={styles.markCount}>{markCount}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Round menu" testID="round-menu" onPress={() => { setOpen(false); setMenu((value) => !value); }} style={styles.cell}>
+            <Text style={styles.menuText}>Menu</Text>
+          </Pressable>
         </View>
       </View>
       </View>
@@ -441,24 +423,24 @@ export function ScoreDock({
 const TAP = 56;
 
 const styles = StyleSheet.create({
-  wrap: { gap: 6 },
+  wrap: { gap: 6, width: '100%', alignSelf: 'stretch', pointerEvents: 'box-none' },
   wrapOpen: { position: 'absolute', left: -8, right: -8, bottom: 0, top: -1600 },
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 },
-  dock: { marginTop: 'auto', gap: 6, zIndex: 2 },
+  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1, pointerEvents: 'none' },
+  dock: { marginTop: 'auto', gap: 6, zIndex: 2, width: '100%', alignSelf: 'stretch' },
   panel: { backgroundColor: '#041018', borderRadius: 16, padding: 6, gap: 4, overflow: 'hidden', zIndex: 2 },
   fields: { gap: 4 },
   block: { gap: 2 },
   bar: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    alignItems: 'center',
-    gap: 1,
-    minHeight: 64,
+    width: '100%',
+    alignSelf: 'stretch',
+    height: DOCK_PAD * 2 + DOCK_ROW + DOCK_GAP + DOCK_ROW,
     backgroundColor: '#041018',
     borderRadius: 16,
-    paddingHorizontal: 2,
-    paddingVertical: 4,
+    paddingVertical: DOCK_PAD,
+    gap: DOCK_GAP,
   },
+  row: { flexDirection: 'row', alignItems: 'stretch', height: DOCK_ROW, width: '100%' },
+  cell: { flex: 1, minWidth: 0, height: DOCK_ROW, alignItems: 'center', justifyContent: 'center' },
   kicker: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', flex: 1 },
   yardInput: { minWidth: 64, minHeight: MIN_TAP, color: '#FFFFFF', fontSize: 18, fontWeight: '800', textAlign: 'center' },
   label: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', minWidth: 72 },
@@ -467,30 +449,23 @@ const styles = StyleSheet.create({
   hit: { minWidth: TAP, minHeight: TAP, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   sign: { color: '#FFFFFF', fontSize: 22, fontWeight: '700' },
   finish: { color: '#8AC926', fontSize: 14, fontWeight: '800' },
-  big: { color: '#FFFFFF', fontSize: 22, lineHeight: 26, fontWeight: '700', minWidth: 22, textAlign: 'center' },
+  big: { color: '#FFFFFF', fontSize: 22, lineHeight: 26, fontWeight: '700', textAlign: 'center' },
   mid: { color: '#FFFFFF', fontSize: 20, lineHeight: 24, fontWeight: '700', minWidth: 24, textAlign: 'center' },
   choice: { minHeight: TAP, minWidth: TAP, paddingHorizontal: 8, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' },
   choiceOn: { backgroundColor: '#8AC926' },
   choiceText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
   choiceTextOn: { color: '#0B1F3A' },
-  step: { width: 44, height: 48, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  edge: { position: 'absolute', top: -240, width: 44, height: 44, borderRadius: 12, backgroundColor: '#041018', alignItems: 'center', justifyContent: 'center', zIndex: 3 },
-  edgeLeft: { left: 0 },
-  edgeRight: { right: 0 },
-  edgeText: { color: '#FFFFFF', fontSize: 22, fontWeight: '800' },
-  par: { height: 56, minWidth: 48, borderRadius: 14, backgroundColor: '#C8102E', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, flexShrink: 0 },
+  par: { height: DOCK_ROW, width: '100%', borderRadius: 14, backgroundColor: '#C8102E', alignItems: 'center', justifyContent: 'center' },
   parText: { color: '#FFFFFF', fontSize: 18, lineHeight: 22, fontWeight: '800' },
-  scoreBtn: { height: 56, minWidth: 48, paddingHorizontal: 6, borderRadius: 14, backgroundColor: '#8AC926', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  menuBtn: { width: 44, height: 56, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  scoreBtn: { backgroundColor: '#8AC926', borderRadius: 14 },
   menuText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
-  askSlot: { flexShrink: 0 },
   primary: { minHeight: TAP, minWidth: 88, paddingHorizontal: 12, borderRadius: 14, backgroundColor: '#8AC926', alignItems: 'center', justifyContent: 'center' },
   primaryText: { color: '#0B1F3A', fontSize: 16, fontWeight: '800' },
   wide: { minHeight: TAP, justifyContent: 'center', paddingHorizontal: 8 },
   menuGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   menuCell: { width: '48%', minHeight: TAP, justifyContent: 'center', paddingHorizontal: 8 },
   wideText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-  mark: { width: 44, height: TAP, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  mark: { height: TAP, alignItems: 'center', justifyContent: 'center' },
   markText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', letterSpacing: 0.6 },
   markCount: { color: '#8AC926', fontSize: 16, fontWeight: '800' },
 });

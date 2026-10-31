@@ -485,13 +485,12 @@ export default function GamesScreen() {
                       setPlayers((current) => current.map((item) => (item.id === player.id ? { ...item, handicapText, scratch: false } : item)))
                     }
                     accessibilityLabel={`${player.name || `Player ${index + 1}`} course handicap`}
-                    placeholder="-10 to 54"
+                    placeholder="Scratch (0)"
                     placeholderTextColor={play.muted}
                     keyboardType="numbers-and-punctuation"
                     style={styles.input}
                   />
                   {range ? <Text style={styles.amber}>{range}</Text> : null}
-                  {player.name.trim() && playerHandicap(player) == null && !range ? <Text style={styles.amber}>{`Enter ${player.name.trim()}'s course handicap, or play him scratch (0).`}</Text> : null}
                   <View style={styles.row}>
                     <Pressable
                       accessibilityRole="button"
@@ -680,12 +679,12 @@ export default function GamesScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={`${row.name} ${label}`}
                       onPress={() => setRows((current) => tapGross(current, row.playerId, (course.holes[hole - 1]?.par ?? 4) + delta))}
-                      style={styles.chip}
+                      style={styles.scoreTap}
                     >
                       <Text style={styles.chipText}>{label}</Text>
                     </Pressable>
                   ))}
-                  <Pressable accessibilityRole="button" accessibilityLabel={`${row.name} pickup`} onPress={() => setRows((current) => tapPickup(current, row.playerId))} style={styles.chip}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`${row.name} pickup`} onPress={() => setRows((current) => tapPickup(current, row.playerId))} style={styles.scoreTap}>
                     <Text style={styles.chipText}>Pickup</Text>
                   </Pressable>
                   {row.amber ? (
@@ -706,7 +705,7 @@ export default function GamesScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={`${wolfPlayer.name} takes ${player.name}`}
                       onPress={() => setMarks((current) => ({ ...current, wolfSkipped: false, wolf: { mode: 'partner', wolfId: wolfPlayer.id, partnerId: player.id } }))}
-                      style={[styles.chip, marks.wolf?.wolfId === wolfPlayer.id && marks.wolf?.mode === 'partner' && marks.wolf.partnerId === player.id && styles.chipOn]}
+                      style={[styles.scoreTap, marks.wolf?.wolfId === wolfPlayer.id && marks.wolf?.mode === 'partner' && marks.wolf.partnerId === player.id && styles.chipOn]}
                     >
                       <Text style={styles.chipText}>{player.name}</Text>
                     </Pressable>

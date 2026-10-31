@@ -424,6 +424,7 @@ export default function PlayScreen() {
   const heldOpen = useRef(false);
   const dwell = useRef<ReturnType<typeof setTimeout> | null>(null);
   const framedHole = useRef<number | null>(null);
+  const holdCoach = useRef(false);
   const applySheet = useRef<(open: boolean, fromGesture?: boolean) => void>(() => {});
   applySheet.current = (open: boolean, fromGesture = false) => {
     if (fromGesture) heldOpen.current = open;
@@ -561,6 +562,13 @@ export default function PlayScreen() {
     setSaved(null);
     setSky(null);
     if (previous == null) return;
+    if (holdCoach.current) {
+      holdCoach.current = false;
+      sheetOpenRef.current = true;
+      setSheetOpen(true);
+      sheetH.value = openRef.current;
+      return;
+    }
     sheetOpenRef.current = false;
     setSheetOpen(false);
     sheetDrag.value = 0;
@@ -1331,7 +1339,7 @@ export default function PlayScreen() {
           if (event.nativeEvent.actionName === 'increment') leaveRef.current();
           if (event.nativeEvent.actionName === 'decrement') backRef.current();
         }}
-        style={[styles.holePill, { top: chrome.pill.y, left: chrome.pill.x }]}
+        style={[styles.holePill, { top: chrome.pill.y, left: chrome.pill.x, width: chrome.pill.w, height: chrome.pill.h }]}
         testID="hole-pill"
       >
         <Glass radius={19} style={styles.holePillGlass} contentStyle={styles.holePillFill}>
@@ -1355,7 +1363,7 @@ export default function PlayScreen() {
             onPress={() => router.push('/')}
             style={styles.pillBallHit}
           >
-            <View style={styles.pillBall}>
+            <View testID="hole-number" style={styles.pillBall}>
               <Text style={[styles.pillBallNum, { fontFamily: display }]}>{hole.holeNumber}</Text>
             </View>
           </Pressable>
@@ -1607,7 +1615,7 @@ export default function PlayScreen() {
             <Waveform live={talk.phase === 'listening' || talk.phase === 'speaking'} compact />
             {talk.sample ? <Text style={styles.clubMeta}>{SAMPLE_ANSWER_LABEL}</Text> : null}
             <Text style={styles.clubMeta}>You</Text>
-            <Text style={styles.line}>{talk.transcript || talk.draft || (talk.typed ? 'Type a question.' : talk.voiceHint) || 'Hold the mic, or type it.'}</Text>
+            <Text testID="you-line" style={styles.line}>{talk.draft.trim() || talk.transcript || 'Hold the mic, or type it.'}</Text>
             <Text style={styles.clubMeta}>Caddie</Text>
             <ScrollView testID="caddie-answer" style={styles.answerScroll}>
               {talk.reply ? <YardageLine text={talk.reply} /> : <Text style={styles.line}> </Text>}
@@ -1628,6 +1636,7 @@ export default function PlayScreen() {
                   talk.setDraft('');
                   const heard = spokenStrokes(text, par ?? 4);
                   if (heard != null) {
+                    talk.pinHeard(text);
                     setPendingScore(heard);
                     return;
                   }
@@ -1643,6 +1652,7 @@ export default function PlayScreen() {
                   talk.setDraft('');
                   const heard = spokenStrokes(text, par ?? 4);
                   if (heard != null) {
+                    talk.pinHeard(text);
                     setPendingScore(heard);
                     return;
                   }
@@ -1819,6 +1829,9 @@ export default function PlayScreen() {
           </ScrollView>
         </View>
       ) : null}
+      <View pointerEvents="box-none" style={[styles.askFloat, { top: chrome.menu.y, left: chrome.menu.x, width: chrome.menu.w, height: chrome.menu.h }]}>
+        {ask.button}
+      </View>
       <View pointerEvents="box-none" style={[styles.actionDock, { bottom: Math.max(insets.bottom, 8) }]}>
         {pendingScore != null ? (
           <View style={styles.confirmScore}>
@@ -1830,6 +1843,9 @@ export default function PlayScreen() {
                 const strokes = pendingScore;
                 setPendingScore(null);
                 if (strokes == null) return;
+                talk.answer(`Saved ${strokes} on hole ${hole.holeNumber}`);
+                holdCoach.current = true;
+                setSheetTab('coach');
                 writeStrokes(strokes);
                 setPutts(hole.holeNumber, 0);
                 setPenalties(hole.holeNumber, 0);
@@ -1855,11 +1871,8 @@ export default function PlayScreen() {
           savedFairway={fairways[hole.holeNumber - 1] ?? null}
           savedGir={girs[hole.holeNumber - 1] ?? null}
           markCount={holeMarks.length}
-          ask={ask.button}
           screenHeight={windowHeight}
           thruLabel={thruLabel}
-          onPrev={goBack}
-          onNext={leaveHole}
           onMark={markHere}
           voiceMuted={talkPrefs.muted}
           handsFree={talkPrefs.handsFree}
@@ -2233,18 +2246,19 @@ const styles = StyleSheet.create({
   draftDismiss: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   draftDismissText: { color: '#8AC926', fontFamily: font.family, fontSize: 13, fontWeight: '800' },
   heroScrim: { position: 'absolute', left: 0, width: 220, height: 250, zIndex: 3 },
-  holePill: { position: 'absolute', left: 12, zIndex: 6 },
-  holePillGlass: { minHeight: 56 },
+  holePill: { position: 'absolute', left: 12, zIndex: 6, overflow: 'hidden' },
+  holePillGlass: { height: 56, overflow: 'hidden' },
   holePillFill: {
-    minHeight: 56,
+    height: 56,
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 4,
+    gap: 4,
+    paddingHorizontal: 2,
   },
-  pillPair: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pillPair: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
   pillStack: { alignItems: 'center', justifyContent: 'center', minWidth: 28 },
-  actionDock: { position: 'absolute', left: 8, right: 8, zIndex: 9 },
+  actionDock: { position: 'absolute', left: 0, right: 0, zIndex: 9 },
   confirmScore: { minHeight: 56, borderRadius: 14, backgroundColor: '#041018', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, marginBottom: 6 },
   confirmScoreText: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
   confirmScoreHit: { minWidth: 56, minHeight: 56, alignItems: 'center', justifyContent: 'center' },
@@ -2280,13 +2294,13 @@ const styles = StyleSheet.create({
   answerScroll: { maxHeight: 72, flexGrow: 0 },
   coachPeekHit: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
   sendHit: { minWidth: 44, minHeight: 44, textAlign: 'center', lineHeight: 44 },
-  pillArrow: { width: 44, height: 56, alignItems: 'center', justifyContent: 'center' },
+  pillArrow: { width: 44, height: 56, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   pillArrowText: { color: '#FFFFFF', fontSize: 28, lineHeight: 32, fontWeight: '800' },
-  pillBallHit: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  pillBallHit: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   pillBall: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',

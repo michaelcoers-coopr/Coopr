@@ -210,8 +210,9 @@ describe('rest of PR 5', () => {
     expect(play).toContain('Dismiss note');
     expect(play).toContain('dismissPlayNote');
     expect(play).not.toMatch(/draftBanner: \{[^}]*position: 'absolute'/);
-    expect(play).toMatch(/holePillFill: \{[^}]*gap: 8/);
-    expect(play).toContain('pillPair: { flexDirection: \'row\', alignItems: \'center\', gap: 6 }');
+    expect(play).toMatch(/holePillFill: \{[^}]*overflow: 'hidden'/);
+    expect(play).toContain('pillPair: { flexDirection: \'row\', alignItems: \'center\', gap: 4, flexShrink: 1 }');
+    expect(play).toContain('pillBall: {\n    width: 40,\n    height: 40,');
     const hold = read('../app/bag/hold.tsx');
     expect(hold).toContain('leaveDraftForShots');
     expect(hold.slice(hold.indexOf('LOG SHOTS FIRST'))).not.toContain('saveDraft');

@@ -6,7 +6,6 @@ import {
   emptyHoles,
   fmt,
   gamesForCount,
-  handicapPrompt,
   headToHead,
   owesLine,
   parsePhrase,
@@ -119,6 +118,7 @@ export function stablePlayerId(name: string): string {
 export function playerHandicap(player: SetupPlayer): number | null {
   if (player.scratch) return 0
   const text = player.handicapText.trim()
+  if (text === '') return 0
   if (!/^-?\d+$/.test(text)) return null
   const value = Number(text)
   if (value < HANDICAP_MIN || value > HANDICAP_MAX) return null
@@ -187,8 +187,8 @@ export function setupBlock(
 ): string | null {
   const named = players.filter((player) => player.name.trim())
   if (named.length < 2) return 'Add 2 player names.'
-  const bad = named.find((player) => handicapError(player) || playerHandicap(player) == null)
-  if (bad) return handicapError(bad) ?? handicapPrompt(bad.name.trim())
+  const bad = named.find((player) => handicapError(player))
+  if (bad) return handicapError(bad)
   const legal = activeKinds(kinds, named.length)
   if (legal.length === 0) return 'Pick a game.'
   const needsIndex = legal.some((kind) => kind !== 'bbb' && kind !== 'coins')

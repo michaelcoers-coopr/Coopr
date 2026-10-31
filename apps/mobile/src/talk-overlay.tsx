@@ -78,6 +78,8 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & {
   voiceHint: string | null;
   askFocus: number;
   ask: (text: string, kind?: 'typed' | 'voice') => Promise<void>;
+  pinHeard: (text: string) => void;
+  answer: (text: string) => void;
 } {
   const latest = useRef(input);
   latest.current = input;
@@ -131,6 +133,18 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & {
       speaker.current.stop();
     }
     return next;
+  };
+
+  const pinHeard = (text: string) => {
+    const spoken = text.trim();
+    if (!spoken) return;
+    setTranscript(spoken);
+    setTyped(true);
+    setAskKind('typed');
+  };
+
+  const answer = (text: string) => {
+    setReply(text);
   };
 
   const ask = async (text: string, kind: 'typed' | 'voice' = 'voice') => {
@@ -337,7 +351,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & {
     </View>
   );
 
-  return { overlay, open: openTalk, close: closeTalk, phase, transcript, reply, sample, typed, draft, setDraft, askKind, voiceHint, askFocus, ask };
+  return { overlay, open: openTalk, close: closeTalk, phase, transcript, reply, sample, typed, draft, setDraft, askKind, voiceHint, askFocus, ask, pinHeard, answer };
 }
 
 const styles = StyleSheet.create({

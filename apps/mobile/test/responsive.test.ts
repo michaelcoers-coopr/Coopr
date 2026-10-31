@@ -13,7 +13,7 @@ describe('responsive phone sizes', () => {
   it.each(PHONE_SIZES)('keeps the score panel and the home sheet on $name', ({ width, height }) => {
     const dock = actionDockHeight(width, height);
     const panel = scorePanelBudget(height, width);
-    expect(dock).toBeGreaterThanOrEqual(44);
+    expect(dock).toBe(128);
     expect(panel).toBeGreaterThanOrEqual(140);
     expect(panel + dock).toBeLessThanOrEqual(height);
     const sheets = homeSheetHeights(width, height, 0);

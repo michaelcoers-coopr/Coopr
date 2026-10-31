@@ -31,31 +31,53 @@ test('the score dock keeps its number and the course targets stay tappable', asy
   await page.getByTestId('start-round').first().evaluate((node) => (node as HTMLElement).click());
   await expect(page.getByTestId('hole-map')).toBeVisible();
 
-  for (const name of ['Score', 'Round menu', 'Par']) {
-    const raw = await box(page, name, true);
-    expect(raw.height, name).toBeGreaterThanOrEqual(56);
-  }
+  const dock = await page.getByTestId('score-dock').boundingBox();
+  expect(dock).toBeTruthy();
+  expect(dock!.x).toBeLessThanOrEqual(1);
+  expect(dock!.x + dock!.width).toBeGreaterThanOrEqual(viewport.width - 1);
+  const par = await box(page, 'Par', true);
   const lower = await box(page, 'Lower the score');
   const raise = await box(page, 'Raise the score');
-  expect(lower.height).toBeGreaterThanOrEqual(44);
-  expect(raise.height).toBeGreaterThanOrEqual(44);
-  expect(Math.abs(lower.y - raise.y)).toBeLessThan(8);
   const scoreBox = await box(page, 'Score', true);
-  expect(Math.abs(scoreBox.y - lower.y)).toBeLessThan(12);
+  const menu = await box(page, 'Round menu', true);
   const mark = await box(page, /Mark shot/);
-  expect(mark.height).toBeGreaterThanOrEqual(56);
-  expect(mark.width).toBeGreaterThanOrEqual(44);
+  const value = await page.getByLabel(/Score on the bar \d+/).boundingBox();
+  expect(value).toBeTruthy();
+  for (const target of [par, lower, raise, scoreBox, menu, mark, value!]) {
+    expect(target.height).toBeGreaterThanOrEqual(56);
+    expect(target.width).toBeGreaterThanOrEqual(56);
+  }
+  expect(par.width).toBeGreaterThanOrEqual(dock!.width - 8);
+  expect(par.y + par.height).toBeLessThanOrEqual(lower.y + 2);
+  for (const target of [raise, scoreBox, menu, mark, value!]) {
+    expect(Math.abs(target.y - lower.y)).toBeLessThan(8);
+  }
+  await expect(page.getByRole('button', { name: 'Score previous hole' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Score next hole' })).toHaveCount(0);
   const holeNum = await page.getByRole('button', { name: 'Home' }).boundingBox();
   expect(holeNum).toBeTruthy();
   expect(holeNum!.height).toBeGreaterThanOrEqual(56);
   expect(holeNum!.width).toBeGreaterThanOrEqual(56);
+  const pill = await page.getByTestId('hole-pill').boundingBox();
+  const ball = await page.getByTestId('hole-number').boundingBox();
+  expect(pill && ball).toBeTruthy();
+  expect(ball!.x).toBeGreaterThanOrEqual(pill!.x + 1);
+  expect(ball!.y).toBeGreaterThanOrEqual(pill!.y + 1);
+  expect(ball!.x + ball!.width).toBeLessThanOrEqual(pill!.x + pill!.width - 1);
+  expect(ball!.y + ball!.height).toBeLessThanOrEqual(pill!.y + pill!.height - 1);
   const chip = await page.getByTestId('club-chip-on').boundingBox();
   expect(chip).toBeTruthy();
   expect(chip!.height).toBeGreaterThanOrEqual(56);
   expect(chip!.width).toBeGreaterThanOrEqual(56);
   const plate = await page.getByTestId('yardage-plate').boundingBox();
   const chips = await page.getByTestId('club-chip-panel').boundingBox();
-  expect(plate && chips).toBeTruthy();
+  const caddie = await page.getByTestId('coach-line').boundingBox();
+  const askOrb = await page.getByRole('button', { name: 'Ask COOPR' }).boundingBox();
+  expect(plate && chips && caddie && askOrb).toBeTruthy();
+  expect(overlaps(dock!, plate!), 'dock stays clear of the yardage').toBe(false);
+  expect(overlaps(dock!, chips!), 'dock stays clear of the club chips').toBe(false);
+  expect(overlaps(dock!, caddie!), 'dock stays clear of the caddie line').toBe(false);
+  expect(overlaps(dock!, askOrb!), 'dock stays clear of Ask').toBe(false);
   expect(overlaps(plate!, chips!), 'yardage stays clear of the club chips').toBe(false);
   await expect(page.getByText('FRONT', { exact: true })).toBeVisible();
   await expect(page.getByText('BACK', { exact: true })).toBeVisible();
@@ -105,6 +127,9 @@ test('the score dock keeps its number and the course targets stay tappable', asy
   expect(typedBox!.height).toBeGreaterThanOrEqual(48);
   await typed.fill('I made a 6');
   await page.getByRole('button', { name: 'Send question' }).click();
+  await expect(page.getByTestId('you-line')).toHaveText('I made a 6');
+  await expect(page.getByText('Type a question.')).toHaveCount(0);
+  await expect(page.getByText('Voice needs the TestFlight build. Type it instead')).toHaveCount(0);
   await expect(page.getByText('Save 6?')).toBeVisible();
   const stored = await page.evaluate(() => {
     const raw = localStorage.getItem('coopr.round.v1');
@@ -112,6 +137,10 @@ test('the score dock keeps its number and the course targets stay tappable', asy
     return save.holes?.[0] ?? null;
   });
   expect(stored).toBeNull();
+  const holeNo = (await page.getByRole('button', { name: 'Home' }).innerText()).trim();
+  await page.getByRole('button', { name: 'Confirm score' }).click();
+  await expect(page.getByTestId('caddie-answer')).toContainText(`Saved 6 on hole ${holeNo}`);
+  await expect(page.getByTestId('you-line')).toHaveText('I made a 6');
 });
 
 test('home sheet labels, copy, and the games setup stay in reach', async ({ page }) => {
@@ -207,13 +236,15 @@ test('home sheet labels, copy, and the games setup stay in reach', async ({ page
   await gamesAgain.click();
   await expect(page.getByLabel('Player 1 name')).toHaveValue('Ada');
   await page.getByLabel('Player 2 name').fill('Bea');
-  await page.getByRole('button', { name: 'Ada scratch' }).click();
-  await page.getByRole('button', { name: 'Bea scratch' }).click();
+  await expect(page.getByText(/course handicap/)).toHaveCount(0);
   const startBtn = page.getByRole('button', { name: 'Start round' });
-  if (await startBtn.isDisabled()) {
-    await page.getByRole('button', { name: 'Gross only' }).scrollIntoViewIfNeeded();
-    await page.getByRole('button', { name: 'Gross only' }).click();
-  }
+  await expect(startBtn).toBeEnabled();
+  await page.getByRole('button', { name: 'Add player' }).click();
+  await page.getByLabel('Player 3 name').fill('Cy');
+  await page.getByRole('button', { name: 'Add player' }).click();
+  await page.getByLabel('Player 4 name').fill('Dee');
+  await page.getByRole('button', { name: 'Wolf', exact: true }).scrollIntoViewIfNeeded();
+  await page.getByRole('button', { name: 'Wolf', exact: true }).click();
   await startBtn.click();
   await expect(page.getByText('Skin carried')).toHaveCount(0);
   await expect(page.getByText(/skins carried/)).toHaveCount(0);
@@ -221,6 +252,18 @@ test('home sheet labels, copy, and the games setup stay in reach', async ({ page
   await expect(lower).toBeVisible();
   const lowerBox = await lower.boundingBox();
   expect(lowerBox!.height).toBeGreaterThanOrEqual(56);
+  for (const name of ['Ada Par', 'Ada Birdie', 'Ada Bogey', 'Ada Double', 'Ada pickup']) {
+    const hit = page.getByRole('button', { name, exact: true });
+    await hit.scrollIntoViewIfNeeded();
+    const raw = await hit.boundingBox();
+    expect(raw, name).toBeTruthy();
+    expect(raw!.height, name).toBeGreaterThanOrEqual(56);
+  }
+  const partner = page.getByRole('button', { name: /takes / }).first();
+  await partner.scrollIntoViewIfNeeded();
+  const partnerBox = await partner.boundingBox();
+  expect(partnerBox).toBeTruthy();
+  expect(partnerBox!.height).toBeGreaterThanOrEqual(56);
   const finish = page.getByRole('button', { name: 'Finish round' });
   await finish.scrollIntoViewIfNeeded();
   const finishBox = await finish.boundingBox();

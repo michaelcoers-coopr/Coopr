@@ -148,8 +148,10 @@ describe('foursome screens', () => {
     const empty = [blankPlayer('a'), blankPlayer('b')];
     expect(setupBlock(empty, ['stableford'], true, false)).toBe('Add 2 player names.');
     const named = twoPlayers().map((player, index) => (index === 1 ? { ...player, handicapText: '', scratch: false } : player));
-    expect(setupBlock(named, ['stableford'], true, false)).toContain('course handicap');
-    expect(playerHandicap(named[1]!)).toBeNull();
+    expect(playerHandicap(named[1]!)).toBe(0);
+    expect(setupBlock(named, ['stableford'], true, false)).toBeNull();
+    const invalid = twoPlayers().map((player, index) => (index === 1 ? { ...player, handicapText: '99', scratch: false } : player));
+    expect(setupBlock(invalid, ['stableford'], true, false)).toMatch(/course handicap/i);
     expect(setupBlock(twoPlayers(), [], true, false)).toBe('Pick a game.');
     expect(setupBlock(twoPlayers(), ['skins'], false, false)).toContain('stroke index');
     const save = buildSave({

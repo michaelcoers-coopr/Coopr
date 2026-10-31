@@ -24,11 +24,13 @@ export function isShortHeight(width: number, height: number): boolean {
   return height <= 700 || width > height;
 }
 
-/** The hole action row. Narrow phones wrap to two rows. Landscape stays one row. */
-/** Room for the one-tap Par row plus the mark, ask, and menu row. */
-export function actionDockHeight(width: number, height: number): number {
-  if (width > height) return 88;
-  return 80;
+/** Two dock rows: a 56px Par line, a 4px gap, and a 56px target line, plus padding. */
+export const DOCK_ROW = 56;
+export const DOCK_GAP = 4;
+export const DOCK_PAD = 6;
+
+export function actionDockHeight(_width: number, _height: number): number {
+  return DOCK_PAD * 2 + DOCK_ROW + DOCK_GAP + DOCK_ROW;
 }
 
 /**
