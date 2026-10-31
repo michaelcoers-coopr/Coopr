@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boxesOverlap, coachOpenHeight, coachPeekHeight, homeWordmark, insideFrame, playChrome, type Insets } from '../src/design/round-chrome';
+import { boxesOverlap, coachOpenHeight, coachPeekHeight, homeWordmark, insideFrame, playChrome, SCORE_TOAST_MS, type Insets } from '../src/design/round-chrome';
 
 const phones: { width: number; height: number; safe: Insets }[] = [
   { width: 393, height: 852, safe: { top: 59, right: 0, bottom: 34, left: 0 } },
@@ -36,6 +36,7 @@ describe('hole chrome', () => {
   it('sizes the coach sheet from the screen', () => {
     expect(coachPeekHeight(852)).toBe(136);
     expect(coachOpenHeight(852)).toBe(383);
+    expect(SCORE_TOAST_MS).toBe(4000);
     expect(coachPeekHeight(667)).toBe(107);
   });
 });

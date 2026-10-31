@@ -90,6 +90,12 @@ test('the score dock keeps its number and the course targets stay tappable', asy
   await expect(page.getByText('BACK', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Par', exact: true }).click();
+  const savedToast = page.getByTestId('par-undo-toast');
+  await expect(savedToast).toBeVisible();
+  const toastBox = await savedToast.boundingBox();
+  const coach = await page.getByTestId('coach-sheet').boundingBox();
+  expect(toastBox && coach).toBeTruthy();
+  expect(overlaps(toastBox!, coach!), 'score toast stays clear of the caddie').toBe(false);
   const undo = await box(page, 'Undo par');
   expect(undo.height).toBeGreaterThanOrEqual(56);
   expect(undo.width).toBeGreaterThanOrEqual(56);
@@ -197,6 +203,9 @@ test('a spoken score cannot be confirmed on the next hole', async ({ page }) => 
   await page.getByRole('button', { name: 'Send question' }).click();
   await expect(page.getByText('Save 4?')).toBeVisible();
   await expect(page.getByLabel('Score on the bar 4')).toBeVisible();
+  await page.getByRole('button', { name: 'Hide coach' }).click({ force: true });
+  await expect(page.getByRole('button', { name: 'Pending 4 · Cancel' })).toBeVisible();
+  await page.getByTestId('coach-line').click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Home' })).toHaveText('3');
   await expect(page.getByText('Save 4?')).toHaveCount(0);
@@ -210,6 +219,63 @@ test('a spoken score cannot be confirmed on the next hole', async ({ page }) => 
   });
   expect(holes[1]).toBe(4);
   expect(holes[2] ?? null).toBeNull();
+});
+
+test('the score toast leaves, and a caddie swipe changes the hole', async ({ page }) => {
+  test.setTimeout(180000);
+  await page.addInitScript(() => {
+    const sweep = () => {
+      const toast = document.getElementById('error-toast');
+      if (!toast) return;
+      toast.style.setProperty('display', 'none', 'important');
+      toast.style.setProperty('pointer-events', 'none', 'important');
+    };
+    setInterval(sweep, 100);
+    localStorage.setItem('coopr.gps.sim', JSON.stringify({ lat: 47.1123, lon: -122.2372 }));
+    localStorage.setItem('coopr.speech.hold', '1');
+  });
+  const viewport = page.viewportSize() ?? { width: 393, height: 852 };
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Tee off' }).click({ timeout: 30000 });
+  await page.getByTestId('start-round').first().evaluate((node) => (node as HTMLElement).click());
+  await expect(page.getByTestId('hole-map')).toBeVisible();
+  const home = page.getByRole('button', { name: 'Home' });
+  const startHole = (await home.innerText()).trim();
+  const line = await page.getByTestId('coach-line').boundingBox();
+  expect(line).toBeTruthy();
+  const y = line!.y + Math.min(line!.height / 2, 20);
+  const x = line!.x + Math.min(80, Math.max(24, line!.width / 2));
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - 160, y, { steps: 14 });
+  await page.mouse.up();
+  await expect(home).not.toHaveText(startHole);
+  const swiped = (await home.innerText()).trim();
+  const map = await page.getByTestId('hole-map').boundingBox();
+  const landscape = viewport.width > viewport.height;
+  const dragX = landscape ? 220 : map!.x + map!.width / 2;
+  const dragY = landscape ? 110 : Math.min(map!.y + 180, viewport.height * 0.42);
+  await page.mouse.move(dragX, dragY);
+  await page.mouse.down();
+  await page.mouse.move(dragX + 80, dragY + 16, { steps: 10 });
+  await page.mouse.up();
+  await expect.poll(async () => page.getByTestId('map-pan').getAttribute('data-offset')).not.toBe('0,0');
+  await expect(home).toHaveText(swiped);
+
+  await page.getByRole('button', { name: 'Par', exact: true }).click();
+  const toast = page.getByTestId('par-undo-toast');
+  await expect(toast).toBeVisible();
+  const toastBox = await toast.boundingBox();
+  const coach = await page.getByTestId('coach-sheet').boundingBox();
+  expect(toastBox && coach).toBeTruthy();
+  expect(overlaps(toastBox!, coach!)).toBe(false);
+  await page.getByRole('button', { name: 'Ask COOPR' }).click({ force: true });
+  await expect(toast).toHaveCount(0);
+  await page.getByRole('button', { name: 'Hide coach' }).click({ force: true });
+  await page.getByRole('button', { name: 'Par', exact: true }).click();
+  await expect(toast).toBeVisible();
+  await page.waitForTimeout(4200);
+  await expect(toast).toHaveCount(0);
 });
 
 test('home sheet labels, copy, and the games setup stay in reach', async ({ page }) => {

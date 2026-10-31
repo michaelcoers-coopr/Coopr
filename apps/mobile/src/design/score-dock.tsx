@@ -56,6 +56,9 @@ export function ScoreDock({
   canUndoScore = false,
   onUndoScore,
   onScoreSaved,
+  pendingChip = false,
+  onCancelPending,
+  holeSwipeHandlers,
 }: {
   hole: number;
   par: number | null;
@@ -94,6 +97,10 @@ export function ScoreDock({
   onUndoScore?: () => void;
   /** Fired after the dock writes a score and stays on the round. */
   onScoreSaved?: (strokes: number) => void;
+  /** Shown on the dock when the caddie sheet is closed and a score is still waiting. */
+  pendingChip?: boolean;
+  onCancelPending?: () => void;
+  holeSwipeHandlers?: object;
 }) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -382,7 +389,12 @@ export function ScoreDock({
           </Pressable>
         </View>
       ) : null}
-      <View testID="score-dock" style={styles.bar}>
+      <View testID="score-dock" style={styles.bar} {...(holeSwipeHandlers ?? {})}>
+        {pendingChip && pendingStrokes != null ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={`Pending ${pendingStrokes} · Cancel`} onPress={onCancelPending} style={styles.pendingChip}>
+            <Text style={styles.pendingChipText}>{`Pending ${pendingStrokes} · Cancel`}</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={last ? 'Finish' : shown === floor ? 'Par' : 'Next'}
@@ -434,6 +446,8 @@ const styles = StyleSheet.create({
   panel: { backgroundColor: '#041018', borderRadius: 16, padding: 6, gap: 4, overflow: 'hidden', zIndex: 2 },
   fields: { gap: 4 },
   block: { gap: 2 },
+  pendingChip: { position: 'absolute', top: 8, left: 8, zIndex: 4, minHeight: 32, paddingHorizontal: 10, borderRadius: 10, backgroundColor: '#F4F1EA', alignItems: 'center', justifyContent: 'center' },
+  pendingChipText: { color: '#0B1F3A', fontSize: 14, fontWeight: '800' },
   bar: {
     width: '100%',
     alignSelf: 'stretch',

@@ -73,7 +73,7 @@ import { Glass } from '../src/design/glass';
 import { ClubStrip, ThruBar } from '../src/design/signature-ui';
 import { useReduceMotion } from '../src/design/reduce-motion';
 import { ScoreDock } from '../src/design/score-dock';
-import { MARKED_TOAST_MS, playChrome, thruHud } from '../src/design/round-chrome';
+import { MARKED_TOAST_MS, SCORE_TOAST_MS, playChrome, thruHud } from '../src/design/round-chrome';
 import { coachOpenHeight, coachPeekHeight } from '../src/design/round-chrome';
 import { estimatedPick, starterAdvice } from '../src/clubs/starter';
 import { useBagScan } from '../src/bag-scan/session';
@@ -307,7 +307,8 @@ export default function PlayScreen() {
   const [justYards, setJustYards] = useState(false);
   const [batterySaver, setBatterySaver] = useState(false);
   const [undoHole, setUndoHole] = useState<number | null>(null);
-  const [scoreToast, setScoreToast] = useState<string | null>(null);
+  const [scoreToast, setScoreToast] = useState<{ label: string; at: number } | null>(null);
+  const keepToast = useRef(false);
   const [pendingScore, setPendingScore] = useState<{ hole: number; strokes: number } | null>(null);
   const [speechPhase, setSpeechPhase] = useState<'speaking' | 'silent'>('silent');
   useEffect(() => subscribeSpeech(setSpeechPhase), []);
@@ -434,6 +435,24 @@ export default function PlayScreen() {
     sheetH.value = withSpring(open ? openRef.current : peekRef.current, SHEET_SPRING);
     void tick();
   };
+  const holeSwipePan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (_, gesture) => Math.abs(gesture.dx) > 18 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 18 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
+      onPanResponderRelease: (_, gesture) => {
+        const dir = holeSwipe(gesture.dx, gesture.dy, holeNo.current);
+        const last = lastButtonNav.current;
+        const accepted = acceptHoleGesture({
+          dir,
+          lastDir: last?.dir ?? null,
+          elapsedMs: last ? Date.now() - last.at : Number.POSITIVE_INFINITY,
+        });
+        if (!accepted || !dir) return;
+        if (dir === 'next') leaveRef.current();
+        if (dir === 'prev') backRef.current();
+      },
+    }),
+  ).current;
   const sheetPan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -541,6 +560,7 @@ export default function PlayScreen() {
     },
     onRemoveTag: removeTag,
     onAsk: () => {
+      setScoreToast(null);
       applySheet.current(true);
       openTalk.current();
     },
@@ -563,6 +583,8 @@ export default function PlayScreen() {
     setSky(null);
     if (previous == null) return;
     setPendingScore(null);
+    if (keepToast.current) keepToast.current = false;
+    else setScoreToast(null);
     if (holdCoach.current) {
       holdCoach.current = false;
       sheetOpenRef.current = true;
@@ -575,6 +597,12 @@ export default function PlayScreen() {
     sheetDrag.value = 0;
     sheetH.value = closedSheetRef.current;
   }, [currentHole, sheetDrag, sheetH]);
+
+  useEffect(() => {
+    if (!scoreToast) return;
+    const id = setTimeout(() => setScoreToast(null), SCORE_TOAST_MS);
+    return () => clearTimeout(id);
+  }, [scoreToast]);
 
   useLayoutEffect(() => {
     const previous = seenHole.current;
@@ -1235,6 +1263,12 @@ export default function PlayScreen() {
 
   const pendingHere = pendingScore?.hole === hole.holeNumber ? pendingScore.strokes : null;
   const shortLandscape = windowWidth > windowHeight && windowHeight <= 420;
+  const toastH = 56;
+  const dockTop = windowHeight - Math.max(insets.bottom, 8) - chrome.actionHeight;
+  const openSheetH = sheetOpen ? chrome.coachOpen : chrome.coachPeek;
+  const sheetTop = dockTop - openSheetH;
+  const toastClearsPlate = sheetTop - toastH >= chrome.plate.y + chrome.plate.h + 4;
+  const toastLift = scoreToast && toastClearsPlate ? toastH : 0;
   return (
     <View
       style={[styles.screen, noScroll]}
@@ -1488,7 +1522,7 @@ export default function PlayScreen() {
           </Glass>
         </View>
       ) : null}
-      <Animated.View testID="coach-sheet" style={[styles.sheet, sheetStyle, justYards ? { display: 'none' } : null, { right: 84, bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + (sheetOpen ? keyboard : 0), zIndex: sheetOpen ? 8 : 2 }]}>
+      <Animated.View testID="coach-sheet" style={[styles.sheet, sheetStyle, justYards ? { display: 'none' } : null, { right: 84, bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + toastLift + (sheetOpen ? keyboard : 0), zIndex: sheetOpen ? 8 : 2 }]}>
         <Glass radius={28} style={styles.sheetGlass} contentStyle={styles.sheetFill}>
           <SheetBall reduceMotion={reduceMotion} compact />
           <View style={styles.grab}>
@@ -1522,10 +1556,12 @@ export default function PlayScreen() {
             </View> : null}
             <View style={{ marginTop: SHEET_BALL_TEXT.closedPx }}>
             {!sheetOpen ? (
+              <View {...holeSwipePan.panHandlers}>
               <Pressable accessibilityRole="button" accessibilityLabel="Coach AI" testID="coach-line" onPress={() => applySheet.current(true)} style={styles.coachPeekHit}>
                 {onTee && !onGreen ? <Text style={styles.teeKicker}>TEE SHOT </Text> : null}
                 <Text numberOfLines={2} style={styles.line}>{peekLine}</Text>
               </Pressable>
+              </View>
             ) : sheetTab === 'course' ? (
               <Text style={styles.line} numberOfLines={2}>{`${courseCall(pilot.record.name)}. ${holeSubline({ hole: hole.holeNumber, par })}`}</Text>
             ) : sheetTab === 'stats' ? (
@@ -1583,7 +1619,8 @@ export default function PlayScreen() {
                     setPutts(savedHole, 0);
                     setPenalties(savedHole, 0);
                     setUndoHole(savedHole);
-                    setScoreToast(scoreSavedLabel(strokes, par));
+                    keepToast.current = true;
+                    setScoreToast({ label: scoreSavedLabel(strokes, par), at: Date.now() });
                     if (savedHole >= 18) {
                       finishRound({ hole: savedHole, strokes, putts: 0, penalties: 0, fairway: null, gir: null });
                       router.push('/recap');
@@ -1851,8 +1888,12 @@ export default function PlayScreen() {
           onToggleBattery={() => setBatterySaver((value) => !value)}
           onScoreSaved={(saved) => {
             setPendingScore(null);
-            setScoreToast(scoreSavedLabel(saved, par));
+            keepToast.current = true;
+            setScoreToast({ label: scoreSavedLabel(saved, par), at: Date.now() });
           }}
+          pendingChip={pendingHere != null && !sheetOpen}
+          onCancelPending={() => setPendingScore(null)}
+          holeSwipeHandlers={holeSwipePan.panHandlers}
           canUndoScore={undoHole != null}
           onUndoScore={() => {
             if (undoHole == null) return;
@@ -1895,11 +1936,11 @@ export default function PlayScreen() {
       />
       {talk.overlay}
       {scoreToast ? (
-        <View testID="par-undo-toast" accessibilityLabel={scoreToast} style={[styles.toast, { top: chrome.toast.y, left: chrome.toast.x, width: Math.max(chrome.toast.w, 200) }]}>
-          <Text style={styles.toastText}>{scoreToast}</Text>
+        <View testID="par-undo-toast" accessibilityLabel={scoreToast.label} style={[styles.toast, { top: toastClearsPlate ? dockTop - toastH : dockTop + 6, left: 8, width: Math.min(220, windowWidth - 88), zIndex: 11 }]}>
+          <Text style={styles.toastText}>{scoreToast.label}</Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={scoreToast === 'Par saved' ? 'Undo par' : 'Undo score'}
+            accessibilityLabel={scoreToast.label === 'Par saved' ? 'Undo par' : 'Undo score'}
             onPress={() => {
               if (undoHole != null) {
                 setStrokes(undoHole, null);

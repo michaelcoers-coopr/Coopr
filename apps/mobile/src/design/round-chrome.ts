@@ -3,6 +3,7 @@ import { actionDockHeight } from './responsive';
 /** Layout for the hole screen and the home wordmark. Pure numbers, no view. */
 
 export const MARKED_TOAST_MS = 1500;
+export const SCORE_TOAST_MS = 4000;
 export const MIN_TAP = 44;
 export const COACH_PEEK_RATIO = 0.16;
 export const COACH_OPEN_RATIO = 0.45;
