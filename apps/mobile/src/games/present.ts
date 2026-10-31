@@ -186,7 +186,7 @@ export function setupBlock(
   sides?: Sides,
 ): string | null {
   const named = players.filter((player) => player.name.trim())
-  if (named.length < 2) return 'Add at least two players.'
+  if (named.length < 2) return 'Add 2 player names.'
   const bad = named.find((player) => handicapError(player) || playerHandicap(player) == null)
   if (bad) return handicapError(bad) ?? handicapPrompt(bad.name.trim())
   const legal = activeKinds(kinds, named.length)

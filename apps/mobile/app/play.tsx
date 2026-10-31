@@ -1607,7 +1607,7 @@ export default function PlayScreen() {
             <Waveform live={talk.phase === 'listening' || talk.phase === 'speaking'} compact />
             {talk.sample ? <Text style={styles.clubMeta}>{SAMPLE_ANSWER_LABEL}</Text> : null}
             <Text style={styles.clubMeta}>You</Text>
-            <Text style={styles.line}>{talk.transcript || talk.voiceHint || 'Hold the mic, or type it.'}</Text>
+            <Text style={styles.line}>{talk.transcript || talk.draft || (talk.typed ? 'Type a question.' : talk.voiceHint) || 'Hold the mic, or type it.'}</Text>
             <Text style={styles.clubMeta}>Caddie</Text>
             <ScrollView testID="caddie-answer" style={styles.answerScroll}>
               {talk.reply ? <YardageLine text={talk.reply} /> : <Text style={styles.line}> </Text>}
@@ -1788,7 +1788,7 @@ export default function PlayScreen() {
             styles.clubChipWrap,
             windowWidth > windowHeight
               ? { top: chrome.plate.y, left: chrome.pill.x + chrome.pill.w + 8, right: 8, maxHeight: 96 }
-              : { bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + 8, left: 8, right: 8 },
+              : { bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + chrome.coachPeek + 8, left: 8, right: 8 },
           ]}
         >
           <Text testID="club-chip-hint" accessibilityLabel="Swipe for more clubs" style={styles.chipHint}>Swipe for clubs</Text>
@@ -2091,7 +2091,7 @@ const styles = StyleSheet.create({
   micFoot: { width: 8, height: 1.5, borderRadius: 1, backgroundColor: '#FFFFFF' },
   micLabel: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, fontWeight: '700' },
   talkGrow: { flex: 1 },
-  typeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, minHeight: 52 },
+  typeRow: { position: 'absolute', left: 8, right: 8, bottom: 8, zIndex: 6, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, minHeight: 52, borderRadius: 12, backgroundColor: '#041018' },
   askInput: {
     flex: 1,
     minHeight: 48,
@@ -2280,13 +2280,13 @@ const styles = StyleSheet.create({
   answerScroll: { maxHeight: 72, flexGrow: 0 },
   coachPeekHit: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
   sendHit: { minWidth: 44, minHeight: 44, textAlign: 'center', lineHeight: 44 },
-  pillArrow: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  pillArrow: { width: 44, height: 56, alignItems: 'center', justifyContent: 'center' },
   pillArrowText: { color: '#FFFFFF', fontSize: 28, lineHeight: 32, fontWeight: '800' },
-  pillBallHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  pillBallHit: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
   pillBall: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',

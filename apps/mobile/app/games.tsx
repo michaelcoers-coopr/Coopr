@@ -106,7 +106,10 @@ const GAME_BLURB: Record<GameKind, { line: string; rules: string }> = {
 };
 
 function leaderboardMoment(pending: number, winners: readonly string[], played: number): string {
-  if (played > 0 && pending > 0) return pending === 1 ? 'Skin carried' : `${pending} skins carried`;
+  if (played > 0 && pending > 1) {
+    const carried = pending - 1;
+    return carried === 1 ? 'Skin carried' : `${carried} skins carried`;
+  }
   if (winners.length === 1) return `Skin won · ${winners[0]}`;
   return 'Leaderboard';
 }
@@ -636,7 +639,7 @@ export default function GamesScreen() {
             <Pressable accessibilityRole="button" accessibilityLabel="Gross only" onPress={() => setGrossOnly((value) => !value)} style={[styles.chip, grossOnly && styles.chipOn]}>
               <Text style={styles.chipText}>{grossOnly ? 'Gross only' : 'Net scores'}</Text>
             </Pressable>
-            {notices.map((line) => <Text key={line} style={styles.amber}>{line}</Text>)}
+            {notices.filter((line) => line !== block).map((line) => <Text key={line} style={styles.amber}>{line}</Text>)}
             <Text accessibilityLabel="Follow along" style={styles.copy}>Follow along is not in this build. This phone has no accounts, so there is no read-only link.</Text>
           </View>
         ) : null}
@@ -915,9 +918,12 @@ export default function GamesScreen() {
         ) : null}
       </ScrollView>
       {step === 'setup' ? (
-        <Pressable accessibilityRole="button" accessibilityLabel="Start round" accessibilityHint={block ?? undefined} disabled={!!block} onPress={start} style={[styles.go, styles.startBar, !!block && styles.goOff]}>
-          <Text style={[styles.goText, { fontFamily: display }]}>START ROUND</Text>
-        </Pressable>
+        <>
+          {block ? <Text accessibilityLabel="Start round hint" style={styles.amber}>{block}</Text> : null}
+          <Pressable accessibilityRole="button" accessibilityLabel="Start round" accessibilityHint={block ?? undefined} disabled={!!block} onPress={start} style={[styles.go, styles.startBar, !!block && styles.goOff]}>
+            <Text style={[styles.goText, { fontFamily: display }]}>START ROUND</Text>
+          </Pressable>
+        </>
       ) : null}
       {listening && mic ? (
         <View accessibilityLabel="Listening" style={styles.sheet}>
@@ -992,8 +998,8 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   body: { paddingBottom: 24, gap: 12 },
   startBar: { marginTop: 8 },
-  scoreTap: { minWidth: 56, minHeight: 56, paddingHorizontal: 14, borderRadius: 16, backgroundColor: '#173154', alignItems: 'center', justifyContent: 'center' },
-  rulesMark: { width: 40, height: 40, borderRadius: 20, alignSelf: 'flex-start', backgroundColor: '#173154', alignItems: 'center', justifyContent: 'center' },
+  scoreTap: { minWidth: 56, minHeight: 56, paddingHorizontal: 14, borderRadius: 16, backgroundColor: '#173154', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  rulesMark: { width: 44, height: 44, borderRadius: 22, alignSelf: 'flex-start', backgroundColor: '#173154', alignItems: 'center', justifyContent: 'center' },
   stack: { gap: 12 },
   strip: { backgroundColor: '#102848', borderRadius: 16, paddingVertical: 6, paddingHorizontal: 8, gap: 2, marginBottom: 8 },
   stripHead: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },

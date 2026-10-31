@@ -146,7 +146,7 @@ function twoPlayers(): SetupPlayer[] {
 describe('foursome screens', () => {
   it('sets up only after names, handicaps, and a game', () => {
     const empty = [blankPlayer('a'), blankPlayer('b')];
-    expect(setupBlock(empty, ['stableford'], true, false)).toBe('Add at least two players.');
+    expect(setupBlock(empty, ['stableford'], true, false)).toBe('Add 2 player names.');
     const named = twoPlayers().map((player, index) => (index === 1 ? { ...player, handicapText: '', scratch: false } : player));
     expect(setupBlock(named, ['stableford'], true, false)).toContain('course handicap');
     expect(playerHandicap(named[1]!)).toBeNull();
@@ -761,7 +761,7 @@ describe('foursome QA', () => {
     expect(live).toContain('accessibilityLabel="Live leaderboard"');
     expect(screen.split('{DISCLOSURE}').length - 1).toBe(1);
     expect(screen).toContain('Birdie Bucks (BB) are points on this phone. They have no real-world value.');
-    expect(screen).toContain('played > 0 && pending > 0');
+    expect(screen).toContain('played > 0 && pending > 1');
     expect(screen).toContain("useState<GameKind[]>(() => setupDraft?.kinds ?? ['skins'])");
     expect(screen).toContain('accessibilityState={{ selected: chosenKinds.includes(kind) }}');
   });

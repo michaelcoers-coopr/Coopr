@@ -153,6 +153,7 @@ export function useTalkCaddie(input: TalkContextInput & TalkHandlers & {
     const result = await requestTalk(spoken, context);
     if (gate.current.stopped) return;
     setSample(result.mode === 'sample');
+    setReply(result.line);
     const nextTurns: TalkTurn[] = [...turns.current, { role: 'player', text: spoken }, { role: 'caddie', text: result.line }];
     turns.current = nextTurns.slice(-6);
     apply(result.tools.flatMap((tool) => (tool.action ? [tool.action] : [])));

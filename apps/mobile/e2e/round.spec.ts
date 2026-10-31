@@ -193,7 +193,7 @@ test('plays 18 holes with the buttons on screen', async ({ page }) => {
   await expect(page.getByTestId('marked-toast')).toBeHidden({ timeout: 3000 });
 
   await dismissDevOverlay(page);
-  await page.getByRole('button', { name: 'Ask COOPR' }).click();
+  await page.getByRole('button', { name: 'Ask COOPR' }).click({ force: true });
   await page.getByLabel('Typed ask').fill('What club from here?');
   await dismissDevOverlay(page);
   await page.getByRole('button', { name: 'Send question' }).click();

@@ -425,10 +425,28 @@ export default function HomeScreen() {
             </View>
           ) : null}
           {sheetOpen ? (
+            <View style={styles.pinnedLinks}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Analysis" onPress={() => router.push('/analysis')} style={styles.row}>
+                <View style={styles.rowCopy}>
+                  <Text style={styles.rowTitle}>Analysis</Text>
+                  <Text style={styles.rowNote}>Where the strokes went.</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="More" onPress={() => router.push('/more')} style={styles.row}>
+                <View style={styles.rowCopy}>
+                  <Text style={styles.rowTitle}>More</Text>
+                  <Text style={styles.rowNote}>Setup, privacy, and the card</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {sheetOpen ? (
             <ScrollView
               ref={sheetScrollRef}
               testID="home-sheet-scroll"
-              style={[styles.scroll, { marginBottom: SHEET_BALL_TEXT.openPx }]}
+              style={[styles.scroll, { marginBottom: 140 }]}
               contentContainerStyle={styles.scrollBody}
               keyboardShouldPersistTaps="handled"
             >
@@ -470,20 +488,6 @@ export default function HomeScreen() {
                   <Text style={styles.emptyText}>No rounds yet. Your first one lands here.</Text>
                 )}
               </View>
-              <Pressable accessibilityRole="button" accessibilityLabel="Analysis" onPress={() => router.push('/analysis')} style={styles.row}>
-                <View style={styles.rowCopy}>
-                  <Text style={styles.rowTitle}>Analysis</Text>
-                  <Text style={styles.rowNote}>Where the strokes went. A number shows up only after the card has enough holes.</Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel="More" onPress={() => router.push('/more')} style={styles.row}>
-                <View style={styles.rowCopy}>
-                  <Text style={styles.rowTitle}>More</Text>
-                  <Text style={styles.rowNote}>Setup, privacy, and the card</Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </Pressable>
               <View style={styles.teeCard}>
                 <TeeRow label="COURSE" value={courseName.toUpperCase()} />
                 <TeeRow label="TEES" value="WHITE" />
@@ -578,7 +582,8 @@ const styles = StyleSheet.create({
   actionRow: { flexBasis: '22%', minWidth: 72 },
   pressed: { opacity: 0.9 },
   scroll: { flex: 1, minHeight: 0, zIndex: 1 },
-  scrollBody: { paddingHorizontal: 14, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 48, gap: 12 },
+  pinnedLinks: { gap: 8, paddingHorizontal: 12, paddingBottom: 8, zIndex: 3 },
+  scrollBody: { paddingHorizontal: 14, paddingTop: SHEET_BALL_SCROLL_FADE, paddingBottom: 160, gap: 12 },
   caddie: { color: 'rgba(255,255,255,0.82)', fontFamily: font.family, fontSize: 16, lineHeight: 22, fontWeight: '600' },
   conditions: { color: '#FFFFFF', fontFamily: font.family, fontSize: 15, lineHeight: 20, fontWeight: '700' },
   row: {

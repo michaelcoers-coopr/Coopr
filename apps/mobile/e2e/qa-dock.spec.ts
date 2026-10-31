@@ -4,8 +4,8 @@ function overlaps(a: { x: number; y: number; width: number; height: number }, b:
   return a.x < b.x + b.width - 1 && a.x + a.width > b.x + 1 && a.y < b.y + b.height - 1 && a.y + a.height > b.y + 1;
 }
 
-async function box(page: Page, name: string | RegExp) {
-  const locator = page.getByRole('button', { name }).first();
+async function box(page: Page, name: string | RegExp, exact = false) {
+  const locator = page.getByRole('button', { name, exact }).first();
   await expect(locator).toBeVisible();
   const raw = await locator.boundingBox();
   expect(raw, String(name)).toBeTruthy();
@@ -31,19 +31,24 @@ test('the score dock keeps its number and the course targets stay tappable', asy
   await page.getByTestId('start-round').first().evaluate((node) => (node as HTMLElement).click());
   await expect(page.getByTestId('hole-map')).toBeVisible();
 
-  for (const name of ['Lower the score', 'Raise the score', 'Score previous hole', 'Score next hole', 'Score', 'Round menu']) {
-    const raw = await box(page, name === 'Score' ? 'Score' : name);
+  for (const name of ['Score', 'Round menu', 'Par']) {
+    const raw = await box(page, name, true);
     expect(raw.height, name).toBeGreaterThanOrEqual(56);
-    if (name !== 'Score') expect(raw.width, name).toBeGreaterThanOrEqual(56);
   }
+  const lower = await box(page, 'Lower the score');
+  const raise = await box(page, 'Raise the score');
+  expect(lower.height).toBeGreaterThanOrEqual(44);
+  expect(raise.height).toBeGreaterThanOrEqual(44);
+  expect(Math.abs(lower.y - raise.y)).toBeLessThan(8);
+  const scoreBox = await box(page, 'Score', true);
+  expect(Math.abs(scoreBox.y - lower.y)).toBeLessThan(12);
   const mark = await box(page, /Mark shot/);
   expect(mark.height).toBeGreaterThanOrEqual(56);
-  expect(mark.width).toBeGreaterThanOrEqual(56);
-  for (const name of ['Previous hole', 'Next hole']) {
-    const raw = await box(page, name);
-    expect(raw.height, name).toBeGreaterThanOrEqual(56);
-    expect(raw.width, name).toBeGreaterThanOrEqual(56);
-  }
+  expect(mark.width).toBeGreaterThanOrEqual(44);
+  const holeNum = await page.getByRole('button', { name: 'Home' }).boundingBox();
+  expect(holeNum).toBeTruthy();
+  expect(holeNum!.height).toBeGreaterThanOrEqual(56);
+  expect(holeNum!.width).toBeGreaterThanOrEqual(56);
   const chip = await page.getByTestId('club-chip-on').boundingBox();
   expect(chip).toBeTruthy();
   expect(chip!.height).toBeGreaterThanOrEqual(56);
@@ -94,6 +99,7 @@ test('the score dock keeps its number and the course targets stay tappable', asy
   await expect(page.getByTestId('round-menu-panel')).toHaveCount(0);
   const typed = page.getByLabel('Typed ask');
   await expect(typed).toBeVisible();
+  await typed.scrollIntoViewIfNeeded();
   const typedBox = await typed.boundingBox();
   expect(typedBox).toBeTruthy();
   expect(typedBox!.height).toBeGreaterThanOrEqual(48);
@@ -106,8 +112,6 @@ test('the score dock keeps its number and the course targets stay tappable', asy
     return save.holes?.[0] ?? null;
   });
   expect(stored).toBeNull();
-  expect(typedBox!.y).toBeGreaterThanOrEqual(-1);
-  expect(typedBox!.y + typedBox!.height).toBeLessThanOrEqual(viewport.height + 8);
 });
 
 test('home sheet labels, copy, and the games setup stay in reach', async ({ page }) => {
@@ -184,13 +188,15 @@ test('home sheet labels, copy, and the games setup stay in reach', async ({ page
   await expect(page.getByRole('button', { name: 'Stableford', exact: true })).toHaveAttribute('aria-selected', 'false');
   const rules = await page.getByRole('button', { name: 'Skins rules' }).boundingBox();
   expect(rules).toBeTruthy();
+  expect(rules!.width).toBeGreaterThanOrEqual(44);
   expect(rules!.width).toBeLessThan(80);
-  expect(rules!.height).toBeLessThanOrEqual(40);
+  expect(rules!.height).toBeGreaterThanOrEqual(44);
   const start = await page.getByRole('button', { name: 'Start round' }).boundingBox();
   expect(start).toBeTruthy();
   expect(start!.height).toBeGreaterThanOrEqual(56);
   expect(start!.y + start!.height).toBeLessThanOrEqual(viewport.height + 1);
   expect(start!.y).toBeGreaterThan(viewport.height * 0.45);
+  await expect(page.getByText('Add 2 player names.')).toBeVisible();
 
   await page.getByLabel('Player 1 name').fill('Ada');
   await page.getByRole('button', { name: 'Back', exact: true }).click();

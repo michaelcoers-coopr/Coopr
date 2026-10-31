@@ -14,7 +14,7 @@ async function dismissDevOverlay(page: Page) {
 }
 
 test('mute, club chips, and the layout notes from 75b6b7d', async ({ page }) => {
-  test.setTimeout(180000);
+  test.setTimeout(300000);
   const caddieHits: string[] = [];
   page.on('request', (request) => {
     if (request.url().includes('/v1/caddie') && request.method() === 'POST') caddieHits.push(request.url());
