@@ -924,7 +924,9 @@ export function skinsLine(
   })
   const who = bits.length ? bits.join(', ') : 'No skins won'
   if (finished && !carry) return who
-  const tail = finished ? (pending > 0 ? `${pending} left unplayed` : 'Played out') : `${pending} on the line`
+  // Pending includes the skin for the hole that would come next. A finished round has no such hole.
+  const unplayed = Math.max(0, pending - 1)
+  const tail = finished ? (unplayed > 0 ? `${unplayed} left unplayed` : 'Played out') : `${pending} on the line`
   return `${who}. ${tail}`
 }
 

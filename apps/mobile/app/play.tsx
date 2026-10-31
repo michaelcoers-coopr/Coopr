@@ -1485,7 +1485,7 @@ export default function PlayScreen() {
           </Glass>
         </View>
       ) : null}
-      <Animated.View testID="coach-sheet" style={[styles.sheet, sheetStyle, justYards ? { display: 'none' } : null, { bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + (sheetOpen ? keyboard : 0), zIndex: sheetOpen ? 8 : 2 }]}>
+      <Animated.View testID="coach-sheet" style={[styles.sheet, sheetStyle, justYards ? { display: 'none' } : null, { right: 84, bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + (pendingScore != null ? 62 : 0) + (sheetOpen ? keyboard : 0), zIndex: sheetOpen ? 8 : 2 }]}>
         <Glass radius={28} style={styles.sheetGlass} contentStyle={styles.sheetFill}>
           <SheetBall reduceMotion={reduceMotion} compact />
           <View style={styles.grab}>
@@ -1540,78 +1540,11 @@ export default function PlayScreen() {
                   />
                 </View>
               )
-            ) : (
-              <View style={styles.tipCard} pointerEvents="box-none">
-                <Text pointerEvents="none" style={styles.spark}>✦</Text>
-                <View style={styles.clubCopy} pointerEvents="box-none">
-                  {player == null && manual == null ? (
-                    <View style={styles.clubHead} pointerEvents="box-none">
-                      <Text pointerEvents="box-none" style={[styles.line, styles.clubHeadTitle]}>Waiting for GPS</Text>
-                      <DictateButton
-                        live={talk.phase !== 'idle'}
-                        onPress={() => {
-                          applySheet.current(true);
-                          talk.open();
-                        }}
-                      />
-                    </View>
-                  ) : bagEmpty ? (
-                    <View style={styles.clubHead} pointerEvents="box-none">
-                      <Text accessibilityLabel="Add clubs" pointerEvents="box-none" style={[styles.tipTitle, styles.clubHeadTitle]}>
-                        {EMPTY_BAG_ADVICE}
-                      </Text>
-                      <DictateButton
-                        live={talk.phase !== 'idle'}
-                        onPress={() => {
-                          applySheet.current(true);
-                          talk.open();
-                        }}
-                      />
-                    </View>
-                  ) : (
-                    <>
-                      <View style={styles.clubHead} pointerEvents="box-none">
-                        {player != null && onTee && !onGreen ? (
-                          <View style={styles.teeChip}>
-                            <Text style={styles.teeKicker}>TEE SHOT </Text>
-                          </View>
-                        ) : null}
-                        <Text pointerEvents="box-none" style={[styles.tipTitle, styles.clubHeadTitle]} numberOfLines={1}>
-                          {`${shownLabel ?? 'Club'} · Hole ${hole.holeNumber}`}
-                        </Text>
-                        <Text pointerEvents="box-none" style={styles.clubMeta}>{updatedLabel}</Text>
-                        <DictateButton
-                          live={talk.phase !== 'idle'}
-                          onPress={() => {
-                            applySheet.current(true);
-                            talk.open();
-                          }}
-                        />
-                      </View>
-                      {oneLiner ? (
-                        <Text pointerEvents="box-none" style={styles.line} numberOfLines={2}>
-                          {oneLiner}
-                        </Text>
-                      ) : null}
-                      <Text pointerEvents="box-none" style={styles.carrySentence}>
-                        {estimateLine ? (
-                          estimateLine
-                        ) : carryYards == null ? (
-                          `Carry not measured. ${PATTERN_INVITE}.`
-                        ) : (
-                          <Text style={[styles.carryNum, { fontFamily: display }]}>{`${carryYards} carry`}</Text>
-                        )}
-                        {carryYards != null ? (carrySpread ? <Text style={[styles.carryNum, { fontFamily: display }]}>{` ${carrySpread}`}</Text> : ` ${PATTERN_INVITE}.`) : null}
-                      </Text>
-                    </>
-                  )}
-                </View>
-              </View>
-            )}
+            ) : null}
             </View>
           </View>
           {sheetOpen && sheetTab === 'coach' ? (
-          <View style={styles.heard}>
+          <View style={[styles.heard, talk.typed ? { marginBottom: 60 } : null]}>
             <Waveform live={talk.phase === 'listening' || talk.phase === 'speaking'} compact />
             {talk.sample ? <Text style={styles.clubMeta}>{SAMPLE_ANSWER_LABEL}</Text> : null}
             <Text style={styles.clubMeta}>You</Text>
@@ -1829,13 +1762,22 @@ export default function PlayScreen() {
           </ScrollView>
         </View>
       ) : null}
-      <View pointerEvents="box-none" style={[styles.askFloat, { top: chrome.menu.y, left: chrome.menu.x, width: chrome.menu.w, height: chrome.menu.h }]}>
+      <View pointerEvents="box-none" style={[styles.askFloat, { right: 8, bottom: Math.max(insets.bottom, 8) + chrome.actionHeight, width: 56, height: 56 }]}>
         {ask.button}
       </View>
       <View pointerEvents="box-none" style={[styles.actionDock, { bottom: Math.max(insets.bottom, 8) }]}>
         {pendingScore != null ? (
-          <View style={styles.confirmScore}>
+          <View testID="confirm-score" style={styles.confirmScore}>
             <Text style={styles.confirmScoreText}>{`Save ${pendingScore}?`}</Text>
+            <View style={styles.confirmActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel score"
+              onPress={() => setPendingScore(null)}
+              style={styles.confirmScoreHit}
+            >
+              <Text style={styles.confirmScoreText}>Cancel</Text>
+            </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Confirm score"
@@ -1859,6 +1801,7 @@ export default function PlayScreen() {
             >
               <Text style={styles.confirmScoreText}>Confirm</Text>
             </Pressable>
+            </View>
           </View>
         ) : null}
         <ScoreDock
@@ -1872,6 +1815,7 @@ export default function PlayScreen() {
           savedGir={girs[hole.holeNumber - 1] ?? null}
           markCount={holeMarks.length}
           screenHeight={windowHeight}
+          pendingStrokes={pendingScore}
           thruLabel={thruLabel}
           onMark={markHere}
           voiceMuted={talkPrefs.muted}
@@ -2228,7 +2172,7 @@ const styles = StyleSheet.create({
   textHit: { minHeight: 56, justifyContent: 'center' },
   dock: { position: 'absolute', left: 12, right: 112, zIndex: 6, gap: 4 },
   dockRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
-  askFloat: { position: 'absolute', right: 8, zIndex: 7 },
+  askFloat: { position: 'absolute', zIndex: 10 },
   fullHole: { position: 'absolute', left: 12, zIndex: 5 },
   fullHoleFill: { minHeight: 36, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
   fullHoleText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, fontWeight: font.semibold },
@@ -2259,7 +2203,8 @@ const styles = StyleSheet.create({
   pillPair: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
   pillStack: { alignItems: 'center', justifyContent: 'center', minWidth: 28 },
   actionDock: { position: 'absolute', left: 0, right: 0, zIndex: 9 },
-  confirmScore: { minHeight: 56, borderRadius: 14, backgroundColor: '#041018', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, marginBottom: 6 },
+  confirmScore: { minHeight: 56, borderRadius: 14, backgroundColor: '#041018', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, marginBottom: 6, marginRight: 72 },
+  confirmActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   confirmScoreText: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
   confirmScoreHit: { minWidth: 56, minHeight: 56, alignItems: 'center', justifyContent: 'center' },
   toast: {

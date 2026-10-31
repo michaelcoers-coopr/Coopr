@@ -74,10 +74,17 @@ test('the score dock keeps its number and the course targets stay tappable', asy
   const caddie = await page.getByTestId('coach-line').boundingBox();
   const askOrb = await page.getByRole('button', { name: 'Ask COOPR' }).boundingBox();
   expect(plate && chips && caddie && askOrb).toBeTruthy();
+  expect(askOrb!.width).toBeGreaterThanOrEqual(56);
+  expect(askOrb!.height).toBeGreaterThanOrEqual(56);
+  expect(askOrb!.x + askOrb!.width).toBeGreaterThanOrEqual(viewport.width - 16);
+  expect(Math.abs(askOrb!.y + askOrb!.height - dock!.y)).toBeLessThan(8);
   expect(overlaps(dock!, plate!), 'dock stays clear of the yardage').toBe(false);
   expect(overlaps(dock!, chips!), 'dock stays clear of the club chips').toBe(false);
   expect(overlaps(dock!, caddie!), 'dock stays clear of the caddie line').toBe(false);
   expect(overlaps(dock!, askOrb!), 'dock stays clear of Ask').toBe(false);
+  expect(overlaps(askOrb!, plate!), 'Ask stays clear of the yardage').toBe(false);
+  expect(overlaps(askOrb!, chips!), 'Ask stays clear of the club chips').toBe(false);
+  expect(overlaps(askOrb!, caddie!), 'Ask stays clear of the caddie line').toBe(false);
   expect(overlaps(plate!, chips!), 'yardage stays clear of the club chips').toBe(false);
   await expect(page.getByText('FRONT', { exact: true })).toBeVisible();
   await expect(page.getByText('BACK', { exact: true })).toBeVisible();
@@ -131,6 +138,19 @@ test('the score dock keeps its number and the course targets stay tappable', asy
   await expect(page.getByText('Type a question.')).toHaveCount(0);
   await expect(page.getByText('Voice needs the TestFlight build. Type it instead')).toHaveCount(0);
   await expect(page.getByText('Save 6?')).toBeVisible();
+  await expect(page.getByLabel('Score on the bar 6')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Par', exact: true })).toHaveCount(0);
+  const cancel = await box(page, 'Cancel score');
+  expect(cancel.height).toBeGreaterThanOrEqual(56);
+  expect(cancel.width).toBeGreaterThanOrEqual(56);
+  const confirmBar = await page.getByTestId('confirm-score').boundingBox();
+  const you = await page.getByTestId('you-line').boundingBox();
+  const askField = await page.getByLabel('Typed ask').boundingBox();
+  const askNow = await page.getByRole('button', { name: 'Ask COOPR' }).boundingBox();
+  expect(confirmBar && you && askField && askNow).toBeTruthy();
+  expect(overlaps(confirmBar!, you!), 'Save bar stays clear of the You line').toBe(false);
+  expect(overlaps(confirmBar!, askField!), 'Save bar stays clear of the typed ask').toBe(false);
+  expect(overlaps(confirmBar!, askNow!), 'Save bar stays clear of Ask').toBe(false);
   const stored = await page.evaluate(() => {
     const raw = localStorage.getItem('coopr.round.v1');
     const save = raw ? JSON.parse(raw) as { holes?: Array<number | null> } : {};

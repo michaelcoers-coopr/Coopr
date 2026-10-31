@@ -59,7 +59,8 @@ export function coachPeekHeight(screenHeight: number): number {
 
 export function coachOpenHeight(screenHeight: number): number {
   const height = Number.isFinite(screenHeight) && screenHeight > 0 ? screenHeight : 852;
-  return Math.round(height * COACH_OPEN_RATIO);
+  const ratio = height <= 420 ? 0.48 : COACH_OPEN_RATIO;
+  return Math.round(height * ratio);
 }
 
 export function homeWordmark(input: { screenWidth: number; screenHeight?: number; safeTop: number; safeLeft: number }): {

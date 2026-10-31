@@ -48,6 +48,7 @@ export function ScoreDock({
   onAdjustShot,
   onSetShotYards,
   scoreAsk = 0,
+  pendingStrokes = null,
   justYards = false,
   onToggleJustYards,
   batterySaver = false,
@@ -83,6 +84,8 @@ export function ScoreDock({
   onAdjustShot?: (delta: number) => void;
   onSetShotYards?: (yards: number) => void;
   scoreAsk?: number;
+  /** Spoken score waiting on Confirm. The bar shows this, not the last saved number. */
+  pendingStrokes?: number | null;
   justYards?: boolean;
   onToggleJustYards?: () => void;
   batterySaver?: boolean;
@@ -105,6 +108,7 @@ export function ScoreDock({
   const edited = useRef(false);
   const last = hole >= 18;
   const floor = par ?? 4;
+  const shown = pendingStrokes ?? strokes;
   const budget = scorePanelBudget(window.height || screenHeight, window.width);
   const compactMenu = window.height < 420;
   const menuHit = compactMenu ? styles.menuCell : styles.wide;
@@ -381,24 +385,24 @@ export function ScoreDock({
       <View testID="score-dock" style={styles.bar}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={last ? 'Finish' : strokes === floor ? 'Par' : 'Next'}
+          accessibilityLabel={last ? 'Finish' : shown === floor ? 'Par' : 'Next'}
           testID={last ? 'hole-finish' : 'par-next'}
           onPress={() => {
             closeMenu();
-            onSave({ strokes, putts: clampPutts(strokes, putts), penalties, fairway, gir }, last);
-            if (!last && strokes === floor) onQuickPar?.();
+            onSave({ strokes: shown, putts: clampPutts(shown, putts), penalties, fairway, gir }, last);
+            if (!last && shown === floor) onQuickPar?.();
             setOpen(false);
           }}
           style={styles.par}
         >
-          <Text style={styles.parText}>{last ? 'Finish' : strokes === floor ? 'Par' : 'Next'}</Text>
+          <Text style={styles.parText}>{last ? 'Finish' : shown === floor ? 'Par' : 'Next'}</Text>
         </Pressable>
         <View style={styles.row}>
           <Pressable accessibilityRole="button" accessibilityLabel="Lower the score" onPress={() => { closeMenu(); writeStrokes(strokes - 1); }} style={styles.cell}>
             <Text style={styles.sign}>−</Text>
           </Pressable>
-          <View accessibilityLabel={`Score on the bar ${strokes}`} style={styles.cell}>
-            <Text style={styles.big}>{String(strokes)}</Text>
+          <View accessibilityLabel={`Score on the bar ${shown}`} style={styles.cell}>
+            <Text style={styles.big}>{String(shown)}</Text>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Raise the score" onPress={() => { closeMenu(); writeStrokes(strokes + 1); }} style={styles.cell}>
             <Text style={styles.sign}>+</Text>

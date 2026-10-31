@@ -514,7 +514,8 @@ describe('foursome QA', () => {
 
   it('D11 does not keep a finished skins line in the future tense or crown a zero', () => {
     const finished = skinsLine(['Mike', 'Dave', 'Tony', 'Josh'], [0, 0, 0, 0], [0, 0, 0, 0], 1, true);
-    expect(finished).toBe('No skins won. 1 left unplayed');
+    expect(finished).toBe('No skins won. Played out');
+    expect(skinsLine(['Ada', 'Bea'], [0, 0], [0, 0], 17, true)).toBe('No skins won. 16 left unplayed');
     expect(finished).not.toContain('if it ends now');
     expect(finished).not.toContain('Mike 0');
     const live = gameLine(
@@ -1014,7 +1015,7 @@ describe('foursome QA', () => {
     const line = gameLine(skins, { names: ['Ada', 'Bea'], pending: score.skinsPending, finished: true, roster: null, carry: false });
     expect(line).toBe('No skins won');
     expect(line).not.toContain('left unplayed');
-    expect(skinsLine(['Ada', 'Bea'], [0, 0], [0, 0], 1, true, true)).toBe('No skins won. 1 left unplayed');
+    expect(skinsLine(['Ada', 'Bea'], [0, 0], [0, 0], 1, true, true)).toBe('No skins won. Played out');
     const results = screen.slice(screen.indexOf("step === 'results'"), screen.indexOf('function RivalryHero'));
     expect(results).toContain('carry: roster?.carry !== false');
   });
