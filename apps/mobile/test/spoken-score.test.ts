@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { gpsPollMs } from '../src/gps-fix';
-import { spokenConfirm, spokenStrokes } from '../src/design/spoken-score';
+import { scoreSavedLabel, spokenConfirm, spokenStrokes } from '../src/design/spoken-score';
 
 describe('spoken score', () => {
   it('reads a whole phrase and asks before saving', () => {
@@ -17,6 +17,9 @@ describe('spoken score', () => {
     expect(spokenConfirm('par', 5)).toBe('Save 5?');
     expect(spokenConfirm('I made a 6', 4)).toBe('Save 6?');
     expect(spokenConfirm('how far', 4)).toBeNull();
+    expect(scoreSavedLabel(4, 3)).toBe('Bogey saved');
+    expect(scoreSavedLabel(3, 3)).toBe('Par saved');
+    expect(scoreSavedLabel(6, 3)).toBe('6 saved');
   });
 
   it('slows the GPS poll when battery saver is on', () => {

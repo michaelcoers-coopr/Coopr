@@ -145,12 +145,18 @@ test('the score dock keeps its number and the course targets stay tappable', asy
   expect(cancel.width).toBeGreaterThanOrEqual(56);
   const confirmBar = await page.getByTestId('confirm-score').boundingBox();
   const you = await page.getByTestId('you-line').boundingBox();
-  const askField = await page.getByLabel('Typed ask').boundingBox();
   const askNow = await page.getByRole('button', { name: 'Ask COOPR' }).boundingBox();
-  expect(confirmBar && you && askField && askNow).toBeTruthy();
+  expect(confirmBar && you && askNow).toBeTruthy();
   expect(overlaps(confirmBar!, you!), 'Save bar stays clear of the You line').toBe(false);
-  expect(overlaps(confirmBar!, askField!), 'Save bar stays clear of the typed ask').toBe(false);
   expect(overlaps(confirmBar!, askNow!), 'Save bar stays clear of Ask').toBe(false);
+  if (viewport.width > viewport.height) {
+    const sheet = await page.getByTestId('coach-sheet').boundingBox();
+    const yards = await page.getByTestId('yardage-plate').boundingBox();
+    const clubRow = await page.getByTestId('club-chip-panel').boundingBox();
+    expect(sheet && yards && clubRow).toBeTruthy();
+    expect(overlaps(sheet!, yards!), 'caddie stays clear of the yardage').toBe(false);
+    expect(overlaps(sheet!, clubRow!), 'caddie stays clear of the club chips').toBe(false);
+  }
   const stored = await page.evaluate(() => {
     const raw = localStorage.getItem('coopr.round.v1');
     const save = raw ? JSON.parse(raw) as { holes?: Array<number | null> } : {};
@@ -161,6 +167,49 @@ test('the score dock keeps its number and the course targets stay tappable', asy
   await page.getByRole('button', { name: 'Confirm score' }).click();
   await expect(page.getByTestId('caddie-answer')).toContainText(`Saved 6 on hole ${holeNo}`);
   await expect(page.getByTestId('you-line')).toHaveText('I made a 6');
+});
+
+test('a spoken score cannot be confirmed on the next hole', async ({ page }) => {
+  test.setTimeout(180000);
+  await page.addInitScript(() => {
+    const sweep = () => {
+      const toast = document.getElementById('error-toast');
+      if (!toast) return;
+      toast.style.setProperty('display', 'none', 'important');
+      toast.style.setProperty('pointer-events', 'none', 'important');
+    };
+    setInterval(sweep, 100);
+    localStorage.setItem('coopr.gps.sim', JSON.stringify({ lat: 0, lon: 0 }));
+    localStorage.setItem('coopr.speech.hold', '1');
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Tee off' }).click({ timeout: 30000 });
+  await page.getByTestId('start-round').first().evaluate((node) => (node as HTMLElement).click());
+  await expect(page.getByTestId('hole-map')).toBeVisible();
+  for (let step = 0; step < 4; step += 1) {
+    const showing = (await page.getByRole('button', { name: 'Home' }).innerText()).trim();
+    if (showing === '2') break;
+    await page.getByRole('button', { name: Number(showing) < 2 ? 'Next hole' : 'Previous hole', exact: true }).click();
+  }
+  await expect(page.getByRole('button', { name: 'Home' })).toHaveText('2');
+  await page.getByRole('button', { name: 'Ask COOPR' }).click({ force: true });
+  await page.getByLabel('Typed ask').fill('I made a 4');
+  await page.getByRole('button', { name: 'Send question' }).click();
+  await expect(page.getByText('Save 4?')).toBeVisible();
+  await expect(page.getByLabel('Score on the bar 4')).toBeVisible();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Home' })).toHaveText('3');
+  await expect(page.getByText('Save 4?')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Confirm score' })).toHaveCount(0);
+  await expect(page.getByText('Par saved')).toHaveCount(0);
+  await expect(page.getByText('Bogey saved')).toBeVisible();
+  const holes = await page.evaluate(() => {
+    const raw = localStorage.getItem('coopr.round.v1');
+    const save = raw ? JSON.parse(raw) as { holes?: Array<number | null> } : {};
+    return save.holes ?? [];
+  });
+  expect(holes[1]).toBe(4);
+  expect(holes[2] ?? null).toBeNull();
 });
 
 test('home sheet labels, copy, and the games setup stay in reach', async ({ page }) => {

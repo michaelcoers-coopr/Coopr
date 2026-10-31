@@ -57,8 +57,14 @@ export function coachPeekHeight(screenHeight: number): number {
   return Math.round(height * COACH_PEEK_RATIO);
 }
 
-export function coachOpenHeight(screenHeight: number): number {
+export function coachOpenHeight(screenHeight: number, screenWidth = 393): number {
   const height = Number.isFinite(screenHeight) && screenHeight > 0 ? screenHeight : 852;
+  const width = Number.isFinite(screenWidth) && screenWidth > 0 ? screenWidth : 393;
+  if (width > height) {
+    const dock = actionDockHeight(width, height) + 8;
+    const plateBottom = 8 + 56 + 8 + 72;
+    return Math.max(80, height - plateBottom - dock - 8);
+  }
   const ratio = height <= 420 ? 0.48 : COACH_OPEN_RATIO;
   return Math.round(height * ratio);
 }
@@ -108,7 +114,7 @@ export function playChrome(input: { screenWidth: number; screenHeight: number; s
     x: pill.x,
     y: pill.y + pill.h + gap,
     w: Math.min(168, width - safe.left - safe.right - 24),
-    h: 118,
+    h: width > height ? 72 : 118,
   };
   let toast: Box = { x: safe.left + 12, y: plate.y + plate.h + gap, w: 128, h: 32 };
   if (boxesOverlap(toast, plate) || boxesOverlap(toast, pill) || boxesOverlap(toast, menu)) {
@@ -126,7 +132,7 @@ export function playChrome(input: { screenWidth: number; screenHeight: number; s
     menu,
     yardageFont: width < 380 ? 28 : 32,
     coachPeek: coachPeekHeight(height),
-    coachOpen: coachOpenHeight(height),
+    coachOpen: coachOpenHeight(height, width),
     actionHeight: actionDockHeight(width, height),
   };
 }

@@ -27,3 +27,15 @@ export function spokenConfirm(phrase: string, par: number): string | null {
   if (strokes == null) return null;
   return `Save ${strokes}?`;
 }
+
+/** What the undo toast says after a dock save. A par-3 4 is a bogey, not a par. */
+export function scoreSavedLabel(strokes: number, par: number | null): string {
+  if (par == null || !Number.isFinite(par)) return `${strokes} saved`;
+  const diff = Math.round(strokes) - Math.round(par);
+  if (diff === 0) return 'Par saved';
+  if (diff === -1) return 'Birdie saved';
+  if (diff === -2) return 'Eagle saved';
+  if (diff === 1) return 'Bogey saved';
+  if (diff === 2) return 'Double bogey saved';
+  return `${strokes} saved`;
+}

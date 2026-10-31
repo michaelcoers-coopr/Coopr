@@ -55,7 +55,7 @@ export function ScoreDock({
   onToggleBattery,
   canUndoScore = false,
   onUndoScore,
-  onQuickPar,
+  onScoreSaved,
 }: {
   hole: number;
   par: number | null;
@@ -92,8 +92,8 @@ export function ScoreDock({
   onToggleBattery?: () => void;
   canUndoScore?: boolean;
   onUndoScore?: () => void;
-  /** Fired only by the one-tap Par button, after the score is written. */
-  onQuickPar?: () => void;
+  /** Fired after the dock writes a score and stays on the round. */
+  onScoreSaved?: (strokes: number) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -390,7 +390,7 @@ export function ScoreDock({
           onPress={() => {
             closeMenu();
             onSave({ strokes: shown, putts: clampPutts(shown, putts), penalties, fairway, gir }, last);
-            if (!last && shown === floor) onQuickPar?.();
+            if (!last) onScoreSaved?.(shown);
             setOpen(false);
           }}
           style={styles.par}
