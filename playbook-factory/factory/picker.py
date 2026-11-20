@@ -254,13 +254,16 @@ def chapter_34():
                   "<b>The coach's-kid trap.</b> Let someone else run the timer and grade your own kid's stations."])
     s.append(PageBreak())
     s.append(P("3/4 Evaluation Score Sheet", "h2"))
-    s.append(P("Times in seconds; every other station 1\u20133. Print one per coach. <b>Key:</b> MO = birth month, "
+    s.append(P("Times in seconds; every other station 1\u20133. Print one per coach. <b>Key:</b> MO = birth month, SIZE = height/weight, "
                "SHT = 5-10-5 shuttle, RCT = reactive mirror, VJ = vertical, BJ = broad jump, HND = hands, SNP = snap, "
                "LRN = learn-it, CMP = compete, EFF = effort.", "small"))
-    hdr = ["PLAYER", "MO", "HT/WT", "10Y", "40", "SHT", "RCT", "VJ", "BJ", "HND", "QB", "SNP", "LRN", "CMP", "EFF"]
-    rows = [hdr] + [[""] * len(hdr) for _ in range(24)]
+    hdr = ["PLAYER", "MO", "SIZE", "10Y", "40", "SHT", "RCT", "VJ", "BJ", "HND", "QB", "SNP", "LRN", "CMP", "EFF"]
+    rows = [hdr] + [[""] * len(hdr) for _ in range(22)]
     w0 = 1.25 * inch
-    s.append(grid(rows, [w0] + [(CONTENT_W - w0) / (len(hdr) - 1)] * (len(hdr) - 1), font="cell"))
+    sheet = grid(rows, [w0] + [(CONTENT_W - w0) / (len(hdr) - 1)] * (len(hdr) - 1), font="cell")
+    sheet._argH[1:] = [0.36 * inch] * 22
+    sheet.setStyle(TableStyle([("INNERGRID", (0, 1), (-1, -1), 0.4, RULE), ("BOX", (0, 0), (-1, -1), 0.8, INK)]))
+    s.append(sheet)
     s.append(PageBreak())
     s.append(P("Sources", "h2"))
     s += bullets([
