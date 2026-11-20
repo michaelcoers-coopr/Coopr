@@ -73,9 +73,54 @@ def call(name, form, front, cov, kind, cov_key=None, ov=None, what="", best="", 
     else:
         steps, pts, show, fam = COV[cov_key]["steps"], COV[cov_key]["points"], "pass", "Coverage"
     steps = list(steps_extra) + list(steps)
-    return build_call(name, form, front, cov, overrides=ov, show=show, title=(COV[cov_key]["name"].upper() if cov_key else kind.upper()),
-                      family=fam, what=what, steps=steps, points=list(points_extra) + list(pts), best=best, tags=tags,
-                      week=week, form_name=form_name)
+    p = build_call(name, form, front, cov, overrides=ov, show=show, title=(COV[cov_key]["name"].upper() if cov_key else kind.upper()),
+                   family=fam, what=what, steps=steps, points=list(points_extra) + list(pts), best=best, tags=tags,
+                   week=week, form_name=form_name)
+    p._spec = dict(name=name, form=form, front=front, cov=cov, kind=kind, cov_key=cov_key, ov=ov, what=what, best=best,
+                   points_extra=points_extra, tags=tags, week=week, form_name=form_name, steps_extra=steps_extra)
+    return p
+
+
+UNDER = ("hook_r", "hook_l", "mid", "rob", "curl_r", "curl_l")
+
+
+def with_twins(calls, c1, c3):
+    """Every Cover 1 blitz also gets a Cover 3 version (and vice versa), placed right after it."""
+    from .defense import ZONES
+    out = []
+    for p in calls:
+        out.append(p)
+        sp = getattr(p, "_spec", None)
+        if not sp or sp["kind"] != "blitz" or sp["cov_key"] not in ("c1", "c3"):
+            continue
+        other = "c3" if sp["cov_key"] == "c1" else "c1"
+        ov = dict(sp["ov"] or {})
+        blitzers = [k for k, v in ov.items() if v[0] == "blitz"]
+        ov = {k: v for k, v in ov.items() if v[0] in ("blitz", "slant", "loop")}
+        cov = dict(c3 if other == "c3" else c1)
+        if other == "c3":
+            for b in blitzers:
+                z = cov.pop(b, None)
+                if z in ZONES and z not in UNDER:
+                    cands = [k for k, zz in cov.items() if isinstance(zz, str) and zz in UNDER and k not in blitzers]
+                    cands.sort(key=lambda k: (ZONES[cov[k]][0] * ZONES[z][0] <= 0, abs(ZONES[cov[k]][0] - ZONES[z][0])))
+                    if cands:
+                        cov[cands[0]] = z
+        else:
+            for b in blitzers:
+                tgt = cov.pop(b, None)
+                if isinstance(tgt, tuple) and tgt[0] == "man":
+                    free = [k for k, v in cov.items() if v in ("rob", "spy") and k not in blitzers]
+                    if free:
+                        cov[free[0]] = tgt
+        old, new = ("COVER 1", "COVER 3") if other == "c3" else ("COVER 3", "COVER 1")
+        p.call = f"{sp['name']} \u2013 {old}"
+        what = sp["what"].replace("Cover 1", "Cover 3") if other == "c3" else sp["what"].replace("Cover 3", "Cover 1")
+        what += (" This version rotates to a three-deep zone behind the pressure \u2014 safer vs quick throws and play-action."
+                 if other == "c3" else " This version locks the secondary in man coverage with a free safety over the top.")
+        out.append(call(f"{sp['name']} \u2013 {new}", sp["form"], sp["front"], cov, "blitz", other, ov=ov, what=what,
+                        best=sp["best"], tags=sp["tags"], week=sp["week"], form_name=sp["form_name"]))
+    return out
 
 
 # =================================================================== 4-4
@@ -102,7 +147,7 @@ F44_GL = mod(F44, S=("Sam", ("lb", "s", 5.2, 2.0), ("gap", "D", "s")), M=("Mike"
              F=("Free Safety", ("s", "c", 0.0, 6.0), ("fill",)))
 
 
-def anvil_calls():
+def _anvil_calls():
     PI, G2, G3 = "I_PRO", "GUN_2X2", "GUN_TRIPS"
     return [
         call("ANVIL BASE", PI, F44, C3_44, "front", what="The 4-4 base: eight in the box with a gap for every defender. Built to stop the run first.",
@@ -178,7 +223,7 @@ F425_PRO = mod(F425, **{"$": ("Spur (walks down)", ("lb", "s", 6.0, 3.5), ("gap"
                         "B": ("Bandit", ("lb", "w", 5.0, 3.8), ("gap", "E", "w"))})
 
 
-def hammer_calls():
+def _hammer_calls():
     G2, G3, PI = "GUN_2X2", "GUN_TRIPS", "I_PRO"
     return [
         call("HAMMER BASE", G2, F425, C3_425, "front", what="Four down, two backers, five DBs. Two apex players are the hammers: run fitters who also cover.",
@@ -246,7 +291,7 @@ F62_GL = mod(F62, M=("Mike", ("lb", "s", 2.2, 2.0), ("gap", "B", "s")), W=("Will
              K=("Weak Corner", ("cb", "w", 2.0), ("deep",)))
 
 
-def wall_calls():
+def _wall_calls():
     PI, G2, DW = "I_PRO", "GUN_2X2", "DW"
     return [
         call("WALL BASE", PI, F62, C3_62, "front", what="Six on the line, two backers over the B gaps. The most run-dominant front in football.",
@@ -305,7 +350,7 @@ F53_GL = mod(F53, S=("Sam", ("lb", "s", 3.8, 2.2), ("gap", "C", "s")), M=("Mike"
              W=("Will", ("lb", "w", 4.4, 2.2), ("gap", "E", "w")), F=("Free Safety", ("s", "c", 0.0, 6.0), ("fill",)))
 
 
-def forge_calls():
+def _forge_calls():
     PI, G2, G3 = "I_PRO", "GUN_2X2", "GUN_TRIPS"
     return [
         call("FORGE BASE", PI, F53, C3_53, "front", what="Five down linemen, three linebackers, three deep. A nose on the center takes away the A gaps.",
@@ -344,6 +389,22 @@ def forge_calls():
         call("FORGE GOAL LINE", PI, F53_GL, C1_53, "front", what="Backers to 2 yds, safety to 6. Gap-sound vs every goal-line run.",
              best="Inside the 5.", tags=["goal line", "short yardage"], week=3, form_name="vs Pro I"),
     ]
+
+
+def anvil_calls():
+    return with_twins(_anvil_calls(), C1_44, C3_44)
+
+
+def hammer_calls():
+    return with_twins(_hammer_calls(), C1_425, C3_425)
+
+
+def wall_calls():
+    return with_twins(_wall_calls(), C1_62, C3_62)
+
+
+def forge_calls():
+    return with_twins(_forge_calls(), C1_53, C3_53)
 
 
 DBUCKETS = [("Base / 1st down", {"base"}), ("Run downs", {"run down"}), ("Passing downs", {"pass down"}),

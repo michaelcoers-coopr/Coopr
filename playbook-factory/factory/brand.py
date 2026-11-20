@@ -29,3 +29,28 @@ DEFENSE = "#2B4C7E"    # defender color on defensive pages
 
 LICENSE_LINE = (f"© {YEAR} {BRAND}. Licensed for use by the purchasing coach and staff. "
                 "Do not resell or redistribute.")
+
+# ------------------------------------------------------------------ STYLE
+# "slides"  = landscape presentation decks (diagram slide + breakdown slide per call)
+# "print"   = portrait coaching manual (one page per play, field diagrams)
+STYLE = "slides"
+
+# Slide-edition diagram colors
+SLIDE_SHAPE = "#2F6B3A"       # players (circles = offense, triangles = defense)
+SLIDE_SHAPE_DARK = "#1F4A27"  # outlines, routes, blocks
+SLIDE_RED = "#D62828"         # ball carrier, blitz paths, deep-middle oval, man boxes
+SLIDE_YELLOW = "#F2C200"      # stunts/twists, motion, underneath + outside zones
+SLIDE_BLUE = "#1E9BE0"        # QB spy / read defender
+
+# Optional artwork (paths relative to playbook-factory/). Leave None to use the built-in graphic.
+COVER_IMAGE = None            # e.g. "art/cover.jpg"  - left half of every cover slide
+HERO_IMAGE = None             # e.g. "art/hero.jpg"   - Benefits + Philosophy slides
+COACH_PHOTO = None            # e.g. "art/coach.jpg"  - closing call-to-action slide
+
+# Closing call-to-action slide (set CTA_URL = "" to drop the slide)
+CTA_TITLE = "Book a 1:1 Strategy Call"
+CTA_URL = "https://yourstore.com/ironclad/call"
+CTA_PITCH = "Get personalized game-plan breakdowns, real-time adjustments and 1:1 coaching mentorship."
+CTA_CODE = "IRON50"
+CTA_OFFER = "50% off your first strategy call"
+SIGNOFF = "Now go build something that lasts."

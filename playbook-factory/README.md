@@ -5,9 +5,24 @@ diagram, assignment table and step-by-step instruction is generated, so you can 
 in minutes.
 
 ```
-python3 build.py               # build everything -> dist/  (~15 s)
+python3 build.py               # build everything -> dist/  (~10 s)
+python3 build.py --print       # portrait coaching-manual edition instead of slides
 python3 build.py wingt anvil   # rebuild just those books (keys below)
 ```
+
+## Two editions
+
+**Slides (default, `STYLE = "slides"` in `brand.py`)** — landscape 16:9 decks in the presentation-playbook style:
+photo cover (or built-in art), Benefits, Philosophy, technique/gap chart, terminology legend, then for every call
+a **diagram slide** (big shapes — circles = offense, triangles = defense, square = center; RED = blitz/ball
+carrier/deep middle/man box, YELLOW = twist/motion/zone, dashed = drop, blue = spy), a **breakdown slide**
+(boxed call + pitch line, two boxed columns of 3-line position blocks) and a **step-by-step slide**; ends with a
+1:1 strategy-call CTA with a discount code. Every blitz ships as both a Cover 1 and a Cover 3 version.
+
+**Print (`--print`)** — portrait manual, one page per play with field diagrams and the full assignment grid.
+
+Artwork & CTA live in `brand.py`: drop AI-generated or real photos into `art/` and set `COVER_IMAGE`,
+`HERO_IMAGE`, `COACH_PHOTO`; set `CTA_URL`, `CTA_CODE`, `CTA_OFFER`.
 
 Output: `dist/00_*_Start_Here.pdf`, `dist/01..22_*.pdf`, `dist/README.txt` and the bundle ZIP
 `dist/IRONCLAD_The_Forge_Collection_Complete_System.zip`. A ready-made 1600×1600 store image is in `release/store_thumbnail.png`,

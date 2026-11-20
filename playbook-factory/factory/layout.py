@@ -168,15 +168,50 @@ class Anchor(Flowable):
 
 # ------------------------------------------------------------------ document
 class BookDoc(BaseDocTemplate):
-    def __init__(self, path, book):
-        super().__init__(path, pagesize=letter, leftMargin=M, rightMargin=M, topMargin=M + 0.25 * inch,
+    def __init__(self, path, book, landscape=False):
+        self.landscape = landscape
+        ps = (960, 540) if landscape else letter
+        super().__init__(path, pagesize=ps, leftMargin=M, rightMargin=M, topMargin=M + 0.25 * inch,
                          bottomMargin=M + 0.1 * inch, title=f"{brand.BRAND} {book['title']}",
                          author=brand.AUTHOR, subject=book.get("subtitle", ""), creator=f"{brand.BRAND} Playbook Factory")
         self.book = book
-        frame = Frame(M, M + 0.1 * inch, CONTENT_W, PAGE_H - 2 * M - 0.35 * inch, id="f", leftPadding=0,
-                      rightPadding=0, topPadding=0, bottomPadding=0)
-        self.addPageTemplates([PageTemplate("cover", [frame], onPage=self._cover),
-                               PageTemplate("body", [frame], onPage=self._chrome)])
+        if landscape:
+            frame = Frame(48, 40, 960 - 96, 540 - 40 - 44, id="f", leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
+            cover, chrome = self._cover_slide, self._chrome_slide
+        else:
+            frame = Frame(M, M + 0.1 * inch, CONTENT_W, PAGE_H - 2 * M - 0.35 * inch, id="f", leftPadding=0,
+                          rightPadding=0, topPadding=0, bottomPadding=0)
+            cover, chrome = self._cover, self._chrome
+        self.addPageTemplates([PageTemplate("cover", [frame], onPage=cover),
+                               PageTemplate("body", [frame], onPage=chrome)])
+
+    def _cover_slide(self, c, doc):
+        from .slides import draw_cover_panel, img_path
+        b = self.book
+        Wd, Hd = 960, 540
+        split = Wd * 0.575
+        cov = img_path(brand.COVER_IMAGE)
+        if cov:
+            c.drawImage(cov, 0, 0, split, Hd, preserveAspectRatio=False)
+        else:
+            draw_cover_panel(c, 0, 0, split, Hd, b)
+        st = ParagraphStyle("ct", fontName="Barlow-Bold", fontSize=40, leading=44, textColor=ACC, alignment=1)
+        title = b["title"] if b["title"].lower().startswith("the ") else "The " + b["title"]
+        p = Paragraph(title, st)
+        rw = Wd - split - 60
+        _, ph = p.wrap(rw, Hd)
+        top = Hd / 2 + ph / 2 + 40
+        p.drawOn(c, split + 30, top - ph)
+        a = Paragraph(brand.AUTHOR, ParagraphStyle("ca", fontName="Barlow-Regular", fontSize=14, leading=18, alignment=1))
+        _, ah = a.wrap(rw, 100)
+        a.drawOn(c, split + 30, top - ph - 8 - ah)
+
+    def _chrome_slide(self, c, doc):
+        c.saveState()
+        c.setFont("Barlow-Regular", 9)
+        c.setFillColor(colors.HexColor("#8A9099"))
+        c.drawRightString(960 - 52, 16, str(doc.page))
+        c.restoreState()
 
     def afterFlowable(self, f):
         if hasattr(f, "_toc"):
@@ -363,8 +398,8 @@ def toc_block():
     return [P("CONTENTS", "kicker"), Paragraph("What's Inside", ST["h1"]), Bar(), Spacer(1, 8), toc, PageBreak()]
 
 
-def build(path, book, story):
-    doc = BookDoc(path, book)
+def build(path, book, story, landscape=False):
+    doc = BookDoc(path, book, landscape=landscape)
     full = [NextPageTemplate("body"), PageBreak()] + story
     doc.multiBuild(full)
 
@@ -504,6 +539,10 @@ def notes_page(title="Coach's Notes"):
         def __init__(self):
             super().__init__()
             self.width, self.height = CONTENT_W, 7.6 * inch
+
+        def wrap(self, aw, ah):
+            self.height = min(7.6 * inch, ah - 6)
+            return self.width, self.height
 
         def draw(self):
             self.canv.setStrokeColor(RULE)

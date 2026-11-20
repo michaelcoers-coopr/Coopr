@@ -12,6 +12,11 @@ import sys
 import time
 import zipfile
 
+if "--print" in sys.argv or "--slides" in sys.argv:          # override brand.STYLE from the command line
+    from factory import brand as _b
+    _b.STYLE = "print" if "--print" in sys.argv else "slides"
+    sys.argv = [a for a in sys.argv if a not in ("--print", "--slides")]
+
 from reportlab.platypus import Spacer, PageBreak
 from reportlab.lib.units import inch
 
@@ -25,14 +30,23 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DIST = os.path.join(HERE, "dist")
 
 
+SLIDES = getattr(brand, "STYLE", "print") == "slides"
+
+
 def catalog():
+    """[(spec, render(path, meta, spec))] in book order."""
+    from factory import slides
+
+    def doc(builder):
+        return lambda path, meta, spec: layout.build(path, meta, builder(spec))
     books = []
     for spec in OFFENSE_BOOKS:
-        books.append((spec, offense_book))
+        books.append((spec, slides.offense_deck if SLIDES else doc(offense_book)))
     for spec in DEFENSE_BOOKS:
-        books.append((spec, defense_book))
+        books.append((spec, slides.defense_deck if SLIDES else doc(defense_book)))
+    special = {"7v7": slides.seven_deck, "blocking": slides.drill_deck}
     for spec in SPECIAL_BOOKS:
-        books.append((spec, spec["builder"]))
+        books.append((spec, special[spec["key"]] if SLIDES and spec["key"] in special else doc(spec["builder"])))
     return books
 
 
@@ -94,7 +108,7 @@ def main(selected):
         meta = dict(title=spec["title"], subtitle=spec["subtitle"], category=spec["category"], num=n, of=total)
         fn = f"{n:02d}_{brand.BRAND}_{slug(spec['title'])}.pdf"
         path = os.path.join(DIST, fn)
-        layout.build(path, meta, builder(spec))
+        builder(path, meta, spec)
         pg = pages(path)
         entries.append((n, spec["title"], spec["category"], pg, fn))
         print(f"  [{n:02d}/{total}] {fn}  ({pg} pages)")
@@ -112,7 +126,8 @@ def main(selected):
         for (n, t, c, pg, fn) in entries:
             f.write(f"{n:02d}  {t:<40} {c:<18} {pg:>3} pages   {fn}\n")
         f.write(f"\nTotal pages: {sum(e[3] for e in entries)}\n\n{brand.LICENSE_LINE}\n")
-    zpath = os.path.join(DIST, f"{brand.BRAND}_{slug(brand.COLLECTION)}_{slug(brand.EDITION)}.zip")
+    edition = "Slides" if SLIDES else "Print"
+    zpath = os.path.join(DIST, f"{brand.BRAND}_{slug(brand.COLLECTION)}_{slug(brand.EDITION)}_{edition}.zip")
     with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
         folder = f"{brand.BRAND}_{slug(brand.COLLECTION)}"
         z.write(readme, f"{folder}/README.txt")

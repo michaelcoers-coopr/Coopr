@@ -473,6 +473,7 @@ class Play:
     pairs: str = ""
     tags: list = field(default_factory=list)
     week: int = 1
+    blocks: list = None   # slide-style breakdown: [(position name, [short lines])]
 
 
 # ---------------------------------------------------------------- the engine
@@ -593,8 +594,8 @@ class Build:
         return f"{k} – {base}"
 
     # ---- diagram
-    def diagram(self, width, ghost=True, ymax=11.5, extra=None):
-        D = Diagram(width, xmax=17.5, ymin=-8.4, ymax=ymax)
+    def diagram(self, width, ghost=True, ymax=11.5, extra=None, theme="print", height=None):
+        D = Diagram(width, xmax=17.5, ymin=-8.4, ymax=ymax, theme=theme, height=height)
         if ghost:
             for (lbl, x, y) in ghost_defense(self.f):
                 if y < ymax - 0.6:
@@ -887,7 +888,7 @@ def run_play(call, form_key, scheme, d=1, left=False, carrier="T", lead=None, ki
         steps[0] = ("Ball carrier (direct snap)", ["Receive the direct snap at the belt, eyes to the hole."] + S["carrier"][1:])
     fam = S["family"]
     return Play(call=call, form_key=form_key, form_name=form_name or form_key, family=fam, title=S["title"],
-                what=S["what"], diagram_fn=lambda w, b=b: b.diagram(w),
+                what=S["what"], diagram_fn=lambda w, b=b, **kw: b.diagram(w, **kw),
                 assignments=b.table(), steps=steps, points=S["points"], best=S["best"], pairs=S["pairs"],
                 tags=list(tags), week=week)
 
@@ -994,7 +995,7 @@ def pass_play(call, form_key, concept_key, left=False, side=None, tags=(), week=
     steps = [("Quarterback", [DROP_TXT[drop]] + C["steps"])]
     pts = list(C["points"])
     return Play(call=call, form_key=form_key, form_name=form_name or form_key, family="Pass" if drop not in ("boot", "pa") else "Play-action",
-                title=C["title"], what=C["what"], diagram_fn=lambda w, b=b: b.diagram(w, ymax=14.0),
+                title=C["title"], what=C["what"], diagram_fn=lambda w, b=b, **kw: b.diagram(w, ymax=14.0, **kw),
                 assignments=b.table(), steps=steps, points=pts, best=C["beats"], pairs="", tags=list(tags), week=week)
 
 
@@ -1040,5 +1041,5 @@ def rpo_play(call, form_key, run_scheme, pass_routes, rpo_key, d=1, left=False, 
         for i, (n, t) in enumerate(p.assignments):
             if n.startswith("Q "):
                 p.assignments[i] = (n, "QB: Mesh with the back, read the conflict defender: " + " ".join(R["rules"]))
-    p.diagram_fn = lambda w, b=b: b.diagram(w, ymax=13.0)
+    p.diagram_fn = lambda w, b=b, **kw: b.diagram(w, ymax=13.0, **kw)
     return p

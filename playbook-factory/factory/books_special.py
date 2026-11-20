@@ -115,8 +115,11 @@ class Drill:
         self.errors, self.progression, self.draw = errors, progression, draw
 
 
+DRILL_THEME = "print"   # slides.drill_deck switches this to "slides"
+
+
 def dg(w, xmax=9, ymin=-4.5, ymax=6):
-    return Diagram(w, xmax=xmax, ymin=ymin, ymax=ymax, hashes=False)
+    return Diagram(w, xmax=xmax, ymin=ymin, ymax=ymax, hashes=False, theme=DRILL_THEME)
 
 
 def d_fit(w):

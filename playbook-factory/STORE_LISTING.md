@@ -1,6 +1,6 @@
 # IRONCLAD — The Forge Collection (Complete System)
 
-**Price:** $129  ~~$1,297~~ · **Instant download** (ZIP of 23 PDFs, 523 pages)
+**Price:** $129  ~~$1,297~~ · **Instant download** (ZIP of 23 PDFs — 1,100+ slides)
 **Thumbnail:** `release/store_thumbnail.png`
 
 ---
@@ -10,7 +10,8 @@
 Twenty-two playbooks and drillbooks. One language. One standard. IRONCLAD is a complete football system — offense, defense, 7v7, blocking, offseason training and a parent guide — built so your staff learns it once and your players carry it from June 7v7 to November playoffs.
 
 Every play and every defensive call comes with:
-- A clean, full-page diagram
+- A full-screen diagram slide (color-coded blitzes, twists, zones and man coverage)
+- A breakdown slide for every position
 - An assignment for **all 11 players**
 - **Step-by-step instructions** for the key players (ball carrier, QB, blitzer, safety…)
 - Coaching points, what it beats, and what it pairs with
@@ -49,7 +50,8 @@ Plus a **Start Here** guide that tells you exactly which offense and defense fit
 ## 🔥 WHY COACHES USE IT
 - Complete offensive + defensive identity in one purchase
 - Same terminology and numbering across every book — no re-teaching
-- Week-by-week installation plans and 90-minute practice template
+- Every blitz drawn up in both Cover 1 and Cover 3
+- Week-by-week installation plans
 - Game-day call sheets and wristband cards ready to print
 - Built for youth through high school, 11-player tackle
 
