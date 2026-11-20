@@ -56,6 +56,6 @@ Plus a **Start Here** guide that tells you exactly which offense and defense fit
 - Built for youth through high school, 11-player tackle
 
 ## FAQ
-**What format?** PDF, US Letter, printable. Open on any phone, tablet or computer.
+**What format?** PDF slide decks (16:9, like a presentation) plus printable call sheets and wristbands. Open on any phone, tablet or computer.
 **What level?** Youth through high school. Every concept is taught from the ground up.
 **Can I share it with my staff?** Yes — licensed to the purchasing coach and staff. Please don't resell or redistribute.

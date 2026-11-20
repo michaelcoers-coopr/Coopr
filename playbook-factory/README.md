@@ -1,6 +1,6 @@
 # Playbook Factory
 
-Generates a complete, sellable football playbook bundle — **22 PDFs (523 pages) + a Start Here guide, zipped** — from code. Every
+Generates a complete, sellable football playbook bundle — **22 PDFs (1,100+ slides, or a 530-page print edition) + a Start Here guide, zipped** — from code. Every
 diagram, assignment table and step-by-step instruction is generated, so you can rebrand, add plays, or spin up a new product
 in minutes.
 
