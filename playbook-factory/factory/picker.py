@@ -168,6 +168,117 @@ def guide():
     for i, (h, b) in enumerate(edges, 1):
         s.append(KeepTogether([P(f"Edge #{i}: {h}", "h3"), P(b, "body")]))
     s.append(PageBreak())
+    s += chapter_34()
+    return s
+
+
+def chapter_34():
+    """Chapter 5: research-backed talent ID for 3rd/4th grade (ages ~8-10)."""
+    s = section("Chapter 5: Grades 3\u20134 \u2014 Beyond the Stopwatch", "Talent ID, level two")
+    s.append(say("At 7, you're finding athletes. At 9, you're finding football players. Different test."))
+    s.append(P("Third and fourth grade is where kids start to separate. Some can throw it 15 yards. Some can read a block. "
+               "Some just hit a growth spurt and look like a man among boys \u2014 for now. Your combine has to get smarter, "
+               "because your playbook choices get bigger: <b>can we pull guards? Can we throw? Do we have linebackers who can "
+               "read, or just run?</b>", "body"))
+    s.append(P("What the research says (in plain English)", "h3"))
+    s += bullets([
+        "<b>Speed and agility are different, and agility is two different things.</b> Running a cone drill you know in advance "
+        "(planned change of direction) and reacting to a ball or a player (reactive agility) are treated as separate skills. "
+        "The reactive one includes reading and deciding. That's the one your linebackers, safeties and running backs need, "
+        "and a stopwatch L-drill doesn't measure it.",
+        "<b>Jumps tell you about burst.</b> In 8\u201311 year-olds, the vertical jump lines up with short sprints (5\u201320 m) "
+        "better than the broad jump does. The broad jump still measures leg power, which is what your line and fullbacks "
+        "use. They aren't interchangeable, so test both.",
+        "<b>Birthdays and growth spurts fool coaches.</b> Kids born early in the selection year, and kids who mature early, "
+        "test better and get picked more. Researchers treat these as two separate biases. Translation: your biggest, fastest "
+        "9-year-old might just be older or earlier. Your late bloomer might be your best player in three years.",
+        "<b>Don't lock positions early.</b> USA Football's development model has young players learn every position and "
+        "rates skills on a simple 1\u20133 scale (catching from 5 yards, tossing and catching, fundamental movement). Use "
+        "this year's numbers to pick this year's playbook, not to label a kid for life."])
+    s.append(PageBreak())
+    s.append(P("The 3/4 Evaluation Battery", "h2"))
+    s.append(P("Twelve stations, about 90 minutes for 30 kids with 6 coaches. Keep Tyson-style timing for the speed tests. "
+               "Score everything else 1\u20133 against the rest of the team (3 = top quarter, 2 = middle half, 1 = bottom quarter).", "body"))
+    s.append(grid([["STATION", "HOW", "WHAT IT MEASURES", "PLAYBOOK DECISION IT DRIVES"],
+                   ["<b>1. 10-yd split</b>", "2 reps, laser or phone", "Burst", "Who carries it inside; who pulls"],
+                   ["<b>2. 40 + 20 split</b>", "2 reps", "Acceleration + top speed", "Jet / sweep / edge players; Rockets"],
+                   ["<b>3. 5-10-5 shuttle</b>", "2 reps each direction", "Planned change of direction", "Inside runners, slot, corners"],
+                   ["<b>4. Reactive mirror</b>", "Coach points or rolls a ball; kid reacts 5 times", "Read + react (agility with a "
+                    "decision)", "Linebackers, safeties, zone-read backs. Many readers = 4-4 / 4-2-5"],
+                   ["<b>5. Vertical jump</b>", "Wall reach or jump mat, best of 3", "Burst / acceleration power", "Ties with "
+                    "the 10-yd split; tiebreaker for backs and edges"],
+                   ["<b>6. Broad jump</b>", "Best of 3, stick the landing", "Leg power", "Line and fullback. Strong broad jumpers "
+                    "up front = gap schemes (Power, Counter)"],
+                   ["<b>7. Hands</b>", "10 throws at 5 yds, then 5 over the shoulder", "Catching", "Receivers, tight ends, "
+                    "pitch back. 3+ good-hands kids = add play-action"],
+                   ["<b>8. QB station</b>", "Targets at 5/10/15 yds, 5 throws each; mesh and pitch reps", "Accuracy + ball "
+                    "handling", "Can you throw? Can you run option, Boot or Waggle?"],
+                   ["<b>9. Snap test</b>", "10 under center, 10 pistol/gun; count the clean ones", "The exchange", "Under "
+                    "center vs. shotgun vs. direct snap (Single Wing)"],
+                   ["<b>10. Learn-it test</b>", "Teach 3 plays in 5 min, then quiz and walk through them", "Football IQ, "
+                    "coachability", "QB, center, middle linebacker. Low team score = fewer plays"],
+                   ["<b>11. Compete</b>", "Sumo circle, 1-on-1 flag pull in a lane, fit-and-drive on a bag (within contact limits)",
+                    "Toughness, leverage, tackling angles", "Who plays in the box vs. in space"],
+                   ["<b>12. Effort index</b>", "Rep-2 time \u00f7 rep-1 time on the 40; last-sprint drop-off", "Motor and effort",
+                    "Tiebreaker for every spot"]],
+                  [1.05 * inch, 1.75 * inch, 1.45 * inch, CONTENT_W - 4.25 * inch], font="cell"))
+    s.append(Spacer(1, 6))
+    s.append(P("<b>Also record:</b> height, weight and birth month. Optionally ask parents for their heights; the "
+               "Khamis\u2013Roche method uses age, height, weight and the parents' heights to estimate adult height. Use it to "
+               "<i>interpret</i> results (is he good, or just early?), never to cut a kid.", "small"))
+    s.append(PageBreak())
+    s.append(P("From battery to playbook: the 3/4 decision tree", "h2"))
+    s.append(grid([["IF YOUR BATTERY SHOWS...", "LEAN TOWARD", "BOOK(S)"],
+                   ["A QB scoring 3 on accuracy + 3 good-hands kids + clean snaps", "Add a real play-action game: Boot, Pop, "
+                    "Waggle. Sprint-out flood.", "Wing-T (12), Gun-T (13), Single Back (10)"],
+                   ["Strong broad jumpers up front, one clear bell-cow back", "Gap/power football", "Power I Vol. 1\u20133 "
+                    "(2\u20134), Maryland I (8)"],
+                   ["Your best-bursting linemen are only medium-sized", "Pull them: buck sweep, counter, trap", "Wing-T (12), "
+                    "Double Wing (14)"],
+                   ["Lots of 3s on reactive mirror and learn-it", "Readers: zone-read and option at the high end; LB-heavy defense",
+                    "Diamond (1), T/Wishbone (9); 4-4 Anvil (15), 4-2-5 Hammer (16)"],
+                   ["Shaky snaps but a dominant runner", "Direct snap", "Single Wing (11)"],
+                   ["Low learn-it scores across the team", "Fewer plays, more reps, same blocking rules", "Double Wing (14), "
+                    "Power I Vol. 1 (2)"],
+                   ["Heavy, low-burst line; opponents run the ball", "Six-man front", "6-2 Wall (17)"],
+                   ["Fast, good-hands DBs; opponents start to throw", "Five DBs", "4-2-5 Hammer (16)"]],
+                  [2.6 * inch, 2.4 * inch, CONTENT_W - 5.0 * inch], font="cell"))
+    s.append(Spacer(1, 8))
+    s.append(P("Bias traps that cost good coaches games", "h3"))
+    s += bullets(["<b>The birthday trap.</b> Sort your results by birth month once. If your 'best' kids are all January\u2013March "
+                  "birthdays, some of that is age, not talent.",
+                  "<b>The growth-spurt trap.</b> The big kid who's fast today gets moved to the line in two years when everyone "
+                  "catches up. Teach him a skill position too.",
+                  "<b>The first-impression trap.</b> Tyson's 'needs to evaluate' column is the right instinct. Write down what you "
+                  "need to see, then go test it.",
+                  "<b>The coach's-kid trap.</b> Let someone else run the timer and grade your own kid's stations."])
+    s.append(PageBreak())
+    s.append(P("3/4 Evaluation Score Sheet", "h2"))
+    s.append(P("Times in seconds; every other station 1\u20133. Print one per coach. <b>Key:</b> MO = birth month, "
+               "SHT = 5-10-5 shuttle, RCT = reactive mirror, VJ = vertical, BJ = broad jump, HND = hands, SNP = snap, "
+               "LRN = learn-it, CMP = compete, EFF = effort.", "small"))
+    hdr = ["PLAYER", "MO", "HT/WT", "10Y", "40", "SHT", "RCT", "VJ", "BJ", "HND", "QB", "SNP", "LRN", "CMP", "EFF"]
+    rows = [hdr] + [[""] * len(hdr) for _ in range(24)]
+    w0 = 1.25 * inch
+    s.append(grid(rows, [w0] + [(CONTENT_W - w0) / (len(hdr) - 1)] * (len(hdr) - 1), font="cell"))
+    s.append(PageBreak())
+    s.append(P("Sources", "h2"))
+    s += bullets([
+        "Spasic et al., <i>Are Change-of-Direction Speed and Reactive Agility Independent Skills Even When Using the Same "
+        "Movement Pattern?</i> (J Strength Cond Res) \u2014 pubmed.ncbi.nlm.nih.gov/29570572",
+        "Chanel, Babault &amp; Cometti (2024), <i>Acceleration Capacity and Vertical Jump Performance Relationship in Prepubertal "
+        "Children</i>, Applied Sciences 14(8):3535 \u2014 mdpi.com/2076-3417/14/8/3535",
+        "Hill et al. (2020), <i>Relative age and maturation selection biases in academy football</i>, J Sports Sci \u2014 "
+        "eprints.leedsbeckett.ac.uk/id/eprint/9001",
+        "Relative age and physical performance in youth football (PLOS One, 2025) \u2014 pmc.ncbi.nlm.nih.gov/articles/PMC12258587",
+        "Talent development and maturation in youth programmes \u2014 pmc.ncbi.nlm.nih.gov/articles/PMC4558096",
+        "Khamis &amp; Roche (1994), <i>Predicting adult stature without using skeletal age</i>, Pediatrics \u2014 "
+        "pubmed.ncbi.nlm.nih.gov/7936860",
+        "USA Football, <i>Player Progression Guide / Skill Evaluation</i> (Football Development Model) \u2014 "
+        "usafootball.com/fdm",
+        "USA Football blog, <i>Test players for the skills you want each position to perform</i> \u2014 blogs.usafootball.com/blog/1116",
+    ], "small")
+    s.append(PageBreak())
     return s
 
 
