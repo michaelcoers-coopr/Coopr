@@ -161,11 +161,7 @@ export interface StoredEvent {
   includesCart: boolean;
   /** Display only. The app does not collect this money. Empty when there is no price to show. */
   mulliganPriceLabel: string;
-  /**
-   * TODO(Mike): The flyer says max 2. The organizer record says max 4 per foursome.
-   * The seed uses 4 per team until that is confirmed.
-   * Mulligans are prepaid off the app with a coin or ticket. This number is only a count.
-   */
+  /** Prepaid off the app with a coin or ticket. This number is only a count. Panthers is 4 per team. */
   mulliganScope: MulliganScope;
   mulliganMax: number;
   /** No handicaps. Back nine is the default card match. */

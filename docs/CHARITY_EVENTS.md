@@ -16,7 +16,7 @@ Event traffic does not use `x-coopr-secret`, Upstash, or the caddie budget. A pu
 
 - The organizer sets the name, the charity, the date, scramble or stroke play, shotgun or tee times, and the groups. A new event starts on High Cedars. The seeded Panthers Classic uses Auburn Golf Course. The reply is a join code, a QR mark, and a share link.
 - Logos are PNG, JPG, or SVG, 512 KB, fitted with contain. Slots are Presented by, Team + Hole, a hole sign, a kid-photo sign on that same hole, the Panther Cup, the mulligan mark, a prize partner, and the share card. Friend of the Panthers is a list of names, with no logo. An SVG with a script, an event handler, or a `javascript:` URL is refused. There is no full-screen sponsor page.
-- Mulligans are a count of coins or tickets already paid off the app. The limit is per event, either per player or per team. TODO(Mike): the flyer says max 2 and the organizer record says max 4 per foursome. The seed uses 4 per team until that is confirmed. The same tap cannot count twice.
+- Mulligans are a count of coins or tickets already paid off the app. The limit is per event, either per player or per team. Mike confirmed the Panthers Classic is 4 per team. The same tap cannot count twice.
 - The start can be a modified shotgun. Each team has a starting hole, and two teams may share one. The sample leaves the holes unassigned.
 - Closest to the pin and longest drive are hole numbers on the event. They show on the web board, the TV, and the share card when they are set. The sample leaves them empty. There is no hole-in-one.
 - There are no handicaps and no flights. A tie matches the cards from the back nine unless the organizer chooses a shared rank instead.

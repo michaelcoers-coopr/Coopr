@@ -78,7 +78,6 @@ export function buildDemoEvent(): StoredEvent {
     teamSize: 4,
     includesCart: true,
     mulliganPriceLabel: '',
-    // TODO(Mike): Flyer says max 2. Organizer record says max 4 per foursome. Seeded as 4 per team until confirmed.
     mulliganScope: 'team',
     mulliganMax: 4,
     tiebreak: 'back-nine',
