@@ -21,9 +21,9 @@ describe('beta profile and permission strings', () => {
       };
       submit: { beta: { ios: Record<string, never> } };
     };
-    expect(eas.build.preview.env).toEqual({ APP_VARIANT: 'preview', EXPO_PUBLIC_FOUNDER_TOOLS: '1' });
+    expect(eas.build.preview.env).toEqual({ APP_VARIANT: 'preview', EXPO_PUBLIC_FOUNDER_TOOLS: '1', EXPO_PUBLIC_EVENT_ORIGIN: 'https://coopr.expo.app' });
     expect(eas.build.preview.channel).toBe('preview');
-    expect(eas.build.production.env).toEqual({ APP_VARIANT: 'production', EXPO_PUBLIC_FOUNDER_TOOLS: '0' });
+    expect(eas.build.production.env).toEqual({ APP_VARIANT: 'production', EXPO_PUBLIC_FOUNDER_TOOLS: '0', EXPO_PUBLIC_EVENT_ORIGIN: 'https://coopr.expo.app' });
     expect(eas.build.beta).toMatchObject({
       distribution: 'store',
       channel: 'beta',
@@ -32,6 +32,7 @@ describe('beta profile and permission strings', () => {
     expect(eas.build.beta.env).toEqual({
       APP_VARIANT: 'production',
       EXPO_PUBLIC_FOUNDER_TOOLS: '0',
+      EXPO_PUBLIC_EVENT_ORIGIN: 'https://coopr.expo.app',
       EXPO_PUBLIC_EXTRACT_URL: EXTRACT_URL_PLACEHOLDER,
       EXPO_PUBLIC_CADDIE_SECRET: CADDIE_SECRET_PLACEHOLDER,
       EXPO_PUBLIC_FEEDBACK_EMAIL: FEEDBACK_EMAIL_PLACEHOLDER,

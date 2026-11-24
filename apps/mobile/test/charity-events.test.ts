@@ -4,13 +4,16 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { courseParsForRound, eventPar, foreignPars, parForHole, rememberEventCard } from '../src/events/card';
 import { thruHud } from '../src/design/round-chrome';
-import { queueEventScore, OUTBOX_KEY, saveSession, type StorageLike } from '../src/events/client';
+import { HOSTED_EVENT_ORIGIN, eventOrigin, joinLink, queueEventScore, OUTBOX_KEY, saveSession, type StorageLike } from '../src/events/client';
 import { recapSummary } from '../src/design/recap-math';
 import { AUBURN_PARS, DEMO_ORGANIZER_TOKEN, HIGH_CEDARS_PARS, type CreateEventInput, type LiveSession } from '../src/events/types';
 import { mulliganLimit } from '../src/events/mulligans';
 import { reviewSurvey, SURVEY_CONSENT } from '../src/events/survey';
 import { finishBlocked, nextShotgunHole, shotgunOrder, viewerScoreMessage } from '../src/events/shotgun';
+import { commitOnAdapter, createMemoryEventAdapter, seedSampleEvent } from '../src/events/adapter';
 import { openFileEventStore } from '../src/events/file-store';
+import { databaseUrl } from '../src/events/live';
+import { schemaFileMatches } from '../src/events/postgres';
 import { inspectLogo } from '../src/events/logos';
 import { enqueueScore, flushOutbox, type OutboxEntry } from '../src/events/outbox';
 import { formatToPar, leaderboard } from '../src/events/scoring';
@@ -584,5 +587,86 @@ describe('Panthers Classic rules', () => {
     const assigned = events.assignLogo(made.event.code, made.organizerToken, logoId, 'hole', 9);
     expect(assigned.ok).toBe(true);
     expect(events.publicView(made.event.code)?.logos.find((logo) => logo.slot === 'hole' && logo.hole === 9)?.name).toBe('Sample Hole Sponsor');
+  });
+});
+
+describe('durable event store', () => {
+  it('keeps concurrent posts, replays an idempotency key once, and seeds SAMPLE', async () => {
+    expect(schemaFileMatches()).toBe(true);
+    const previous = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    expect(databaseUrl()).toBeNull();
+    process.env.DATABASE_URL = 'postgresql://example.neon.tech/coopr';
+    expect(databaseUrl()).toBe('postgresql://example.neon.tech/coopr');
+    if (previous === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = previous;
+
+    const adapter = createMemoryEventAdapter();
+    await seedSampleEvent(adapter);
+    const actor = { organizer: DEMO_ORGANIZER_TOKEN, guest: null };
+    const post = (team: number, hole: number, key: string) => commitOnAdapter(adapter, (store) => store.applyScore('SAMPLE', actor, {
+      groupId: `demo-team-${team}`,
+      playerId: `demo-team-${team}-p1`,
+      hole,
+      strokes: 4,
+      clientSeq: hole,
+      idempotencyKey: key,
+    }));
+    const results = await Promise.all([1, 2, 3, 4].map((team) => post(team, 10, `team-${team}-hole-10`)));
+    expect(results.every((result) => result.ok && result.duplicate === false && result.stale === false)).toBe(true);
+    const saved = await adapter.read('SAMPLE');
+    expect(saved?.event.scores.filter((score) => score.hole === 10).map((score) => score.groupId).sort()).toEqual([
+      'demo-team-1',
+      'demo-team-2',
+      'demo-team-3',
+      'demo-team-4',
+    ]);
+    const replay = await post(1, 10, 'team-1-hole-10');
+    expect(replay).toMatchObject({ ok: true, duplicate: true });
+    const parallel = await Promise.all([0, 1, 2, 3].map(() => post(6, 12, 'replay-team-6')));
+    expect(parallel.filter((result) => result.ok && result.duplicate === false && result.stale === false)).toHaveLength(1);
+    const again = await adapter.read('SAMPLE');
+    expect(again?.event.scores.filter((score) => score.idempotencyKey === 'replay-team-6')).toHaveLength(1);
+    expect(again?.event.scores.filter((score) => score.hole === 10)).toHaveLength(4);
+    const revision = again?.revision;
+    await seedSampleEvent(adapter);
+    const seeded = await adapter.read('SAMPLE');
+    expect(seeded?.event.name).toBe('Panthers Golf Classic');
+    expect(seeded?.event.mulliganMax).toBe(4);
+    expect(seeded?.revision).toBe(revision);
+    expect(seeded?.event.scores.filter((score) => score.hole === 10)).toHaveLength(4);
+  });
+
+  it('points the phone, the board, and the join link at one origin', () => {
+    const previous = process.env.EXPO_PUBLIC_EVENT_ORIGIN;
+    const previousNode = process.env.NODE_ENV;
+    const previousNav = globalThis.navigator;
+    const globalFlags = globalThis as { __DEV__?: boolean; location?: { origin?: string } };
+    const previousDev = globalFlags.__DEV__;
+    const previousLocation = globalFlags.location;
+    try {
+      process.env.EXPO_PUBLIC_EVENT_ORIGIN = 'https://coopr.expo.app/';
+      expect(eventOrigin()).toBe(HOSTED_EVENT_ORIGIN);
+      expect(joinLink('SAMPLE')).toBe('https://coopr.expo.app/event/join?code=SAMPLE');
+      delete process.env.EXPO_PUBLIC_EVENT_ORIGIN;
+      globalFlags.location = { origin: 'https://coopr.expo.app' };
+      expect(eventOrigin()).toBe(HOSTED_EVENT_ORIGIN);
+      expect(joinLink('SAMPLE')).toBe('https://coopr.expo.app/event/join?code=SAMPLE');
+      globalFlags.location = undefined;
+      Object.defineProperty(globalThis, 'navigator', { value: { product: 'ReactNative' }, configurable: true });
+      globalFlags.__DEV__ = true;
+      expect(() => eventOrigin()).toThrow(/EXPO_PUBLIC_EVENT_ORIGIN/);
+      globalFlags.__DEV__ = false;
+      process.env.NODE_ENV = 'production';
+      expect(eventOrigin()).toBe(HOSTED_EVENT_ORIGIN);
+    } finally {
+      if (previous === undefined) delete process.env.EXPO_PUBLIC_EVENT_ORIGIN;
+      else process.env.EXPO_PUBLIC_EVENT_ORIGIN = previous;
+      if (previousNode === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNode;
+      Object.defineProperty(globalThis, 'navigator', { value: previousNav, configurable: true });
+      globalFlags.__DEV__ = previousDev;
+      globalFlags.location = previousLocation;
+    }
   });
 });

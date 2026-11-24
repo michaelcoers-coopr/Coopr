@@ -25,11 +25,41 @@ function storage(): StorageLike {
   return webStore() ?? memoryStore;
 }
 
+/** Web board, TV board, QR code, and share link. The hosted EAS origin. */
+export const HOSTED_EVENT_ORIGIN = 'https://coopr.expo.app';
+
+function configuredOrigin(value: string | undefined): string | null {
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed || trimmed.includes('REPLACE')) return null;
+  return trimmed.replace(/\/$/, '');
+}
+
+function nativeApp(): boolean {
+  return (globalThis as { navigator?: { product?: string } }).navigator?.product === 'ReactNative';
+}
+
+function devApp(): boolean {
+  const flag = (globalThis as { __DEV__?: boolean }).__DEV__;
+  if (typeof flag === 'boolean') return flag;
+  return process.env.NODE_ENV !== 'production';
+}
+
+/**
+ * One origin for the phone, the web board, the TV board, and the join link.
+ * A native dev build with no EXPO_PUBLIC_EVENT_ORIGIN throws, so a missing host
+ * is not a silent local score. A release build falls back to the hosted origin.
+ */
 export function eventOrigin(): string | null {
-  const configured = process.env.EXPO_PUBLIC_EVENT_ORIGIN?.trim();
-  if (configured && !configured.includes('REPLACE')) return configured.replace(/\/$/, '');
+  const configured = configuredOrigin(process.env.EXPO_PUBLIC_EVENT_ORIGIN);
+  if (configured) return configured;
+  if (nativeApp()) {
+    if (devApp()) {
+      throw new Error(`EXPO_PUBLIC_EVENT_ORIGIN is missing. Set it to ${HOSTED_EVENT_ORIGIN} before this phone can open the live board.`);
+    }
+    return HOSTED_EVENT_ORIGIN;
+  }
   const origin = (globalThis as { location?: { origin?: string } }).location?.origin;
-  if (origin && origin !== 'null') return origin;
+  if (origin && origin !== 'null') return origin.replace(/\/$/, '');
   return null;
 }
 

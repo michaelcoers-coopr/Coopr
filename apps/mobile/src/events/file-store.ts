@@ -1,20 +1,21 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createEventStore, type EventStore } from './store';
 import type { StoredEvent } from './types';
 
 /**
- * One JSON file on the API process. Expo API routes are request/response, so the
- * board polls instead of holding a socket. The file survives a restart of `expo start`
- * on a machine with a disk. EAS Hosting can wipe the disk. Set COOPR_EVENT_STORE to a
- * persistent path before a real event. See docs/CHARITY_EVENTS.md.
+ * JSON file for local expo and CI. A rename keeps one save from tearing the file.
+ * Two hosts writing this file can still drop a score. Set DATABASE_URL for a real
+ * event so each score is a compare-and-swap. See docs/CHARITY_EVENTS.md.
  */
 export function openFileEventStore(file: string): EventStore {
   const store = createEventStore({
     onChange(events) {
       mkdirSync(dirname(file), { recursive: true });
-      writeFileSync(file, JSON.stringify({ events }));
+      const temp = `${file}.${process.pid}.tmp`;
+      writeFileSync(temp, JSON.stringify({ events }));
+      renameSync(temp, file);
     },
   });
   if (existsSync(file)) {

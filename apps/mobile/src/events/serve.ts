@@ -16,6 +16,10 @@ function headersFor(origin: string | null): Record<string, string> {
   return headers;
 }
 
+export function eventError(request: Request, status: number, error: string): Response {
+  return json(request.headers.get('origin'), status, { error });
+}
+
 function json(origin: string | null, status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,

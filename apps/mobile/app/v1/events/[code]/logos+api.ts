@@ -1,18 +1,17 @@
-import { eventStore } from '../../../../src/events/file-store';
-import { serveEvent } from '../../../../src/events/serve';
+import { serveLiveEvent } from '../../../../src/events/live';
 
 export function OPTIONS(request: Request) {
-  return serveEvent(request, eventStore());
+  return serveLiveEvent(request);
 }
 
 export function POST(request: Request) {
-  return serveEvent(request, eventStore());
+  return serveLiveEvent(request);
 }
 
 export function PATCH(request: Request) {
-  return serveEvent(request, eventStore());
+  return serveLiveEvent(request);
 }
 
 export function DELETE(request: Request) {
-  return serveEvent(request, eventStore());
+  return serveLiveEvent(request);
 }

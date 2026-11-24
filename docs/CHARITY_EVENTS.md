@@ -4,11 +4,15 @@ Do not deploy from this note. It records the choice and the steps Mike runs. Not
 
 ## Choice
 
-The board is an Expo Router API route plus one JSON file, and the screens poll every 5 seconds.
+The board is an Expo Router API route, and the screens poll every 5 seconds.
 
 There is no socket. Expo's API routes are request/response, which is the same shape as the caddie routes already in `apps/mobile/app/v1`. A poll is enough for a charity leaderboard and needs no extra process.
 
-The file is `apps/mobile/.data/charity-events.json`, or the path in `COOPR_EVENT_STORE`. It is gitignored. A restart of `expo start` on a machine with a disk keeps the scores. EAS Hosting can wipe that disk. A real event needs a persistent path, or a later swap of `openFileEventStore` for a database. That swap stays behind the same `EventStore` methods.
+The store is chosen by `DATABASE_URL`. When that variable is set, scores go to Postgres through Neon's HTTPS driver (`@neondatabase/serverless`). EAS Hosting throws the process away, so a TCP pool from `pg` would pin connections the platform recycles. One score is one conditional `UPDATE ... WHERE revision = <the revision the writer read>`. Postgres applies that statement on its own, so two groups posting at once both keep their holes. The same idempotency key is stored in that row. A retry, including an outbox replay, returns the score already saved and does not add a second one.
+
+When `DATABASE_URL` is unset, the API uses one JSON file. That is the local and CI path. The file is `apps/mobile/.data/charity-events.json`, or the path in `COOPR_EVENT_STORE`. It is gitignored. A restart of `expo start` on a machine with a disk keeps the scores. A single save is a rename, so a crash does not leave a half-written file. Two server processes writing that file can still drop a score. EAS Hosting can wipe the disk. A real event uses `DATABASE_URL`.
+
+The driver speaks Neon's SQL-over-HTTP endpoint. `DATABASE_URL` has to be a Neon connection string. A direct URL for another Postgres host will not connect.
 
 Event traffic does not use `x-coopr-secret`, Upstash, or the caddie budget. A public board is a GET. The phone that created the event sends `x-coopr-organizer`. A scorer sends `x-coopr-guest`. The compare walks both strings.
 
@@ -43,20 +47,47 @@ The sample organizer token `sample-organizer-token` works only on the event code
 
 The hole screen still walks High Cedars. Auburn's published par-71 card is on the event board. Yardages in the round are not Auburn until that course is mapped.
 
-## App variables
+## Variables
 
-- `EXPO_PUBLIC_EVENT_ORIGIN` — https origin, no path. The phone uses it for the board and the join link. On the web build, the page origin is used when this is unset. A value containing `REPLACE` is ignored. Native without an origin keeps scores on the phone.
-- `EXPO_PUBLIC_APP_STORE_URL` — optional https link on Get COOPR. A value containing `REPLACE` is not shown.
-- `COOPR_EVENT_STORE` — absolute path of the JSON file on the API host. Unset uses `apps/mobile/.data/charity-events.json` next to the running app.
+Server variables live on the EAS Hosting environment. Do not put them in the app binary and do not commit the values.
+
+- `DATABASE_URL` — Neon connection string. Sensitive. This is the durable store. Unset keeps the JSON file, which is what local expo and CI use.
+- `COOPR_EVENT_STORE` — absolute path of the JSON file when `DATABASE_URL` is unset. Unset uses `apps/mobile/.data/charity-events.json` next to the running app.
 - `ALLOWED_ORIGINS` — same list as the caddie, only for browsers on another origin. The phone app does not need it.
 
-Do not put the event routes on the caddie secret. Do not point `EXPO_PUBLIC_EXTRACT_URL` at a different host for scores. The board and the caddie can share an origin and still stay apart.
+App variables are baked in at build time. `preview`, `production`, and `beta` in `apps/mobile/eas.json` set the event origin.
+
+- `EXPO_PUBLIC_EVENT_ORIGIN` — `https://coopr.expo.app`, no path. The phone, the web board, the TV board, the QR code, and the share link all use this origin. On a web build the page origin is used when this is unset, so a board opened on that host still matches. A value containing `REPLACE` is ignored. A native dev build with the variable missing throws and names `EXPO_PUBLIC_EVENT_ORIGIN`. A release build without it uses `https://coopr.expo.app`.
+- `EXPO_PUBLIC_APP_STORE_URL` — optional https link on Get COOPR. A value containing `REPLACE` is not shown.
+
+Do not put the event routes on the caddie secret. Do not point `EXPO_PUBLIC_EXTRACT_URL` at a different host for scores. The board and the caddie can share an origin and still stay apart. Do not put `DATABASE_URL` in `EXPO_PUBLIC_` or in `eas.json`.
+
+## Migration
+
+Do not deploy from this note. The migration talks to Neon. It does not publish a host or a binary.
+
+From the repo root, with `DATABASE_URL` exported in the shell:
+
+```
+npm run event-store:migrate
+```
+
+That runs `apps/mobile/scripts/event-store-migrate.ts`. It creates `coopr_charity_events` if needed and seeds the `SAMPLE` event. A second run leaves a current SAMPLE alone, including scores. The statement is `apps/mobile/src/events/sql/001_charity_events.sql`. The hosted process runs the same statement on its first request, so a missed migration still creates the table. Run the script anyway before the event so SAMPLE is there before the first golfer.
 
 ## Deploy steps
 
-Do not deploy from this note.
+Do not deploy from this note. Mike runs these on his machine. Nothing here builds or submits the iOS app.
 
-1. Pick a host that keeps a disk, or set `COOPR_EVENT_STORE` to a path that survives a restart.
-2. Set `EXPO_PUBLIC_EVENT_ORIGIN` to that https origin before a native build. Web on the same origin works without it.
-3. Leave the sample token as documentation. Do not reuse it for a real event.
-4. Ask counsel before showing a charity link.
+1. Create a Neon project and copy its connection string. Keep the value in the shell. Do not commit it.
+2. Export `DATABASE_URL` and run `npm run event-store:migrate` from the repo root. The script prints the SAMPLE revision and does not print the connection string.
+3. From `apps/mobile`, set the host variable. `EXPO_TOKEN` is the Expo access token already used for the caddie deploy.
+
+```
+npx eas-cli env:set --name DATABASE_URL --value "$DATABASE_URL" --environment production --visibility sensitive --scope project --type string --non-interactive
+```
+
+4. Deploy the host with the existing caddie path: `bash scripts/deploy-caddie.sh`. The charity routes are in the same Expo app, so that deploy publishes them. Do not stand up a second host. If the deploy prints an origin other than `https://coopr.expo.app`, change `EXPO_PUBLIC_EVENT_ORIGIN` in `apps/mobile/eas.json` on `preview`, `production`, and `beta` to that origin before the native build.
+5. Build the TestFlight binary from the `beta` profile (or `preview`). Those profiles already set `EXPO_PUBLIC_EVENT_ORIGIN` to `https://coopr.expo.app`. A native dev client needs the same variable in the shell. Without it, the dev client throws instead of keeping scores only on the phone.
+6. Open `https://coopr.expo.app/event/SAMPLE`, the TV route `/event/SAMPLE/tv`, and a join link from the organizer screen. The QR code and the share text use that same origin.
+7. Leave the sample token as documentation. Do not reuse it for a real event.
+8. Ask counsel before showing a charity link.
