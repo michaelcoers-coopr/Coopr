@@ -73,6 +73,7 @@ export default function NewEvent() {
       </View>
       <FieldLabel>Start</FieldLabel>
       <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Choice label="Modified shotgun" on={startStyle === 'modified-shotgun'} onPress={() => setStartStyle('modified-shotgun')} />
         <Choice label="Shotgun" on={startStyle === 'shotgun'} onPress={() => setStartStyle('shotgun')} />
         <Choice label="Tee times" on={startStyle === 'tee-times'} onPress={() => setStartStyle('tee-times')} />
       </View>

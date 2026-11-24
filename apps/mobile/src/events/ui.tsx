@@ -69,7 +69,7 @@ export function LeaderboardTable({ event }: { event: PublicEvent }) {
       {title ? <LogoFit logo={title} /> : null}
       <Text style={styles.kicker}>{event.charityName}</Text>
       <Text style={styles.cardTitle}>{event.name}</Text>
-      <Text style={styles.note}>{`${event.courseName} · ${event.date} · ${event.format === 'scramble' ? 'Scramble' : 'Stroke play'} · ${event.startStyle === 'shotgun' ? 'Shotgun' : 'Tee times'}`}</Text>
+      <Text style={styles.note}>{`${event.courseName} · ${event.date} · ${event.format === 'scramble' ? 'Scramble' : 'Stroke play'} · ${event.startStyle === 'modified-shotgun' ? 'Modified shotgun' : event.startStyle === 'shotgun' ? 'Shotgun' : 'Tee times'}`}</Text>
       {board ? <LogoFit logo={board} height={36} /> : null}
       {event.rows.map((row) => (
         <Row key={row.key} row={row} display={display} />

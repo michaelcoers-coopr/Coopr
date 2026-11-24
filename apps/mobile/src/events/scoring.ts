@@ -39,41 +39,71 @@ interface Tally {
   gross: number;
   toPar: number | null;
   waitlist: boolean;
+  startingHole: number | null;
+  holes: (number | null)[];
 }
 
-function tallyCard(event: Pick<StoredEvent, 'format' | 'scores' | 'pars'>, groupId: string, playerId: string | null, name: string, key: string, waitlist: boolean): Tally {
+function tallyCard(event: Pick<StoredEvent, 'format' | 'scores' | 'pars'>, groupId: string, playerId: string | null, name: string, key: string, waitlist: boolean, startingHole: number | null): Tally {
   let thru = 0;
   let gross = 0;
   let parSum = 0;
+  const holes: (number | null)[] = [];
   for (let hole = 1; hole <= event.pars.length; hole += 1) {
     const strokes = holeStrokes(event, groupId, playerId, hole);
     const par = event.pars[hole - 1];
+    holes.push(strokes);
     if (strokes == null || par == null) continue;
     thru += 1;
     gross += strokes;
     parSum += par;
   }
-  return { key, groupId, playerId, name, thru, gross, toPar: thru === 0 ? null : gross - parSum, waitlist };
+  return { key, groupId, playerId, name, thru, gross, toPar: thru === 0 ? null : gross - parSum, waitlist, startingHole, holes };
+}
+
+/** Lower is better. Compares the back nine, then the last 6, last 3, and the 18th, using holes both cards have. */
+export function backNineCompare(left: readonly (number | null)[], right: readonly (number | null)[]): number {
+  const windows: [number, number][] = [[10, 18], [13, 18], [16, 18], [18, 18]];
+  for (const [start, end] of windows) {
+    let leftSum = 0;
+    let rightSum = 0;
+    let count = 0;
+    for (let hole = start; hole <= end; hole += 1) {
+      const a = left[hole - 1];
+      const b = right[hole - 1];
+      if (a == null || b == null) continue;
+      leftSum += a;
+      rightSum += b;
+      count += 1;
+    }
+    if (count > 0 && leftSum !== rightSum) return leftSum - rightSum;
+  }
+  return 0;
 }
 
 function byName(a: Tally, b: Tally): number {
   return a.name.localeCompare(b.name);
 }
 
+function sameStanding(left: Tally, right: Tally | undefined, method: 'back-nine' | 'share'): boolean {
+  if (!right || left.toPar !== right.toPar) return false;
+  if (method === 'back-nine') return backNineCompare(left.holes, right.holes) === 0;
+  return true;
+}
+
 function rowFrom(card: Tally, rank: number | null): BoardRow {
-  return { ...card, rank, mulligansUsed: 0, mulliganCap: 0 };
+  return { key: card.key, groupId: card.groupId, playerId: card.playerId, name: card.name, thru: card.thru, gross: card.gross, toPar: card.toPar, rank, waitlist: card.waitlist, startingHole: card.startingHole, mulligansUsed: 0, mulliganCap: 0 };
 }
 
 /**
  * Lower to-par is better. Unstarted cards sort last and have no rank.
  * A waitlist team is listed after the field and is not ranked.
- * Equal to-par shares a competition rank. Thru, then name, only breaks the display order.
+ * The default tiebreak matches cards from the back nine. There is no handicap.
  */
-export function leaderboard(event: Pick<StoredEvent, 'format' | 'groups' | 'scores' | 'pars'>): BoardRow[] {
+export function leaderboard(event: Pick<StoredEvent, 'format' | 'groups' | 'scores' | 'pars'> & { tiebreak?: StoredEvent['tiebreak'] }): BoardRow[] {
   const cards: Tally[] = [];
   if (event.format === 'scramble') {
     for (const group of event.groups) {
-      cards.push(tallyCard(event, group.id, null, group.name, group.id, group.waitlist === true));
+      cards.push(tallyCard(event, group.id, null, group.name, group.id, group.waitlist === true, group.startingHole ?? null));
     }
   } else {
     const names = new Map<string, number>();
@@ -86,16 +116,20 @@ export function leaderboard(event: Pick<StoredEvent, 'format' | 'groups' | 'scor
       for (const player of group.players) {
         const shared = (names.get(player.name) ?? 0) > 1;
         const name = shared ? `${player.name} · ${group.name}` : player.name;
-        cards.push(tallyCard(event, group.id, player.id, name, `${group.id}:${player.id}`, group.waitlist === true));
+        cards.push(tallyCard(event, group.id, player.id, name, `${group.id}:${player.id}`, group.waitlist === true, group.startingHole ?? null));
       }
     }
   }
   const field = cards.filter((card) => !card.waitlist);
   const bench = cards.filter((card) => card.waitlist).sort(byName);
+  const method = event.tiebreak ?? 'back-nine';
   const started = field.filter((card) => card.thru > 0).sort((a, b) => {
     const toPar = (a.toPar ?? 0) - (b.toPar ?? 0);
     if (toPar !== 0) return toPar;
-    if (b.thru !== a.thru) return b.thru - a.thru;
+    if (method === 'back-nine') {
+      const cards = backNineCompare(a.holes, b.holes);
+      if (cards !== 0) return cards;
+    } else if (b.thru !== a.thru) return b.thru - a.thru;
     return byName(a, b);
   });
   const waiting = field.filter((card) => card.thru === 0).sort(byName);
@@ -105,7 +139,7 @@ export function leaderboard(event: Pick<StoredEvent, 'format' | 'groups' | 'scor
     const first = started[index];
     if (!first) break;
     let end = index;
-    while (end + 1 < started.length && started[end + 1]?.toPar === first.toPar) end += 1;
+    while (end + 1 < started.length && sameStanding(first, started[end + 1], method)) end += 1;
     const rank = index + 1;
     for (let cursor = index; cursor <= end; cursor += 1) {
       const card = started[cursor];

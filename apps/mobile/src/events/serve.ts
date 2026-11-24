@@ -110,6 +110,11 @@ async function routeEvent(request: Request, store: EventStore): Promise<{ status
     if (!posted.ok) return { status: posted.status, body: { error: posted.error } };
     return { status: 200, body: { ok: true, duplicate: posted.duplicate, stale: posted.stale } };
   }
+  if (action === 'roster' && method === 'POST') {
+    const imported = store.importTeams(code, organizer, body.csv);
+    if (!imported.ok) return { status: imported.status, body: { error: imported.error } };
+    return { status: 200, body: { event: imported.event, teams: imported.teams } };
+  }
   if (action === 'team' && method === 'POST') {
     const named = store.claimTeam(code, guest, body.teamName);
     if (!named.ok) return { status: named.status, body: { error: named.error } };

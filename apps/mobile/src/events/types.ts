@@ -5,7 +5,7 @@ export const LOGO_MAX_BYTES = 512 * 1024;
 export const LOGO_MAX_COUNT = 80;
 export const GROUP_MAX = 40;
 export const POLL_MS = 5000;
-export const DEMO_SEED_VERSION = 2;
+export const DEMO_SEED_VERSION = 3;
 
 /**
  * High Cedars pars from the OpenGolfAPI card in
@@ -33,7 +33,10 @@ export const DEMO_CODE = 'SAMPLE';
 export const DEMO_ORGANIZER_TOKEN = 'sample-organizer-token';
 
 export type EventFormat = 'scramble' | 'stroke';
-export type StartStyle = 'shotgun' | 'tee-times';
+export type StartStyle = 'shotgun' | 'modified-shotgun' | 'tee-times';
+/** No handicaps and no flights on this event. */
+export type Tiebreak = 'back-nine' | 'share';
+export type MulliganScope = 'player' | 'team';
 export type GuestRole = 'scorer' | 'viewer';
 export type LogoSlot =
   | 'library'
@@ -64,6 +67,8 @@ export interface Group {
   /** False until the team sets its own name. */
   nameClaimed: boolean;
   waitlist: boolean;
+  /** Modified shotgun. Null until the organizer assigns it. The same hole may be shared. */
+  startingHole: number | null;
   players: Player[];
 }
 
@@ -125,6 +130,7 @@ export interface SurveyResponse {
   createdAt: string;
 }
 
+/** Closest to the pin and longest drive only. There is no hole-in-one contest. Both lists stay empty until the organizer picks the holes. */
 export interface Contests {
   closestToPin: number[];
   longestDrive: number[];
@@ -153,9 +159,17 @@ export interface StoredEvent {
   startStyle: StartStyle;
   teamSize: number;
   includesCart: boolean;
-  /** Display only. The app does not collect this money. */
+  /** Display only. The app does not collect this money. Empty when there is no price to show. */
   mulliganPriceLabel: string;
-  mulliganMaxPerPlayer: number;
+  /**
+   * TODO(Mike): The flyer says max 2. The organizer record says max 4 per foursome.
+   * The seed uses 4 per team until that is confirmed.
+   * Mulligans are prepaid off the app with a coin or ticket. This number is only a count.
+   */
+  mulliganScope: MulliganScope;
+  mulliganMax: number;
+  /** No handicaps. Back nine is the default card match. */
+  tiebreak: Tiebreak;
   /** Web leaderboard and TV. Null keeps the COOPR board colors. */
   accent: string | null;
   contests: Contests;
@@ -187,6 +201,7 @@ export interface PublicGroup {
   name: string;
   nameClaimed: boolean;
   waitlist: boolean;
+  startingHole: number | null;
   players: PublicPlayer[];
 }
 
@@ -200,6 +215,7 @@ export interface BoardRow {
   toPar: number | null;
   rank: number | null;
   waitlist: boolean;
+  startingHole: number | null;
   mulligansUsed: number;
   mulliganCap: number;
 }
@@ -226,7 +242,9 @@ export interface PublicEvent {
   teamSize: number;
   includesCart: boolean;
   mulliganPriceLabel: string;
-  mulliganMaxPerPlayer: number;
+  mulliganScope: MulliganScope;
+  mulliganMax: number;
+  tiebreak: Tiebreak;
   accent: string | null;
   contests: Contests;
   friends: string[];

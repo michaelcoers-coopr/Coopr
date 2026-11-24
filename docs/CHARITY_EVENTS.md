@@ -16,8 +16,12 @@ Event traffic does not use `x-coopr-secret`, Upstash, or the caddie budget. A pu
 
 - The organizer sets the name, the charity, the date, scramble or stroke play, shotgun or tee times, and the groups. A new event starts on High Cedars. The seeded Panthers Classic uses Auburn Golf Course. The reply is a join code, a QR mark, and a share link.
 - Logos are PNG, JPG, or SVG, 512 KB, fitted with contain. Slots are Presented by, Team + Hole, a hole sign, a kid-photo sign on that same hole, the Panther Cup, the mulligan mark, a prize partner, and the share card. Friend of the Panthers is a list of names, with no logo. An SVG with a script, an event handler, or a `javascript:` URL is refused. There is no full-screen sponsor page.
-- Mulligans are a count. The sample says $20 and 2 per player. The phone does not take the money. A team of 4 can record 8. The same tap cannot count twice.
-- Closest to the pin and longest drive are hole numbers on the event. They show on the web board, the TV, and the share card when they are set. The sample leaves them empty until someone picks the holes.
+- Mulligans are a count of coins or tickets already paid off the app. The limit is per event, either per player or per team. TODO(Mike): the flyer says max 2 and the organizer record says max 4 per foursome. The seed uses 4 per team until that is confirmed. The same tap cannot count twice.
+- The start can be a modified shotgun. Each team has a starting hole, and two teams may share one. The sample leaves the holes unassigned.
+- Closest to the pin and longest drive are hole numbers on the event. They show on the web board, the TV, and the share card when they are set. The sample leaves them empty. There is no hole-in-one.
+- There are no handicaps and no flights. A tie matches the cards from the back nine unless the organizer chooses a shared rank instead.
+- Sponsor prices on the menu are a reference only: Title $2,500, Team + Hole $700, Winning Team Prize $500, Mulligan $500, Hole $250, Friend $100, Kid photo hole sign $50. The app does not take that money. Seeded names are placeholders.
+- Registration stays on the outside form. The organizer pastes a CSV of team name and up to four golfers. Import replaces the teams only before any score is posted.
 - A team claims its name once. The scorer sets it. A waitlist team is listed and is not ranked.
 - The web board and the TV use the event accent. Panthers teal is `#1EC8C8` on navy. The phone app stays navy, white, red, and lime.
 - After the round, a golfer can answer three questions or skip. Skip stores nothing. An email is stored only if they check the consent box.
@@ -35,7 +39,7 @@ LEGAL REVIEW before May 23, 2027: the three-question copy in `apps/mobile/src/ev
 
 LEGAL REVIEW: a Panthers player photo on a hole needs a parent or guardian's written consent before it is uploaded. The sample mark says Sample Player Photo. It is not a picture of a child.
 
-The sample organizer token `sample-organizer-token` works only on the event code `SAMPLE`. It is a fake mark for the demo, not a key for other events. Sponsor art on that event is placeholder drawing. Pro Golf Discount is named as the prize partner. The drawing is not their logo.
+The sample organizer token `sample-organizer-token` works only on the event code `SAMPLE`. It is a fake mark for the demo, not a key for other events. Sponsor art on that event is placeholder drawing. No real sponsor name is seeded.
 
 The hole screen still walks High Cedars. Auburn's published par-71 card is on the event board. Yardages in the round are not Auburn until that course is mapped.
 

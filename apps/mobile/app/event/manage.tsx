@@ -5,6 +5,7 @@ import { eventRequest, joinLink, loadOrganizerToken, loadPublicEvent } from '../
 import { pickLogoFile } from '../../src/events/pick-logo';
 import { JoinQr } from '../../src/events/qr';
 import type { PublicEvent } from '../../src/events/types';
+import { SPONSOR_MENU } from '../../src/events/sponsor-menu';
 import { BigButton, EventFrame, EventTitle, FieldLabel, ink, inputStyle, LeaderboardTable, LogoFit, Note } from '../../src/events/ui';
 
 export default function ManageEvent() {
@@ -19,6 +20,8 @@ export default function ManageEvent() {
   const [closest, setClosest] = useState('');
   const [drive, setDrive] = useState('');
   const [friends, setFriends] = useState('');
+  const [csv, setCsv] = useState('');
+  const [starts, setStarts] = useState('');
   const [error, setError] = useState<string | null>(null);
   const token = code ? loadOrganizerToken(code) : null;
   const link = code ? joinLink(code) : '';
@@ -57,6 +60,27 @@ export default function ManageEvent() {
       body: { name: sponsor.trim() || file.name, dataUrl: file.dataUrl },
     });
     if (result.status !== 201) setError(typeof result.body.error === 'string' ? result.body.error : 'The logo did not save.');
+    await refresh();
+  };
+
+  const importRoster = async () => {
+    const result = await eventRequest(`/v1/events/${encodeURIComponent(code)}/roster`, { method: 'POST', token, body: { csv } });
+    if (result.status !== 200) setError(typeof result.body.error === 'string' ? result.body.error : 'The teams did not import.');
+    await refresh();
+  };
+
+  const saveStarts = async () => {
+    const pairs = starts.split(/\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
+      const [name, hole] = line.split(',').map((part) => part.trim());
+      const group = event?.groups.find((item) => item.name.toLowerCase() === (name ?? '').toLowerCase());
+      return group ? { groupId: group.id, hole: hole ?? '' } : null;
+    });
+    if (pairs.some((pair) => pair == null)) {
+      setError('Name each team the way it appears on the board.');
+      return;
+    }
+    const result = await eventRequest(`/v1/events/${encodeURIComponent(code)}`, { method: 'PATCH', token, body: { starts: pairs } });
+    if (result.status !== 200) setError(typeof result.body.error === 'string' ? result.body.error : 'The starting holes did not save.');
     await refresh();
   };
 
@@ -135,6 +159,17 @@ export default function ManageEvent() {
           </View>
         </View>
       ))}
+      <FieldLabel>Teams from the registration file</FieldLabel>
+      <Note>Paste a CSV from Jotform: team name, then up to four golfers. The first golfer is the scorer. This replaces the teams only before any scores are posted.</Note>
+      <TextInput accessibilityLabel="Team CSV" value={csv} onChangeText={setCsv} multiline placeholder="Team name, Golfer 1, Golfer 2, Golfer 3, Golfer 4" placeholderTextColor={ink.muted} style={[inputStyle, { minHeight: 112 }]} />
+      <BigButton label="Import teams" tone="navy" onPress={() => void importRoster()} />
+      <FieldLabel>Starting holes</FieldLabel>
+      <Note>Modified shotgun. One line per team: name, hole. Two teams can share a hole.</Note>
+      <TextInput accessibilityLabel="Starting holes" value={starts} onChangeText={setStarts} multiline placeholder="Sample Team A, 1" placeholderTextColor={ink.muted} style={[inputStyle, { minHeight: 88 }]} />
+      <BigButton label="Save starting holes" tone="navy" onPress={() => void saveStarts()} />
+      <FieldLabel>Sponsor menu</FieldLabel>
+      <Note>Prices are a reference. The app does not take payment.</Note>
+      {SPONSOR_MENU.map((item) => <Note key={item.id}>{`${item.label} ${item.price}. ${item.detail}`}</Note>)}
       <FieldLabel>On-course contests</FieldLabel>
       <TextInput accessibilityLabel="Closest to the pin holes" value={closest} onChangeText={setClosest} placeholder="Closest to the pin holes" placeholderTextColor={ink.muted} style={inputStyle} />
       <TextInput accessibilityLabel="Longest drive holes" value={drive} onChangeText={setDrive} placeholder="Longest drive holes" placeholderTextColor={ink.muted} style={inputStyle} />

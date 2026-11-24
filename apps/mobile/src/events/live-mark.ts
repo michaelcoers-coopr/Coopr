@@ -52,7 +52,7 @@ export function useLiveEventMark(hole: number): LiveMark | null {
       const watching = session.role === 'viewer' ? 'Watching' : null;
       const names = [sponsor?.name, photo?.name].filter(Boolean);
       const line = [names.length > 0 ? names.join(' · ') : session.eventName, watching, sync].filter(Boolean).join(' · ');
-      const mulligan = event && event.mulliganMaxPerPlayer > 0 && row && row.mulliganCap > 0
+      const mulligan = event && event.mulliganMax > 0 && row && row.mulliganCap > 0
         ? { used: row.mulligansUsed, cap: row.mulliganCap, price: event.mulliganPriceLabel, sponsor: mulliganLogo?.name ?? null }
         : null;
       setMark({ line, logoUrl: sponsor?.dataUrl ?? photo?.dataUrl ?? null, mulligan });

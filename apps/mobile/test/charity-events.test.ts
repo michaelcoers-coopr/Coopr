@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { queueEventScore, OUTBOX_KEY, saveSession, type StorageLike } from '../src/events/client';
 import { DEMO_ORGANIZER_TOKEN } from '../src/events/types';
-import { mulliganCap } from '../src/events/mulligans';
+import { mulliganLimit } from '../src/events/mulligans';
 import { reviewSurvey, SURVEY_CONSENT } from '../src/events/survey';
 import { openFileEventStore } from '../src/events/file-store';
 import { inspectLogo } from '../src/events/logos';
@@ -304,7 +304,11 @@ describe('charity logos and the sample event', () => {
       teamSize: number;
       includesCart: boolean;
       mulliganPriceLabel: string;
-      mulliganMaxPerPlayer: number;
+      mulliganScope: string;
+      mulliganMax: number;
+      startStyle: string;
+      tiebreak: string;
+      contests: { closestToPin: number[]; longestDrive: number[] };
       friends: string[];
       groups: { name: string; waitlist: boolean; players: { name: string }[] }[];
     };
@@ -319,8 +323,12 @@ describe('charity logos and the sample event', () => {
     expect(seededEvent.pars.reduce((sum, par) => sum + par, 0)).toBe(71);
     expect(seededEvent.teamSize).toBe(4);
     expect(seededEvent.includesCart).toBe(true);
-    expect(seededEvent.mulliganPriceLabel).toBe('$20');
-    expect(seededEvent.mulliganMaxPerPlayer).toBe(2);
+    expect(seededEvent.mulliganPriceLabel).toBe('');
+    expect(seededEvent.mulliganScope).toBe('team');
+    expect(seededEvent.mulliganMax).toBe(4);
+    expect(seededEvent.startStyle).toBe('modified-shotgun');
+    expect(seededEvent.tiebreak).toBe('back-nine');
+    expect(seededEvent.contests).toEqual({ closestToPin: [], longestDrive: [] });
     expect(seededEvent.groups.filter((group) => !group.waitlist)).toHaveLength(34);
     expect(seededEvent.groups.filter((group) => group.waitlist)).toHaveLength(2);
     expect(seededEvent.groups[0]?.players).toHaveLength(4);
@@ -331,7 +339,7 @@ describe('charity logos and the sample event', () => {
       'Sample Player Photo',
       'Sample Panther Cup',
       'Sample Mulligan Sponsor',
-      'Pro Golf Discount',
+      'Sample Prize Partner',
       'Sample Share Card',
     ]);
     expect(event.logos.every((logo) => logo.dataUrl.startsWith('data:image/svg+xml'))).toBe(true);
@@ -381,7 +389,8 @@ describe('charity logos and the sample event', () => {
 
 describe('Panthers Classic rules', () => {
   it('caps mulligans per player and per team without taking payment', () => {
-    expect(mulliganCap(4, 2)).toBe(8);
+    expect(mulliganLimit('team', 4, 4)).toBe(4);
+    expect(mulliganLimit('player', 2, 4)).toBe(8);
     expect(SURVEY_CONSENT).toContain('I agree');
     const events = store();
     events.ensureDemo();
@@ -394,13 +403,13 @@ describe('Panthers Classic rules', () => {
     const joined = events.join('SAMPLE', { groupId: team.id, playerId: scorer.id, playerName: 'Casey' });
     if (!joined.ok) throw new Error('join');
     const use = (key: string, playerId?: string) => events.useMulligan('SAMPLE', joined.token, { hole: 1, idempotencyKey: key, playerId });
-    expect(use('mulligan-key-1', scorer.id).ok).toBe(true);
-    expect(use('mulligan-key-1', scorer.id)).toMatchObject({ ok: true, duplicate: true });
-    expect(use('mulligan-key-2', scorer.id).ok).toBe(true);
-    expect(use('mulligan-key-3', scorer.id)).toMatchObject({ ok: false, status: 409 });
-    for (let count = 0; count < 6; count += 1) expect(use(`mulligan-team-${count}`).ok).toBe(true);
-    expect(use('mulligan-team-full')).toMatchObject({ ok: false, status: 409 });
-    expect(events.publicView('SAMPLE')?.rows.find((row) => row.groupId === team.id)?.mulligansUsed).toBe(8);
+    expect(use('mulligan-key-1').ok).toBe(true);
+    expect(use('mulligan-key-1')).toMatchObject({ ok: true, duplicate: true });
+    expect(use('mulligan-key-2').ok).toBe(true);
+    expect(use('mulligan-key-3').ok).toBe(true);
+    expect(use('mulligan-key-4').ok).toBe(true);
+    expect(use('mulligan-key-5')).toMatchObject({ ok: false, status: 409 });
+    expect(events.publicView('SAMPLE')?.rows.find((row) => row.groupId === team.id)?.mulligansUsed).toBe(4);
     expect(partner.role).toBe('viewer');
     expect(reviewSurvey({ name: 'Casey', ease: 'easy', wouldUse: 'yes', email: 'casey@example.com', emailConsent: false }).ok).toBe(false);
     const saved = events.saveSurvey('SAMPLE', joined.token, { ease: 'easy', wouldUse: 'maybe', next: 'A watch', email: 'casey@example.com', emailConsent: true });
@@ -442,5 +451,54 @@ describe('Panthers Classic rules', () => {
     expect(themed.ok).toBe(true);
     if (!themed.ok) return;
     expect(themed.event.contests).toEqual({ closestToPin: [7, 14], longestDrive: [6] });
+    expect(JSON.stringify(events.publicView('SAMPLE'))).not.toContain('Pro Golf');
+    expect(JSON.stringify(events.publicView('SAMPLE'))).not.toContain('hole-in-one');
+  });
+
+  it('imports a Jotform CSV, shares a starting hole, and breaks a tie from the back nine', () => {
+    const events = store();
+    const made = events.create(scrambleInput({
+      groups: [
+        { name: 'Cedar', players: [{ name: 'Casey', role: 'scorer' }] },
+        { name: 'Lime', players: [{ name: 'Logan', role: 'scorer' }] },
+      ],
+    }));
+    if (!made.ok) throw new Error(made.error);
+    const imported = events.importTeams(made.event.code, made.organizerToken, 'Team name,Golfer 1,Golfer 2,Golfer 3,Golfer 4\nRiver Cats,Casey,Quinn,Riley,Avery\n"Lime, Squad",Logan,Pat');
+    if (!imported.ok) throw new Error(imported.error);
+    expect(imported.teams).toBe(2);
+    expect(imported.event.groups[0]?.name).toBe('River Cats');
+    expect(imported.event.groups[0]?.players).toHaveLength(4);
+    expect(imported.event.groups[0]?.players[0]?.role).toBe('scorer');
+    expect(imported.event.groups[1]?.name).toBe('Lime, Squad');
+    const tooMany = events.importTeams(made.event.code, made.organizerToken, 'Full,A,B,C,D,E');
+    expect(tooMany).toMatchObject({ ok: false, status: 400 });
+    const cats = imported.event.groups[0];
+    const lime = imported.event.groups[1];
+    if (!cats || !lime) throw new Error('imported');
+    const starts = events.update(made.event.code, made.organizerToken, { starts: [{ groupId: cats.id, hole: 7 }, { groupId: lime.id, hole: 7 }] });
+    expect(starts.ok).toBe(true);
+    const view = events.publicView(made.event.code);
+    expect(view?.groups.filter((group) => group.startingHole === 7)).toHaveLength(2);
+    const card = view?.pars ?? [];
+    const write = (groupId: string, playerId: string, hole: number, strokes: number) => {
+      const result = events.applyScore(made.event.code, { organizer: made.organizerToken, guest: null }, {
+        groupId, playerId, hole, strokes, clientSeq: hole, idempotencyKey: `card-${groupId}-${hole}`,
+      });
+      expect(result.ok).toBe(true);
+    };
+    const catScorer = cats.players[0];
+    const limeScorer = lime.players[0];
+    if (!catScorer || !limeScorer) throw new Error('scorers');
+    for (let hole = 10; hole <= 18; hole += 1) {
+      const par = card[hole - 1] ?? 4;
+      write(cats.id, catScorer.id, hole, hole === 18 ? par + 1 : hole === 10 ? par - 1 : par);
+      write(lime.id, limeScorer.id, hole, par);
+    }
+    const rows = events.publicView(made.event.code)?.rows ?? [];
+    expect(rows.find((row) => row.name === 'Lime, Squad')?.rank).toBe(1);
+    expect(rows.find((row) => row.name === 'River Cats')?.rank).toBe(2);
+    const blocked = events.importTeams(made.event.code, made.organizerToken, 'Late,Ada');
+    expect(blocked).toMatchObject({ ok: false, status: 409 });
   });
 });
