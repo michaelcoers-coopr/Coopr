@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { queueEventScore, OUTBOX_KEY, saveSession, type StorageLike } from '../src/events/client';
 import { DEMO_ORGANIZER_TOKEN } from '../src/events/types';
+import { mulliganCap } from '../src/events/mulligans';
+import { reviewSurvey, SURVEY_CONSENT } from '../src/events/survey';
 import { openFileEventStore } from '../src/events/file-store';
 import { inspectLogo } from '../src/events/logos';
 import { enqueueScore, flushOutbox, type OutboxEntry } from '../src/events/outbox';
@@ -289,10 +291,56 @@ describe('charity logos and the sample event', () => {
     const events = store();
     const seeded = await read(await serveEvent(new Request('http://local/v1/events/demo', { method: 'POST' }), events));
     const event = seeded.body.event as { logos: { name: string; slot: string; hole: number | null }[]; rows: { name: string; toPar: number | null; rank: number | null }[] };
-    expect(event.logos.map((logo) => logo.name)).toEqual(['Sample Sponsor A', 'Sample Sponsor B', 'Sample Sponsor C', 'Sample Sponsor D']);
+    const seededEvent = event as typeof event & {
+      name: string;
+      charityName: string;
+      charityDetail: string;
+      courseName: string;
+      courseAddress: string;
+      date: string;
+      startTime: string;
+      accent: string;
+      pars: number[];
+      teamSize: number;
+      includesCart: boolean;
+      mulliganPriceLabel: string;
+      mulliganMaxPerPlayer: number;
+      friends: string[];
+      groups: { name: string; waitlist: boolean; players: { name: string }[] }[];
+    };
+    expect(seededEvent.name).toBe('Panthers Golf Classic');
+    expect(seededEvent.charityName).toBe('Bonney Lake Jr. Panthers');
+    expect(seededEvent.charityDetail).toContain('501(c)(3)');
+    expect(seededEvent.courseName).toBe('Auburn Golf Course');
+    expect(seededEvent.courseAddress).toContain('29630 Green River Rd SE');
+    expect(seededEvent.date).toBe('2027-05-23');
+    expect(seededEvent.startTime).toBe('07:30');
+    expect(seededEvent.accent).toBe('#1EC8C8');
+    expect(seededEvent.pars.reduce((sum, par) => sum + par, 0)).toBe(71);
+    expect(seededEvent.teamSize).toBe(4);
+    expect(seededEvent.includesCart).toBe(true);
+    expect(seededEvent.mulliganPriceLabel).toBe('$20');
+    expect(seededEvent.mulliganMaxPerPlayer).toBe(2);
+    expect(seededEvent.groups.filter((group) => !group.waitlist)).toHaveLength(34);
+    expect(seededEvent.groups.filter((group) => group.waitlist)).toHaveLength(2);
+    expect(seededEvent.groups[0]?.players).toHaveLength(4);
+    expect(event.logos.map((logo) => logo.name)).toEqual([
+      'Sample Title Sponsor',
+      'Sample Team Hole',
+      'Sample Hole Sponsor',
+      'Sample Player Photo',
+      'Sample Panther Cup',
+      'Sample Mulligan Sponsor',
+      'Pro Golf Discount',
+      'Sample Share Card',
+    ]);
+    expect(event.logos.every((logo) => logo.dataUrl.startsWith('data:image/svg+xml'))).toBe(true);
     expect(event.logos.find((logo) => logo.slot === 'hole')?.hole).toBe(1);
-    expect(event.rows.find((row) => row.name === 'Sample Team Lime')?.toPar).toBe(-1);
-    expect(event.rows.find((row) => row.name === 'Sample Team Tee')?.rank).toBeNull();
+    expect(event.logos.find((logo) => logo.slot === 'kid-photo')?.hole).toBe(1);
+    expect(seededEvent.friends).toEqual(['Sample Friend A', 'Sample Friend B']);
+    expect(event.rows.find((row) => row.name === 'Sample Team B')?.toPar).toBe(-1);
+    expect(event.rows.find((row) => row.name === 'Team 03')?.rank).toBeNull();
+    expect(event.rows.find((row) => row.name === 'Waitlist 1')?.waitlist).toBe(true);
     expect(JSON.stringify(seeded.body)).not.toContain(DEMO_ORGANIZER_TOKEN);
 
     const { events: live, event: made, organizerToken } = created();
@@ -321,12 +369,78 @@ describe('charity logos and the sample event', () => {
     });
     expect(posted.ok).toBe(true);
     const second = openFileEventStore(file);
-    expect(second.publicView('SAMPLE')?.rows.find((row) => row.name === 'Sample Team Cedar')?.thru).toBe(5);
+    expect(second.publicView('SAMPLE')?.rows.find((row) => row.name === 'Sample Team A')?.thru).toBe(5);
     second.ensureDemo();
-    expect(second.publicView('SAMPLE')?.rows.find((row) => row.name === 'Sample Team Cedar')?.thru).toBe(5);
+    expect(second.publicView('SAMPLE')?.rows.find((row) => row.name === 'Sample Team A')?.thru).toBe(5);
     const queued = enqueueScore([], {
       idempotencyKey: 'file-score-5b', eventCode: 'SAMPLE', groupId: team.id, playerId: player.id, hole: 6, strokes: 4, clientSeq: 10, status: 'pending', error: null,
     });
     expect(queued).toHaveLength(1);
+  });
+});
+
+describe('Panthers Classic rules', () => {
+  it('caps mulligans per player and per team without taking payment', () => {
+    expect(mulliganCap(4, 2)).toBe(8);
+    expect(SURVEY_CONSENT).toContain('I agree');
+    const events = store();
+    events.ensureDemo();
+    const board = events.publicView('SAMPLE');
+    const team = board?.groups[0];
+    const players = team?.players ?? [];
+    const scorer = players[0];
+    const partner = players[1];
+    if (!team || !scorer || !partner) throw new Error('roster');
+    const joined = events.join('SAMPLE', { groupId: team.id, playerId: scorer.id, playerName: 'Casey' });
+    if (!joined.ok) throw new Error('join');
+    const use = (key: string, playerId?: string) => events.useMulligan('SAMPLE', joined.token, { hole: 1, idempotencyKey: key, playerId });
+    expect(use('mulligan-key-1', scorer.id).ok).toBe(true);
+    expect(use('mulligan-key-1', scorer.id)).toMatchObject({ ok: true, duplicate: true });
+    expect(use('mulligan-key-2', scorer.id).ok).toBe(true);
+    expect(use('mulligan-key-3', scorer.id)).toMatchObject({ ok: false, status: 409 });
+    for (let count = 0; count < 6; count += 1) expect(use(`mulligan-team-${count}`).ok).toBe(true);
+    expect(use('mulligan-team-full')).toMatchObject({ ok: false, status: 409 });
+    expect(events.publicView('SAMPLE')?.rows.find((row) => row.groupId === team.id)?.mulligansUsed).toBe(8);
+    expect(partner.role).toBe('viewer');
+    expect(reviewSurvey({ name: 'Casey', ease: 'easy', wouldUse: 'yes', email: 'casey@example.com', emailConsent: false }).ok).toBe(false);
+    const saved = events.saveSurvey('SAMPLE', joined.token, { ease: 'easy', wouldUse: 'maybe', next: 'A watch', email: 'casey@example.com', emailConsent: true });
+    expect(saved.ok).toBe(true);
+    const refused = events.saveSurvey('SAMPLE', joined.token, { ease: 'easy', wouldUse: 'yes', email: 'other@example.com', emailConsent: false });
+    expect(refused.ok).toBe(false);
+    expect(JSON.stringify(events.publicView('SAMPLE'))).not.toContain('casey@example.com');
+    const organizer = events.organizerView('SAMPLE', DEMO_ORGANIZER_TOKEN);
+    if ('ok' in organizer) throw new Error('organizer');
+    expect(organizer.surveys[0]?.email).toBe('casey@example.com');
+    expect(organizer.surveys[0]?.emailConsent).toBe(true);
+  });
+
+  it('lets a team claim its name once, and keeps a waitlist score off the ranking', () => {
+    const events = store();
+    events.ensureDemo();
+    const board = events.publicView('SAMPLE');
+    const open = board?.groups.find((group) => group.name === 'Team 03');
+    const wait = board?.groups.find((group) => group.name === 'Waitlist 1');
+    const scorer = open?.players[0];
+    const waiting = wait?.players[0];
+    if (!open || !scorer || !wait || !waiting) throw new Error('teams');
+    const joined = events.join('SAMPLE', { groupId: open.id, playerId: scorer.id, playerName: 'Riley', teamName: 'River Cats' });
+    if (!joined.ok) throw new Error('join');
+    expect(events.publicView('SAMPLE')?.groups.find((group) => group.id === open.id)?.name).toBe('River Cats');
+    const again = events.claimTeam('SAMPLE', joined.token, 'Other Name');
+    expect(again).toMatchObject({ ok: false, status: 409 });
+    const bench = events.join('SAMPLE', { groupId: wait.id, playerId: waiting.id });
+    if (!bench.ok) throw new Error('wait');
+    const posted = events.applyScore('SAMPLE', { organizer: null, guest: bench.token }, {
+      groupId: wait.id, playerId: waiting.id, hole: 1, strokes: 3, clientSeq: 1, idempotencyKey: 'waitlist-birdie',
+    });
+    expect(posted.ok).toBe(true);
+    const row = events.publicView('SAMPLE')?.rows.find((item) => item.groupId === wait.id);
+    expect(row?.waitlist).toBe(true);
+    expect(row?.rank).toBeNull();
+    expect(events.publicView('SAMPLE')?.rows.find((item) => item.name === 'Sample Team B')?.rank).toBe(1);
+    const themed = events.update('SAMPLE', DEMO_ORGANIZER_TOKEN, { closestToPin: [7, 14], longestDrive: [6] });
+    expect(themed.ok).toBe(true);
+    if (!themed.ok) return;
+    expect(themed.event.contests).toEqual({ closestToPin: [7, 14], longestDrive: [6] });
   });
 });

@@ -1,20 +1,27 @@
 import { secretOk } from '../api-guard';
 import { buildDemoEvent } from './demo';
 import { inspectLogo } from './logos';
+import { decideMulligan, mulliganCap } from './mulligans';
 import { holeStrokes, leaderboard } from './scoring';
+import { reviewSurvey } from './survey';
 import {
   DEMO_CODE,
+  DEMO_SEED_VERSION,
+  GROUP_MAX,
   HIGH_CEDARS_KEY,
   HIGH_CEDARS_NAME,
   HIGH_CEDARS_PARS,
   HOLE_COUNT,
+  HOLE_SLOTS,
+  LOGO_MAX_COUNT,
+  isLogoSlot,
   type CreateEventInput,
   type EventFormat,
   type GuestRole,
   type HoleScore,
-  type LogoSlot,
   type OrganizerView,
   type PublicEvent,
+  type PublicMulligan,
   type ScoreSource,
   type StartStyle,
   type StoredEvent,
@@ -128,14 +135,27 @@ export function createEventStore(options: StoreOptions = {}) {
     code: event.code,
     name: event.name,
     charityName: event.charityName,
+    charityDetail: event.charityDetail,
     charityUrl: event.charityUrl,
     courseName: event.courseName,
+    courseAddress: event.courseAddress,
+    pars: [...event.pars],
     date: event.date,
+    startTime: event.startTime,
     format: event.format,
     startStyle: event.startStyle,
+    teamSize: event.teamSize,
+    includesCart: event.includesCart,
+    mulliganPriceLabel: event.mulliganPriceLabel,
+    mulliganMaxPerPlayer: event.mulliganMaxPerPlayer,
+    accent: event.accent,
+    contests: { closestToPin: [...event.contests.closestToPin], longestDrive: [...event.contests.longestDrive] },
+    friends: [...event.friends],
     groups: event.groups.map((group) => ({
       id: group.id,
       name: group.name,
+      nameClaimed: group.nameClaimed,
+      waitlist: group.waitlist,
       players: group.players.map((player) => ({
         id: player.id,
         name: player.name,
@@ -144,7 +164,12 @@ export function createEventStore(options: StoreOptions = {}) {
       })),
     })),
     logos: event.logos.map((logo) => ({ ...logo })),
-    rows: leaderboard(event),
+    rows: leaderboard(event).map((row) => {
+      const group = event.groups.find((item) => item.id === row.groupId);
+      const used = event.mulligans.filter((item) => item.groupId === row.groupId).length;
+      return { ...row, mulligansUsed: used, mulliganCap: mulliganCap(group?.players.length ?? 0, event.mulliganMaxPerPlayer) };
+    }),
+    mulligans: mulliganTotals(event),
     updatedAt: event.updatedAt,
   });
 
@@ -170,14 +195,14 @@ export function createEventStore(options: StoreOptions = {}) {
   return {
     load(saved: StoredEvent[]) {
       events.clear();
-      for (const event of saved) events.set(event.code, clone(event));
+      for (const event of saved) events.set(event.code, hydrate(clone(event)));
     },
     snapshot(): StoredEvent[] {
       return clone([...events.values()]);
     },
     ensureDemo(): PublicEvent {
       const existing = events.get(DEMO_CODE);
-      if (existing) return toPublic(existing);
+      if (existing && existing.seedVersion >= DEMO_SEED_VERSION) return toPublic(existing);
       const demo = buildDemoEvent();
       events.set(demo.code, demo);
       persist();
@@ -191,7 +216,7 @@ export function createEventStore(options: StoreOptions = {}) {
       if (!name || !charityName || !date || charityUrl === 'bad' || !isFormat(input.format) || !isStart(input.startStyle)) {
         return { ok: false, status: 400, error: 'Add a name, a charity, and a date.' };
       }
-      if (!Array.isArray(input.groups) || input.groups.length < 1 || input.groups.length > 24) {
+      if (!Array.isArray(input.groups) || input.groups.length < 1 || input.groups.length > GROUP_MAX) {
         return { ok: false, status: 400, error: 'Add at least one group.' };
       }
       const groups = [];
@@ -210,7 +235,7 @@ export function createEventStore(options: StoreOptions = {}) {
         if (players.filter((player) => player.role === 'scorer').length !== 1) {
           return { ok: false, status: 400, error: 'Each group needs one scorer.' };
         }
-        groups.push({ id: id(), name: groupName, players });
+        groups.push({ id: id(), name: groupName, nameClaimed: true, waitlist: false, players });
       }
       const stamp = now();
       const event: StoredEvent = {
@@ -222,15 +247,28 @@ export function createEventStore(options: StoreOptions = {}) {
         courseKey: HIGH_CEDARS_KEY,
         courseName: HIGH_CEDARS_NAME,
         pars: [...HIGH_CEDARS_PARS],
+        courseAddress: '',
+        charityDetail: '',
         date,
+        startTime: '',
         format: input.format,
         startStyle: input.startStyle,
+        teamSize: input.format === 'scramble' ? 4 : 1,
+        includesCart: false,
+        mulliganPriceLabel: '',
+        mulliganMaxPerPlayer: 0,
+        accent: null,
+        contests: { closestToPin: [], longestDrive: [] },
+        friends: [],
         groups,
         watchers: [],
         logos: [],
         scores: [],
+        mulligans: [],
+        surveys: [],
         seenKeys: [],
         locks: [],
+        seedVersion: 0,
         organizerToken: token(),
         createdAt: stamp,
         updatedAt: stamp,
@@ -268,9 +306,9 @@ export function createEventStore(options: StoreOptions = {}) {
           }
         }
       }
-      return { ...toPublic(event), scores };
+      return { ...toPublic(event), scores, surveys: event.surveys.map((item) => ({ ...item })) };
     },
-    update(code: string, header: string | null, patch: { name?: unknown; charityName?: unknown; charityUrl?: unknown; date?: unknown }): { ok: true; event: PublicEvent } | StoreFailure {
+    update(code: string, header: string | null, patch: { name?: unknown; charityName?: unknown; charityUrl?: unknown; date?: unknown; closestToPin?: unknown; longestDrive?: unknown; friends?: unknown; accent?: unknown }): { ok: true; event: PublicEvent } | StoreFailure {
       const event = events.get(code.trim().toUpperCase());
       if (!event) return { ok: false, status: 404, error: 'No event with that code.' };
       if (!organizerOk(event, header)) return { ok: false, status: 401, error: 'This phone cannot edit the event.' };
@@ -294,6 +332,22 @@ export function createEventStore(options: StoreOptions = {}) {
         if (!date) return { ok: false, status: 400, error: 'Use a date like 2026-06-14.' };
         event.date = date;
       }
+      if (patch.closestToPin !== undefined || patch.longestDrive !== undefined) {
+        const closest = patch.closestToPin === undefined ? event.contests.closestToPin : holeList(patch.closestToPin);
+        const drive = patch.longestDrive === undefined ? event.contests.longestDrive : holeList(patch.longestDrive);
+        if (!closest || !drive) return { ok: false, status: 400, error: 'Contest holes are 1 to 18, with no repeats.' };
+        event.contests = { closestToPin: closest, longestDrive: drive };
+      }
+      if (patch.friends !== undefined) {
+        const friends = nameList(patch.friends);
+        if (!friends) return { ok: false, status: 400, error: 'Friend of the Panthers is a list of names.' };
+        event.friends = friends;
+      }
+      if (patch.accent !== undefined) {
+        const accent = cleanAccent(patch.accent);
+        if (accent === 'bad') return { ok: false, status: 400, error: 'Use a color like #1EC8C8.' };
+        event.accent = accent;
+      }
       put(event);
       return { ok: true, event: toPublic(event) };
     },
@@ -306,7 +360,7 @@ export function createEventStore(options: StoreOptions = {}) {
       if (typeof dataUrl !== 'string') return { ok: false, status: 400, error: 'Choose a logo file.' };
       const checked = inspectLogo(dataUrl);
       if (!checked.ok) return { ok: false, status: 400, error: checked.error };
-      if (event.logos.length >= 24) return { ok: false, status: 400, error: 'This event already has 24 logos.' };
+      if (event.logos.length >= LOGO_MAX_COUNT) return { ok: false, status: 400, error: 'This event already has its logos.' };
       event.logos.push({ id: id(), name: label, dataUrl, slot: 'library', hole: null });
       put(event);
       return { ok: true, event: toPublic(event) };
@@ -317,23 +371,22 @@ export function createEventStore(options: StoreOptions = {}) {
       if (!organizerOk(event, header)) return { ok: false, status: 401, error: 'This phone cannot edit the event.' };
       const logo = event.logos.find((item) => item.id === logoId);
       if (!logo || typeof logoId !== 'string') return { ok: false, status: 404, error: 'That logo is gone.' };
-      const nextHole = slot === 'hole' ? Number(hole) : null;
-      if (slot !== 'library' && slot !== 'title' && slot !== 'leaderboard' && slot !== 'recap' && slot !== 'hole') {
-        return { ok: false, status: 400, error: 'Pick a place for the logo.' };
-      }
-      if (slot === 'hole' && (!Number.isInteger(nextHole) || nextHole == null || nextHole < 1 || nextHole > HOLE_COUNT)) {
+      if (!isLogoSlot(slot)) return { ok: false, status: 400, error: 'Pick a place for the logo.' };
+      const needsHole = HOLE_SLOTS.includes(slot);
+      const nextHole = needsHole ? Number(hole) : null;
+      if (needsHole && (!Number.isInteger(nextHole) || nextHole == null || nextHole < 1 || nextHole > HOLE_COUNT)) {
         return { ok: false, status: 400, error: 'Pick a hole from 1 to 18.' };
       }
       for (const other of event.logos) {
         if (other.id === logo.id) continue;
-        const samePlace = slot === 'hole' ? other.slot === 'hole' && other.hole === nextHole : other.slot === slot && slot !== 'library';
+        const samePlace = needsHole ? other.slot === slot && other.hole === nextHole : other.slot === slot && slot !== 'library';
         if (samePlace) {
           other.slot = 'library';
           other.hole = null;
         }
       }
       logo.slot = slot;
-      logo.hole = slot === 'hole' ? nextHole : null;
+      logo.hole = needsHole ? nextHole : null;
       put(event);
       return { ok: true, event: toPublic(event) };
     },
@@ -347,7 +400,7 @@ export function createEventStore(options: StoreOptions = {}) {
       put(event);
       return { ok: true, event: toPublic(event) };
     },
-    join(code: string, body: { groupId?: unknown; playerId?: unknown; name?: unknown }):
+    join(code: string, body: { groupId?: unknown; playerId?: unknown; name?: unknown; playerName?: unknown; teamName?: unknown }):
       | { ok: true; token: string; role: GuestRole; groupId: string; playerId: string; name: string; eventName: string; format: EventFormat }
       | StoreFailure {
       const event = events.get(code.trim().toUpperCase());
@@ -358,6 +411,9 @@ export function createEventStore(options: StoreOptions = {}) {
         const player = group.players.find((item) => item.id === body.playerId);
         if (!player) return { ok: false, status: 404, error: 'That player is not on this group.' };
         if (!player.claimed || !player.token) {
+          const playerName = cleanName(body.playerName, 60);
+          if (playerName) player.name = playerName;
+          if (player.role === 'scorer') claimName(group, body.teamName);
           player.token = token();
           player.claimed = true;
           put(event);
@@ -462,6 +518,74 @@ export function createEventStore(options: StoreOptions = {}) {
       put(event);
       return { ok: true, duplicate: false, stale: false, score };
     },
+    claimTeam(code: string, guest: string | null, teamName: unknown): { ok: true; event: PublicEvent } | StoreFailure {
+      const event = events.get(code.trim().toUpperCase());
+      if (!event) return { ok: false, status: 404, error: 'No event with that code.' };
+      const actor = findGuest(event, guest);
+      if (!actor || actor.watcher || !actor.player) return { ok: false, status: 401, error: 'Join the team before naming it.' };
+      if (actor.player.role !== 'scorer') return { ok: false, status: 403, error: 'The scorer names the team.' };
+      const name = cleanName(teamName, 60);
+      if (!name) return { ok: false, status: 400, error: 'Add a team name.' };
+      if (actor.group.nameClaimed && actor.group.name !== name) return { ok: false, status: 409, error: 'This team already has a name.' };
+      actor.group.name = name;
+      actor.group.nameClaimed = true;
+      put(event);
+      return { ok: true, event: toPublic(event) };
+    },
+    useMulligan(code: string, guest: string | null, body: { hole?: unknown; idempotencyKey?: unknown; playerId?: unknown }): { ok: true; duplicate: boolean; used: number; cap: number } | StoreFailure {
+      const event = events.get(code.trim().toUpperCase());
+      if (!event) return { ok: false, status: 404, error: 'No event with that code.' };
+      const actor = findGuest(event, guest);
+      if (!actor || actor.watcher || !actor.player) return { ok: false, status: 401, error: 'Join the team before counting a mulligan.' };
+      if (actor.player.role !== 'scorer') return { ok: false, status: 403, error: 'The scorer counts mulligans.' };
+      const requested = typeof body.playerId === 'string'
+        ? actor.group.players.find((player) => player.id === body.playerId) ?? null
+        : actor.group.players.find((player) => event.mulligans.filter((item) => item.playerId === player.id).length < event.mulliganMaxPerPlayer) ?? null;
+      if (typeof body.playerId === 'string' && !requested) return { ok: false, status: 400, error: 'That player is not on this team.' };
+      if (!requested) return { ok: false, status: 409, error: 'This team has used its mulligans.' };
+      const hole = Number(body.hole);
+      const key = typeof body.idempotencyKey === 'string' ? body.idempotencyKey.trim() : '';
+      if (!Number.isInteger(hole) || hole < 1 || hole > HOLE_COUNT) return { ok: false, status: 400, error: 'Pick a hole from 1 to 18.' };
+      if (key.length < 8 || key.length > 80) return { ok: false, status: 400, error: 'The mulligan needs an idempotency key.' };
+      const decision = decideMulligan({
+        uses: event.mulligans,
+        groupId: actor.group.id,
+        playerId: requested.id,
+        playerCount: actor.group.players.length,
+        maxPerPlayer: event.mulliganMaxPerPlayer,
+        idempotencyKey: key,
+      });
+      if (!decision.ok) return { ok: false, status: 409, error: decision.error };
+      if (!decision.duplicate) {
+        event.mulligans.push({ id: id(), groupId: actor.group.id, playerId: requested.id, hole, idempotencyKey: key });
+        put(event);
+      }
+      const used = event.mulligans.filter((item) => item.groupId === actor.group.id).length;
+      return { ok: true, duplicate: decision.duplicate, used, cap: mulliganCap(actor.group.players.length, event.mulliganMaxPerPlayer) };
+    },
+    saveSurvey(code: string, guest: string | null, body: Record<string, unknown>): { ok: true } | StoreFailure {
+      const event = events.get(code.trim().toUpperCase());
+      if (!event) return { ok: false, status: 404, error: 'No event with that code.' };
+      const actor = findGuest(event, guest);
+      if (!actor || actor.watcher || !actor.player) return { ok: false, status: 401, error: 'Join the event before answering.' };
+      if (event.surveys.some((item) => item.playerId === actor.player?.id)) return { ok: false, status: 409, error: 'This phone already sent the three questions.' };
+      const reviewed = reviewSurvey({ ...body, name: actor.player.name });
+      if (!reviewed.ok) return { ok: false, status: 400, error: reviewed.error };
+      event.surveys.push({
+        id: id(),
+        groupId: actor.group.id,
+        playerId: actor.player.id,
+        name: reviewed.name,
+        ease: reviewed.ease,
+        wouldUse: reviewed.wouldUse,
+        next: reviewed.next,
+        email: reviewed.email,
+        emailConsent: reviewed.emailConsent,
+        createdAt: now(),
+      });
+      put(event);
+      return { ok: true };
+    },
   };
 }
 
@@ -477,6 +601,78 @@ function currentScore(event: StoredEvent, groupId: string, playerId: string | nu
     return matches.find((score) => score.playerId === playerId && score.hole === hole) ?? null;
   }
   return matches[matches.length - 1] ?? null;
+}
+
+function claimName(group: { name: string; nameClaimed: boolean }, teamName: unknown) {
+  if (group.nameClaimed) return;
+  const name = cleanName(teamName, 60);
+  if (!name) return;
+  group.name = name;
+  group.nameClaimed = true;
+}
+
+function holeList(value: unknown): number[] | null {
+  if (!Array.isArray(value)) return null;
+  const holes: number[] = [];
+  for (const item of value) {
+    const hole = Number(item);
+    if (!Number.isInteger(hole) || hole < 1 || hole > HOLE_COUNT || holes.includes(hole)) return null;
+    holes.push(hole);
+  }
+  return holes;
+}
+
+function nameList(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  if (value.length > 80) return null;
+  const names: string[] = [];
+  for (const item of value) {
+    const name = cleanName(item, 60);
+    if (!name) return null;
+    names.push(name);
+  }
+  return names;
+}
+
+function cleanAccent(value: unknown): string | null | 'bad' {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(value)) return 'bad';
+  return value.toUpperCase();
+}
+
+function mulliganTotals(event: StoredEvent): PublicMulligan[] {
+  const totals = new Map<string, PublicMulligan>();
+  for (const use of event.mulligans) {
+    const key = `${use.groupId}:${use.playerId}`;
+    const current = totals.get(key) ?? { groupId: use.groupId, playerId: use.playerId, count: 0 };
+    current.count += 1;
+    totals.set(key, current);
+  }
+  return [...totals.values()];
+}
+
+function hydrate(event: StoredEvent): StoredEvent {
+  return {
+    ...event,
+    courseAddress: event.courseAddress ?? '',
+    charityDetail: event.charityDetail ?? '',
+    startTime: event.startTime ?? '',
+    teamSize: event.teamSize ?? 1,
+    includesCart: event.includesCart ?? false,
+    mulliganPriceLabel: event.mulliganPriceLabel ?? '',
+    mulliganMaxPerPlayer: event.mulliganMaxPerPlayer ?? 0,
+    accent: event.accent ?? null,
+    contests: event.contests ?? { closestToPin: [], longestDrive: [] },
+    friends: event.friends ?? [],
+    mulligans: event.mulligans ?? [],
+    surveys: event.surveys ?? [],
+    seedVersion: event.seedVersion ?? 0,
+    groups: event.groups.map((group) => ({
+      ...group,
+      nameClaimed: group.nameClaimed ?? true,
+      waitlist: group.waitlist ?? false,
+    })),
+  };
 }
 
 export type EventStore = ReturnType<typeof createEventStore>;

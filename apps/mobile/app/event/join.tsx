@@ -11,6 +11,7 @@ export default function JoinEvent() {
   const [code, setCode] = useState(initial);
   const [event, setEvent] = useState<PublicEvent | null>(null);
   const [name, setName] = useState('');
+  const [teamName, setTeamName] = useState('');
   const [groupId, setGroupId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +37,7 @@ export default function JoinEvent() {
     setEvent(next);
   };
 
-  const enter = async (body: { groupId: string; playerId?: string; name?: string }) => {
+  const enter = async (body: { groupId: string; playerId?: string; name?: string; playerName?: string; teamName?: string }) => {
     const result = await eventRequest(`/v1/events/${encodeURIComponent(event?.code ?? code)}/join`, { method: 'POST', body });
     const session = sessionFromJoin(event?.code ?? code, result.body);
     if (!session) {
@@ -56,7 +57,14 @@ export default function JoinEvent() {
       <TextInput accessibilityLabel="Join code" value={code} onChangeText={(value) => setCode(value.toUpperCase())} autoCapitalize="characters" style={inputStyle} />
       <BigButton label="Find the event" tone="navy" onPress={() => void lookup()} />
       {event ? <Note>{`${event.name} · ${event.charityName}`}</Note> : null}
-      {event?.groups.map((group) => (
+      {(event?.groups.length ?? 0) > 8 ? event?.groups.map((group) => (
+        <BigButton
+          key={group.id}
+          label={group.nameClaimed ? group.name : `Claim ${group.name}`}
+          tone={groupId === group.id ? 'lime' : group.waitlist ? 'navy' : 'red'}
+          onPress={() => setGroupId(group.id)}
+        />
+      )) : event?.groups.map((group) => (
         <View key={group.id} style={{ gap: 8 }}>
           <FieldLabel>{group.name}</FieldLabel>
           {group.players.map((player) => (
@@ -69,7 +77,28 @@ export default function JoinEvent() {
           ))}
         </View>
       ))}
-      {event ? (
+      {(event?.groups.length ?? 0) > 8 && groupId ? (
+        <View style={{ gap: 8 }}>
+          {!event?.groups.find((group) => group.id === groupId)?.nameClaimed ? (
+            <TextInput accessibilityLabel="Team name" value={teamName} onChangeText={setTeamName} placeholder="Team name" placeholderTextColor="#3D4C60" style={inputStyle} />
+          ) : null}
+          <TextInput accessibilityLabel="Your name" value={name} onChangeText={setName} placeholder="Your name" placeholderTextColor="#3D4C60" style={inputStyle} />
+          {event?.groups.find((group) => group.id === groupId)?.players.map((player) => (
+            <BigButton
+              key={player.id}
+              label={player.role === 'scorer' && !player.claimed ? 'Be the scorer' : player.claimed ? `Watch as ${player.name}` : `Join as ${player.name === 'Open' ? 'a player' : player.name}`}
+              tone={player.role === 'scorer' && !player.claimed ? 'red' : 'navy'}
+              onPress={() => void enter({
+                groupId,
+                playerId: player.id,
+                playerName: name || undefined,
+                teamName: player.role === 'scorer' ? teamName || undefined : undefined,
+              })}
+            />
+          ))}
+        </View>
+      ) : null}
+      {event && event.groups.length <= 8 ? (
         <View style={{ gap: 8 }}>
           <FieldLabel>Not on the list</FieldLabel>
           <TextInput accessibilityLabel="Your name" value={name} onChangeText={setName} style={inputStyle} />

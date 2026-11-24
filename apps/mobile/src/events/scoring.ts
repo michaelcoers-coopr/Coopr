@@ -38,9 +38,10 @@ interface Tally {
   thru: number;
   gross: number;
   toPar: number | null;
+  waitlist: boolean;
 }
 
-function tallyCard(event: Pick<StoredEvent, 'format' | 'scores' | 'pars'>, groupId: string, playerId: string | null, name: string, key: string): Tally {
+function tallyCard(event: Pick<StoredEvent, 'format' | 'scores' | 'pars'>, groupId: string, playerId: string | null, name: string, key: string, waitlist: boolean): Tally {
   let thru = 0;
   let gross = 0;
   let parSum = 0;
@@ -52,22 +53,27 @@ function tallyCard(event: Pick<StoredEvent, 'format' | 'scores' | 'pars'>, group
     gross += strokes;
     parSum += par;
   }
-  return { key, groupId, playerId, name, thru, gross, toPar: thru === 0 ? null : gross - parSum };
+  return { key, groupId, playerId, name, thru, gross, toPar: thru === 0 ? null : gross - parSum, waitlist };
 }
 
 function byName(a: Tally, b: Tally): number {
   return a.name.localeCompare(b.name);
 }
 
+function rowFrom(card: Tally, rank: number | null): BoardRow {
+  return { ...card, rank, mulligansUsed: 0, mulliganCap: 0 };
+}
+
 /**
  * Lower to-par is better. Unstarted cards sort last and have no rank.
+ * A waitlist team is listed after the field and is not ranked.
  * Equal to-par shares a competition rank. Thru, then name, only breaks the display order.
  */
 export function leaderboard(event: Pick<StoredEvent, 'format' | 'groups' | 'scores' | 'pars'>): BoardRow[] {
   const cards: Tally[] = [];
   if (event.format === 'scramble') {
     for (const group of event.groups) {
-      cards.push(tallyCard(event, group.id, null, group.name, group.id));
+      cards.push(tallyCard(event, group.id, null, group.name, group.id, group.waitlist === true));
     }
   } else {
     const names = new Map<string, number>();
@@ -80,17 +86,19 @@ export function leaderboard(event: Pick<StoredEvent, 'format' | 'groups' | 'scor
       for (const player of group.players) {
         const shared = (names.get(player.name) ?? 0) > 1;
         const name = shared ? `${player.name} · ${group.name}` : player.name;
-        cards.push(tallyCard(event, group.id, player.id, name, `${group.id}:${player.id}`));
+        cards.push(tallyCard(event, group.id, player.id, name, `${group.id}:${player.id}`, group.waitlist === true));
       }
     }
   }
-  const started = cards.filter((card) => card.thru > 0).sort((a, b) => {
+  const field = cards.filter((card) => !card.waitlist);
+  const bench = cards.filter((card) => card.waitlist).sort(byName);
+  const started = field.filter((card) => card.thru > 0).sort((a, b) => {
     const toPar = (a.toPar ?? 0) - (b.toPar ?? 0);
     if (toPar !== 0) return toPar;
     if (b.thru !== a.thru) return b.thru - a.thru;
     return byName(a, b);
   });
-  const waiting = cards.filter((card) => card.thru === 0).sort(byName);
+  const waiting = field.filter((card) => card.thru === 0).sort(byName);
   const ranked: BoardRow[] = [];
   let index = 0;
   while (index < started.length) {
@@ -102,10 +110,16 @@ export function leaderboard(event: Pick<StoredEvent, 'format' | 'groups' | 'scor
     for (let cursor = index; cursor <= end; cursor += 1) {
       const card = started[cursor];
       if (!card) continue;
-      ranked.push({ ...card, rank });
+      ranked.push(rowFrom(card, rank));
     }
     index = end + 1;
   }
-  for (const card of waiting) ranked.push({ ...card, rank: null });
+  for (const card of waiting) ranked.push(rowFrom(card, null));
+  for (const card of bench) ranked.push(rowFrom(card, null));
   return ranked;
+}
+
+export function contestLine(label: string, holes: number[]): string | null {
+  if (holes.length === 0) return null;
+  return `${label}: ${holes.map((hole) => `hole ${hole}`).join(', ')}`;
 }

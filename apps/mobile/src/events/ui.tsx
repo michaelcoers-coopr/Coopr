@@ -85,7 +85,7 @@ function Row({ row, display }: { row: BoardRow; display: string }) {
       <Text style={[styles.rank, { fontFamily: display }]}>{row.rank ?? '–'}</Text>
       <View style={{ flex: 1 }}>
         <Text style={styles.name}>{row.name}</Text>
-        <Text style={styles.note}>{row.thru === 0 ? 'Not started' : `Thru ${row.thru}`}</Text>
+        <Text style={styles.note}>{`${row.waitlist ? 'Waitlist' : row.thru === 0 ? 'Not started' : `Thru ${row.thru}`}${row.mulliganCap > 0 ? ` · Mulligans ${row.mulligansUsed}/${row.mulliganCap}` : ''}`}</Text>
       </View>
       <Text style={[styles.toPar, { fontFamily: display }]}>{formatToPar(row.toPar)}</Text>
     </View>

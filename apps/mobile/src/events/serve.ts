@@ -110,6 +110,21 @@ async function routeEvent(request: Request, store: EventStore): Promise<{ status
     if (!posted.ok) return { status: posted.status, body: { error: posted.error } };
     return { status: 200, body: { ok: true, duplicate: posted.duplicate, stale: posted.stale } };
   }
+  if (action === 'team' && method === 'POST') {
+    const named = store.claimTeam(code, guest, body.teamName);
+    if (!named.ok) return { status: named.status, body: { error: named.error } };
+    return { status: 200, body: { event: named.event } };
+  }
+  if (action === 'mulligan' && method === 'POST') {
+    const counted = store.useMulligan(code, guest, body);
+    if (!counted.ok) return { status: counted.status, body: { error: counted.error } };
+    return { status: 200, body: counted };
+  }
+  if (action === 'survey' && method === 'POST') {
+    const saved = store.saveSurvey(code, guest, body);
+    if (!saved.ok) return { status: saved.status, body: { error: saved.error } };
+    return { status: 200, body: { ok: true } };
+  }
   if (action === 'lock' && method === 'POST') {
     const locked = store.lockHole(code, organizer, body);
     if (!locked.ok) return { status: locked.status, body: { error: locked.error } };

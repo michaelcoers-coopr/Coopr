@@ -166,6 +166,20 @@ export async function flushEventOutbox(store: StorageLike = storage()): Promise<
   saveOutbox(store, next);
 }
 
+export async function postMulligan(hole: number): Promise<string | null> {
+  const session = loadSession();
+  if (!session || session.role !== 'scorer') return 'Only the scorer counts mulligans.';
+  const store = storage();
+  const seq = nextSeq(store);
+  const result = await eventRequest(`/v1/events/${encodeURIComponent(session.code)}/mulligan`, {
+    method: 'POST',
+    guest: session.token,
+    body: { hole, idempotencyKey: `mul-${session.playerId}-${hole}-${seq}` },
+  });
+  if (result.status === 200) return null;
+  return typeof result.body.error === 'string' ? result.body.error : 'The mulligan stayed on this phone.';
+}
+
 export async function loadPublicEvent(code: string): Promise<PublicEvent | null> {
   if (code.toUpperCase() === DEMO_CODE) await eventRequest('/v1/events/demo', { method: 'POST', body: {} });
   const result = await eventRequest(`/v1/events/${encodeURIComponent(code.toUpperCase())}`);

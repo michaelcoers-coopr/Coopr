@@ -80,8 +80,8 @@ import { useBagScan } from '../src/bag-scan/session';
 import { lineLengthYards, PAST_STOCK_YARDS, playCamera, pointAtYards, teeWindowYards } from '../src/hole-fit';
 import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
-import { flushEventOutbox, queueEventScore } from '../src/events/client';
-import { useLiveEventMark } from '../src/events/live-mark';
+import { flushEventOutbox, loadSession, postMulligan, queueEventScore } from '../src/events/client';
+import { eventPar, useLiveEventMark } from '../src/events/live-mark';
 import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
 import { caddieSpeaker, isSpeechMuted, speakSentences, subscribeSpeech } from '../src/speech/tts';
@@ -279,6 +279,10 @@ export default function PlayScreen() {
     conditions,
     removeTag,
   } = useLocalStore();
+  const leaveRound = () => {
+    if (loadSession()) router.push('/event/survey');
+    else router.push('/recap');
+  };
   const publishScore = (holeNumber: number, value: number | null) => {
     setStrokes(holeNumber, value);
     queueEventScore(holeNumber, value);
@@ -1143,7 +1147,7 @@ export default function PlayScreen() {
   const thru = thruScore(pilot.quality.map((item) => ({ par: item.par, strokes: holes[item.holeNumber - 1] ?? null, kept: holes[item.holeNumber - 1] != null })));
   const dispersionLine: LatLon[] = [];
   const strokes = holes[hole.holeNumber - 1] ?? null;
-  const par = hole.par;
+  const par = eventPar(hole.holeNumber) ?? hole.par;
   const puttCount = putts[hole.holeNumber - 1] ?? null;
   const holeMarks = marks.filter((mark) => mark.hole === hole.holeNumber);
   const face = scoreFace({ par, storedStrokes: strokes, storedPutts: puttCount, markCount: holeMarks.length });
@@ -1534,9 +1538,19 @@ export default function PlayScreen() {
         <Glass radius={28} style={styles.sheetGlass} contentStyle={styles.sheetFill}>
           <SheetBall reduceMotion={reduceMotion} compact />
           {liveMark ? (
-            <View pointerEvents="none" style={styles.eventMark}>
+            <View style={styles.eventMark}>
               {liveMark.logoUrl ? <Image accessibilityLabel={liveMark.line} source={{ uri: liveMark.logoUrl }} resizeMode="contain" style={styles.eventLogo} /> : null}
               <Text numberOfLines={1} style={styles.eventMarkText}>{liveMark.line}</Text>
+              {liveMark.mulligan ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Mulligan ${liveMark.mulligan.used} of ${liveMark.mulligan.cap}`}
+                  onPress={() => void postMulligan(hole.holeNumber)}
+                  style={styles.mulliganHit}
+                >
+                  <Text style={styles.eventMarkText}>{`Mulligan ${liveMark.mulligan.used}/${liveMark.mulligan.cap}`}</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
           <View style={styles.grab}>
@@ -1637,7 +1651,7 @@ export default function PlayScreen() {
                     setScoreToast({ label: scoreSavedLabel(strokes, par), at: Date.now() });
                     if (savedHole >= 18) {
                       finishRound({ hole: savedHole, strokes, putts: 0, penalties: 0, fairway: null, gir: null });
-                      router.push('/recap');
+                      leaveRound();
                     } else leaveHole();
                   }}
                   style={styles.confirmGo}
@@ -1894,7 +1908,7 @@ export default function PlayScreen() {
           onPause={() => router.push('/')}
           onEnd={() => {
             finishRound();
-            router.push('/recap');
+            leaveRound();
           }}
           justYards={justYards}
           onToggleJustYards={() => setJustYards((value) => !value)}
@@ -1933,7 +1947,7 @@ export default function PlayScreen() {
                 fairway: draft.fairway,
                 gir: draft.gir,
               });
-              router.push('/recap');
+              leaveRound();
             } else leaveHole();
           }}
         />
@@ -2238,6 +2252,7 @@ const styles = StyleSheet.create({
   eventMark: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, minHeight: 28 },
   eventLogo: { width: 72, height: 28 },
   eventMarkText: { color: 'rgba(255,255,255,0.82)', fontFamily: font.family, fontSize: 13, fontWeight: '700', flex: 1 },
+  mulliganHit: { minHeight: 56, minWidth: 56, justifyContent: 'center', paddingHorizontal: 8 },
   fullHole: { position: 'absolute', left: 12, zIndex: 5 },
   fullHoleFill: { minHeight: 36, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
   fullHoleText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, fontWeight: font.semibold },

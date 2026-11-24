@@ -16,6 +16,9 @@ export default function ManageEvent() {
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [hole, setHole] = useState('1');
   const [strokes, setStrokes] = useState('4');
+  const [closest, setClosest] = useState('');
+  const [drive, setDrive] = useState('');
+  const [friends, setFriends] = useState('');
   const [error, setError] = useState<string | null>(null);
   const token = code ? loadOrganizerToken(code) : null;
   const link = code ? joinLink(code) : '';
@@ -54,6 +57,22 @@ export default function ManageEvent() {
       body: { name: sponsor.trim() || file.name, dataUrl: file.dataUrl },
     });
     if (result.status !== 201) setError(typeof result.body.error === 'string' ? result.body.error : 'The logo did not save.');
+    await refresh();
+  };
+
+  const saveCard = async () => {
+    const holes = (value: string) => value.split(/[^0-9]+/).filter(Boolean).map(Number);
+    const names = friends.split(',').map((item) => item.trim()).filter(Boolean);
+    const body: Record<string, unknown> = {};
+    if (closest.trim()) body.closestToPin = holes(closest);
+    if (drive.trim()) body.longestDrive = holes(drive);
+    if (names.length > 0) body.friends = names;
+    const result = await eventRequest(`/v1/events/${encodeURIComponent(code)}`, {
+      method: 'PATCH',
+      token,
+      body,
+    });
+    if (result.status !== 200) setError(typeof result.body.error === 'string' ? result.body.error : 'The card did not save.');
     await refresh();
   };
 
@@ -100,10 +119,15 @@ export default function ManageEvent() {
           <LogoFit logo={logo} />
           <Note>{`${logo.name} · ${logo.slot === 'hole' ? `Hole ${logo.hole}` : logo.slot}`}</Note>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            <BigButton label="Title" tone="navy" onPress={() => void assign(logo.id, 'title', null)} />
-            <BigButton label="Leaderboard" tone="navy" onPress={() => void assign(logo.id, 'leaderboard', null)} />
+            <BigButton label="Presented by" tone="navy" onPress={() => void assign(logo.id, 'title', null)} />
+            <BigButton label="Team + Hole" tone="navy" onPress={() => void assign(logo.id, 'team-hole', Number(hole))} />
+            <BigButton label="Kid photo" tone="navy" onPress={() => void assign(logo.id, 'kid-photo', Number(hole))} />
+            <BigButton label="Panther Cup" tone="navy" onPress={() => void assign(logo.id, 'winning-prize', null)} />
+            <BigButton label="Mulligan" tone="navy" onPress={() => void assign(logo.id, 'mulligan', null)} />
+            <BigButton label="Prize partner" tone="navy" onPress={() => void assign(logo.id, 'prize-partner', null)} />
             <BigButton label="Share card" tone="navy" onPress={() => void assign(logo.id, 'recap', null)} />
           </View>
+          <Note>LEGAL REVIEW: a player's photo needs a parent or guardian's consent. Use a placeholder until that is signed.</Note>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {Array.from({ length: 18 }, (_, index) => (
               <BigButton key={index + 1} label={`Hole ${index + 1}`} tone={logo.slot === 'hole' && logo.hole === index + 1 ? 'lime' : 'navy'} onPress={() => void assign(logo.id, 'hole', index + 1)} />
@@ -111,6 +135,12 @@ export default function ManageEvent() {
           </View>
         </View>
       ))}
+      <FieldLabel>On-course contests</FieldLabel>
+      <TextInput accessibilityLabel="Closest to the pin holes" value={closest} onChangeText={setClosest} placeholder="Closest to the pin holes" placeholderTextColor={ink.muted} style={inputStyle} />
+      <TextInput accessibilityLabel="Longest drive holes" value={drive} onChangeText={setDrive} placeholder="Longest drive holes" placeholderTextColor={ink.muted} style={inputStyle} />
+      <FieldLabel>Friend of the Panthers</FieldLabel>
+      <TextInput accessibilityLabel="Friend names" value={friends} onChangeText={setFriends} placeholder="Names, separated by commas" placeholderTextColor={ink.muted} style={inputStyle} />
+      <BigButton label="Save the card" tone="navy" onPress={() => void saveCard()} />
       <FieldLabel>Fix a score</FieldLabel>
       {event?.groups.map((group) => (
         <BigButton key={group.id} label={group.name} tone={groupId === group.id ? 'lime' : 'navy'} onPress={() => { setGroupId(group.id); setPlayerId(group.players[0]?.id ?? null); }} />
