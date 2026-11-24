@@ -60,6 +60,11 @@ export function eventRoundPars(store?: StorageLike | null): readonly number[] | 
   return eventRoundCard(store)?.pars ?? null;
 }
 
+/** Eighteen pars for a HUD. An event card replaces the phone course on every hole. */
+export function courseParsForRound(coursePars: readonly (number | null)[], eventPars: readonly number[] | null): (number | null)[] {
+  return coursePars.map((par, index) => parForHole(index + 1, eventPars, par));
+}
+
 /** The par the phone shows and saves. An event card wins over the phone's home course. */
 export function parForHole(hole: number, eventPars: readonly number[] | null, coursePar: number | null): number | null {
   const event = eventPars?.[hole - 1];

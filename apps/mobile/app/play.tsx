@@ -82,7 +82,7 @@ import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
 import { flushEventOutbox, loadSession, postMulligan, queueEventScore } from '../src/events/client';
 import { finishBlocked, nextShotgunHole, shotgunOrder, viewerScoreMessage } from '../src/events/shotgun';
-import { eventPar, eventRoundPars, parForHole } from '../src/events/card';
+import { courseParsForRound, eventPar, eventRoundPars, parForHole } from '../src/events/card';
 import { useLiveEventMark } from '../src/events/live-mark';
 import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
@@ -753,7 +753,7 @@ export default function PlayScreen() {
   const yardsFromLast = player && lastMark ? distanceYards(player, { lat: lastMark.lat, lon: lastMark.lon }) : null;
   const talk = useTalkCaddie({
     hole: currentHole,
-    par: hole?.par ?? null,
+    par: parForHole(currentHole, eventRoundPars(), hole?.par ?? null),
     atTee: atTeeNow,
     gpsYards: player ? ground?.centerYards ?? null : null,
     frontYards: ground?.frontYards ?? null,
@@ -810,7 +810,7 @@ export default function PlayScreen() {
       enabled: true,
       persona: voice,
       hole: currentHole,
-      par: hole?.par ?? null,
+      par: parForHole(currentHole, eventRoundPars(), hole?.par ?? null),
       atTee: atTeeNow,
       clubLabel: voiceClub.current.clubLabel,
       stockYards: voiceClub.current.carry?.stockYards ?? null,
@@ -1121,7 +1121,8 @@ export default function PlayScreen() {
     thinLine: Boolean(oneLiner && /sample is thin|Thin sample/i.test(oneLiner)),
     emptyBag: bagEmpty,
   });
-  const thruLabel = thruHud(holes, pilot.quality.map((item) => item.par));
+  const roundPars = eventRoundPars();
+  const thruLabel = thruHud(holes, courseParsForRound(pilot.quality.map((item) => item.par), roundPars));
   const chrome = playChrome({
     screenWidth: windowWidth,
     screenHeight: windowHeight,
@@ -1156,7 +1157,6 @@ export default function PlayScreen() {
     .join(' · ');
   const windTag = Number.isFinite(sky?.current?.windMph) ? 'LIVE' : sampleOn ? 'SAMPLE' : null;
   const tempTag = Number.isFinite(sky?.current?.temperatureF) ? 'LIVE' : sampleOn ? 'SAMPLE' : null;
-  const roundPars = eventRoundPars();
   const thru = thruScore(pilot.quality.map((item) => ({ par: parForHole(item.holeNumber, roundPars, item.par), strokes: holes[item.holeNumber - 1] ?? null, kept: holes[item.holeNumber - 1] != null })));
   const dispersionLine: LatLon[] = [];
   const strokes = holes[hole.holeNumber - 1] ?? null;

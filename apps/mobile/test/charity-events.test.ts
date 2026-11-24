@@ -2,7 +2,8 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { eventPar, foreignPars, parForHole, rememberEventCard } from '../src/events/card';
+import { courseParsForRound, eventPar, foreignPars, parForHole, rememberEventCard } from '../src/events/card';
+import { thruHud } from '../src/design/round-chrome';
 import { queueEventScore, OUTBOX_KEY, saveSession, type StorageLike } from '../src/events/client';
 import { recapSummary } from '../src/design/recap-math';
 import { AUBURN_PARS, DEMO_ORGANIZER_TOKEN, HIGH_CEDARS_PARS, type CreateEventInput, type LiveSession } from '../src/events/types';
@@ -553,6 +554,11 @@ describe('Panthers Classic rules', () => {
     expect(eventPar(9, disk)).toBe(5);
     expect(HIGH_CEDARS_PARS[8]).toBe(4);
     expect(parForHole(9, AUBURN_PARS, HIGH_CEDARS_PARS[8] ?? null)).toBe(5);
+    const seven = [...AUBURN_PARS.slice(0, 7), ...Array.from({ length: 11 }, () => null)];
+    const hudPars = courseParsForRound(HIGH_CEDARS_PARS, AUBURN_PARS);
+    expect(foreignPars([...AUBURN_PARS], hudPars)).toEqual([]);
+    expect(thruHud(seven, hudPars)).toBe('Thru 7 · E');
+    expect(thruHud(seven, HIGH_CEDARS_PARS)).not.toBe('Thru 7 · E');
     const rows = AUBURN_PARS.map((par, index) => ({
       strokes: par,
       par: parForHole(index + 1, AUBURN_PARS, HIGH_CEDARS_PARS[index] ?? null),
