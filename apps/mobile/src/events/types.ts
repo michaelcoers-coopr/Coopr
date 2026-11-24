@@ -290,6 +290,9 @@ export interface LiveSession {
   role: GuestRole;
   token: string;
   scorerName?: string;
+  /** Cached event card so a par is right with no signal. */
+  pars?: number[];
+  courseName?: string;
 }
 
 export const HOLE_SLOTS: readonly LogoSlot[] = ['hole', 'kid-photo', 'team-hole'];

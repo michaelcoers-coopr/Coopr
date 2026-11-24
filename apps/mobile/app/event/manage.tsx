@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Share, Text, TextInput, View } from 'react-native';
+import { Pressable, Share, Text, TextInput, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { eventRequest, joinLink, loadOrganizerToken, loadPublicEvent } from '../../src/events/client';
 import { pickLogoFile } from '../../src/events/pick-logo';
@@ -16,6 +16,7 @@ export default function ManageEvent() {
   const [groupId, setGroupId] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [hole, setHole] = useState('1');
+  const [logoHole, setLogoHole] = useState<Record<string, number>>({});
   const [strokes, setStrokes] = useState('4');
   const [closest, setClosest] = useState('');
   const [drive, setDrive] = useState('');
@@ -171,15 +172,24 @@ export default function ManageEvent() {
           <Note>{`${logo.name} · ${logo.slot === 'hole' ? `Hole ${logo.hole}` : logo.slot}`}</Note>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             <BigButton label="Presented by" tone="navy" onPress={() => void assign(logo.id, 'title', null)} />
-            <BigButton label="Team + Hole" tone="navy" onPress={() => void assign(logo.id, 'team-hole', Number(hole))} />
-            <BigButton label="Kid photo" tone="navy" onPress={() => void assign(logo.id, 'kid-photo', Number(hole))} />
+            <BigButton label="Team + Hole" tone="navy" onPress={() => void assign(logo.id, 'team-hole', logoHole[logo.id] ?? logo.hole ?? 1)} />
+            <BigButton label="Kid photo" tone="navy" onPress={() => void assign(logo.id, 'kid-photo', logoHole[logo.id] ?? logo.hole ?? 1)} />
             <BigButton label="Panther Cup" tone="navy" onPress={() => void assign(logo.id, 'winning-prize', null)} />
             <BigButton label="Mulligan" tone="navy" onPress={() => void assign(logo.id, 'mulligan', null)} />
             <BigButton label="Prize partner" tone="navy" onPress={() => void assign(logo.id, 'prize-partner', null)} />
             <BigButton label="Share card" tone="navy" onPress={() => void assign(logo.id, 'recap', null)} />
           </View>
           <Note>LEGAL REVIEW: a player's photo needs a parent or guardian's consent. Use a placeholder until that is signed.</Note>
-          <Note>{`Hole ${hole} uses the hole field under Fix a score.`}</Note>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Previous hole for ${logo.name}`} onPress={() => setLogoHole((current) => ({ ...current, [logo.id]: Math.max(1, (current[logo.id] ?? logo.hole ?? 1) - 1) }))} style={{ minWidth: 56, minHeight: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: ink.navy, borderRadius: 14 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 22, fontWeight: '800' }}>−</Text>
+            </Pressable>
+            <Text style={{ color: ink.navy, fontSize: 18, fontWeight: '800', minWidth: 72 }}>{`Hole ${logoHole[logo.id] ?? logo.hole ?? 1}`}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Next hole for ${logo.name}`} onPress={() => setLogoHole((current) => ({ ...current, [logo.id]: Math.min(18, (current[logo.id] ?? logo.hole ?? 1) + 1) }))} style={{ minWidth: 56, minHeight: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: ink.navy, borderRadius: 14 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 22, fontWeight: '800' }}>+</Text>
+            </Pressable>
+            <BigButton label="On this hole" tone="lime" onPress={() => void assign(logo.id, 'hole', logoHole[logo.id] ?? logo.hole ?? 1)} />
+          </View>
         </View>
       ))}
       <FieldLabel>Teams from the registration file</FieldLabel>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { flushEventOutbox, loadPublicEvent, loadSession, outboxNote, POLL_MS } from './client';
+import { rememberEventCard } from './card';
+import { flushEventOutbox, loadPublicEvent, loadSession, outboxNote, saveSession, POLL_MS } from './client';
 import type { PublicEvent } from './types';
 
 export interface LiveMulligan {
@@ -17,14 +18,6 @@ export interface LiveMark {
   scorerName: string;
 }
 
-let pars: number[] | null = null;
-
-/** Event scorecard for the hole screen. Null when this phone is not in an event. */
-export function eventPar(hole: number): number | null {
-  const value = pars?.[hole - 1];
-  return typeof value === 'number' ? value : null;
-}
-
 /** Quiet hole mark. Nothing renders when this phone is not in an event. */
 export function useLiveEventMark(hole: number): LiveMark | null {
   const [mark, setMark] = useState<LiveMark | null>(null);
@@ -33,7 +26,6 @@ export function useLiveEventMark(hole: number): LiveMark | null {
     const tick = async () => {
       const session = loadSession();
       if (!session) {
-        pars = null;
         if (!stop) setMark(null);
         return;
       }
@@ -45,7 +37,10 @@ export function useLiveEventMark(hole: number): LiveMark | null {
         event = null;
       }
       if (stop) return;
-      pars = event?.pars ?? null;
+      if (event && event.pars.length === 18) {
+        rememberEventCard({ code: session.code, courseName: event.courseName, pars: event.pars });
+        saveSession({ ...session, pars: [...event.pars], courseName: event.courseName });
+      }
       const sponsor = event?.logos.find((logo) => logo.slot === 'hole' && logo.hole === hole) ?? null;
       const photo = event?.logos.find((logo) => logo.slot === 'kid-photo' && logo.hole === hole) ?? null;
       const mulliganLogo = event?.logos.find((logo) => logo.slot === 'mulligan') ?? null;

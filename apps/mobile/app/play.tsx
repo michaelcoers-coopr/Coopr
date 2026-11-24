@@ -82,7 +82,8 @@ import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
 import { flushEventOutbox, loadSession, postMulligan, queueEventScore } from '../src/events/client';
 import { finishBlocked, nextShotgunHole, shotgunOrder, viewerScoreMessage } from '../src/events/shotgun';
-import { eventPar, useLiveEventMark } from '../src/events/live-mark';
+import { eventPar, eventRoundPars, parForHole } from '../src/events/card';
+import { useLiveEventMark } from '../src/events/live-mark';
 import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
 import { caddieSpeaker, isSpeechMuted, speakSentences, subscribeSpeech } from '../src/speech/tts';
@@ -1066,7 +1067,7 @@ export default function PlayScreen() {
         playsLikeYards: shotShown,
         lowConfidence,
         unit,
-        par: hole.par,
+        par: parForHole(hole.holeNumber, eventRoundPars(), hole.par),
         atTee: player != null && overlay.line[0] != null && distanceYards(player, overlay.line[0]) <= NEXT_TEE_YARDS,
       });
   const thinCopy = 'The sample is thin. Treat the number softly.';
@@ -1090,7 +1091,7 @@ export default function PlayScreen() {
           stockYards: null,
           targetYards: shotShown,
           atTee: player != null && overlay.line[0] != null && distanceYards(player, overlay.line[0]) <= NEXT_TEE_YARDS,
-          par: hole.par,
+          par: parForHole(hole.holeNumber, eventRoundPars(), hole.par),
         })
       : oneLiner && /sample is thin|thin sample/i.test(oneLiner) && shotShown == null
         ? null
@@ -1155,10 +1156,11 @@ export default function PlayScreen() {
     .join(' · ');
   const windTag = Number.isFinite(sky?.current?.windMph) ? 'LIVE' : sampleOn ? 'SAMPLE' : null;
   const tempTag = Number.isFinite(sky?.current?.temperatureF) ? 'LIVE' : sampleOn ? 'SAMPLE' : null;
-  const thru = thruScore(pilot.quality.map((item) => ({ par: item.par, strokes: holes[item.holeNumber - 1] ?? null, kept: holes[item.holeNumber - 1] != null })));
+  const roundPars = eventRoundPars();
+  const thru = thruScore(pilot.quality.map((item) => ({ par: parForHole(item.holeNumber, roundPars, item.par), strokes: holes[item.holeNumber - 1] ?? null, kept: holes[item.holeNumber - 1] != null })));
   const dispersionLine: LatLon[] = [];
   const strokes = holes[hole.holeNumber - 1] ?? null;
-  const par = eventPar(hole.holeNumber) ?? hole.par;
+  const par = eventPar(hole.holeNumber) ?? parForHole(hole.holeNumber, roundPars, hole.par);
   const puttCount = putts[hole.holeNumber - 1] ?? null;
   const holeMarks = marks.filter((mark) => mark.hole === hole.holeNumber);
   const face = scoreFace({ par, storedStrokes: strokes, storedPutts: puttCount, markCount: holeMarks.length });

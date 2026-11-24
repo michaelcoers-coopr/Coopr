@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { TextInput, View } from 'react-native';
+import { rememberEventCard } from '../../src/events/card';
 import { eventRequest, loadPublicEvent, saveSession, sessionFromJoin } from '../../src/events/client';
 import type { PublicEvent } from '../../src/events/types';
 import { BigButton, EventFrame, EventTitle, FieldLabel, inputStyle, Note } from '../../src/events/ui';
@@ -44,7 +45,10 @@ export default function JoinEvent() {
       setError(typeof result.body.error === 'string' ? result.body.error : 'Join did not go through.');
       return;
     }
-    saveSession(session);
+    if (event?.pars.length === 18) {
+      rememberEventCard({ code: session.code, courseName: event.courseName, pars: [...event.pars] });
+    }
+    saveSession({ ...session, pars: event?.pars ? [...event.pars] : undefined, courseName: event?.courseName });
     router.replace('/play');
   };
 

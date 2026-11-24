@@ -2,8 +2,10 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { eventPar, foreignPars, parForHole, rememberEventCard } from '../src/events/card';
 import { queueEventScore, OUTBOX_KEY, saveSession, type StorageLike } from '../src/events/client';
-import { DEMO_ORGANIZER_TOKEN } from '../src/events/types';
+import { recapSummary } from '../src/design/recap-math';
+import { AUBURN_PARS, DEMO_ORGANIZER_TOKEN, HIGH_CEDARS_PARS, type CreateEventInput, type LiveSession } from '../src/events/types';
 import { mulliganLimit } from '../src/events/mulligans';
 import { reviewSurvey, SURVEY_CONSENT } from '../src/events/survey';
 import { finishBlocked, nextShotgunHole, shotgunOrder, viewerScoreMessage } from '../src/events/shotgun';
@@ -13,7 +15,6 @@ import { enqueueScore, flushOutbox, type OutboxEntry } from '../src/events/outbo
 import { formatToPar, leaderboard } from '../src/events/scoring';
 import { serveEvent } from '../src/events/serve';
 import { createEventStore, type EventStore } from '../src/events/store';
-import type { CreateEventInput, LiveSession } from '../src/events/types';
 
 const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
@@ -529,5 +530,53 @@ describe('Panthers Classic rules', () => {
     expect(started.ok).toBe(true);
     if (!started.ok) return;
     expect(started.event.groups.find((item) => item.id === group.id)?.startingHole).toBe(10);
+  });
+
+  it('scores an event round on that event card, offline and on the recap', () => {
+    const disk = memory();
+    const session: LiveSession = {
+      code: 'SAMPLE',
+      eventName: 'Panthers Golf Classic',
+      format: 'scramble',
+      groupId: 'demo-team-1',
+      playerId: 'demo-team-1-p1',
+      name: 'Casey',
+      role: 'scorer',
+      token: 'guest-token',
+      pars: [...AUBURN_PARS],
+      courseName: 'Auburn Golf Course',
+    };
+    saveSession(session, disk);
+    rememberEventCard({ code: 'SAMPLE', courseName: 'Auburn Golf Course', pars: [...AUBURN_PARS] }, disk);
+    const used = AUBURN_PARS.map((_, index) => parForHole(index + 1, AUBURN_PARS, HIGH_CEDARS_PARS[index] ?? null));
+    expect(foreignPars([...AUBURN_PARS], used)).toEqual([]);
+    expect(eventPar(9, disk)).toBe(5);
+    expect(HIGH_CEDARS_PARS[8]).toBe(4);
+    expect(parForHole(9, AUBURN_PARS, HIGH_CEDARS_PARS[8] ?? null)).toBe(5);
+    const rows = AUBURN_PARS.map((par, index) => ({
+      strokes: par,
+      par: parForHole(index + 1, AUBURN_PARS, HIGH_CEDARS_PARS[index] ?? null),
+      putts: null,
+      fairway: null,
+      gir: null,
+    }));
+    expect(recapSummary(rows).headline).toBe('Gross 71 · E');
+    const homeCourse = AUBURN_PARS.map((par, index) => ({
+      strokes: par,
+      par: HIGH_CEDARS_PARS[index] ?? null,
+      putts: null,
+      fairway: null,
+      gir: null,
+    }));
+    expect(recapSummary(homeCourse).headline).not.toBe('Gross 71 · E');
+    const events = store();
+    const made = events.create(scrambleInput());
+    if (!made.ok) throw new Error(made.error);
+    const added = events.addLogo(made.event.code, made.organizerToken, 'Sample Hole Sponsor', TINY_PNG);
+    expect(added.ok).toBe(true);
+    const logoId = events.publicView(made.event.code)?.logos[0]?.id;
+    const assigned = events.assignLogo(made.event.code, made.organizerToken, logoId, 'hole', 9);
+    expect(assigned.ok).toBe(true);
+    expect(events.publicView(made.event.code)?.logos.find((logo) => logo.slot === 'hole' && logo.hole === 9)?.name).toBe('Sample Hole Sponsor');
   });
 });

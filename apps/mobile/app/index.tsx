@@ -423,7 +423,7 @@ export default function HomeScreen() {
               </Pressable>
             </View>
           ) : null}
-          {sheetOpen ? (
+          {sheetOpen && windowWidth <= windowHeight ? (
             <View style={styles.pinnedLinks}>
               <Pressable accessibilityRole="button" accessibilityLabel="Live event" onPress={() => router.push('/event')} style={styles.row}>
                 <View style={styles.rowCopy}>
@@ -452,10 +452,35 @@ export default function HomeScreen() {
             <ScrollView
               ref={sheetScrollRef}
               testID="home-sheet-scroll"
-              style={[styles.scroll, { marginBottom: 140 }]}
+              style={[styles.scroll, { marginBottom: windowWidth > windowHeight ? 0 : 140 }]}
               contentContainerStyle={styles.scrollBody}
               keyboardShouldPersistTaps="handled"
             >
+              {windowWidth > windowHeight ? (
+                <View style={styles.pinnedLinks}>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Live event" onPress={() => router.push('/event')} style={styles.row}>
+                    <View style={styles.rowCopy}>
+                      <Text style={styles.rowTitle}>Live event</Text>
+                      <Text style={styles.rowNote}>Charity day</Text>
+                    </View>
+                    <Text style={styles.chevron}>›</Text>
+                  </Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Analysis" onPress={() => router.push('/analysis')} style={styles.row}>
+                    <View style={styles.rowCopy}>
+                      <Text style={styles.rowTitle}>Analysis</Text>
+                      <Text style={styles.rowNote}>Where the strokes went.</Text>
+                    </View>
+                    <Text style={styles.chevron}>›</Text>
+                  </Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="More" onPress={() => router.push('/more')} style={styles.row}>
+                    <View style={styles.rowCopy}>
+                      <Text style={styles.rowTitle}>More</Text>
+                      <Text style={styles.rowNote}>Setup, privacy, and the card</Text>
+                    </View>
+                    <Text style={styles.chevron}>›</Text>
+                  </Pressable>
+                </View>
+              ) : null}
               <Text style={styles.caddie}>{hero}</Text>
               <Text style={styles.conditions} accessibilityLabel={weather ? `Conditions, ${weather}` : 'Waiting on the sky'}>
                 {weather ?? 'Waiting on the sky'}

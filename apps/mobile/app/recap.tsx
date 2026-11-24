@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { loadHighCedarsPilot } from '@coopr/course';
+import { eventRoundPars, parForHole } from '../src/events/card';
 import { RecapBody, type RecapHole } from '../src/design/recap-view';
 import { useLocalStore } from '../src/local-store';
 import { Screen, Title } from '../src/ui';
@@ -10,9 +11,10 @@ const pilot = loadHighCedarsPilot();
 export default function RecapScreen() {
   const { holes, putts, fairways, girs, startNewRound } = useLocalStore();
   const card = pilot.record.scorecard;
+  const eventPars = eventRoundPars();
   const rows: RecapHole[] = holes.map((strokes, index) => ({
     strokes,
-    par: card.find((hole) => hole.holeNumber === index + 1)?.par ?? null,
+    par: parForHole(index + 1, eventPars, card.find((hole) => hole.holeNumber === index + 1)?.par ?? null),
     putts: putts[index] ?? null,
     fairway: fairways[index] ?? null,
     gir: girs[index] ?? null,

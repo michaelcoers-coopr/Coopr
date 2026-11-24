@@ -18,6 +18,7 @@ import {
 } from '@coopr/engine';
 import { analyze } from '@coopr/analysis';
 import { calendarDate } from '@coopr/games';
+import { eventRoundCard, parForHole } from './events/card';
 import { loadHighCedarsPilot } from '@coopr/course';
 import { loadFounderDataset, profilesFromFounder } from '@coopr/seed';
 import { archiveRound, readArchive, readLastFix, writeLastFix } from './analysis/archive';
@@ -813,10 +814,10 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
           fairways: patch ? fairways.map((value, index) => (index === patch.hole - 1 ? patch.fairway : value)) : fairways,
           girs: patch ? girs.map((value, index) => (index === patch.hole - 1 ? patch.gir : value)) : girs,
           playedOn: calendarDate(new Date()),
-          courseName: analysisCourse.record.name,
+          courseName: eventRoundCard()?.courseName || analysisCourse.record.name,
           card: analysisCourse.record.scorecard.map((hole) => ({
             holeNumber: hole.holeNumber,
-            par: hole.par,
+            par: parForHole(hole.holeNumber, eventRoundCard()?.pars ?? null, hole.par),
             strokeIndex: hole.strokeIndex,
             yards: hole.yardagesByTee.white ?? null,
           })),
@@ -838,10 +839,10 @@ export function LocalStoreProvider({ children, fallback = null }: { children: Re
             fairways,
             girs,
             playedOn: calendarDate(new Date()),
-            courseName: analysisCourse.record.name,
+            courseName: eventRoundCard()?.courseName || analysisCourse.record.name,
             card: analysisCourse.record.scorecard.map((hole) => ({
               holeNumber: hole.holeNumber,
-              par: hole.par,
+              par: parForHole(hole.holeNumber, eventRoundCard()?.pars ?? null, hole.par),
               strokeIndex: hole.strokeIndex,
               yards: hole.yardagesByTee.white ?? null,
             })),
