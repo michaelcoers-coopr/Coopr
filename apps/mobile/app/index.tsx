@@ -426,6 +426,13 @@ export default function HomeScreen() {
           ) : null}
           {sheetOpen ? (
             <View style={styles.pinnedLinks}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Live event" onPress={() => router.push('/event')} style={styles.row}>
+                <View style={styles.rowCopy}>
+                  <Text style={styles.rowTitle}>Live event</Text>
+                  <Text style={styles.rowNote}>Charity day</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
               <Pressable accessibilityRole="button" accessibilityLabel="Analysis" onPress={() => router.push('/analysis')} style={styles.row}>
                 <View style={styles.rowCopy}>
                   <Text style={styles.rowTitle}>Analysis</Text>

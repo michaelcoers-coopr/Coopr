@@ -20,6 +20,7 @@ android/build/
 android/app/build/
 *.sqlite
 *.db
+apps/mobile/.data/
 
 test-results/
 playwright-report/

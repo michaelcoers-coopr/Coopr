@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { router, Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Keyboard, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, type ScrollViewInstance, type ViewStyle } from 'react-native';
+import { Image, Keyboard, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, type ScrollViewInstance, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LatLon, MapFeature } from '@coopr/domain';
@@ -80,6 +80,8 @@ import { useBagScan } from '../src/bag-scan/session';
 import { lineLengthYards, PAST_STOCK_YARDS, playCamera, pointAtYards, teeWindowYards } from '../src/hole-fit';
 import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
+import { flushEventOutbox, queueEventScore } from '../src/events/client';
+import { useLiveEventMark } from '../src/events/live-mark';
 import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
 import { caddieSpeaker, isSpeechMuted, speakSentences, subscribeSpeech } from '../src/speech/tts';
@@ -277,6 +279,11 @@ export default function PlayScreen() {
     conditions,
     removeTag,
   } = useLocalStore();
+  const publishScore = (holeNumber: number, value: number | null) => {
+    setStrokes(holeNumber, value);
+    queueEventScore(holeNumber, value);
+    void flushEventOutbox();
+  };
   const bag = useBagScan();
   const path = usePathname();
   const hole = pilot.quality.find((item) => item.holeNumber === currentHole);
@@ -540,7 +547,7 @@ export default function PlayScreen() {
     readScore: () => holes[currentHole - 1] ?? null,
     readPutts: () => putts[currentHole - 1] ?? null,
     readHole: () => holeNo.current,
-    onScore: setStrokes,
+    onScore: publishScore,
     onPutts: setPutts,
     onNext: () => leaveRef.current(),
     onBack: () => backRef.current(),
@@ -747,7 +754,7 @@ export default function PlayScreen() {
     scorePutts: putts[currentHole - 1] ?? null,
     thruLabel: score.holesEntered > 0 ? `Gross ${score.gross}` : null,
     persona: voice,
-    onScore: setStrokes,
+    onScore: publishScore,
     onPutts: setPutts,
     onSetClub: (clubId) => {
       const index = stripClubs.findIndex((club) => club.id === clubId);
@@ -1233,7 +1240,7 @@ export default function PlayScreen() {
   const plateRecord = aerialPlate(pilot.courseKey, hole.holeNumber);
   const plate = plateRecord != null && (player == null || pointOnAerial(plateRecord.georef, player)) ? plateRecord : null;
   const writeStrokes = (next: number) => {
-    setStrokes(hole.holeNumber, next);
+    publishScore(hole.holeNumber, next);
     const moment = scoreMoment(next, par);
     if (moment === 'celebrate') {
       setConsolation(false);
@@ -1261,6 +1268,7 @@ export default function PlayScreen() {
     setPutts(hole.holeNumber, next);
   };
 
+  const liveMark = useLiveEventMark(hole?.holeNumber ?? 0);
   const pendingHere = pendingScore?.hole === hole.holeNumber ? pendingScore.strokes : null;
   const shortLandscape = windowWidth > windowHeight && windowHeight <= 420;
   const toastH = 56;
@@ -1525,6 +1533,12 @@ export default function PlayScreen() {
       <Animated.View testID="coach-sheet" style={[styles.sheet, sheetStyle, justYards ? { display: 'none' } : null, { right: 84, bottom: Math.max(insets.bottom, 8) + chrome.actionHeight + toastLift + (sheetOpen ? keyboard : 0), zIndex: sheetOpen ? 8 : 2 }]}>
         <Glass radius={28} style={styles.sheetGlass} contentStyle={styles.sheetFill}>
           <SheetBall reduceMotion={reduceMotion} compact />
+          {liveMark ? (
+            <View pointerEvents="none" style={styles.eventMark}>
+              {liveMark.logoUrl ? <Image accessibilityLabel={liveMark.line} source={{ uri: liveMark.logoUrl }} resizeMode="contain" style={styles.eventLogo} /> : null}
+              <Text numberOfLines={1} style={styles.eventMarkText}>{liveMark.line}</Text>
+            </View>
+          ) : null}
           <View style={styles.grab}>
             <View {...sheetPan.panHandlers} style={styles.handleHit}>
               <View style={styles.handle} />
@@ -1615,7 +1629,7 @@ export default function PlayScreen() {
                     talk.answer(`Saved ${strokes} on hole ${savedHole}`);
                     holdCoach.current = true;
                     setSheetTab('coach');
-                    setStrokes(savedHole, strokes);
+                    publishScore(savedHole, strokes);
                     setPutts(savedHole, 0);
                     setPenalties(savedHole, 0);
                     setUndoHole(savedHole);
@@ -1710,7 +1724,7 @@ export default function PlayScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Use mark count"
-                onPress={() => setStrokes(hole.holeNumber, face.suggestion!)}
+                onPress={() => publishScore(hole.holeNumber, face.suggestion!)}
                 style={styles.textHit}
               >
                 <Text style={styles.body}>{`${face.suggestion} from your marks`}</Text>
@@ -1897,7 +1911,7 @@ export default function PlayScreen() {
           canUndoScore={undoHole != null}
           onUndoScore={() => {
             if (undoHole == null) return;
-            setStrokes(undoHole, null);
+            publishScore(undoHole, null);
             setCurrentHole(undoHole);
             setUndoHole(null);
           }}
@@ -1943,7 +1957,7 @@ export default function PlayScreen() {
             accessibilityLabel={scoreToast.label === 'Par saved' ? 'Undo par' : 'Undo score'}
             onPress={() => {
               if (undoHole != null) {
-                setStrokes(undoHole, null);
+                publishScore(undoHole, null);
                 setCurrentHole(undoHole);
                 setUndoHole(null);
               }
@@ -2221,6 +2235,9 @@ const styles = StyleSheet.create({
   dock: { position: 'absolute', left: 12, right: 112, zIndex: 6, gap: 4 },
   dockRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
   askFloat: { position: 'absolute', zIndex: 10 },
+  eventMark: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, minHeight: 28 },
+  eventLogo: { width: 72, height: 28 },
+  eventMarkText: { color: 'rgba(255,255,255,0.82)', fontFamily: font.family, fontSize: 13, fontWeight: '700', flex: 1 },
   fullHole: { position: 'absolute', left: 12, zIndex: 5 },
   fullHoleFill: { minHeight: 36, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
   fullHoleText: { color: '#FFFFFF', fontFamily: font.family, fontSize: type.caption, fontWeight: font.semibold },
