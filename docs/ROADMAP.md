@@ -103,7 +103,7 @@ iPhone test: play one hole with a made-up wind and elevation, confirm both numbe
 
 ## Phase 3 — Voice and music
 
-Ask COOPR is the hold-to-talk path that runs in Expo Go SDK 58. Music has not started. MusicKit, Spotify, Amazon Music, and the ElevenLabs React Native SDK are not in the app. A development build is still required before on-device speech or music.
+Ask COOPR is the conversation on the hole screen. Expo Go SDK 58 types the question. A TestFlight or development build uses on-device speech recognition. Music has not started. MusicKit, Spotify, Amazon Music, and the ElevenLabs React Native SDK are not in the app. Music still needs a later build.
 
 Voice, in Expo Go today:
 
@@ -112,9 +112,11 @@ Voice, in Expo Go today:
 - A rule parser reads distance, lie, hazards, and a question or a score, putt, next-hole, or miss command. German and Spanish share the intent shape and stay empty. An optional model may fill only a field the rules left null. The phone does not call that model.
 - The existing engine answers. Rough and sand add a documented yard estimate. The line says it is an estimate.
 
-Later, on a development build, not built here:
+On a TestFlight or development build, built here:
 
-- On-device iOS speech recognition for airplane mode. Same parser. The recording would not leave the phone.
+- On-device iOS speech recognition (`expo-speech-recognition`). Expo Go falls back to a typed question. The transcript goes to `POST /v1/caddie`. With no model key the reply is scripted from the real context and labeled sample mode.
+
+Still later, not built here:
 - Apple Music through MusicKit. Music ducks under the caddie and comes back after.
 - Spotify behind a flag for Mike's test builds only. Development mode is capped, and public quota is not assumed.
 - Amazon Music is a link out. There is no playback SDK to ship.

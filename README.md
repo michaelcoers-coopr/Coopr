@@ -21,9 +21,9 @@ npm run start -w @coopr/mobile
 
 Home is **Play golf** and **Practice & calibrate**. On a dev build and on the Expo Go preview the first-run local profile is the founder (caddie name COOPR). The production EAS profile sets `EXPO_PUBLIC_FOUNDER_TOOLS=0` so that history is not bundled. The public demo path still refuses a private account.
 
-iPhone preview and the TestFlight command are in `docs/PREVIEW.md`. Publish the Expo Go channel with `npm run preview:publish` after `EXPO_TOKEN` is set in the environment. Do not commit the token. Ask COOPR's transcription host is `bash scripts/deploy-voice.sh`, which needs `EXPO_TOKEN` and `ELEVENLABS_API_KEY` in the shell and prints only the origin. See `docs/VOICE.md`.
+iPhone preview and the TestFlight command are in `docs/PREVIEW.md`. Publish the Expo Go channel with `npm run preview:publish` after `EXPO_TOKEN` is set in the environment. Do not commit the token. The live caddie host is documented in `docs/CADDIE_SERVER.md`. Do not deploy it from this README.
 
-Course data for the High Cedars pilot is open: OpenGolfAPI for the scorecard and OpenStreetMap for geometry. The quality table, the gaps, and the ODbL attribution are in `docs/COURSE_DATA.md`. The hole screen reads ground distance from the phone to that open green. It is not a survey. A long-press number is only for a phone with no position. Hold Ask COOPR to talk. The recording is transcribed on the extract server. The key stays there. Detail is in `docs/VOICE.md`. No iGolf license is required.
+Course data for the High Cedars pilot is open: OpenGolfAPI for the scorecard and OpenStreetMap for geometry. The quality table, the gaps, and the ODbL attribution are in `docs/COURSE_DATA.md`. The hole screen reads ground distance from the phone to that open green. It is not a survey. A long-press number is only for a phone with no position. Press Ask COOPR to talk with the caddie. Expo Go types the question. A TestFlight build recognizes speech on the phone. The model key stays on the server. Detail is in `docs/VOICE.md`. No iGolf license is required.
 
 ## Layout
 

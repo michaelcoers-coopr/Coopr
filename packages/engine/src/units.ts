@@ -21,6 +21,13 @@ export function formatDistance(yards: number | null, unit: DistanceUnit): string
   return (Math.round(shown * 10) / 10).toFixed(1);
 }
 
+/** The tenth the wind chip shows. Whole numbers stay whole. The sign is dropped. */
+export function formatTenths(value: number): string {
+  if (!Number.isFinite(value)) return '—';
+  const rounded = Math.round(Math.abs(value) * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
 export function unitLabel(unit: DistanceUnit): string {
   return unit === 'yd' ? 'yards' : 'meters';
 }

@@ -149,6 +149,15 @@ export function blendSameMetric(group: readonly DistanceProfile[]): DistanceProf
 }
 
 /** Appends a same-metric blend wherever one club has two environments. Plain profiles stay. */
+/** The stock the card quotes. Total when this club has one. Carry is never copied into it. */
+export function quotedProfile(profiles: readonly DistanceProfile[], clubId: string | null): DistanceProfile | null {
+  if (!clubId) return null;
+  const mine = profiles.filter((profile) => profile.clubId === clubId && !profile.reported);
+  const totals = mine.filter((profile) => profile.metric === 'total');
+  const pool = totals.length > 0 ? totals : mine;
+  return [...pool].sort((a, b) => Number(b.dispersionKnown) - Number(a.dispersionKnown) || b.sampleSize - a.sampleSize)[0] ?? null;
+}
+
 export function withSameMetricBlends(profiles: readonly DistanceProfile[]): DistanceProfile[] {
   const plain = profiles.filter((profile) => !profile.blended);
   const groups = new Map<string, DistanceProfile[]>();

@@ -2,6 +2,7 @@ import type { DistanceProfile } from './profile';
 import { layupDecision } from './layup';
 import { missReport, type MissMark, playsLike, shortShotCall, type ShortShotCell, SHORT_SHOT_YARDS } from './phase2';
 import { recommend } from './caddie';
+import { formatTenths } from './units';
 
 /**
  * English is the live lexicon. German and Spanish keep the same intent shape
@@ -12,7 +13,7 @@ export type AskLanguage = (typeof ASK_LANGUAGES)[number];
 
 export type AskLie = 'tee' | 'fairway' | 'rough' | 'sand' | 'green';
 export type AskSide = 'left' | 'right' | 'front';
-export type AskQuestion = 'club' | 'plays_like' | 'layup' | 'miss';
+export type AskQuestion = 'club' | 'plays_like' | 'layup' | 'miss' | 'wind' | 'elevation' | 'temperature' | 'distance';
 export type AskMiss = 'left' | 'right' | 'short' | 'fairway' | 'hazard';
 
 export interface AskHazard {
@@ -212,6 +213,10 @@ function readLie(text: string, command: AskCommand | null): AskLie | null {
 function readQuestion(text: string, command: AskCommand | null, distance: number | null, lie: AskLie | null): AskQuestion | null {
   if (command) return null;
   if (/\b(play like|plays like|playing like|how does it play|whats it play)\b/.test(text)) return 'plays_like';
+  if (/\b(wind|windy|breeze)\b/.test(text)) return 'wind';
+  if (/\b(elevation|uphill|downhill|how steep)\b/.test(text)) return 'elevation';
+  if (/\b(temperature|how hot|how cold|the temp)\b/.test(text)) return 'temperature';
+  if (/\b(how far|whats the distance|how many yards|the yardage)\b/.test(text)) return 'distance';
   if (/\blay[\s-]?up\b/.test(text)) return 'layup';
   if (/\b(my miss|miss side|where do i miss|whats the miss)\b/.test(text)) return 'miss';
   if (/\b(what should i hit|what do i hit|what club|which club|what iron|what do i play)\b/.test(text)) return 'club';
@@ -224,7 +229,16 @@ function asLie(value: unknown): AskLie | null {
 }
 
 function asQuestion(value: unknown): AskQuestion | null {
-  return value === 'club' || value === 'plays_like' || value === 'layup' || value === 'miss' ? value : null;
+  return value === 'club' ||
+    value === 'plays_like' ||
+    value === 'layup' ||
+    value === 'miss' ||
+    value === 'wind' ||
+    value === 'elevation' ||
+    value === 'temperature' ||
+    value === 'distance'
+    ? value
+    : null;
 }
 
 function asSide(value: unknown): AskSide | null {
@@ -378,10 +392,64 @@ function shortClub(label: string | null): string | null {
   return head || null;
 }
 
+function knownNumber(value: number | null | undefined): number | null {
+  return value != null && Number.isFinite(value) ? value : null;
+}
+
+function counted(count: number, singular: string, plural: string): string {
+  const shown = Math.round(count);
+  return `${shown} ${Math.abs(shown) === 1 ? singular : plural}`;
+}
+
+/** Wind, elevation, temperature, and distance, spoken from the readings that exist. */
+export function conditionAnswer(
+  question: 'wind' | 'elevation' | 'temperature' | 'distance',
+  input: {
+    windMph?: number | null;
+    headwindMph?: number | null;
+    windYards?: number | null;
+    elevationFeet?: number | null;
+    temperatureF?: number | null;
+    distanceYards?: number | null;
+  },
+): string {
+  if (question === 'wind') {
+    const speed = knownNumber(input.windMph);
+    const head = knownNumber(input.headwindMph);
+    if (speed == null && head == null) return 'No wind reading yet.';
+    const parts: string[] = [];
+    if (speed != null) parts.push(`Wind ${counted(speed, 'mile', 'miles')} per hour.`);
+    if (head != null) {
+      const way = head > 0.5 ? 'Into you' : head < -0.5 ? 'Helping' : 'Across';
+      const yards = knownNumber(input.windYards);
+      const shown = yards == null ? null : formatTenths(yards);
+      parts.push(shown == null ? `${way}.` : `${way} by ${shown} ${shown === '1' ? 'yard' : 'yards'}.`);
+    }
+    return parts.join(' ');
+  }
+  if (question === 'elevation') {
+    const feet = knownNumber(input.elevationFeet);
+    if (feet == null) return 'No elevation reading yet.';
+    const rounded = Math.round(feet);
+    const way = rounded > 0 ? 'up' : rounded < 0 ? 'down' : 'level';
+    return way === 'level' ? 'Elevation is level.' : `Elevation is ${counted(Math.abs(rounded), 'foot', 'feet')} ${way}.`;
+  }
+  if (question === 'temperature') {
+    const degrees = knownNumber(input.temperatureF);
+    if (degrees == null) return 'No temperature reading yet.';
+    return `${counted(degrees, 'degree', 'degrees')}.`;
+  }
+  const yards = knownNumber(input.distanceYards);
+  if (yards == null || yards <= 0) return 'No distance yet.';
+  return `${counted(yards, 'yard', 'yards')}.`;
+}
+
 export function answerAsk(input: {
   intent: AskIntent;
   gpsYards: number | null;
+  windMph?: number | null;
   headwindMph?: number | null;
+  windYards?: number | null;
   elevationFeet?: number | null;
   temperatureF?: number | null;
   profiles?: readonly DistanceProfile[];
@@ -422,6 +490,21 @@ export function answerAsk(input: {
   };
 
   if (intent.command) return { ...base, line: commandLine(intent.command) };
+
+  if (intent.question === 'wind' || intent.question === 'elevation' || intent.question === 'temperature' || intent.question === 'distance') {
+    const windFromSky = sky && !('error' in sky) ? sky.wind?.yards ?? null : null;
+    return {
+      ...base,
+      line: conditionAnswer(intent.question, {
+        windMph: input.windMph,
+        headwindMph: input.headwindMph,
+        windYards: input.windYards ?? windFromSky,
+        elevationFeet: input.elevationFeet,
+        temperatureF: input.temperatureF,
+        distanceYards: raw,
+      }),
+    };
+  }
 
   if (intent.question === 'plays_like') {
     if (raw == null) return { ...base, line: 'Plays-like needs a distance. Nothing was guessed.' };

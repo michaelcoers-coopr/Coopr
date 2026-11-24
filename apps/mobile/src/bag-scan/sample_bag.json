@@ -1,0 +1,30 @@
+{
+  "_label": "SAMPLE BAG. Michael's bag as he listed it from memory on 2026-10-24. Every loft/flex below is either what he said (source: 'mike') or an official spec with a URL (source: 'official'). null = not known; do not fill it in.",
+  "official_sources": {
+    "steelhead_xr": "https://www.callawaygolfpreowned.com/iron-sets/irons-2016-steelhead-xr.html (Callaway's own pre-owned site; spec table: #5 23, #6 26, #7 30, #8 34.5, #9 39, PW 44, AW 49 deg; stock shaft True Temper XP 95 Stepless)",
+    "mack_daddy_3": "Callaway MD3 Milled spec table (Japan site): https://news.callawaygolf.jp/mens-clubs/wedges/spec/2015_md3_milled.html . Bounce/grind depend on the exact wedge, which Michael has not said: left null."
+  },
+  "clubs": [
+    {"id":"dr","slot":"DR","in_play":true,"brand":"Callaway","model":"XR","type":"driver","loft":null,"flex":"S","flex_source":"mike","loft_source":null,"note":"Loft not listed: add details"},
+    {"id":"4w","slot":"4W","in_play":true,"brand":null,"model":null,"type":"fairway wood","loft":null,"flex":null,"note":"Brand/model unknown: add details"},
+    {"id":"3h","slot":"3H","in_play":true,"brand":"Cleveland","model":"Launcher","type":"hybrid","loft":null,"flex":null,"note":"Exact Launcher model unknown"},
+    {"id":"4h","slot":"4H","in_play":true,"brand":"Cleveland","model":"Launcher","type":"hybrid","loft":null,"flex":null,"note":"Exact Launcher model unknown"},
+    {"id":"5i","slot":"5I","in_play":true,"brand":"Callaway","model":"Steelhead XR","type":"iron","loft":23,"loft_source":"official","flex":"S","flex_source":"mike","set":"steelhead_xr"},
+    {"id":"6i","slot":"6I","in_play":true,"brand":"Callaway","model":"Steelhead XR","type":"iron","loft":26,"loft_source":"official","flex":"S","flex_source":"mike","set":"steelhead_xr"},
+    {"id":"7i","slot":"7I","in_play":true,"brand":"Callaway","model":"Steelhead XR","type":"iron","loft":30,"loft_source":"official","flex":"S","flex_source":"mike","set":"steelhead_xr"},
+    {"id":"8i","slot":"8I","in_play":true,"brand":"Callaway","model":"Steelhead XR","type":"iron","loft":34.5,"loft_source":"official","flex":"S","flex_source":"mike","set":"steelhead_xr"},
+    {"id":"9i","slot":"9I","in_play":true,"brand":"Callaway","model":"Steelhead XR","type":"iron","loft":39,"loft_source":"official","flex":"S","flex_source":"mike","set":"steelhead_xr"},
+    {"id":"pw","slot":"PW","in_play":true,"brand":"Callaway","model":"Steelhead XR","type":"iron","loft":44,"loft_source":"mike","flex":"S","flex_source":"mike","set":"steelhead_xr"},
+    {"id":"w48","slot":"48","in_play":true,"brand":"Miura","model":null,"type":"wedge","loft":48,"loft_source":"mike","flex":null,"note":"Miura model unknown"},
+    {"id":"w54","slot":"54","in_play":true,"brand":"Callaway","model":"Mack Daddy 3","type":"wedge","loft":54,"loft_source":"mike","flex":null,"bounce":null,"grind":null},
+    {"id":"w56","slot":"56","in_play":true,"brand":"Miura","model":null,"type":"wedge","loft":56,"loft_source":"mike","flex":null,"note":"Miura model unknown"},
+    {"id":"pt","slot":"PT","in_play":true,"brand":null,"model":null,"type":"putter","loft":null,"flex":null,"note":"Brand/model unknown: add details"},
+
+    {"id":"2h","slot":"2H","in_play":false,"brand":"Cleveland","model":"Launcher","type":"hybrid","loft":null,"flex":null},
+    {"id":"pxg3","slot":"3I","in_play":false,"brand":"PXG","model":null,"type":"utility iron","loft":null,"flex":null,"note":"PXG 3-iron utility; model unknown"},
+    {"id":"aw49","slot":"AW","in_play":false,"brand":"Callaway","model":"Steelhead XR","type":"iron","loft":49,"loft_source":"mike","flex":"S","flex_source":"mike","set":"steelhead_xr"},
+    {"id":"w58","slot":"58","in_play":false,"brand":"Callaway","model":"Mack Daddy 3","type":"wedge","loft":58,"loft_source":"mike","flex":null,"bounce":null,"grind":null}
+  ],
+  "catalog_status": "None of these models are in the three open catalogs we pulled (Golf Equipment Database, iFroth, forgiving.golf; searched 2026-10-24). Type labels therefore come from the user's pick, never from the catalog, until a record exists.",
+  "types_user_picked": {"steelhead_xr": "game-improvement"}
+}

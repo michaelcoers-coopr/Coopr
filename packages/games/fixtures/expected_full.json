@@ -1,0 +1,769 @@
+[
+ {
+  "id": "T01",
+  "say": "Mike got a 5, Dave birdie, Tony 6, Josh double",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "Mike got a 5, Dave birdie, Tony 6, Josh double",
+   "intent": "hole_entry",
+   "scores": [
+    {
+     "playerId": "p_mike",
+     "confidence": 1.0,
+     "evidence": "5",
+     "flags": [],
+     "state": "scored",
+     "gross": 5,
+     "toPar": 0,
+     "question": null,
+     "strokesReceived": 0,
+     "net": 5
+    },
+    {
+     "playerId": "p_dave",
+     "confidence": 1.0,
+     "evidence": "birdie",
+     "flags": [
+      "from_relative_term"
+     ],
+     "state": "scored",
+     "gross": 4,
+     "toPar": -1,
+     "strokesReceived": 0,
+     "net": 4
+    },
+    {
+     "playerId": "p_tony",
+     "confidence": 1.0,
+     "evidence": "6",
+     "flags": [],
+     "state": "scored",
+     "gross": 6,
+     "toPar": 1,
+     "question": null,
+     "strokesReceived": 1,
+     "net": 5
+    },
+    {
+     "playerId": "p_josh",
+     "confidence": 1.0,
+     "evidence": "double",
+     "flags": [
+      "from_relative_term"
+     ],
+     "state": "scored",
+     "gross": 7,
+     "toPar": 2,
+     "strokesReceived": 1,
+     "net": 6
+    }
+   ],
+   "events": [],
+   "questions": [],
+   "commands": [],
+   "needsConfirm": []
+  }
+ },
+ {
+  "id": "T02",
+  "say": "Josh double, me 5, Davey birdie, Tone six",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "Josh double, me 5, Davey birdie, Tone six",
+   "intent": "hole_entry",
+   "scores": [
+    {
+     "playerId": "p_mike",
+     "confidence": 1.0,
+     "evidence": "5",
+     "flags": [],
+     "state": "scored",
+     "gross": 5,
+     "toPar": 0,
+     "question": null,
+     "strokesReceived": 0,
+     "net": 5
+    },
+    {
+     "playerId": "p_dave",
+     "confidence": 1.0,
+     "evidence": "birdie",
+     "flags": [
+      "from_relative_term"
+     ],
+     "state": "scored",
+     "gross": 4,
+     "toPar": -1,
+     "strokesReceived": 0,
+     "net": 4
+    },
+    {
+     "playerId": "p_tony",
+     "confidence": 1.0,
+     "evidence": "six",
+     "flags": [],
+     "state": "scored",
+     "gross": 6,
+     "toPar": 1,
+     "question": null,
+     "strokesReceived": 1,
+     "net": 5
+    },
+    {
+     "playerId": "p_josh",
+     "confidence": 1.0,
+     "evidence": "double",
+     "flags": [
+      "from_relative_term"
+     ],
+     "state": "scored",
+     "gross": 7,
+     "toPar": 2,
+     "strokesReceived": 1,
+     "net": 6
+    }
+   ],
+   "events": [],
+   "questions": [],
+   "commands": [],
+   "needsConfirm": []
+  }
+ },
+ {
+  "id": "T03",
+  "say": "Mike a five, Dave four, Tony six, Josh snowman",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "Mike a five, Dave four, Tony six, Josh snowman",
+   "intent": "hole_entry",
+   "scores": [
+    {
+     "playerId": "p_mike",
+     "confidence": 1.0,
+     "evidence": "five",
+     "flags": [],
+     "state": "scored",
+     "gross": 5,
+     "toPar": 0,
+     "question": null,
+     "strokesReceived": 0,
+     "net": 5
+    },
+    {
+     "playerId": "p_dave",
+     "confidence": 1.0,
+     "evidence": "four",
+     "flags": [],
+     "state": "scored",
+     "gross": 4,
+     "toPar": -1,
+     "question": null,
+     "strokesReceived": 0,
+     "net": 4
+    },
+    {
+     "playerId": "p_tony",
+     "confidence": 1.0,
+     "evidence": "six",
+     "flags": [],
+     "state": "scored",
+     "gross": 6,
+     "toPar": 1,
+     "question": null,
+     "strokesReceived": 1,
+     "net": 5
+    },
+    {
+     "playerId": "p_josh",
+     "confidence": 1.0,
+     "evidence": "snowman",
+     "flags": [
+      "from_relative_term"
+     ],
+     "state": "scored",
+     "gross": 8,
+     "toPar": 3,
+     "question": null,
+     "strokesReceived": 1,
+     "net": 7
+    }
+   ],
+   "events": [],
+   "questions": [],
+   "commands": [],
+   "needsConfirm": []
+  }
+ },
+ {
+  "id": "T04",
+  "say": "everybody made par except Dave, he birdied",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "everybody made par except Dave, he birdied",
+   "intent": "hole_entry",
+   "scores": [
+    {
+     "playerId": "p_mike",
+     "confidence": 1.0,
+     "evidence": "group",
+     "flags": [
+      "from_relative_term",
+      "from_rest_group"
+     ],
+     "state": "scored",
+     "gross": 5,
+     "toPar": 0,
+     "strokesReceived": 0,
+     "net": 5
+    },
+    {
+     "playerId": "p_dave",
+     "confidence": 1.0,
+     "evidence": "birdied",
+     "flags": [
+      "from_relative_term"
+     ],
+     "state": "scored",
+     "gross": 4,
+     "toPar": -1,
+     "strokesReceived": 0,
+     "net": 4
+    },
+    {
+     "playerId": "p_tony",
+     "confidence": 1.0,
+     "evidence": "group",
+     "flags": [
+      "from_relative_term",
+      "from_rest_group"
+     ],
+     "state": "scored",
+     "gross": 5,
+     "toPar": 0,
+     "strokesReceived": 1,
+     "net": 4
+    },
+    {
+     "playerId": "p_josh",
+     "confidence": 1.0,
+     "evidence": "group",
+     "flags": [
+      "from_relative_term",
+      "from_rest_group"
+     ],
+     "state": "scored",
+     "gross": 5,
+     "toPar": 0,
+     "strokesReceived": 1,
+     "net": 4
+    }
+   ],
+   "events": [],
+   "questions": [],
+   "commands": [],
+   "needsConfirm": []
+  }
+ },
+ {
+  "id": "T05",
+  "say": "Mike par, Dave birdie, Tony net five, Josh net six",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "Mike par, Dave birdie, Tony net five, Josh net six",
+   "intent": "hole_entry",
+   "scores": [
+    {
+     "playerId": "p_mike",
+     "confidence": 1.0,
+     "evidence": "par",
+     "flags": [
+      "from_relative_term"
+     ],
+     "state": "scored",
+     "gross": 5,
+     "toPar": 0,
+     "strokesReceived": 0,
+     "net": 5
+    },
+    {
+     "playerId": "p_dave",
+     "confidence": 1.0,
+     "evidence": "birdie",
+     "flags": [
+      "from_relative_term"
+     ],
+     "state": "scored",
+     "gross": 4,
+     "toPar": -1,
+     "strokesReceived": 0,
+     "net": 4
+    },
+    {
+     "playerId": "p_tony",
+     "confidence": 1.0,
+     "evidence": "five",
+     "flags": [
+      "from_net"
+     ],
+     "state": "scored",
+     "gross": 6,
+     "toPar": 1,
+     "strokesReceived": 1,
+     "net": 5
+    },
+    {
+     "playerId": "p_josh",
+     "confidence": 1.0,
+     "evidence": "six",
+     "flags": [
+      "from_net"
+     ],
+     "state": "scored",
+     "gross": 7,
+     "toPar": 2,
+     "strokesReceived": 1,
+     "net": 6
+    }
+   ],
+   "events": [],
+   "questions": [],
+   "commands": [],
+   "needsConfirm": []
+  }
+ },
+ {
+  "id": "T06",
+  "say": "Mike 5, Dave 5, no wait Dave got a 4, Tony 6, Josh double",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "Mike 5, Dave 5, no wait Dave got a 4, Tony 6, Josh double",
+   "intent": "hole_entry",
+   "scores": [
+    {
+     "playerId": "p_mike",
+     "confidence": 1.0,
+     "evidence": "5",
+     "flags": [],
+     "state": "scored",
+     "gross": 5,
+     "toPar": 0,
+     "question": null,
+     "strokesReceived": 0,
+     "net": 5
+    },
+    {
+     "playerId": "p_dave",
+     "confidence": 1.0,
+     "evidence": "4",
+     "flags": [
+      "corrected"
+     ],
+     "state": "scored",
+     "gross": 4,
+     "toPar": -1,
+     "question": null,
+     "strokesReceived": 0,
+     "net": 4
+    },
+    {
+     "playerId": "p_tony",
+     "confidence": 1.0,
+     "evidence": "6",
+     "flags": [],
+     "state": "scored",
+     "gross": 6,
+     "toPar": 1,
+     "question": null,
+     "strokesReceived": 1,
+     "net": 5
+    },
+    {
+     "playerId": "p_josh",
+     "confidence": 1.0,
+     "evidence": "double",
+     "flags": [
+      "from_relative_term"
+     ],
+     "state": "scored",
+     "gross": 7,
+     "toPar": 2,
+     "strokesReceived": 1,
+     "net": 6
+    }
+   ],
+   "events": [],
+   "questions": [],
+   "commands": [],
+   "needsConfirm": []
+  }
+ },
+ {
+  "id": "T07",
+  "say": "actually Tony had a 7",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "actually Tony had a 7",
+   "intent": "correction",
+   "scores": [
+    {
+     "playerId": "p_tony",
+     "confidence": 1.0,
+     "evidence": "7",
+     "flags": [],
+     "state": "scored",
+     "gross": 7,
+     "toPar": 2,
+     "question": null,
+     "strokesReceived": 1,
+     "net": 6
+    }
+   ],
+   "events": [],
+   "questions": [],
+   "commands": [],
+   "needsConfirm": [],
+   "target": "last_logged_hole"
+  }
+ },
+ {
+  "id": "T08",
+  "say": "Josh picked up, Mike 5, Dave 4, Tony 6",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "Josh picked up, Mike 5, Dave 4, Tony 6",
+   "intent": "hole_entry",
+   "scores": [
+    {
+     "playerId": "p_mike",
+     "confidence": 1.0,
+     "evidence": "5",
+     "flags": [],
+     "state": "scored",
+     "gross": 5,
+     "toPar": 0,
+     "question": null,
+     "strokesReceived": 0,
+     "net": 5
+    },
+    {
+     "playerId": "p_dave",
+     "confidence": 1.0,
+     "evidence": "4",
+     "flags": [],
+     "state": "scored",
+     "gross": 4,
+     "toPar": -1,
+     "question": null,
+     "strokesReceived": 0,
+     "net": 4
+    },
+    {
+     "playerId": "p_tony",
+     "confidence": 1.0,
+     "evidence": "6",
+     "flags": [],
+     "state": "scored",
+     "gross": 6,
+     "toPar": 1,
+     "question": null,
+     "strokesReceived": 1,
+     "net": 5
+    },
+    {
+     "playerId": "p_josh",
+     "confidence": 1.0,
+     "evidence": "picked up",
+     "flags": [],
+     "state": "pickup",
+     "gross": null,
+     "toPar": null,
+     "question": null,
+     "strokesReceived": 1,
+     "net": null
+    }
+   ],
+   "events": [],
+   "questions": [],
+   "commands": [],
+   "needsConfirm": []
+  }
+ },
+ {
+  "id": "T09",
+  "say": "skip this hole",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "skip this hole",
+   "intent": "command",
+   "scores": [],
+   "events": [],
+   "questions": [],
+   "commands": [
+    {
+     "type": "skip_hole"
+    }
+   ]
+  }
+ },
+ {
+  "id": "T10",
+  "say": "undo",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "undo",
+   "intent": "command",
+   "scores": [],
+   "events": [],
+   "questions": [],
+   "commands": [
+    {
+     "type": "undo"
+    }
+   ]
+  }
+ },
+ {
+  "id": "T11",
+  "say": "Joe double, Mike 5, Dave birdie, Tony 6",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "Joe double, Mike 5, Dave birdie, Tony 6",
+   "intent": "hole_entry",
+   "scores": [
+    {
+     "playerId": "p_mike",
+     "confidence": 1.0,
+     "evidence": "5",
+     "flags": [],
+     "state": "scored",
+     "gross": 5,
+     "toPar": 0,
+     "question": null,
+     "strokesReceived": 0,
+     "net": 5
+    },
+    {
+     "playerId": "p_dave",
+     "confidence": 1.0,
+     "evidence": "birdie",
+     "flags": [
+      "from_relative_term"
+     ],
+     "state": "scored",
+     "gross": 4,
+     "toPar": -1,
+     "strokesReceived": 0,
+     "net": 4
+    },
+    {
+     "playerId": "p_tony",
+     "confidence": 1.0,
+     "evidence": "6",
+     "flags": [],
+     "state": "scored",
+     "gross": 6,
+     "toPar": 1,
+     "question": null,
+     "strokesReceived": 1,
+     "net": 5
+    },
+    {
+     "playerId": "p_josh",
+     "confidence": 0.66,
+     "evidence": "double",
+     "flags": [
+      "from_relative_term",
+      "name_fuzzy"
+     ],
+     "state": "scored",
+     "gross": 7,
+     "toPar": 2,
+     "strokesReceived": 1,
+     "net": 6,
+     "question": "Heard \u201cjoe\u201d. Josh?"
+    }
+   ],
+   "events": [],
+   "questions": [],
+   "commands": [],
+   "needsConfirm": [
+    "p_josh"
+   ]
+  }
+ },
+ {
+  "id": "T12",
+  "say": "Mike 5, Dave birdie, Tony 6, Josh 7",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "Mike 5, Dave birdie, Tony 6, Josh 7",
+   "intent": "hole_entry",
+   "scores": [
+    {
+     "playerId": "p_mike",
+     "confidence": 1.0,
+     "evidence": "5",
+     "flags": [],
+     "state": "scored",
+     "gross": 5,
+     "toPar": null,
+     "question": null,
+     "strokesReceived": null,
+     "net": null
+    },
+    {
+     "playerId": "p_dave",
+     "confidence": 1.0,
+     "evidence": "birdie",
+     "flags": [
+      "from_relative_term"
+     ],
+     "state": "unresolved",
+     "gross": null,
+     "toPar": -1,
+     "question": "What's par on this hole?",
+     "strokesReceived": null,
+     "net": null
+    },
+    {
+     "playerId": "p_tony",
+     "confidence": 1.0,
+     "evidence": "6",
+     "flags": [],
+     "state": "scored",
+     "gross": 6,
+     "toPar": null,
+     "question": null,
+     "strokesReceived": null,
+     "net": null
+    },
+    {
+     "playerId": "p_josh",
+     "confidence": 1.0,
+     "evidence": "7",
+     "flags": [],
+     "state": "scored",
+     "gross": 7,
+     "toPar": null,
+     "question": null,
+     "strokesReceived": null,
+     "net": null
+    }
+   ],
+   "events": [],
+   "questions": [],
+   "commands": [],
+   "needsConfirm": [
+    "p_dave"
+   ]
+  }
+ },
+ {
+  "id": "E1",
+  "say": "Sandie Dave, greenie Tony",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "Sandie Dave, greenie Tony",
+   "intent": "hole_entry",
+   "scores": [],
+   "events": [
+    {
+     "type": "coin",
+     "playerId": "p_dave",
+     "coin": "sandie",
+     "confidence": 1.0,
+     "evidence": "sandie dave"
+    },
+    {
+     "type": "coin",
+     "playerId": "p_tony",
+     "coin": "greenie",
+     "confidence": 1.0,
+     "evidence": "greenie tony"
+    }
+   ],
+   "questions": [],
+   "commands": [],
+   "needsConfirm": []
+  }
+ },
+ {
+  "id": "E2",
+  "say": "bingo Dave, bango Tony, bongo Dave",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "bingo Dave, bango Tony, bongo Dave",
+   "intent": "hole_entry",
+   "scores": [],
+   "events": [
+    {
+     "type": "bingo",
+     "playerId": "p_dave",
+     "confidence": 1.0,
+     "evidence": "bingo dave"
+    },
+    {
+     "type": "bango",
+     "playerId": "p_tony",
+     "confidence": 1.0,
+     "evidence": "bango tony"
+    },
+    {
+     "type": "bongo",
+     "playerId": "p_dave",
+     "confidence": 1.0,
+     "evidence": "bongo dave"
+    }
+   ],
+   "questions": [],
+   "commands": [],
+   "needsConfirm": []
+  }
+ },
+ {
+  "id": "E3",
+  "say": "Josh takes Mike",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "Josh takes Mike",
+   "intent": "hole_entry",
+   "scores": [],
+   "events": [
+    {
+     "type": "wolf_pick",
+     "playerId": "p_josh",
+     "wolfMode": "partner",
+     "partnerId": "p_mike",
+     "confidence": 1.0,
+     "evidence": "josh takes mike"
+    }
+   ],
+   "questions": [],
+   "commands": [],
+   "needsConfirm": []
+  }
+ },
+ {
+  "id": "E4",
+  "say": "lone wolf",
+  "parse": {
+   "schemaVersion": "coopr.parseResult/1",
+   "transcript": "lone wolf",
+   "intent": "hole_entry",
+   "scores": [],
+   "events": [
+    {
+     "type": "wolf_pick",
+     "playerId": "p_josh",
+     "wolfMode": "lone",
+     "partnerId": null,
+     "confidence": 1.0,
+     "evidence": "lonewolf"
+    }
+   ],
+   "questions": [],
+   "commands": [],
+   "needsConfirm": []
+  }
+ }
+]

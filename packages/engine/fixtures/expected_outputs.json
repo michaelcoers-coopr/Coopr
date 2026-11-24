@@ -1,0 +1,946 @@
+{
+ "gaps": {
+  "known_lofts": [
+   [
+    23,
+    "5I"
+   ],
+   [
+    26,
+    "6I"
+   ],
+   [
+    30,
+    "7I"
+   ],
+   [
+    34.5,
+    "8I"
+   ],
+   [
+    39,
+    "9I"
+   ],
+   [
+    44,
+    "PW"
+   ],
+   [
+    48,
+    "48"
+   ],
+   [
+    54,
+    "54"
+   ],
+   [
+    56,
+    "56"
+   ]
+  ],
+  "adjacent_gaps": [
+   3,
+   4,
+   4.5,
+   4.5,
+   5,
+   4,
+   6,
+   2
+  ],
+  "median_gap": 4.25,
+  "flags": [
+   {
+    "kind": "overlap",
+    "between": [
+     "54",
+     "56"
+    ],
+    "lofts": [
+     54,
+     56
+    ],
+    "gap": 2
+   }
+  ],
+  "unknown_loft_in_play": [
+   "DR",
+   "4W",
+   "3H",
+   "4H",
+   "PT"
+  ],
+  "benched": [
+   [
+    "2H",
+    null
+   ],
+   [
+    "3I",
+    null
+   ],
+   [
+    "AW",
+    49
+   ],
+   [
+    "58",
+    58
+   ]
+  ]
+ },
+ "verdicts": {
+  "A": {
+   "dr": {
+    "club": "dr",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "pass",
+      "label": "Shaft flex vs speed",
+      "why": "Flex S vs driver speed 98 mph; starting flex R/S; 0 step(s) off.",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "unknown",
+      "label": "Driver loft",
+      "why": "Loft not set.",
+      "needs": "loft (stamp on the sole or hosel)",
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Loft in your bag",
+      "why": "Loft not set.",
+      "needs": "loft",
+      "basis": null
+     }
+    ],
+    "needs": [
+     "loft (stamp on the sole or hosel)",
+     "loft"
+    ],
+    "sample": true
+   },
+   "4w": {
+    "club": "4w",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Shaft flex",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Loft in your bag",
+      "why": "Loft not set.",
+      "needs": "loft",
+      "basis": null
+     }
+    ],
+    "needs": [
+     "loft"
+    ],
+    "sample": true
+   },
+   "3h": {
+    "club": "3h",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Shaft flex",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Loft in your bag",
+      "why": "Loft not set.",
+      "needs": "loft",
+      "basis": null
+     }
+    ],
+    "needs": [
+     "loft"
+    ],
+    "sample": true
+   },
+   "4h": {
+    "club": "4h",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Shaft flex",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Loft in your bag",
+      "why": "Loft not set.",
+      "needs": "loft",
+      "basis": null
+     }
+    ],
+    "needs": [
+     "loft"
+    ],
+    "sample": true
+   },
+   "5i": {
+    "club": "5i",
+    "verdict": "GOOD",
+    "checks": [
+     {
+      "status": "pass",
+      "label": "Head vs handicap",
+      "why": "game-improvement head (forgiveness floor 4/5) vs handicap 14.0 (band 13-20, wants 3+).",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Shaft flex vs speed",
+      "why": "Flex S vs driver speed 98 mph; starting flex R/S; 0 step(s) off.",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Loft in your bag",
+      "why": "No overlap or gap with known neighbours.",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "6i": {
+    "club": "6i",
+    "verdict": "GOOD",
+    "checks": [
+     {
+      "status": "pass",
+      "label": "Head vs handicap",
+      "why": "game-improvement head (forgiveness floor 4/5) vs handicap 14.0 (band 13-20, wants 3+).",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Shaft flex vs speed",
+      "why": "Flex S vs driver speed 98 mph; starting flex R/S; 0 step(s) off.",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Loft in your bag",
+      "why": "No overlap or gap with known neighbours.",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "7i": {
+    "club": "7i",
+    "verdict": "GOOD",
+    "checks": [
+     {
+      "status": "pass",
+      "label": "Head vs handicap",
+      "why": "game-improvement head (forgiveness floor 4/5) vs handicap 14.0 (band 13-20, wants 3+).",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Shaft flex vs speed",
+      "why": "Flex S vs driver speed 98 mph; starting flex R/S; 0 step(s) off.",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Loft in your bag",
+      "why": "No overlap or gap with known neighbours.",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "8i": {
+    "club": "8i",
+    "verdict": "GOOD",
+    "checks": [
+     {
+      "status": "pass",
+      "label": "Head vs handicap",
+      "why": "game-improvement head (forgiveness floor 4/5) vs handicap 14.0 (band 13-20, wants 3+).",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Shaft flex vs speed",
+      "why": "Flex S vs driver speed 98 mph; starting flex R/S; 0 step(s) off.",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Loft in your bag",
+      "why": "No overlap or gap with known neighbours.",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "9i": {
+    "club": "9i",
+    "verdict": "GOOD",
+    "checks": [
+     {
+      "status": "pass",
+      "label": "Head vs handicap",
+      "why": "game-improvement head (forgiveness floor 4/5) vs handicap 14.0 (band 13-20, wants 3+).",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Shaft flex vs speed",
+      "why": "Flex S vs driver speed 98 mph; starting flex R/S; 0 step(s) off.",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Loft in your bag",
+      "why": "No overlap or gap with known neighbours.",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "pw": {
+    "club": "pw",
+    "verdict": "GOOD",
+    "checks": [
+     {
+      "status": "pass",
+      "label": "Head vs handicap",
+      "why": "game-improvement head (forgiveness floor 4/5) vs handicap 14.0 (band 13-20, wants 3+).",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Shaft flex vs speed",
+      "why": "Flex S vs driver speed 98 mph; starting flex R/S; 0 step(s) off.",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Loft in your bag",
+      "why": "No overlap or gap with known neighbours.",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "w48": {
+    "club": "w48",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Shaft flex",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "pass",
+      "label": "Loft in your bag",
+      "why": "No overlap or gap with known neighbours.",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "w54": {
+    "club": "w54",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Shaft flex",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "stretch",
+      "label": "Loft in your bag",
+      "why": "2° from the 56° club (overlap)",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "w56": {
+    "club": "w56",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Shaft flex",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "stretch",
+      "label": "Loft in your bag",
+      "why": "2° from the 54° club (overlap)",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "pt": {
+    "club": "pt",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Shaft flex",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Loft in your bag",
+      "why": "Loft not set.",
+      "needs": "loft",
+      "basis": null
+     }
+    ],
+    "needs": [
+     "loft"
+    ],
+    "sample": true
+   }
+  },
+  "B": {
+   "dr": {
+    "club": "dr",
+    "verdict": "PROBABLY_NOT",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "mismatch",
+      "label": "Shaft flex vs speed",
+      "why": "Flex S vs driver speed 78 mph; starting flex L/A; 2 step(s) off.",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "unknown",
+      "label": "Driver loft",
+      "why": "Loft not set.",
+      "needs": "loft (stamp on the sole or hosel)",
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Loft in your bag",
+      "why": "Loft not set.",
+      "needs": "loft",
+      "basis": null
+     }
+    ],
+    "needs": [
+     "loft (stamp on the sole or hosel)",
+     "loft"
+    ],
+    "sample": true
+   },
+   "4w": {
+    "club": "4w",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Shaft flex",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Loft in your bag",
+      "why": "Loft not set.",
+      "needs": "loft",
+      "basis": null
+     }
+    ],
+    "needs": [
+     "loft"
+    ],
+    "sample": true
+   },
+   "3h": {
+    "club": "3h",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Shaft flex",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Loft in your bag",
+      "why": "Loft not set.",
+      "needs": "loft",
+      "basis": null
+     }
+    ],
+    "needs": [
+     "loft"
+    ],
+    "sample": true
+   },
+   "4h": {
+    "club": "4h",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Shaft flex",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Loft in your bag",
+      "why": "Loft not set.",
+      "needs": "loft",
+      "basis": null
+     }
+    ],
+    "needs": [
+     "loft"
+    ],
+    "sample": true
+   },
+   "5i": {
+    "club": "5i",
+    "verdict": "PROBABLY_NOT",
+    "checks": [
+     {
+      "status": "pass",
+      "label": "Head vs handicap",
+      "why": "game-improvement head (forgiveness floor 4/5) vs handicap 24.0 (band 21+, wants 4+).",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "mismatch",
+      "label": "Shaft flex vs speed",
+      "why": "Flex S vs driver speed 78 mph; starting flex L/A; 2 step(s) off.",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Loft in your bag",
+      "why": "No overlap or gap with known neighbours.",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "6i": {
+    "club": "6i",
+    "verdict": "PROBABLY_NOT",
+    "checks": [
+     {
+      "status": "pass",
+      "label": "Head vs handicap",
+      "why": "game-improvement head (forgiveness floor 4/5) vs handicap 24.0 (band 21+, wants 4+).",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "mismatch",
+      "label": "Shaft flex vs speed",
+      "why": "Flex S vs driver speed 78 mph; starting flex L/A; 2 step(s) off.",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Loft in your bag",
+      "why": "No overlap or gap with known neighbours.",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "7i": {
+    "club": "7i",
+    "verdict": "PROBABLY_NOT",
+    "checks": [
+     {
+      "status": "pass",
+      "label": "Head vs handicap",
+      "why": "game-improvement head (forgiveness floor 4/5) vs handicap 24.0 (band 21+, wants 4+).",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "mismatch",
+      "label": "Shaft flex vs speed",
+      "why": "Flex S vs driver speed 78 mph; starting flex L/A; 2 step(s) off.",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Loft in your bag",
+      "why": "No overlap or gap with known neighbours.",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "8i": {
+    "club": "8i",
+    "verdict": "PROBABLY_NOT",
+    "checks": [
+     {
+      "status": "pass",
+      "label": "Head vs handicap",
+      "why": "game-improvement head (forgiveness floor 4/5) vs handicap 24.0 (band 21+, wants 4+).",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "mismatch",
+      "label": "Shaft flex vs speed",
+      "why": "Flex S vs driver speed 78 mph; starting flex L/A; 2 step(s) off.",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Loft in your bag",
+      "why": "No overlap or gap with known neighbours.",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "9i": {
+    "club": "9i",
+    "verdict": "PROBABLY_NOT",
+    "checks": [
+     {
+      "status": "pass",
+      "label": "Head vs handicap",
+      "why": "game-improvement head (forgiveness floor 4/5) vs handicap 24.0 (band 21+, wants 4+).",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "mismatch",
+      "label": "Shaft flex vs speed",
+      "why": "Flex S vs driver speed 78 mph; starting flex L/A; 2 step(s) off.",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Loft in your bag",
+      "why": "No overlap or gap with known neighbours.",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "pw": {
+    "club": "pw",
+    "verdict": "PROBABLY_NOT",
+    "checks": [
+     {
+      "status": "pass",
+      "label": "Head vs handicap",
+      "why": "game-improvement head (forgiveness floor 4/5) vs handicap 24.0 (band 21+, wants 4+).",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "mismatch",
+      "label": "Shaft flex vs speed",
+      "why": "Flex S vs driver speed 78 mph; starting flex L/A; 2 step(s) off.",
+      "needs": null,
+      "basis": "sample"
+     },
+     {
+      "status": "pass",
+      "label": "Loft in your bag",
+      "why": "No overlap or gap with known neighbours.",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "w48": {
+    "club": "w48",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Shaft flex",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "pass",
+      "label": "Loft in your bag",
+      "why": "No overlap or gap with known neighbours.",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "w54": {
+    "club": "w54",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Shaft flex",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "stretch",
+      "label": "Loft in your bag",
+      "why": "2° from the 56° club (overlap)",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "w56": {
+    "club": "w56",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Shaft flex",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "stretch",
+      "label": "Loft in your bag",
+      "why": "2° from the 54° club (overlap)",
+      "needs": null,
+      "basis": null
+     }
+    ],
+    "needs": [],
+    "sample": true
+   },
+   "pt": {
+    "club": "pt",
+    "verdict": "CANT_TELL",
+    "checks": [
+     {
+      "status": "unknown",
+      "label": "Head type",
+      "why": "Head-type rules only exist for irons so far.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Shaft flex",
+      "why": "CAN'T TELL YET: no fit rule for this club type.",
+      "needs": null,
+      "basis": null
+     },
+     {
+      "status": "unknown",
+      "label": "Loft in your bag",
+      "why": "Loft not set.",
+      "needs": "loft",
+      "basis": null
+     }
+    ],
+    "needs": [
+     "loft"
+    ],
+    "sample": true
+   }
+  }
+ }
+}

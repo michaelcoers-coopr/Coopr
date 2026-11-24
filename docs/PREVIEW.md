@@ -17,14 +17,7 @@ Since 12 May 2026, Expo Go only loads an EAS Update for a project the signed-in 
 1. Create an access token at https://expo.dev/settings/access-tokens
 2. From the repo root:
 
-```bash
-export EXPO_TOKEN='paste-token-here'
-export ELEVENLABS_API_KEY='paste-key-here'
-bash scripts/deploy-voice.sh
-npm run preview:publish
-```
-
-`deploy-voice.sh` prints one line, the EAS Hosting origin, and writes it to `apps/mobile/extract-origin.txt`. `preview:publish` reads that file, or `EXPO_PUBLIC_EXTRACT_URL` if you set it. Do not commit the token or the ElevenLabs key. The origin is not a secret. Details are in `docs/VOICE.md`.
+The caddie server is `docs/CADDIE_SERVER.md`. Do not deploy from this page. `preview:publish` reads `EXPO_PUBLIC_EXTRACT_URL` or `apps/mobile/extract-origin.txt`. Do not commit the token. The origin is not a secret.
 
 ```bash
 export EXPO_TOKEN='paste-token-here'
@@ -57,6 +50,8 @@ https://qr.expo.dev/eas-update?projectId=998f1644-05ec-4980-a0b9-58e5703951d7&ru
 - No Apple id, team id, certificate, or API key is stored here.
 
 Mike runs this on his own machine after `export EXPO_TOKEN=...` or `npx eas-cli login`. The first build asks him to sign in with the Apple Developer account. Let EAS create the distribution certificate and the provisioning profile for `app.coopr.mobile.preview`. Do not paste those into the repo.
+
+That binary is what on-device speech recognition needs. Expo Go keeps a typed question. `CADDIE_LLM_API_KEY` on the EAS server environment is what turns sample-mode answers into a live model. `ELEVENLABS_API_KEY` stays the Scribe key for a posted clip. Neither key belongs in the app.
 
 ```bash
 cd apps/mobile

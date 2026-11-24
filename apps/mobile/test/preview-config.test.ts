@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +12,9 @@ const scriptPath = path.join(root, 'scripts', 'preview-publish.mjs');
 const configure = require('../app.config.js') as (ctx: { config: Record<string, unknown> }) => {
   name?: string;
   runtimeVersion?: { policy?: string };
-  ios?: { bundleIdentifier?: string; infoPlist?: { ITSAppUsesNonExemptEncryption?: boolean } };
+  web?: { output?: string };
+  userInterfaceStyle?: string;
+  ios?: { bundleIdentifier?: string; infoPlist?: { ITSAppUsesNonExemptEncryption?: boolean; UIUserInterfaceStyle?: string } };
   android?: { package?: string };
   updates?: { url?: string; enabled?: boolean };
   extra?: { eas?: { projectId?: string } };
@@ -33,7 +35,9 @@ describe('Expo Go preview and TestFlight profile', () => {
     expect(mobilePackage.dependencies['expo-sqlite']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-router']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-image-picker']).toMatch(/^~58\./);
-    expect(mobilePackage.dependencies['expo-audio']).toMatch(/^~58\./);
+    expect(mobilePackage.dependencies['expo-audio']).toBeUndefined();
+    expect(mobilePackage.dependencies['expo-notifications']).toBeUndefined();
+    expect(mobilePackage.dependencies['expo-updates']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-speech']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['expo-haptics']).toMatch(/^~58\./);
     expect(mobilePackage.dependencies['react-native-maps']).toBeTruthy();
@@ -95,6 +99,73 @@ describe('Expo Go preview and TestFlight profile', () => {
     });
     expect(eas.build.production.env.EXPO_PUBLIC_FOUNDER_TOOLS).toBe('0');
     expect(eas.build.production.channel).toBe('production');
+  });
+
+  it('points the icon and splash at the approved crest and keeps the bundle ids', () => {
+    const expo = appJson.expo as {
+      backgroundColor?: string;
+      icon?: string;
+      ios?: { icon?: string; bundleIdentifier?: string };
+      android?: {
+        package?: string;
+        adaptiveIcon?: { foregroundImage?: string; backgroundColor?: string; monochromeImage?: string };
+      };
+      plugins?: unknown[];
+    };
+    expect(expo.ios?.bundleIdentifier).toBe('app.coopr.mobile');
+    expect(expo.android?.package).toBe('app.coopr.mobile');
+    expect(expo.backgroundColor).toBe('#0A1020');
+    expect(expo.icon).toBe('./assets/brand/icon.png');
+    expect(expo.ios?.icon).toBe('./assets/brand/icon.png');
+    expect(expo.android?.adaptiveIcon).toEqual({
+      foregroundImage: './assets/brand/adaptive-icon.png',
+      backgroundColor: '#0A1020',
+      monochromeImage: './assets/brand/adaptive-monochrome.png',
+    });
+    expect(expo.plugins?.some((plugin) => plugin === 'expo-notifications' || (Array.isArray(plugin) && plugin[0] === 'expo-notifications'))).toBe(false);
+    const splash = expo.plugins?.find(
+      (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-splash-screen',
+    ) as [string, { backgroundColor?: string; image?: string; resizeMode?: string; android?: { image?: string; imageWidth?: number; resizeMode?: string; backgroundColor?: string } }] | undefined;
+    expect(splash?.[1]).toMatchObject({
+      backgroundColor: '#0A1020',
+      image: './assets/brand/splash.png',
+      resizeMode: 'contain',
+      android: {
+        backgroundColor: '#0A1020',
+        image: './assets/brand/splash-mark.png',
+        resizeMode: 'contain',
+        imageWidth: 152,
+      },
+    });
+    expect(mobilePackage.dependencies['expo-splash-screen']).toMatch(/^~58\./);
+    expect(mobilePackage.dependencies['expo-notifications']).toBeUndefined();
+    expect(JSON.stringify(expo)).not.toMatch(/"notification"\s*:/);
+    for (const file of [
+      'assets/brand/icon.png',
+      'assets/brand/adaptive-icon.png',
+      'assets/brand/adaptive-monochrome.png',
+      'assets/brand/notification-icon.png',
+      'assets/brand/splash.png',
+      'assets/brand/splash-mark.png',
+    ]) {
+      expect(existsSync(path.join(root, file))).toBe(true);
+    }
+  });
+
+  it('keeps EAS web output on the server unless a static screenshot export is requested', () => {
+    const previous = process.env.COOPR_WEB_STATIC;
+    delete process.env.COOPR_WEB_STATIC;
+    const hosted = configure({ config: appJson.expo });
+    expect(hosted.web?.output).toBe('server');
+    expect(hosted.userInterfaceStyle).toBe('light');
+    expect(hosted.ios?.infoPlist?.UIUserInterfaceStyle).toBe('Light');
+    const staticApp = appJson.expo as { web?: { output?: string } };
+    expect(staticApp.web?.output).toBe('server');
+    process.env.COOPR_WEB_STATIC = '1';
+    const exported = configure({ config: appJson.expo });
+    expect(exported.web?.output).toBe('static');
+    if (previous === undefined) delete process.env.COOPR_WEB_STATIC;
+    else process.env.COOPR_WEB_STATIC = previous;
   });
 
   it('refuses to publish without EXPO_TOKEN and does not embed one', () => {
