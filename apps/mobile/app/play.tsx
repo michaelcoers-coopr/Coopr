@@ -81,6 +81,7 @@ import { lineLengthYards, PAST_STOCK_YARDS, playCamera, pointAtYards, teeWindowY
 import { subscribeGps } from '../src/gps-fix';
 import { readWeather, type WeatherRead } from '../src/weather';
 import { flushEventOutbox, loadSession, postMulligan, queueEventScore } from '../src/events/client';
+import { finishBlocked, nextShotgunHole, shotgunOrder, viewerScoreMessage } from '../src/events/shotgun';
 import { eventPar, useLiveEventMark } from '../src/events/live-mark';
 import { useLocalStore, type LandingResult } from '../src/local-store';
 import { useAskCoopr } from '../src/ask-coopr';
@@ -284,9 +285,15 @@ export default function PlayScreen() {
     else router.push('/recap');
   };
   const publishScore = (holeNumber: number, value: number | null) => {
+    const session = loadSession();
+    if (session?.role === 'viewer') {
+      setScoreToast({ label: viewerScoreMessage(session.scorerName || 'the scorer'), at: Date.now() });
+      return false;
+    }
     setStrokes(holeNumber, value);
     queueEventScore(holeNumber, value);
     void flushEventOutbox();
+    return true;
   };
   const bag = useBagScan();
   const path = usePathname();
@@ -369,6 +376,9 @@ export default function PlayScreen() {
   const leaveRef = useRef<() => void>(() => {});
   const backRef = useRef<() => void>(() => {});
   const holeNo = useRef(1);
+  const startRef = useRef<number | null>(null);
+  const openedOnStart = useRef(false);
+  const [openHoles, setOpenHoles] = useState<number[] | null>(null);
   useEffect(() => {
     let storage: { getItem(key: string): string | null } | undefined;
     try {
@@ -712,9 +722,10 @@ export default function PlayScreen() {
   useEffect(() => {
     const manual = manualNav.current;
     manualNav.current = false;
-    if (path !== '/play' || !player || currentHole >= 18) return;
+    const upcoming = startRef.current == null ? (currentHole >= 18 ? null : currentHole + 1) : nextShotgunHole(currentHole, startRef.current, 'next');
+    if (path !== '/play' || !player || upcoming == null) return;
     const geometry = holeOverlay(pilot.features, pilot.record.scorecard, currentHole);
-    const nextTee = holeOverlay(pilot.features, pilot.record.scorecard, currentHole + 1).line[0] ?? null;
+    const nextTee = holeOverlay(pilot.features, pilot.record.scorecard, upcoming).line[0] ?? null;
     const center = geometry.green?.rings[0] ? ringCentroid(geometry.green.rings[0]) : null;
     if (
       !shouldAutoAdvance({
@@ -729,7 +740,7 @@ export default function PlayScreen() {
       return;
     }
     advanced.current = currentHole;
-    setCurrentHole((hole) => hole + 1);
+    setCurrentHole(upcoming);
   }, [path, player, currentHole]);
 
   const talkPrefs = useTalkPrefs();
@@ -1167,14 +1178,40 @@ export default function PlayScreen() {
   const shownTotal = totalProfile(profiles, shownId);
   const longTotal = !onGreen && !short && shownTotal ? longestWords(shownTotal, unit) : null;
   const answered = debriefs.some((item) => item.hole === hole.holeNumber);
+  const askFinish = (extra?: { hole: number; strokes: number }) => {
+    if (startRef.current == null) return true;
+    const scores = holes.map((value) => value);
+    if (extra) scores[extra.hole - 1] = extra.strokes;
+    const blocked = finishBlocked(scores, startRef.current ?? 1);
+    if (!blocked.ok) {
+      setOpenHoles(blocked.open);
+      return false;
+    }
+    setOpenHoles(null);
+    return true;
+  };
   const moveHole = (dir: 'next' | 'prev') => {
     const current = holeNo.current;
-    if (dir === 'next' && current >= 18) return;
-    if (dir === 'prev' && current <= 1) return;
+    const start = startRef.current;
     manualNav.current = true;
     advanced.current = 0;
     lastButtonNav.current = { dir, at: Date.now() };
-    setCurrentHole((shown) => shown + (dir === 'next' ? 1 : -1));
+    if (start == null) {
+      if (dir === 'next' && current >= 18) return;
+      if (dir === 'prev' && current <= 1) return;
+      setCurrentHole((shown) => shown + (dir === 'next' ? 1 : -1));
+      return;
+    }
+    const next = nextShotgunHole(current, start, dir);
+    if (next == null) {
+      if (dir === 'next' && askFinish()) {
+        finishRound();
+        leaveRound();
+      }
+      return;
+    }
+    setOpenHoles(null);
+    setCurrentHole(next);
   };
 
   const leaveHole = () => {
@@ -1273,7 +1310,19 @@ export default function PlayScreen() {
   };
 
   const liveMark = useLiveEventMark(hole?.holeNumber ?? 0);
+  startRef.current = loadSession() ? (liveMark?.startingHole ?? 1) : null;
+  const lastInOrder = shotgunOrder(startRef.current)[17] ?? 18;
+  const finishingRound = startRef.current != null ? hole.holeNumber === lastInOrder : hole.holeNumber >= 18;
   const pendingHere = pendingScore?.hole === hole.holeNumber ? pendingScore.strokes : null;
+  useEffect(() => {
+    if (openedOnStart.current || liveMark?.startingHole == null) return;
+    if (holes.some((score) => score != null)) {
+      openedOnStart.current = true;
+      return;
+    }
+    openedOnStart.current = true;
+    if (currentHole === 1 && liveMark.startingHole !== 1) setCurrentHole(liveMark.startingHole);
+  }, [liveMark?.startingHole, holes, currentHole, setCurrentHole]);
   const shortLandscape = windowWidth > windowHeight && windowHeight <= 420;
   const toastH = 56;
   const dockTop = windowHeight - Math.max(insets.bottom, 8) - chrome.actionHeight;
@@ -1416,14 +1465,18 @@ export default function PlayScreen() {
               <Text style={[styles.pillBallNum, { fontFamily: display }]}>{hole.holeNumber}</Text>
             </View>
           </Pressable>
-          {hole.holeNumber >= 18 ? null : (
+          {finishingRound ? null : (
           <View style={styles.pillPair}>
             <Text style={styles.pillMeta}>{strokes != null ? 'SCR' : 'HCP'}</Text>
             <Text accessibilityLabel={strokes != null ? `Saved score ${strokes}` : undefined} style={[styles.pillNum, { fontFamily: display }]}>{strokes != null ? strokes : hole.strokeIndex ?? '—'}</Text>
           </View>
           )}
-          {hole.holeNumber >= 18 ? (
-            <Pressable accessibilityRole="button" accessibilityLabel="Finish hole" testID="hole-finish-pill" onPress={() => setScoreAsk((value) => value + 1)} style={styles.finishPill}>
+          {finishingRound ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="Finish hole" testID="hole-finish-pill" onPress={() => {
+              if (!askFinish()) return;
+              finishRound();
+              leaveRound();
+            }} style={styles.finishPill}>
               <Text style={styles.finishPillText}>Finish</Text>
             </Pressable>
           ) : (
@@ -1545,7 +1598,11 @@ export default function PlayScreen() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Mulligan ${liveMark.mulligan.used} of ${liveMark.mulligan.cap}`}
-                  onPress={() => void postMulligan(hole.holeNumber)}
+                  onPress={() => {
+                    void postMulligan(hole.holeNumber).then((message) => {
+                      if (message) setScoreToast({ label: message, at: Date.now() });
+                    });
+                  }}
                   style={styles.mulliganHit}
                 >
                   <Text style={styles.eventMarkText}>{`Mulligan ${liveMark.mulligan.used}/${liveMark.mulligan.cap}`}</Text>
@@ -1643,16 +1700,22 @@ export default function PlayScreen() {
                     talk.answer(`Saved ${strokes} on hole ${savedHole}`);
                     holdCoach.current = true;
                     setSheetTab('coach');
-                    publishScore(savedHole, strokes);
+                    const posted = publishScore(savedHole, strokes);
+                    if (!posted) return;
                     setPutts(savedHole, 0);
                     setPenalties(savedHole, 0);
                     setUndoHole(savedHole);
                     keepToast.current = true;
                     setScoreToast({ label: scoreSavedLabel(strokes, par), at: Date.now() });
-                    if (savedHole >= 18) {
+                    if (startRef.current != null) {
+                      if (nextShotgunHole(savedHole, startRef.current, 'next') == null && askFinish({ hole: savedHole, strokes })) {
+                        finishRound({ hole: savedHole, strokes, putts: 0, penalties: 0, fairway: null, gir: null });
+                        leaveRound();
+                      } else if (nextShotgunHole(savedHole, startRef.current, 'next') != null) leaveHole();
+                    } else if (savedHole >= 18 && askFinish({ hole: savedHole, strokes })) {
                       finishRound({ hole: savedHole, strokes, putts: 0, penalties: 0, fairway: null, gir: null });
                       leaveRound();
-                    } else leaveHole();
+                    } else if (savedHole < 18) leaveHole();
                   }}
                   style={styles.confirmGo}
                 >
@@ -1883,6 +1946,7 @@ export default function PlayScreen() {
           savedGir={girs[hole.holeNumber - 1] ?? null}
           markCount={holeMarks.length}
           screenHeight={windowHeight}
+          finishing={finishingRound}
           pendingStrokes={pendingHere}
           thruLabel={thruLabel}
           onMark={markHere}
@@ -1907,6 +1971,7 @@ export default function PlayScreen() {
           onSetShotYards={setLastShotYards}
           onPause={() => router.push('/')}
           onEnd={() => {
+            if (!askFinish()) return;
             finishRound();
             leaveRound();
           }}
@@ -1915,6 +1980,11 @@ export default function PlayScreen() {
           batterySaver={batterySaver}
           onToggleBattery={() => setBatterySaver((value) => !value)}
           onScoreSaved={(saved) => {
+            const session = loadSession();
+            if (session?.role === 'viewer') {
+              setScoreToast({ label: viewerScoreMessage(session.scorerName || 'the scorer'), at: Date.now() });
+              return;
+            }
             setPendingScore(null);
             keepToast.current = true;
             setScoreToast({ label: scoreSavedLabel(saved, par), at: Date.now() });
@@ -1930,6 +2000,11 @@ export default function PlayScreen() {
             setUndoHole(null);
           }}
           onSave={(draft, finish) => {
+            const session = loadSession();
+            if (session?.role === 'viewer') {
+              setScoreToast({ label: viewerScoreMessage(session.scorerName || 'the scorer'), at: Date.now() });
+              return;
+            }
             setPendingScore(null);
             const puttsSaved = Math.min(draft.strokes, draft.putts ?? 0);
             writeStrokes(draft.strokes);
@@ -1939,6 +2014,7 @@ export default function PlayScreen() {
             setGir(hole.holeNumber, draft.gir);
             if (!finish) setUndoHole(hole.holeNumber);
             if (finish) {
+              if (!askFinish({ hole: hole.holeNumber, strokes: draft.strokes })) return;
               finishRound({
                 hole: hole.holeNumber,
                 strokes: draft.strokes,
@@ -1963,6 +2039,11 @@ export default function PlayScreen() {
         }}
       />
       {talk.overlay}
+      {openHoles ? (
+        <View accessibilityLabel={`Still open: ${openHoles.join(', ')}`} style={[styles.toast, { top: dockTop - toastH - 8, left: 8, right: 88, width: undefined, zIndex: 12 }]}>
+          <Text style={styles.toastText}>{`Still open: ${openHoles.join(', ')}. The round stays open.`}</Text>
+        </View>
+      ) : null}
       {scoreToast ? (
         <View testID="par-undo-toast" accessibilityLabel={scoreToast.label} style={[styles.toast, { top: toastClearsPlate ? dockTop - toastH : dockTop + 6, left: 8, width: Math.min(220, windowWidth - 88), zIndex: 11 }]}>
           <Text style={styles.toastText}>{scoreToast.label}</Text>

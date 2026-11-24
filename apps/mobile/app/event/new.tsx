@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { router, Stack } from 'expo-router';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { font, touch } from '@coopr/tokens';
+import { searchCourses } from '../../src/events/courses';
 import { eventRequest, saveOrganizerToken } from '../../src/events/client';
-import type { EventFormat, GuestRole, StartStyle } from '../../src/events/types';
+import { AUBURN_KEY, PANTHERS_ACCENT, type EventFormat, type GuestRole, type MulliganScope, type StartStyle } from '../../src/events/types';
 import { BigButton, Choice, EventFrame, EventTitle, FieldLabel, ink, inputStyle, Note } from '../../src/events/ui';
 
 interface DraftPlayer {
@@ -24,7 +25,12 @@ export default function NewEvent() {
   const [charityUrl, setCharityUrl] = useState('');
   const [date, setDate] = useState(today());
   const [format, setFormat] = useState<EventFormat>('scramble');
-  const [startStyle, setStartStyle] = useState<StartStyle>('shotgun');
+  const [startStyle, setStartStyle] = useState<StartStyle>('modified-shotgun');
+  const [courseQuery, setCourseQuery] = useState('Auburn');
+  const [courseKey, setCourseKey] = useState(AUBURN_KEY);
+  const [accent, setAccent] = useState(PANTHERS_ACCENT);
+  const [mulliganScope, setMulliganScope] = useState<MulliganScope>('team');
+  const [mulliganMax, setMulliganMax] = useState('4');
   const [groups, setGroups] = useState<DraftGroup[]>([{ name: 'Group 1', players: [{ name: '', role: 'scorer' }] }]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -42,6 +48,10 @@ export default function NewEvent() {
         format,
         startStyle,
         groups,
+        courseKey,
+        accent,
+        mulliganScope,
+        mulliganMax: Math.max(1, Number(mulliganMax) || 4),
       },
     });
     setBusy(false);
@@ -59,7 +69,25 @@ export default function NewEvent() {
     <EventFrame>
       <Stack.Screen options={{ title: 'New event' }} />
       <EventTitle>New event</EventTitle>
-      <Note>High Cedars. One scorer posts for each group.</Note>
+      <Note>One scorer posts for each group.</Note>
+      <FieldLabel>Course</FieldLabel>
+      <TextInput accessibilityLabel="Search courses" value={courseQuery} onChangeText={setCourseQuery} placeholder="Search courses" placeholderTextColor={ink.muted} style={inputStyle} />
+      {searchCourses(courseQuery).map((course) => (
+        <Choice key={course.key} label={course.name} on={courseKey === course.key} onPress={() => setCourseKey(course.key)} />
+      ))}
+      {searchCourses(courseQuery).length === 0 ? <Note>No card for that course yet. Auburn and High Cedars are ready.</Note> : null}
+      <FieldLabel>Board color</FieldLabel>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {[['Teal', PANTHERS_ACCENT], ['Navy', '#0B1F3A'], ['Lime', '#8AC926'], ['Red', '#C8102E']].map(([label, color]) => (
+          <Choice key={color} label={label ?? ''} on={accent === color} onPress={() => setAccent(color ?? PANTHERS_ACCENT)} />
+        ))}
+      </View>
+      <FieldLabel>Mulligans</FieldLabel>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Choice label="Per team" on={mulliganScope === 'team'} onPress={() => setMulliganScope('team')} />
+        <Choice label="Per player" on={mulliganScope === 'player'} onPress={() => setMulliganScope('player')} />
+      </View>
+      <TextInput accessibilityLabel="Mulligan limit" value={mulliganMax} onChangeText={setMulliganMax} keyboardType="number-pad" style={inputStyle} />
       <FieldLabel>Event name</FieldLabel>
       <TextInput accessibilityLabel="Event name" value={name} onChangeText={setName} style={inputStyle} />
       <FieldLabel>Charity</FieldLabel>

@@ -37,6 +37,17 @@ export default function EventSurvey() {
     router.replace('/recap');
   };
 
+  if (!session) {
+    return (
+      <EventFrame>
+        <Stack.Screen options={{ title: 'Three questions' }} />
+        <EventTitle>Three questions</EventTitle>
+        <Note>These questions are for golfers who joined a live event. Skip them and the round stays yours.</Note>
+        <BigButton label="Back to the round" onPress={() => router.replace('/recap')} />
+      </EventFrame>
+    );
+  }
+
   return (
     <EventFrame>
       <Stack.Screen options={{ title: 'Three questions' }} />

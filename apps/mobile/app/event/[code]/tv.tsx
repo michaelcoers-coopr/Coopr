@@ -72,7 +72,7 @@ export default function TvBoard() {
             <Text style={{ width: 72, color: white, fontFamily: display, fontSize: 48, lineHeight: 52 }}>{row.rank ?? '–'}</Text>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text numberOfLines={2} style={{ color: white, fontSize: 32, lineHeight: 36, fontWeight: '800' }}>{row.name}</Text>
-              <Text style={{ color: white, fontSize: 18 }}>{`${row.waitlist ? 'Waitlist' : row.thru === 0 ? 'Not started' : `Thru ${row.thru}`}${row.mulliganCap > 0 ? ` · Mulligans ${row.mulligansUsed}/${row.mulliganCap}` : ''}`}</Text>
+              <Text style={{ color: white, fontSize: 18 }}>{`${row.startingHole ? `Starts ${row.startingHole} · ` : ''}${row.waitlist ? 'Waitlist' : row.thru === 0 ? 'Not started' : `Thru ${row.thru}`}${row.mulliganCap > 0 ? ` · Mulligans ${row.mulligansUsed}/${row.mulliganCap}` : ''}`}</Text>
             </View>
             <Text style={{ width: 120, textAlign: 'right', color: row.toPar != null && row.toPar > 0 ? '#C8102E' : row.toPar != null && row.toPar < 0 ? accent : white, fontFamily: display, fontSize: 56, lineHeight: 60 }}>{formatToPar(row.toPar)}</Text>
           </View>

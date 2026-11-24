@@ -6,7 +6,7 @@ import { pickLogoFile } from '../../src/events/pick-logo';
 import { JoinQr } from '../../src/events/qr';
 import type { PublicEvent } from '../../src/events/types';
 import { SPONSOR_MENU } from '../../src/events/sponsor-menu';
-import { BigButton, EventFrame, EventTitle, FieldLabel, ink, inputStyle, LeaderboardTable, LogoFit, Note } from '../../src/events/ui';
+import { BigButton, Choice, EventFrame, EventTitle, FieldLabel, ink, inputStyle, LeaderboardTable, LogoFit, Note } from '../../src/events/ui';
 
 export default function ManageEvent() {
   const params = useLocalSearchParams<{ code?: string }>();
@@ -21,7 +21,11 @@ export default function ManageEvent() {
   const [drive, setDrive] = useState('');
   const [friends, setFriends] = useState('');
   const [csv, setCsv] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
   const [starts, setStarts] = useState('');
+  const [mulliganScope, setMulliganScope] = useState<'team' | 'player'>('team');
+  const [mulliganMax, setMulliganMax] = useState('4');
+  const [tiebreak, setTiebreak] = useState<'back-nine' | 'share'>('back-nine');
   const [error, setError] = useState<string | null>(null);
   const token = code ? loadOrganizerToken(code) : null;
   const link = code ? joinLink(code) : '';
@@ -64,8 +68,31 @@ export default function ManageEvent() {
   };
 
   const importRoster = async () => {
+    setImportError(null);
     const result = await eventRequest(`/v1/events/${encodeURIComponent(code)}/roster`, { method: 'POST', token, body: { csv } });
-    if (result.status !== 200) setError(typeof result.body.error === 'string' ? result.body.error : 'The teams did not import.');
+    if (result.status !== 200) {
+      setImportError(typeof result.body.error === 'string' ? result.body.error : 'The teams did not import.');
+      return;
+    }
+    await refresh();
+  };
+  const clearScores = async () => {
+    setImportError(null);
+    const result = await eventRequest(`/v1/events/${encodeURIComponent(code)}/reset`, { method: 'POST', token, body: {} });
+    if (result.status !== 200) {
+      setImportError(typeof result.body.error === 'string' ? result.body.error : 'The scores did not clear.');
+      return;
+    }
+    await refresh();
+  };
+  const saveRules = async () => {
+    const max = Math.max(1, Number(mulliganMax) || 4);
+    const result = await eventRequest(`/v1/events/${encodeURIComponent(code)}`, {
+      method: 'PATCH',
+      token,
+      body: { mulliganScope, mulliganMax: max, tiebreak },
+    });
+    if (result.status !== 200) setError(typeof result.body.error === 'string' ? result.body.error : 'The rules did not save.');
     await refresh();
   };
 
@@ -152,17 +179,27 @@ export default function ManageEvent() {
             <BigButton label="Share card" tone="navy" onPress={() => void assign(logo.id, 'recap', null)} />
           </View>
           <Note>LEGAL REVIEW: a player's photo needs a parent or guardian's consent. Use a placeholder until that is signed.</Note>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {Array.from({ length: 18 }, (_, index) => (
-              <BigButton key={index + 1} label={`Hole ${index + 1}`} tone={logo.slot === 'hole' && logo.hole === index + 1 ? 'lime' : 'navy'} onPress={() => void assign(logo.id, 'hole', index + 1)} />
-            ))}
-          </View>
+          <Note>{`Hole ${hole} uses the hole field under Fix a score.`}</Note>
         </View>
       ))}
       <FieldLabel>Teams from the registration file</FieldLabel>
       <Note>Paste a CSV from Jotform: team name, then up to four golfers. The first golfer is the scorer. This replaces the teams only before any scores are posted.</Note>
       <TextInput accessibilityLabel="Team CSV" value={csv} onChangeText={setCsv} multiline placeholder="Team name, Golfer 1, Golfer 2, Golfer 3, Golfer 4" placeholderTextColor={ink.muted} style={[inputStyle, { minHeight: 112 }]} />
       <BigButton label="Import teams" tone="navy" onPress={() => void importRoster()} />
+      {importError ? <Note>{importError}</Note> : null}
+      <BigButton label="Clear scores" tone="navy" onPress={() => void clearScores()} />
+      <FieldLabel>Mulligan cap</FieldLabel>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Choice label="Per team" on={mulliganScope === 'team'} onPress={() => setMulliganScope('team')} />
+        <Choice label="Per player" on={mulliganScope === 'player'} onPress={() => setMulliganScope('player')} />
+      </View>
+      <TextInput accessibilityLabel="Mulligan limit" value={mulliganMax} onChangeText={setMulliganMax} keyboardType="number-pad" style={inputStyle} />
+      <FieldLabel>Tiebreak</FieldLabel>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Choice label="Back nine" on={tiebreak === 'back-nine'} onPress={() => setTiebreak('back-nine')} />
+        <Choice label="Share the rank" on={tiebreak === 'share'} onPress={() => setTiebreak('share')} />
+      </View>
+      <BigButton label="Save rules" tone="navy" onPress={() => void saveRules()} />
       <FieldLabel>Starting holes</FieldLabel>
       <Note>Modified shotgun. One line per team: name, hole. Two teams can share a hole.</Note>
       <TextInput accessibilityLabel="Starting holes" value={starts} onChangeText={setStarts} multiline placeholder="Sample Team A, 1" placeholderTextColor={ink.muted} style={[inputStyle, { minHeight: 88 }]} />

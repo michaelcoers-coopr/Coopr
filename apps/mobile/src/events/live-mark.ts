@@ -13,6 +13,8 @@ export interface LiveMark {
   line: string;
   logoUrl: string | null;
   mulligan: LiveMulligan | null;
+  startingHole: number | null;
+  scorerName: string;
 }
 
 let pars: number[] | null = null;
@@ -52,10 +54,17 @@ export function useLiveEventMark(hole: number): LiveMark | null {
       const watching = session.role === 'viewer' ? 'Watching' : null;
       const names = [sponsor?.name, photo?.name].filter(Boolean);
       const line = [names.length > 0 ? names.join(' · ') : session.eventName, watching, sync].filter(Boolean).join(' · ');
+      const group = event?.groups.find((item) => item.id === session.groupId) ?? null;
       const mulligan = event && event.mulliganMax > 0 && row && row.mulliganCap > 0
         ? { used: row.mulligansUsed, cap: row.mulliganCap, price: event.mulliganPriceLabel, sponsor: mulliganLogo?.name ?? null }
         : null;
-      setMark({ line, logoUrl: sponsor?.dataUrl ?? photo?.dataUrl ?? null, mulligan });
+      setMark({
+        line,
+        logoUrl: sponsor?.dataUrl ?? photo?.dataUrl ?? null,
+        mulligan,
+        startingHole: group?.startingHole ?? null,
+        scorerName: group?.players.find((player) => player.role === 'scorer')?.name ?? session.scorerName ?? 'the scorer',
+      });
     };
     void tick();
     const id = setInterval(() => void tick(), POLL_MS);

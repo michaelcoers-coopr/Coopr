@@ -3,7 +3,7 @@ import { Linking, Platform } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { loadPublicEvent, loadSession, POLL_MS } from '../../src/events/client';
 import type { PublicEvent } from '../../src/events/types';
-import { BigButton, EventFrame, LeaderboardTable, Note } from '../../src/events/ui';
+import { BigButton, EventFrame, EventTitle, LeaderboardTable, Note } from '../../src/events/ui';
 import { WebBoard } from '../../src/events/web-board';
 
 export default function PublicBoard() {
@@ -13,9 +13,10 @@ export default function PublicBoard() {
   const [error, setError] = useState<string | null>(null);
   const session = loadSession();
   const onWeb = Platform.OS === 'web';
+  const reserved = code === 'SURVEY' || code === 'QUESTIONS';
 
   useEffect(() => {
-    if (!code) return;
+    if (!code || code === 'SURVEY' || code === 'QUESTIONS') return;
     let stop = false;
     const tick = async () => {
       const next = await loadPublicEvent(code);
@@ -32,6 +33,17 @@ export default function PublicBoard() {
       clearInterval(id);
     };
   }, [code]);
+
+  if (reserved) {
+    return (
+      <EventFrame>
+        <Stack.Screen options={{ title: 'Three questions' }} />
+        <EventTitle>Three questions</EventTitle>
+        <Note>These questions open after a live round, for the golfers in that event.</Note>
+        <BigButton label="Back" onPress={() => router.replace('/')} />
+      </EventFrame>
+    );
+  }
 
   return (
     <EventFrame>

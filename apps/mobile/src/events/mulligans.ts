@@ -36,6 +36,6 @@ export function decideMulligan(input: {
     return { ok: true, duplicate: false };
   }
   const team = usesFor(input.uses, input.groupId).length;
-  if (team >= input.max) return { ok: false, error: `This team has used ${input.max} mulligans.` };
+  if (team >= input.max) return { ok: false, error: `This team has used its ${input.max} mulligans.` };
   return { ok: true, duplicate: false };
 }

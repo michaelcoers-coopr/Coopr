@@ -6,6 +6,7 @@ import { queueEventScore, OUTBOX_KEY, saveSession, type StorageLike } from '../s
 import { DEMO_ORGANIZER_TOKEN } from '../src/events/types';
 import { mulliganLimit } from '../src/events/mulligans';
 import { reviewSurvey, SURVEY_CONSENT } from '../src/events/survey';
+import { finishBlocked, nextShotgunHole, shotgunOrder, viewerScoreMessage } from '../src/events/shotgun';
 import { openFileEventStore } from '../src/events/file-store';
 import { inspectLogo } from '../src/events/logos';
 import { enqueueScore, flushOutbox, type OutboxEntry } from '../src/events/outbox';
@@ -500,5 +501,33 @@ describe('Panthers Classic rules', () => {
     expect(rows.find((row) => row.name === 'River Cats')?.rank).toBe(2);
     const blocked = events.importTeams(made.event.code, made.organizerToken, 'Late,Ada');
     expect(blocked).toMatchObject({ ok: false, status: 409 });
+    const cleared = events.clearScores(made.event.code, made.organizerToken);
+    expect(cleared.ok).toBe(true);
+    const again = events.importTeams(made.event.code, made.organizerToken, 'Late Team,Ada,Bea');
+    expect(again.ok).toBe(true);
+  });
+
+  it('opens a shotgun on the assigned hole and will not finish with holes still open', () => {
+    expect(shotgunOrder(10)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(nextShotgunHole(18, 10, 'next')).toBe(1);
+    expect(nextShotgunHole(9, 10, 'next')).toBeNull();
+    const open = Array.from({ length: 18 }, () => 4);
+    open[2] = null as unknown as number;
+    const blocked = finishBlocked(open, 10);
+    expect(blocked).toEqual({ ok: false, open: [3] });
+    expect(finishBlocked(Array.from({ length: 18 }, () => 4), 10)).toEqual({ ok: true });
+    expect(viewerScoreMessage('Casey')).toBe('Only Casey can post scores');
+    const events = store();
+    const made = events.create(scrambleInput());
+    if (!made.ok) throw new Error(made.error);
+    expect(made.event.mulliganMax).toBe(4);
+    expect(made.event.mulliganScope).toBe('team');
+    expect(made.event.accent).toBe('#1EC8C8');
+    const group = made.event.groups[0];
+    if (!group) throw new Error('group');
+    const started = events.update(made.event.code, made.organizerToken, { starts: [{ groupId: group.id, hole: 10 }] });
+    expect(started.ok).toBe(true);
+    if (!started.ok) return;
+    expect(started.event.groups.find((item) => item.id === group.id)?.startingHole).toBe(10);
   });
 });

@@ -59,8 +59,11 @@ export function ScoreDock({
   pendingChip = false,
   onCancelPending,
   holeSwipeHandlers,
+  finishing,
 }: {
   hole: number;
+  /** When set, this hole is the end of the round even if it is not hole 18. */
+  finishing?: boolean;
   par: number | null;
   savedStrokes: number | null;
   savedPutts: number | null;
@@ -113,7 +116,7 @@ export function ScoreDock({
   const window = useWindowDimensions();
   const [yardDraft, setYardDraft] = useState(shotYards == null ? '' : String(Math.round(shotYards)));
   const edited = useRef(false);
-  const last = hole >= 18;
+  const last = finishing ?? hole >= 18;
   const floor = par ?? 4;
   const shown = pendingStrokes ?? strokes;
   const budget = scorePanelBudget(window.height || screenHeight, window.width);

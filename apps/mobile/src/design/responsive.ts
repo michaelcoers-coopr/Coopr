@@ -73,7 +73,7 @@ export function homeSheetHeights(width: number, height: number, safeBottom = 0):
     ? Math.max(128, Math.min(148, Math.round(usable * 0.4)))
     : Math.max(136, Math.min(168, Math.round(usable * 0.22)));
   const full = landscape
-    ? Math.round(usable - 16)
+    ? Math.round(usable)
     : screen <= 700
       ? Math.round(usable * 0.82)
       : Math.min(620, Math.round(usable * 0.72));

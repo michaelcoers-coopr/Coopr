@@ -15,7 +15,7 @@ import { loadHighCedarsPilot } from '@coopr/course';
 import { colors, font } from '@coopr/tokens';
 import { useReduceMotion } from '../src/design/reduce-motion';
 import { useDisplayFace } from '../src/design/display-font';
-import { bagGlance, courseCall, coursePill, hypeHero, skyLine, TEE_IT_UP } from '../src/design/home-copy';
+import { bagGlance, courseCall, coursePill, hypeHero, skyLine } from '../src/design/home-copy';
 import { homeSheetHeights, snapHomeSheet, type HomeSheetStop } from '../src/design/responsive';
 import { foldSnap } from '../src/design/play-polish';
 import { fieldNavy } from '../src/design/theme';
@@ -389,8 +389,7 @@ export default function HomeScreen() {
               <View style={styles.handle} />
             </Pressable>
           </View>
-          <View style={styles.peek}>
-            <Text style={styles.kicker}>{TEE_IT_UP}</Text>
+          <View style={[styles.peek, windowWidth > windowHeight && styles.peekLandscape]}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={sticker}
@@ -573,6 +572,7 @@ const styles = StyleSheet.create({
   handleHit: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   handle: { width: 44, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.72)' },
   peek: { height: 92, paddingHorizontal: 16, gap: 4, zIndex: 1, flexShrink: 0, width: '100%', overflow: 'hidden', justifyContent: 'flex-end' },
+  peekLandscape: { height: 64, paddingBottom: 4 },
   kicker: { color: '#FFFFFF', fontFamily: font.family, fontSize: 13, lineHeight: 16, fontWeight: '800', letterSpacing: 1 },
   start: {
     minHeight: 56,

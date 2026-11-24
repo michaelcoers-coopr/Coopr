@@ -1,6 +1,7 @@
 import { secretOk } from '../api-guard';
 import { buildDemoEvent } from './demo';
 import { inspectLogo } from './logos';
+import { courseByKey } from './courses';
 import { decideMulligan, mulliganLimit } from './mulligans';
 import { parseTeamCsv } from './teams-csv';
 import { holeStrokes, leaderboard } from './scoring';
@@ -12,6 +13,7 @@ import {
   HIGH_CEDARS_KEY,
   HIGH_CEDARS_NAME,
   HIGH_CEDARS_PARS,
+  PANTHERS_ACCENT,
   HOLE_COUNT,
   HOLE_SLOTS,
   LOGO_MAX_COUNT,
@@ -241,6 +243,13 @@ export function createEventStore(options: StoreOptions = {}) {
         }
         groups.push({ id: id(), name: groupName, nameClaimed: true, waitlist: false, startingHole: null, players });
       }
+      const picked = courseByKey(typeof input.courseKey === 'string' ? input.courseKey : '') ?? {
+        key: HIGH_CEDARS_KEY,
+        name: HIGH_CEDARS_NAME,
+        address: '',
+        pars: HIGH_CEDARS_PARS,
+      };
+      const accent = cleanAccent(input.accent ?? PANTHERS_ACCENT);
       const stamp = now();
       const event: StoredEvent = {
         id: id(),
@@ -248,10 +257,10 @@ export function createEventStore(options: StoreOptions = {}) {
         name,
         charityName,
         charityUrl,
-        courseKey: HIGH_CEDARS_KEY,
-        courseName: HIGH_CEDARS_NAME,
-        pars: [...HIGH_CEDARS_PARS],
-        courseAddress: '',
+        courseKey: picked.key,
+        courseName: picked.name,
+        pars: [...picked.pars],
+        courseAddress: picked.address,
         charityDetail: '',
         date,
         startTime: '',
@@ -260,10 +269,10 @@ export function createEventStore(options: StoreOptions = {}) {
         teamSize: input.format === 'scramble' ? 4 : 1,
         includesCart: false,
         mulliganPriceLabel: '',
-        mulliganScope: 'team',
-        mulliganMax: 0,
+        mulliganScope: input.mulliganScope === 'player' ? 'player' : 'team',
+        mulliganMax: mulliganCount(input.mulliganMax),
+        accent: accent === 'bad' ? PANTHERS_ACCENT : accent,
         tiebreak: 'back-nine',
-        accent: null,
         contests: { closestToPin: [], longestDrive: [] },
         friends: [],
         groups,
@@ -428,7 +437,7 @@ export function createEventStore(options: StoreOptions = {}) {
       return { ok: true, event: toPublic(event) };
     },
     join(code: string, body: { groupId?: unknown; playerId?: unknown; name?: unknown; playerName?: unknown; teamName?: unknown }):
-      | { ok: true; token: string; role: GuestRole; groupId: string; playerId: string; name: string; eventName: string; format: EventFormat }
+      | { ok: true; token: string; role: GuestRole; groupId: string; playerId: string; name: string; eventName: string; format: EventFormat; scorerName: string }
       | StoreFailure {
       const event = events.get(code.trim().toUpperCase());
       if (!event) return { ok: false, status: 404, error: 'No event with that code.' };
@@ -444,13 +453,13 @@ export function createEventStore(options: StoreOptions = {}) {
           player.token = token();
           player.claimed = true;
           put(event);
-          return { ok: true, token: player.token, role: player.role, groupId: group.id, playerId: player.id, name: player.name, eventName: event.name, format: event.format };
+          return { ok: true, token: player.token, role: player.role, groupId: group.id, playerId: player.id, name: player.name, eventName: event.name, format: event.format, scorerName: group.players.find((item) => item.role === 'scorer')?.name ?? 'the scorer' };
         }
         const watchToken = token();
         const watcherId = id();
         event.watchers.push({ id: watcherId, groupId: group.id, name: player.name, token: watchToken });
         put(event);
-        return { ok: true, token: watchToken, role: 'viewer', groupId: group.id, playerId: watcherId, name: player.name, eventName: event.name, format: event.format };
+        return { ok: true, token: watchToken, role: 'viewer', groupId: group.id, playerId: watcherId, name: player.name, eventName: event.name, format: event.format, scorerName: group.players.find((item) => item.role === 'scorer')?.name ?? 'the scorer' };
       }
       const name = cleanName(body.name, 60);
       if (!name) return { ok: false, status: 400, error: 'Add your name.' };
@@ -458,7 +467,7 @@ export function createEventStore(options: StoreOptions = {}) {
       const watcherId = id();
       event.watchers.push({ id: watcherId, groupId: group.id, name, token: watchToken });
       put(event);
-      return { ok: true, token: watchToken, role: 'viewer', groupId: group.id, playerId: watcherId, name, eventName: event.name, format: event.format };
+      return { ok: true, token: watchToken, role: 'viewer', groupId: group.id, playerId: watcherId, name, eventName: event.name, format: event.format, scorerName: group.players.find((item) => item.role === 'scorer')?.name ?? 'the scorer' };
     },
     lockHole(code: string, header: string | null, body: { groupId?: unknown; playerId?: unknown; hole?: unknown; locked?: unknown }): { ok: true } | StoreFailure {
       const event = events.get(code.trim().toUpperCase());
@@ -589,6 +598,17 @@ export function createEventStore(options: StoreOptions = {}) {
       const used = event.mulligans.filter((item) => item.groupId === actor.group.id).length;
       return { ok: true, duplicate: decision.duplicate, used, cap: mulliganLimit(event.mulliganScope, event.mulliganMax, actor.group.players.length) };
     },
+    clearScores(code: string, header: string | null): { ok: true; event: PublicEvent } | StoreFailure {
+      const event = events.get(code.trim().toUpperCase());
+      if (!event) return { ok: false, status: 404, error: 'No event with that code.' };
+      if (!organizerOk(event, header)) return { ok: false, status: 401, error: 'This phone cannot edit the event.' };
+      event.scores = [];
+      event.seenKeys = [];
+      event.mulligans = [];
+      event.locks = [];
+      put(event);
+      return { ok: true, event: toPublic(event) };
+    },
     importTeams(code: string, header: string | null, csv: unknown): { ok: true; event: PublicEvent; teams: number } | StoreFailure {
       const event = events.get(code.trim().toUpperCase());
       if (!event) return { ok: false, status: 404, error: 'No event with that code.' };
@@ -680,6 +700,12 @@ function startList(event: StoredEvent, value: unknown): { groupId: string; hole:
     starts.push({ groupId: record.groupId, hole });
   }
   return starts;
+}
+
+function mulliganCount(value: unknown): number {
+  const max = Number(value);
+  if (!Number.isInteger(max) || max < 1) return 4;
+  return Math.min(20, max);
 }
 
 function holeList(value: unknown): number[] | null {

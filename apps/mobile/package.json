@@ -6,7 +6,7 @@
   "scripts": {
     "start": "expo start",
     "typecheck": "tsc --noEmit",
-    "bundle": "expo export --platform web --output-dir dist",
+    "bundle": "expo export --platform web --output-dir dist && node ./scripts/mark-export-cjs.mjs",
     "preview:publish": "node ./scripts/preview-publish.mjs"
   },
   "dependencies": {

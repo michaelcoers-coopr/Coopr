@@ -274,6 +274,10 @@ export interface CreateEventInput {
   format: EventFormat;
   startStyle: StartStyle;
   groups: CreateGroupInput[];
+  courseKey?: string;
+  accent?: string | null;
+  mulliganScope?: MulliganScope;
+  mulliganMax?: number;
 }
 
 export interface LiveSession {
@@ -285,6 +289,7 @@ export interface LiveSession {
   name: string;
   role: GuestRole;
   token: string;
+  scorerName?: string;
 }
 
 export const HOLE_SLOTS: readonly LogoSlot[] = ['hole', 'kid-photo', 'team-hole'];

@@ -201,5 +201,6 @@ export function sessionFromJoin(code: string, body: Record<string, unknown>): Li
     name: typeof body.name === 'string' ? body.name : 'Guest',
     role,
     token: body.token,
+    scorerName: typeof body.scorerName === 'string' ? body.scorerName : 'the scorer',
   };
 }
